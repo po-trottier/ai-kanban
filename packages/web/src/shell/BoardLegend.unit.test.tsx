@@ -5,6 +5,14 @@ import { renderWithProviders } from '../test/render.tsx'
 import { strings } from '../strings.ts'
 import { BoardLegend } from './BoardLegend.tsx'
 
+/** Each legend meaning bolds the term before the "—", so a row's copy spans a
+ * <span> (the term) plus a text node (the detail). Match the wrapping <p> by
+ * its full cross-node text so the assertion sees the reconstructed sentence. */
+function wholeText(full: string) {
+  return (_content: string, element: Element | null): boolean =>
+    element?.tagName.toLowerCase() === 'p' && element.textContent === full
+}
+
 /** The legend teaches non-technical users the board's colored badges, so every
  * board state must appear with a badge matching what the board renders. Its
  * trigger is a compact help icon; the guide itself is a centered dialog so its
@@ -34,11 +42,11 @@ describe('BoardLegend', () => {
     await screen.findByText(strings.board.legendStates)
     // Assert — each state row is present, including the Overdue row (previously
     // missing, its copy dead) now alongside the others.
-    expect(screen.getByText(strings.board.legendBlocked)).toBeInTheDocument()
-    expect(screen.getByText(strings.board.legendWaiting)).toBeInTheDocument()
-    expect(screen.getByText(strings.board.legendOverdue)).toBeInTheDocument()
-    expect(screen.getByText(strings.board.legendCancelled)).toBeInTheDocument()
-    expect(screen.getByText(strings.board.legendArchived)).toBeInTheDocument()
+    expect(screen.getByText(wholeText(strings.board.legendBlocked))).toBeInTheDocument()
+    expect(screen.getByText(wholeText(strings.board.legendWaiting))).toBeInTheDocument()
+    expect(screen.getByText(wholeText(strings.board.legendOverdue))).toBeInTheDocument()
+    expect(screen.getByText(wholeText(strings.board.legendCancelled))).toBeInTheDocument()
+    expect(screen.getByText(wholeText(strings.board.legendArchived))).toBeInTheDocument()
   })
 
   it('shows a Cancelled badge and a separate Overdue badge (matching the board)', async () => {
@@ -51,8 +59,12 @@ describe('BoardLegend', () => {
     // Assert — the Cancelled badge word matches the board's gray cancelled
     // badge, and a distinct Overdue badge covers the red overdue state (the
     // Cancelled row is no longer mislabeled red / the Overdue row no longer
-    // absent).
+    // absent). "Overdue" also appears as the bolded term of its meaning row, so
+    // target the badge specifically (its label class) to stay unambiguous.
     expect(screen.getByText(strings.resolutions.cancelled)).toBeInTheDocument()
-    expect(screen.getByText(strings.board.legendOverdueBadge)).toBeInTheDocument()
+    const overdueBadge = screen
+      .getAllByText(strings.board.legendOverdueBadge)
+      .find((element) => element.className.includes('Badge-label'))
+    expect(overdueBadge).toBeDefined()
   })
 })

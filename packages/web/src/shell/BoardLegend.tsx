@@ -130,7 +130,22 @@ function LegendRow({
       <Badge color={color} size="sm" variant={variant ?? (filled ? 'filled' : 'light')}>
         {label}
       </Badge>
-      <Text size="xs">{text}</Text>
+      <LegendText text={text} />
     </>
+  )
+}
+
+/** Renders a legend meaning with the term before the "—" divider emphasized
+ * (e.g. **Blocked** — …) so the row's subject stands out from its explanation. */
+function LegendText({ text }: { text: string }) {
+  const [term, ...rest] = text.split(' — ')
+  const detail = rest.join(' — ')
+  return (
+    <Text size="xs">
+      <Text span inherit fw={EMPHASIS_FONT_WEIGHT}>
+        {term}
+      </Text>
+      {detail === '' ? null : ` — ${detail}`}
+    </Text>
   )
 }
