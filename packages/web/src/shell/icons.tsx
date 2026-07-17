@@ -55,3 +55,13 @@ export function CloseIcon({ size = DEFAULT_SIZE }: IconProps) {
     </svg>
   )
 }
+
+/** A magnifying-glass (search) icon. */
+export function SearchIcon({ size = DEFAULT_SIZE }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  )
+}

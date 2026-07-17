@@ -12,6 +12,8 @@ import { useLaneDnd } from './dnd.ts'
 
 export interface LaneColumnProps {
   snapshot: LaneSnapshot
+  /** When the header filter is active, show a match count + a filtered hint. */
+  filtering?: boolean
   usersById: Map<string, PickerUser>
   today: string
   canCancel: boolean
@@ -24,6 +26,7 @@ export interface LaneColumnProps {
 /** One lane: header (label + WIP state) and the card list in position order. */
 export function LaneColumn({
   snapshot,
+  filtering = false,
   usersById,
   today,
   canCancel,
@@ -54,27 +57,37 @@ export function LaneColumn({
           {lane.label}
         </Title>
         <Group gap="xs" wrap="nowrap">
-          {/* The count is opaque ("2/5") without words; explain it on hover
-              and surface a visible "Over limit" cue when exceeded. */}
-          {wipLimitExceeded ? (
-            <Text size="xs" c="red" fw={EMPHASIS_FONT_WEIGHT}>
-              {strings.board.overLimit}
+          {filtering ? (
+            // While filtering, a subtle match count stands in for the WIP badge:
+            // the badge counts the FILTERED subset, so "2/5" would mislead.
+            <Text size="xs" c="dimmed">
+              {strings.board.filterMatchCount(cards.length)}
             </Text>
-          ) : null}
-          <Tooltip label={wipTooltip} multiline>
-            <Badge
-              color={wipLimitExceeded ? 'red' : 'gray'}
-              variant={wipLimitExceeded ? 'filled' : 'light'}
-              size="sm"
-              aria-label={
-                wipLimitExceeded
-                  ? `${wipLabel} — ${strings.board.wipLimitExceededSuffix}`
-                  : wipLabel
-              }
-            >
-              {wipLabel}
-            </Badge>
-          </Tooltip>
+          ) : (
+            <>
+              {/* The count is opaque ("2/5") without words; explain it on hover
+                  and surface a visible "Over limit" cue when exceeded. */}
+              {wipLimitExceeded ? (
+                <Text size="xs" c="red" fw={EMPHASIS_FONT_WEIGHT}>
+                  {strings.board.overLimit}
+                </Text>
+              ) : null}
+              <Tooltip label={wipTooltip} multiline>
+                <Badge
+                  color={wipLimitExceeded ? 'red' : 'gray'}
+                  variant={wipLimitExceeded ? 'filled' : 'light'}
+                  size="sm"
+                  aria-label={
+                    wipLimitExceeded
+                      ? `${wipLabel} — ${strings.board.wipLimitExceededSuffix}`
+                      : wipLabel
+                  }
+                >
+                  {wipLabel}
+                </Badge>
+              </Tooltip>
+            </>
+          )}
         </Group>
       </Group>
       <div
@@ -85,7 +98,7 @@ export function LaneColumn({
       >
         {cards.length === 0 ? (
           <Text size="xs" c="dimmed" ta="center" mt="sm">
-            {strings.board.emptyLane}
+            {filtering ? strings.board.filterEmptyLane : strings.board.emptyLane}
           </Text>
         ) : (
           cards.map((card) => (

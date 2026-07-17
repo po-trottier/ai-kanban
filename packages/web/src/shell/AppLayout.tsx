@@ -9,7 +9,7 @@ import {
   UnstyledButton,
 } from '@mantine/core'
 import { useState } from 'react'
-import { Link, Outlet, useNavigate } from 'react-router'
+import { Link, Outlet, useMatch, useNavigate } from 'react-router'
 import { useLogout } from '../api/auth.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
 import { CardPanel } from '../card/CardPanel.tsx'
@@ -18,6 +18,7 @@ import { strings } from '../strings.ts'
 import { CARD_PANEL_FULLSCREEN_BREAKPOINT, SIZES } from '../theme.ts'
 import { BoardLegend } from './BoardLegend.tsx'
 import { CardPanelSlotContext } from './card-panel-slot.ts'
+import { HeaderSearch } from './HeaderSearch.tsx'
 import { GearIcon } from './icons.tsx'
 import { NewCardButton } from './NewCardButton.tsx'
 import { SseBridge } from './SseBridge.tsx'
@@ -34,6 +35,13 @@ export function AppLayout() {
   const me = useCurrentUser()
   const navigate = useNavigate()
   const logout = useLogout()
+  // The header filter only drives the board; it does nothing on /search or
+  // /settings, so it renders only on the board route (and its deep-linked card
+  // panel) — a facilities user is never shown a filter that silently no-ops.
+  // Both matches run unconditionally (rules-of-hooks) then combine.
+  const boardMatch = useMatch('/')
+  const cardPanelMatch = useMatch('/cards/:cardId')
+  const onBoardRoute = boardMatch !== null || cardPanelMatch !== null
   // The deep-linked card id, published by the CardPanel route element.
   const [openCardId, setOpenCardId] = useState<string | null>(null)
   const panelOpen = openCardId !== null
@@ -59,12 +67,19 @@ export function AppLayout() {
       >
         <SseBridge />
         <AppShell.Header>
-          <Group h="100%" px="md" justify="space-between">
-            <UnstyledButton component={Link} to="/">
-              <Title order={1} size="h4">
-                {strings.appTitle}
-              </Title>
+          <div className={classes.header}>
+            <UnstyledButton component={Link} to="/" aria-label={strings.header.logoAlt}>
+              {/* Logo + wordmark: the logo is the brand, but the app title stays
+                  as visible text beside it so the header always identifies the
+                  app (the asset is a thin mark that reads faint on white). */}
+              <Group gap="xs" wrap="nowrap">
+                <img className={classes.logo} src="/logo.png" alt="" />
+                <Title order={1} size="h4">
+                  {strings.appTitle}
+                </Title>
+              </Group>
             </UnstyledButton>
+            <div className={classes.headerSearch}>{onBoardRoute ? <HeaderSearch /> : null}</div>
             <Group gap="sm">
               <BoardLegend />
               <Button component={Link} to="/search" variant="subtle" color="gray" size="sm">
@@ -107,7 +122,7 @@ export function AppLayout() {
                 </Menu.Dropdown>
               </Menu>
             </Group>
-          </Group>
+          </div>
         </AppShell.Header>
         <AppShell.Main className={classes.main}>
           <Outlet />

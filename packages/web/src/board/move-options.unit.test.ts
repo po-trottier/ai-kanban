@@ -116,40 +116,66 @@ describe('canPerformAction', () => {
   })
 })
 
+const LABELS = {
+  first: 'First',
+  last: 'Last',
+  only: 'Only card',
+  after: (title: string) => `After "${title}"`,
+}
+
 describe('positionChoices', () => {
-  it('offers First and After-each-card with correct neighbor ids', () => {
-    // Arrange
+  it('offers First, per-card After for the middle, and a named Last (ITEM 2)', () => {
+    // Arrange — three other cards, so there are true middle placements.
     const a = makeCard('ready', { title: 'Fix pump' })
     const b = makeCard('ready', { title: 'Change filter' })
+    const c = makeCard('ready', { title: 'Grease bearings' })
     const moving = makeCard('intake')
     // Act
-    const choices = positionChoices([a, b], moving.id, {
-      first: 'First',
-      after: (title) => `After "${title}"`,
-    })
-    // Assert
+    const choices = positionChoices([a, b, c], moving.id, LABELS)
+    // Assert — First, After-each-but-the-last (middle), then a clear Last. The
+    // redundant "After <last card>" is replaced by the named Last option.
     expect(choices.map((choice) => choice.label)).toEqual([
       'First',
       'After "Fix pump"',
       'After "Change filter"',
+      'Last',
     ])
     expect(choices[0]).toMatchObject({ prevCardId: null, nextCardId: a.id })
     expect(choices[1]).toMatchObject({ prevCardId: a.id, nextCardId: b.id })
-    expect(choices[2]).toMatchObject({ prevCardId: b.id, nextCardId: null })
+    expect(choices[2]).toMatchObject({ prevCardId: b.id, nextCardId: c.id })
+    expect(choices[3]).toMatchObject({ prevCardId: c.id, nextCardId: null })
   })
 
-  it('excludes the moving card from its own lane choices', () => {
+  it('offers exactly First and Last for a single-other-card lane (no middle)', () => {
     // Arrange
-    const moving = makeCard('ready')
-    const other = makeCard('ready')
+    const only = makeCard('ready', { title: 'Sole card' })
+    const moving = makeCard('intake')
     // Act
-    const choices = positionChoices([moving, other], moving.id, {
-      first: 'First',
-      after: (title) => title,
-    })
+    const choices = positionChoices([only], moving.id, LABELS)
+    // Assert — top or bottom relative to the one card; no per-card After.
+    expect(choices.map((choice) => choice.label)).toEqual(['First', 'Last'])
+    expect(choices[0]).toMatchObject({ prevCardId: null, nextCardId: only.id })
+    expect(choices[1]).toMatchObject({ prevCardId: only.id, nextCardId: null })
+  })
+
+  it('shows a single clear option for an empty target lane (no redundant First+Last)', () => {
+    // Arrange
+    const moving = makeCard('intake')
+    // Act
+    const choices = positionChoices([], moving.id, LABELS)
     // Assert
-    expect(choices).toHaveLength(2)
-    expect(choices[0]).toMatchObject({ prevCardId: null, nextCardId: other.id })
+    expect(choices).toHaveLength(1)
+    expect(choices[0]).toMatchObject({ label: 'Only card', prevCardId: null, nextCardId: null })
+  })
+
+  it('excludes the moving card so its own lane collapses to a single option', () => {
+    // Arrange — the moving card is the only card in the lane.
+    const moving = makeCard('ready')
+    // Act
+    const choices = positionChoices([moving], moving.id, LABELS)
+    // Assert
+    expect(choices).toHaveLength(1)
+    expect(choices[0]).toMatchObject({ prevCardId: null, nextCardId: null })
   })
 })
 

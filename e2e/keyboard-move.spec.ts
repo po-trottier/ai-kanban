@@ -32,7 +32,7 @@ test('moves a card via the Move to… menu using only the keyboard', async ({ pa
 
   // Tab through the trap (close button first) into the Column combobox, then
   // drive both selects with arrows + Enter: Intake → ↓↓ → Ready, position
-  // stays First.
+  // stays First (top).
   await page.keyboard.press('Tab')
   await expect(page.getByRole('combobox', { name: 'Column' })).toBeFocused()
   await page.keyboard.press('ArrowDown') // opens the dropdown on Intake
@@ -43,9 +43,9 @@ test('moves a card via the Move to… menu using only the keyboard', async ({ pa
 
   await page.keyboard.press('Tab')
   await expect(page.getByRole('combobox', { name: 'Position' })).toBeFocused()
-  await page.keyboard.press('ArrowDown') // opens the dropdown on First
-  await page.keyboard.press('Enter') // confirms First
-  await expect(page.getByRole('combobox', { name: 'Position' })).toHaveValue('First')
+  await page.keyboard.press('ArrowDown') // opens the dropdown on First (top)
+  await page.keyboard.press('Enter') // confirms First (top)
+  await expect(page.getByRole('combobox', { name: 'Position' })).toHaveValue('First (top)')
 
   await page.keyboard.press('Tab') // Cancel
   await page.keyboard.press('Tab') // Move

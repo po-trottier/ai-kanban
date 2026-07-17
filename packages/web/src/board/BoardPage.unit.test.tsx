@@ -56,7 +56,8 @@ describe('BoardPage move flows', () => {
     await user.click(await screen.findByRole('combobox', { name: 'Column' }))
     await user.click(screen.getByRole('option', { name: 'Ready' }))
     await user.click(screen.getByRole('combobox', { name: 'Position' }))
-    await user.click(screen.getByRole('option', { name: 'After "First in ready"' }))
+    // Ready holds one card, so the bottom is the explicit "Last" option now.
+    await user.click(screen.getByRole('option', { name: 'Last (bottom)' }))
     await user.click(screen.getByRole('button', { name: 'Move' }))
     // Assert
     expect(fake.lastBody('POST', `/api/v1/cards/${moving.id}/move`)).toEqual({
@@ -123,6 +124,41 @@ describe('BoardPage move flows', () => {
     ).toBeInTheDocument()
     const intake = screen.getByRole('list', { name: 'Cards in Intake' })
     expect(within(intake).getByText('Contended card')).toBeInTheDocument()
+  })
+})
+
+describe('BoardPage header live-filter (ITEM 1)', () => {
+  it('hides non-matching cards as the user types in the header filter', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const match = makeCard('intake', { title: 'Leaking faucet' })
+    const other = makeCard('ready', { title: 'Broken window' })
+    const fake = boardApp({ intake: [match], ready: [other] })
+    renderApp({ fetchFn: fake.fetch })
+    expect(await screen.findByLabelText('Leaking faucet')).toBeInTheDocument()
+    // Act — the always-visible header filter narrows the board live (no request).
+    await user.type(screen.getByRole('textbox', { name: 'Filter the board' }), 'faucet')
+    // Assert — the non-matching card is gone; the match remains; lanes persist.
+    expect(screen.queryByLabelText('Broken window')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Leaking faucet')).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Cards in Ready' })).toBeInTheDocument()
+  })
+
+  it('restores every card when the filter is cleared', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const match = makeCard('intake', { title: 'Leaking faucet' })
+    const other = makeCard('ready', { title: 'Broken window' })
+    const fake = boardApp({ intake: [match], ready: [other] })
+    renderApp({ fetchFn: fake.fetch })
+    await screen.findByLabelText('Leaking faucet')
+    await user.type(screen.getByRole('textbox', { name: 'Filter the board' }), 'faucet')
+    expect(screen.queryByLabelText('Broken window')).not.toBeInTheDocument()
+    // Act — the clear (x) resets the filter.
+    await user.click(screen.getByRole('button', { name: 'Clear filter' }))
+    // Assert
+    expect(screen.getByLabelText('Broken window')).toBeInTheDocument()
+    expect(screen.getByLabelText('Leaking faucet')).toBeInTheDocument()
   })
 })
 

@@ -4,6 +4,33 @@
   height: 100vh;
 }
 
+/* Header: three sections — brand left, search centred (flex-grow, capped),
+   actions right. The centre grows to fill and centres its capped-width input. */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+  height: 100%;
+  padding-inline: var(--mantine-spacing-md);
+}
+
+.headerSearch {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+}
+
+.headerSearch > * {
+  width: 100%;
+  max-width: var(--app-header-search-max-width);
+}
+
+.logo {
+  display: block;
+  height: var(--app-header-logo-height);
+  width: auto;
+}
+
 /* The board page owns its scrolling; the main area pins to the viewport. */
 .main {
   height: 100vh;

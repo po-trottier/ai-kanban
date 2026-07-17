@@ -73,32 +73,50 @@ export interface PositionChoice {
 }
 
 /**
- * Position options within a target lane: "First", then "After <card>" for
- * every card except the one being moved. Emits exactly the neighbor ids the
- * move API wants (ADR-006: the server computes the position key).
+ * Position options within a target lane (ITEM 2): a clear "First" (top) and
+ * "Last" (bottom), plus a per-card "After <card>" for precise MIDDLE placement.
+ * The bottom is a named "Last" instead of the confusing "After <last card>", so
+ * an empty/single-card lane never forces a user to reason about neighbors:
+ *
+ * - empty lane  → a single "Only card" option (no redundant First + Last);
+ * - one card    → "First" and "Last" (top or bottom, no middle);
+ * - N cards     → "First", "After <card>" for the first N−1, then "Last".
+ *
+ * Emits exactly the neighbor ids the move API wants (ADR-006: the server
+ * computes the position key from prev/next).
  */
 export function positionChoices(
   // Only id + title are read, so both a board summary and a full card fit.
   laneCards: Pick<BoardCard, 'id' | 'title'>[],
   movingCardId: string,
-  labels: { first: string; after: (title: string) => string },
+  labels: { first: string; last: string; only: string; after: (title: string) => string },
 ): [PositionChoice, ...PositionChoice[]] {
   const others = laneCards.filter((card) => card.id !== movingCardId)
+  // Empty target lane: one unambiguous option — the card simply lands here.
+  if (others.length === 0) {
+    return [{ value: 'first', label: labels.only, prevCardId: null, nextCardId: null }]
+  }
   const first: PositionChoice = {
     value: 'first',
     label: labels.first,
     prevCardId: null,
     nextCardId: others[0]?.id ?? null,
   }
-  return [
-    first,
-    ...others.map((card, index) => ({
-      value: `after:${card.id}`,
-      label: labels.after(card.title),
-      prevCardId: card.id,
-      nextCardId: others[index + 1]?.id ?? null,
-    })),
-  ]
+  const last: PositionChoice = {
+    value: 'last',
+    label: labels.last,
+    prevCardId: others[others.length - 1]?.id ?? null,
+    nextCardId: null,
+  }
+  // "After <card>" only for the true middle gaps — the first N−1 cards; the
+  // gap after the last card is the named "Last" above.
+  const middle: PositionChoice[] = others.slice(0, -1).map((card, index) => ({
+    value: `after:${card.id}`,
+    label: labels.after(card.title),
+    prevCardId: card.id,
+    nextCardId: others[index + 1]?.id ?? null,
+  }))
+  return [first, ...middle, last]
 }
 
 export interface DropTarget {

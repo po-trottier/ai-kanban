@@ -97,6 +97,12 @@ try {
   await login(page, 'admin@demo.rivian-kanban.local')
   await shot(page, '02-board')
 
+  // ITEM 1: the header logo + always-visible filter, and a filtered board.
+  await page.getByRole('textbox', { name: 'Filter the board' }).fill('HVAC')
+  await page.getByText('Quarterly HVAC filter replacement').first().waitFor()
+  await shot(page, '02b-board-filtered')
+  await page.getByRole('button', { name: 'Clear filter' }).click()
+
   await page.getByText(CARD_FOR_DETAILS).first().click()
   await page.waitForURL(/\/cards\//)
   await shot(page, '03-card-details')
@@ -122,6 +128,11 @@ try {
 
   await page.getByRole('button', { name: 'New card' }).click()
   await shot(page, '08-new-card-modal')
+  // ITEM 3: the priority dropdown open, showing the plain-language descriptions.
+  await page.getByRole('combobox', { name: 'Priority' }).click()
+  await page.getByRole('option', { name: /P0 — Critical/ }).waitFor()
+  await shot(page, '08b-priority-dropdown')
+  await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
 
   await page.getByRole('link', { name: 'Search cards' }).click()

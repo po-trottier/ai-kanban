@@ -47,6 +47,28 @@ test('board cards always show estimate, location, tags and attachments (board pa
   await expect(plain.getByText('No estimate')).toBeVisible()
 })
 
+test('header search live-filters the board as you type (ITEM 1)', async ({ page, context }) => {
+  await signIn(context)
+  await openBoard(page)
+
+  const match = boardCard(page, 'Repair loading-dock leveler')
+  const other = boardCard(page, 'Quarterly HVAC filter replacement')
+  await expect(match).toBeVisible()
+  await expect(other).toBeVisible()
+
+  // Typing filters the already-loaded board client-side (no navigation).
+  await page.getByRole('textbox', { name: 'Filter the board' }).fill('loading-dock')
+
+  await expect(match).toBeVisible()
+  await expect(other).toBeHidden()
+  // Lanes stay visible even when they no longer hold a match.
+  await expect(laneList(page, 'Review')).toBeVisible()
+
+  // The clear (x) restores every card.
+  await page.getByRole('button', { name: 'Clear filter' }).click()
+  await expect(other).toBeVisible()
+})
+
 test('drags a card across lanes with the mouse and the move persists', async ({
   page,
   context,

@@ -13,8 +13,8 @@ describe('EstimateInput', () => {
       <EstimateInput minutes={minutes} cleared={null} onChange={() => undefined} />,
     )
     // Assert — the number input shows 2 and the unit combobox shows Days
-    expect(screen.getByRole('textbox', { name: 'Estimate' })).toHaveValue('2')
-    expect(screen.getByRole('combobox', { name: 'Estimate unit' })).toHaveValue('Days')
+    expect(screen.getByRole('textbox', { name: 'Estimated time to completion' })).toHaveValue('2')
+    expect(screen.getByRole('combobox', { name: 'Time unit' })).toHaveValue('Days')
   })
 
   it('converts a value entered in days to stored minutes (2 days → 960)', async () => {
@@ -25,9 +25,9 @@ describe('EstimateInput', () => {
       <EstimateInput minutes={null} cleared={null} onChange={(m) => emitted.push(m)} />,
     )
     // Act — pick Days, then type 2
-    await user.click(screen.getByRole('combobox', { name: 'Estimate unit' }))
+    await user.click(screen.getByRole('combobox', { name: 'Time unit' }))
     await user.click(screen.getByRole('option', { name: 'Days' }))
-    await user.type(screen.getByRole('textbox', { name: 'Estimate' }), '2')
+    await user.type(screen.getByRole('textbox', { name: 'Estimated time to completion' }), '2')
     // Assert — the last emitted value is the minutes equivalent
     expect(emitted.at(-1)).toBe(960)
   })
@@ -40,7 +40,7 @@ describe('EstimateInput', () => {
       <EstimateInput minutes={120} cleared={null} onChange={(m) => emitted.push(m)} />,
     )
     // Act
-    await user.clear(screen.getByRole('textbox', { name: 'Estimate' }))
+    await user.clear(screen.getByRole('textbox', { name: 'Estimated time to completion' }))
     // Assert
     expect(emitted.at(-1)).toBeNull()
   })

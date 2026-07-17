@@ -17,6 +17,9 @@ const other: MantineThemeOther = {
   laneWidth: '18rem',
   boardColumnMinHeight: '10rem',
   thumbnailHeight: '6rem',
+  /** Header logo height + centred-search cap, consumed by shell.module.css. */
+  headerLogoHeight: '2rem',
+  headerSearchMaxWidth: '28rem',
 }
 
 /** The one emphasis weight (card titles, comment authors, history actors) — matches headings. */
@@ -52,6 +55,8 @@ export const cssVariablesResolver: CSSVariablesResolver = (resolved) => ({
     '--app-lane-width': String(resolved.other.laneWidth),
     '--app-board-column-min-height': String(resolved.other.boardColumnMinHeight),
     '--app-thumbnail-height': String(resolved.other.thumbnailHeight),
+    '--app-header-logo-height': String(resolved.other.headerLogoHeight),
+    '--app-header-search-max-width': String(resolved.other.headerSearchMaxWidth),
   },
   light: {},
   dark: {},

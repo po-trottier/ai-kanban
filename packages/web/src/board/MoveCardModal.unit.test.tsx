@@ -41,6 +41,72 @@ describe('MoveCardModal', () => {
     ])
   })
 
+  it('offers explicit First and Last (not "After <last card>") for the bottom (ITEM 2)', async () => {
+    // Arrange — a two-card target lane, so First / After / Last all appear.
+    const user = userEvent.setup()
+    const a = makeCard('ready', { title: 'Fix pump' })
+    const b = makeCard('ready', { title: 'Change filter' })
+    const moving = makeCard('intake', { title: 'New leak' })
+    const board = makeBoard({ intake: [moving], ready: [a, b] })
+    const selections: MoveSelection[] = []
+    renderWithProviders(
+      <MoveCardModal
+        card={moving}
+        currentLane="intake"
+        board={board}
+        policy={permissivePolicy}
+        role="technician"
+        onSubmit={(selection) => selections.push(selection)}
+        onClose={() => undefined}
+      />,
+    )
+    // Act
+    await user.click(screen.getByRole('combobox', { name: 'Column' }))
+    await user.click(screen.getByRole('option', { name: 'Ready' }))
+    await user.click(screen.getByRole('combobox', { name: 'Position' }))
+    // Assert — the bottom is a clear "Last (bottom)", not "After \"Change filter\"".
+    expect(screen.getByRole('option', { name: 'First (top)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Last (bottom)' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'After "Change filter"' })).not.toBeInTheDocument()
+    // Act — pick Last and confirm it emits the bottom neighbor ids.
+    await user.click(screen.getByRole('option', { name: 'Last (bottom)' }))
+    await user.click(screen.getByRole('button', { name: 'Move' }))
+    // Assert
+    expect(selections).toEqual([
+      {
+        intent: { toLane: 'ready', prevCardId: b.id, nextCardId: null },
+        laneLabel: 'Ready',
+        position: 3,
+      },
+    ])
+  })
+
+  it('shows a single clear option when moving into an empty column (ITEM 2)', async () => {
+    // Arrange — Ready is empty in this board.
+    const user = userEvent.setup()
+    const moving = makeCard('intake', { title: 'Fresh work order' })
+    const board = makeBoard({ intake: [moving] })
+    renderWithProviders(
+      <MoveCardModal
+        card={moving}
+        currentLane="intake"
+        board={board}
+        policy={permissivePolicy}
+        role="technician"
+        onSubmit={() => undefined}
+        onClose={() => undefined}
+      />,
+    )
+    // Act
+    await user.click(screen.getByRole('combobox', { name: 'Column' }))
+    await user.click(screen.getByRole('option', { name: 'Ready' }))
+    await user.click(screen.getByRole('combobox', { name: 'Position' }))
+    // Assert — no redundant First + Last; one unambiguous choice.
+    const options = screen.getAllByRole('option')
+    expect(options).toHaveLength(1)
+    expect(options[0]).toHaveTextContent('Top of the column')
+  })
+
   it('disables illegal target lanes when enforcement is on (policy affordances)', async () => {
     // Arrange
     const user = userEvent.setup()

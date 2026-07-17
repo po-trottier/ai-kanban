@@ -12,10 +12,12 @@ import { isWaitingLane, laneKeyOfCard, type MoveIntent } from '../api/board-cach
 import { usePolicy, useUsers } from '../api/meta.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
 import { utcToday } from '../lib/format.ts'
+import { useBoardSearchQuery } from '../shell/board-search-param.ts'
 import { BoardSkeleton } from '../shell/BoardSkeleton.tsx'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { strings } from '../strings.ts'
 import { Board } from './Board.tsx'
+import { filterBoard } from './board-filter.ts'
 import { BlockCardModal } from './BlockCardModal.tsx'
 import { CancelCardModal } from './CancelCardModal.tsx'
 import { type CardMenuAction } from './CardMenu.tsx'
@@ -35,6 +37,7 @@ type ModalState =
 export function BoardPage() {
   const navigate = useNavigate()
   const me = useCurrentUser()
+  const [searchQuery] = useBoardSearchQuery()
   const boardQuery = useBoard()
   const policyQuery = usePolicy()
   const usersQuery = useUsers()
@@ -149,10 +152,16 @@ export function BoardPage() {
     setModal({ kind: 'none' })
   }
 
+  // The header live-filter (?q=) narrows the RENDERED board only; every move
+  // computation above still uses the full `board` so neighbor ids resolve even
+  // for cards the filter has hidden.
+  const filtered = filterBoard(board, searchQuery)
+
   return (
     <>
       <Board
-        board={board}
+        board={filtered.board}
+        filtering={filtered.active}
         policy={policyQuery.data}
         role={me.role}
         users={usersQuery.data}

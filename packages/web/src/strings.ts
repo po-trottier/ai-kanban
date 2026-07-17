@@ -18,6 +18,15 @@ import {
 export const strings = {
   appTitle: 'Facilities Kanban',
 
+  header: {
+    /** Alt text on the logo, which also links home. */
+    logoAlt: 'Facilities Kanban — go to the board',
+    /** The always-visible board filter in the header centre. */
+    searchLabel: 'Filter the board',
+    searchPlaceholder: 'Filter cards…',
+    searchClear: 'Clear filter',
+  },
+
   common: {
     save: 'Save',
     cancel: 'Cancel',
@@ -90,6 +99,10 @@ export const strings = {
     boardLabel: 'Kanban board',
     newCard: 'New card',
     emptyLane: 'No cards',
+    /** Per-lane hint when the header filter hides every card in a lane. */
+    filterEmptyLane: 'No matching cards',
+    /** Subtle per-lane match count shown under the header filter. */
+    filterMatchCount: (count: number) => `${String(count)} ${count === 1 ? 'match' : 'matches'}`,
     wipLimitExceededSuffix: 'WIP limit exceeded',
     cardListLabel: (lane: string) => `Cards in ${lane}`,
     loadFailed: 'The board could not be loaded.',
@@ -176,7 +189,10 @@ export const strings = {
     modalTitle: 'Move card',
     laneLabel: 'Column',
     positionLabel: 'Position',
-    positionFirst: 'First',
+    positionFirst: 'First (top)',
+    positionLast: 'Last (bottom)',
+    /** Sole option when the target column is empty (no First/Last to weigh). */
+    positionOnly: 'Top of the column',
     positionAfter: (title: string) => `After "${title}"`,
     moveButton: 'Move',
     laneNotAllowed: 'Not allowed from the current column',
@@ -232,9 +248,10 @@ export const strings = {
     descriptionEmpty: 'Nothing to preview',
     descriptionHelp: 'Supports simple formatting — use Preview to check it.',
     priorityLabel: 'Priority',
-    estimateLabel: 'Estimate',
-    estimateUnitLabel: 'Estimate unit',
-    estimateOptional: 'Optional until Ready',
+    /** Unmistakable that this is the estimated time to finish the work (ITEM 3). */
+    estimateLabel: 'Estimated time to completion',
+    estimateUnitLabel: 'Time unit',
+    estimateOptional: 'How long the work should take. Optional until Ready.',
     assigneeLabel: 'Assignee',
     locationLabel: 'Location',
     tagsLabel: 'Tags',
@@ -478,6 +495,17 @@ export const strings = {
     P1: 'P1',
     P2: 'P2',
   } satisfies Record<Priority, string>,
+
+  /**
+   * The priority Select shows a short plain-language description under each
+   * code so a non-technical user understands P0/P1/P2 (ITEM 3). `label` is the
+   * bold option line ("P0 — Critical"); `description` is the dimmed hint below.
+   */
+  priorityOptions: {
+    P0: { label: 'P0 — Critical', description: 'Drop everything' },
+    P1: { label: 'P1 — High', description: 'Do soon' },
+    P2: { label: 'P2 — Normal', description: 'Routine work' },
+  } satisfies Record<Priority, { label: string; description: string }>,
 
   resolutions: {
     completed: 'Completed',

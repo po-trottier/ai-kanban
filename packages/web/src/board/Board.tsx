@@ -13,6 +13,8 @@ import { canMoveToLane, canPerformAction } from './move-options.ts'
 
 export interface BoardProps {
   board: BoardResponse
+  /** Whether the header live-filter is narrowing the board (ITEM 1). */
+  filtering?: boolean
   policy: PolicyDocument
   role: Role
   users: PickerUser[]
@@ -22,7 +24,16 @@ export interface BoardProps {
 }
 
 /** The 7-lane board (presentational): affordances derive from the policy. */
-export function Board({ board, policy, role, users, today, onOpenCard, onMenuAction }: BoardProps) {
+export function Board({
+  board,
+  filtering = false,
+  policy,
+  role,
+  users,
+  today,
+  onOpenCard,
+  onMenuAction,
+}: BoardProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   useBoardAutoScroll(scrollRef)
 
@@ -37,8 +48,10 @@ export function Board({ board, policy, role, users, today, onOpenCard, onMenuAct
   )
 
   // A brand-new team sees a blank grid otherwise; nudge them to the New card
-  // button rather than seven "No cards" columns with no call to action.
-  const boardEmpty = board.lanes.every((snapshot) => snapshot.cards.length === 0)
+  // button rather than seven "No cards" columns with no call to action. When
+  // the header filter simply matched nothing, the lanes stay visible with their
+  // empty hints instead — the CTA would be wrong (there IS work, just hidden).
+  const boardEmpty = !filtering && board.lanes.every((snapshot) => snapshot.cards.length === 0)
 
   return (
     <div
@@ -65,6 +78,7 @@ export function Board({ board, policy, role, users, today, onOpenCard, onMenuAct
           <LaneColumn
             key={snapshot.lane.id}
             snapshot={snapshot}
+            filtering={filtering}
             usersById={usersById}
             today={today}
             canCancel={canPerformAction(policy, role, 'cancel')}

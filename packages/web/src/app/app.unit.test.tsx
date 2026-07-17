@@ -73,9 +73,32 @@ describe('app routing', () => {
     renderApp({ fetchFn: fake.fetch })
     // Assert
     expect(await screen.findByText('Fix pump')).toBeInTheDocument()
+    // The brand is now the logo + wordmark (ITEM 1), linking home; the app
+    // title stays visible so the header identifies the app on any logo asset.
     expect(screen.getByRole('heading', { name: 'Facilities Kanban' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'New card' })).toBeInTheDocument()
     expect(screen.getByLabelText('Settings')).toBeInTheDocument()
+  })
+
+  it('renders the header board-filter only on the board route, not on /search', async () => {
+    // Arrange — the header filter drives the board only; on /search it would
+    // silently no-op, so it must not appear there (only the page's own search).
+    const fake = authedRoutes()
+    // Act — land directly on the standalone /search page.
+    renderApp({ fetchFn: fake.fetch, route: '/search' })
+    // Assert — the search page is up, but the header board-filter is absent.
+    expect(await screen.findByRole('heading', { name: 'Search cards' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Filter the board' })).not.toBeInTheDocument()
+  })
+
+  it('shows the header board-filter on the board route', async () => {
+    // Arrange
+    const fake = authedRoutes()
+    // Act — the default route is the board.
+    renderApp({ fetchFn: fake.fetch })
+    // Assert — the always-visible board filter is present on the board.
+    expect(await screen.findByText('Fix pump')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Filter the board' })).toBeInTheDocument()
   })
 
   it('hides the settings gear from non-admins and gates /settings in the UI', async () => {

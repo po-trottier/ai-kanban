@@ -1,5 +1,5 @@
 import { PRIORITIES, type Location } from '@rivian-kanban/core'
-import { Select, TagsInput, TextInput } from '@mantine/core'
+import { Select, Stack, TagsInput, Text, TextInput } from '@mantine/core'
 import { Controller, type Control, type UseFormRegisterReturn } from 'react-hook-form'
 import { type PickerUser } from '../api/schemas.ts'
 import { strings } from '../strings.ts'
@@ -73,8 +73,21 @@ export function CardFieldInputs({
             label={strings.detail.priorityLabel}
             data={PRIORITIES.map((priority) => ({
               value: priority,
-              label: strings.priorities[priority],
+              label: strings.priorityOptions[priority].label,
             }))}
+            // A short plain-language description under each code (ITEM 3) so a
+            // non-technical user understands P0/P1/P2, not just the labels.
+            renderOption={({ option }) => {
+              const priority = option.value
+              return (
+                <Stack gap={0}>
+                  <Text size="sm">{strings.priorityOptions[priority].label}</Text>
+                  <Text size="xs" c="dimmed">
+                    {strings.priorityOptions[priority].description}
+                  </Text>
+                </Stack>
+              )
+            }}
             // Both forms default priority (schema default / current card),
             // so the fallback is belt-and-braces for the never-unset field.
             value={field.value ?? 'P2'}
