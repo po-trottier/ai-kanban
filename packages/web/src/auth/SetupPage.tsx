@@ -11,6 +11,7 @@ import {
   Title,
 } from '@mantine/core'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Navigate, useNavigate } from 'react-router'
 import { z } from 'zod'
@@ -18,6 +19,7 @@ import { useSetupAdmin, useSetupRequired } from '../api/auth.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
+import { SetupLocations } from './SetupLocations.tsx'
 
 /**
  * Form-side messages over core's `setupAdminInputSchema` shape (the values
@@ -32,19 +34,17 @@ const setupFormSchema = z.object({
 
 /**
  * First-boot setup page: while the database has no users, every route lands
- * here to create the first admin account; on success the session is already
- * established, so the board loads directly. Once any user exists the page
- * permanently redirects to /login (the endpoint hard-disables itself —
- * docs/architecture/security.md#authentication).
+ * here. It runs a two-step wizard entirely on /setup (no new routes, internal
+ * state only): Step 1 creates the first admin account — on success the session
+ * is already established — then Step 2 offers an OPTIONAL locations editor
+ * before both "Skip for now" and "Continue to board" land on the board. Once
+ * any user exists the page permanently redirects to /login (the endpoint
+ * hard-disables itself — docs/architecture/security.md#authentication).
  */
 export function SetupPage() {
   const navigate = useNavigate()
   const setupRequired = useSetupRequired()
-  const setup = useSetupAdmin()
-  const form = useForm<SetupAdminInput>({
-    resolver: standardSchemaResolver(setupFormSchema),
-    defaultValues: { email: '', displayName: '', password: '' },
-  })
+  const [step, setStep] = useState<'account' | 'locations'>('account')
 
   if (setupRequired.isPending) {
     return (
@@ -53,63 +53,89 @@ export function SetupPage() {
       </Center>
     )
   }
-  if (setupRequired.data?.required !== true) {
+  // Only redirect while still on Step 1. Creating the admin flips the probe to
+  // `required: false` (and `useSetupAdmin` invalidates it), so once we've
+  // advanced to the OPTIONAL locations step we must ignore that — the session
+  // is already live and the wizard finishes on its own terms. A returning
+  // already-set-up admin never reaches Step 2, so it still bounces to /login.
+  if (step === 'account' && setupRequired.data?.required !== true) {
     return <Navigate to="/login" replace />
   }
 
   return (
     <Center h="100vh">
       <Paper withBorder shadow="sm" p="xl" radius="md" w={SIZES.authCardWidth}>
-        <form
-          noValidate
-          onSubmit={(event) => {
-            void form.handleSubmit((values) => {
-              setup.mutate(values, {
-                onSuccess: () => {
-                  void navigate('/')
-                },
-              })
-            })(event)
-          }}
-        >
-          <Stack gap="md">
-            <Stack gap="xs">
-              <Title order={2} size="h4" c="dimmed">
-                {strings.appTitle}
-              </Title>
-              <Title order={1} size="h3">
-                {strings.setup.title}
-              </Title>
-            </Stack>
-            <Text size="sm" c="dimmed">
-              {strings.setup.intro}
-            </Text>
-            {setup.error !== null ? <ErrorAlert error={setup.error} /> : null}
-            <TextInput
-              label={strings.auth.email}
-              type="email"
-              autoComplete="email"
-              error={form.formState.errors.email?.message}
-              {...form.register('email')}
-            />
-            <TextInput
-              label={strings.setup.displayName}
-              autoComplete="name"
-              error={form.formState.errors.displayName?.message}
-              {...form.register('displayName')}
-            />
-            <PasswordInput
-              label={strings.auth.password}
-              autoComplete="new-password"
-              error={form.formState.errors.password?.message}
-              {...form.register('password')}
-            />
-            <Button type="submit" loading={setup.isPending}>
-              {strings.setup.submitButton}
-            </Button>
-          </Stack>
-        </form>
+        {step === 'account' ? (
+          <SetupAccountForm
+            onCreated={() => {
+              setStep('locations')
+            }}
+          />
+        ) : (
+          <SetupLocations
+            onDone={() => {
+              void navigate('/')
+            }}
+          />
+        )}
       </Paper>
     </Center>
+  )
+}
+
+/** Step 1: create the first admin. On success the session is live. */
+function SetupAccountForm({ onCreated }: { onCreated: () => void }) {
+  const setup = useSetupAdmin()
+  const form = useForm<SetupAdminInput>({
+    resolver: standardSchemaResolver(setupFormSchema),
+    defaultValues: { email: '', displayName: '', password: '' },
+  })
+
+  return (
+    <form
+      noValidate
+      onSubmit={(event) => {
+        void form.handleSubmit((values) => {
+          setup.mutate(values, { onSuccess: onCreated })
+        })(event)
+      }}
+    >
+      <Stack gap="md">
+        <Stack gap="xs">
+          <Title order={2} size="h4" c="dimmed">
+            {strings.appTitle}
+          </Title>
+          <Title order={1} size="h3">
+            {strings.setup.title}
+          </Title>
+        </Stack>
+        <Text size="sm" c="dimmed">
+          {strings.setup.intro}
+        </Text>
+        {setup.error !== null ? <ErrorAlert error={setup.error} /> : null}
+        <TextInput
+          label={strings.auth.email}
+          type="email"
+          autoComplete="email"
+          error={form.formState.errors.email?.message}
+          {...form.register('email')}
+        />
+        <TextInput
+          label={strings.setup.displayName}
+          autoComplete="name"
+          error={form.formState.errors.displayName?.message}
+          {...form.register('displayName')}
+        />
+        <PasswordInput
+          label={strings.auth.password}
+          autoComplete="new-password"
+          error={form.formState.errors.password?.message}
+          {...form.register('password')}
+        />
+        <Button type="submit" loading={setup.isPending}>
+          {strings.setup.submitButton}
+        </Button>
+      </Stack>
+    </form>
   )
 }

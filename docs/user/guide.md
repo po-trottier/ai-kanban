@@ -1,7 +1,10 @@
 # User Guide
 
 > **First boot**: when the app has no users yet, it shows a one-time setup page that creates
-> the first administrator account (afterwards everyone lands on the sign-in page as usual).
+> the first administrator account, then offers an optional step to add your locations
+> (buildings/floors/rooms) — skip it to go straight to the board, or set some up now; either
+> way you can add or manage them later in **Settings → Locations**. Afterwards everyone lands
+> on the sign-in page as usual.
 
 ## The board
 

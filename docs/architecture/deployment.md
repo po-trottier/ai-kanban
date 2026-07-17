@@ -32,8 +32,10 @@ docker compose
    data requires `SEED_DEMO_DATA=true` and is **refused in production mode**.
 2. Open the app in a browser: while the database has no non-system users, every page redirects
    to the **first-boot setup page**, which creates the first admin account (policy-checked
-   password, signed in immediately). The flow hard-disables itself once any user exists —
-   race-guarded and rate-limited; see
+   password, signed in immediately) and then offers an **optional locations step** — the new
+   admin can add buildings/floors/rooms right away (reusing the admin `/locations` endpoints)
+   or skip straight to the board; locations remain manageable later in Settings. The flow
+   hard-disables itself once any user exists — race-guarded and rate-limited; see
    [security.md#authentication](security.md#authentication).
 
 The CLI remains as **break-glass recovery** when every admin is locked out (setup never

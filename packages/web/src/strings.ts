@@ -58,6 +58,23 @@ export const strings = {
     displayName: 'Display name',
     displayNameRequired: 'Enter a display name',
     submitButton: 'Create admin account',
+    locationsTitle: 'Add your locations',
+    locationsOptional: 'Optional',
+    locationsIntro:
+      'Set up your buildings, floors, and rooms so work orders can point to where they are. This is optional — you can add or manage locations anytime later in Settings.',
+    locationsEmpty:
+      'No locations yet. Add a building to get started, or skip this — you can always set them up later in Settings.',
+    addBuilding: 'Add building',
+    addFloor: 'Add floor',
+    addRoom: 'Add room',
+    addBuildingPlaceholder: 'Building name',
+    addFloorPlaceholder: 'Floor name',
+    addRoomPlaceholder: 'Room name',
+    addFloorInLabel: (name: string) => `Add floor in ${name}`,
+    addRoomInLabel: (name: string) => `Add room in ${name}`,
+    removeLocationLabel: (name: string) => `Remove ${name}`,
+    skipButton: 'Skip for now',
+    continueButton: 'Continue to board',
   },
 
   board: {
