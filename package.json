@@ -1,6 +1,7 @@
 {
   "name": "rivian-kanban",
   "private": true,
+  "license": "Polyform-Strict-1.0.0",
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -9,6 +10,11 @@
     "packages/*",
     "e2e"
   ],
+  "overrides": {
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.25.0"
+    }
+  },
   "knip": {
     "workspaces": {
       "e2e": {
