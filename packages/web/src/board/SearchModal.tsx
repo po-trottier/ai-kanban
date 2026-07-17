@@ -353,10 +353,11 @@ function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: (
 
 /**
  * One search result, styled to read like a compact board card: a title +
- * badge line and a single dimmed meta line (location · estimate · assignee).
- * A filled, bordered surface with hover feedback so results stand out against
- * the modal instead of blending in. Uses the full `Card` the search endpoint
- * returns, with the lane/assignee/location names resolved by the modal.
+ * one dense line (title · badges · lane · estimate · location · assignee),
+ * matching the compact board card. A filled, bordered surface with hover
+ * feedback so results stand out against the modal instead of blending in. Uses
+ * the full `Card` the search endpoint returns, with lane/assignee/location
+ * names resolved by the modal.
  */
 function SearchResultCard({
   card,
@@ -380,32 +381,29 @@ function SearchResultCard({
         onOpen(card.id)
       }}
     >
-      <Group justify="space-between" align="center" wrap="nowrap" gap="sm">
+      {/* One dense line: title (ellipsized) then badges, lane, and dimmed meta. */}
+      <Group wrap="nowrap" align="center" gap="sm">
         <Text size="sm" fw={EMPHASIS_FONT_WEIGHT} truncate className={classes.grow}>
           {card.title}
         </Text>
-        <Group gap="xs" wrap="nowrap">
-          <CardBadges card={card} today={today} />
-          {laneLabel === undefined ? null : (
-            <Badge color="gray" size="sm" variant="light">
-              {laneLabel}
-            </Badge>
-          )}
-        </Group>
-      </Group>
-      <Group gap="md" wrap="nowrap" mt={4} c="dimmed">
-        <Group gap={4} wrap="nowrap" className={classes.grow}>
+        <CardBadges card={card} today={today} />
+        {laneLabel === undefined ? null : (
+          <Badge color="gray" size="sm" variant="light">
+            {laneLabel}
+          </Badge>
+        )}
+        <Text size="xs" c="dimmed">
+          {card.estimateMinutes === null
+            ? strings.card.noEstimate
+            : formatEstimate(card.estimateMinutes)}
+        </Text>
+        <Group gap={4} wrap="nowrap" c="dimmed" maw="11rem">
           <PinIcon size={14} />
           <Text size="xs" truncate>
             {locationName ?? strings.card.noLocation}
           </Text>
         </Group>
-        <Text size="xs">
-          {card.estimateMinutes === null
-            ? strings.card.noEstimate
-            : formatEstimate(card.estimateMinutes)}
-        </Text>
-        <Text size="xs" truncate>
+        <Text size="xs" c="dimmed" maw="8rem" truncate>
           {assigneeName ?? strings.card.unassigned}
         </Text>
       </Group>

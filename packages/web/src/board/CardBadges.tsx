@@ -1,5 +1,6 @@
 import { isOverdueResume, type BoardCard, type Card } from '@rivian-kanban/core'
 import { Badge, Group, Tooltip } from '@mantine/core'
+import { hasCardStatus } from './card-status.ts'
 import { strings } from '../strings.ts'
 import {
   ARCHIVED_COLOR,
@@ -43,9 +44,7 @@ export function CardBadges({
 }) {
   const overdue = isOverdueResume(card.expectedResumeAt, today)
   const cancelled = card.resolution !== null && card.resolution !== 'completed'
-  const hasStatus =
-    card.blocked || card.waitingReason !== null || cancelled || card.archivedAt !== null
-  if (!showPriority && !hasStatus) return null
+  if (!showPriority && !hasCardStatus(card)) return null
   return (
     <Group gap="xs">
       {showPriority ? (

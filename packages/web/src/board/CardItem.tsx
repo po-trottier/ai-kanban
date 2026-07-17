@@ -6,8 +6,9 @@ import { type PickerUser } from '../api/schemas.ts'
 import { formatDate, formatEstimate, initials } from '../lib/format.ts'
 import { PinIcon } from '../shell/icons.tsx'
 import { strings } from '../strings.ts'
-import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
+import { EMPHASIS_FONT_WEIGHT, PRIORITY_COLORS } from '../theme.ts'
 import { CardBadges } from './CardBadges.tsx'
+import { hasCardStatus } from './card-status.ts'
 import { CardMenu, type CardMenuAction } from './CardMenu.tsx'
 import { WorkProgressBar } from './WorkProgressBar.tsx'
 import { cx } from '../lib/cx.ts'
@@ -31,10 +32,14 @@ export interface CardItemProps {
 }
 
 /**
- * One board card. Every card renders the SAME rows so they compare at a
- * glance (consistency over minimalism): badges, an estimate, tag chips, a
- * location line, an attachment indicator, and the assignee — each with a
- * clear placeholder when unset.
+ * One board card in a compact, fixed shape so cards compare at a glance and
+ * never change height with their content:
+ *   Title …………………… Priority ⋯
+ *   status badges (only when blocked/waiting/cancelled/archived)
+ *   tag chips (one line, extras clipped)
+ *   estimate · location · attachments ………………… assignee
+ * Long text (title, location) ellipsizes to hold the shape. Cards past Ready
+ * also carry the work burn-down bar at the bottom.
  */
 export function CardItem({
   card,
@@ -67,30 +72,39 @@ export function CardItem({
         onOpen(card.id)
       }}
     >
-      <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
-        <Text size="sm" fw={EMPHASIS_FONT_WEIGHT}>
+      {/* Title … priority + menu */}
+      <Group justify="space-between" align="center" wrap="nowrap" gap="xs">
+        <Text size="sm" fw={EMPHASIS_FONT_WEIGHT} truncate className={classes.grow}>
           {card.title}
         </Text>
-        <CardMenu
-          card={card}
-          canCancel={canCancel}
-          canReopen={canReopen}
-          canArchive={canArchive}
-          onAction={(action) => {
-            onMenuAction(card, action)
-          }}
-        />
+        <Group gap="xs" wrap="nowrap">
+          <Badge color={PRIORITY_COLORS[card.priority]} size="sm" variant="filled">
+            {strings.priorities[card.priority]}
+          </Badge>
+          <CardMenu
+            card={card}
+            canCancel={canCancel}
+            canReopen={canReopen}
+            canArchive={canArchive}
+            onAction={(action) => {
+              onMenuAction(card, action)
+            }}
+          />
+        </Group>
       </Group>
-      <Group justify="space-between" mt="xs" gap="xs">
-        <CardBadges card={card} today={today} />
-        {resumeAt === null ? null : (
-          <Text size="xs" c="dimmed">
-            {strings.card.resumePrefix(formatDate(resumeAt))}
-          </Text>
-        )}
-      </Group>
+      {/* Status badges (blocked/waiting/overdue/cancelled/archived) — only when set */}
+      {hasCardStatus(card) ? (
+        <Group justify="space-between" mt="xs" gap="xs" wrap="nowrap">
+          <CardBadges card={card} today={today} showPriority={false} />
+          {resumeAt === null ? null : (
+            <Text size="xs" c="dimmed">
+              {strings.card.resumePrefix(formatDate(resumeAt))}
+            </Text>
+          )}
+        </Group>
+      ) : null}
       {card.tags.length === 0 ? null : (
-        <Group gap="xs" mt="xs">
+        <Group gap="xs" mt="xs" className={classes.tagRow}>
           {card.tags.map((tag) => (
             <Badge key={tag} size="sm" variant="outline" color="gray">
               {tag}
@@ -98,32 +112,31 @@ export function CardItem({
           ))}
         </Group>
       )}
-      {/* The location line always renders (placeholder when unset) so a card
-          with no location reads consistently against ones that have it. */}
-      <Group gap="xs" mt="xs" wrap="nowrap">
-        <PinIcon size={14} />
-        {card.locationLabel === null ? (
-          <Text size="xs" c="dimmed">
-            {strings.card.noLocation}
+      {/* estimate · location · attachments ………… assignee (one fixed row) */}
+      <Group justify="space-between" mt="xs" gap="sm" wrap="nowrap">
+        <Group gap="sm" wrap="nowrap" className={classes.grow}>
+          <Text size="xs" {...(card.estimateMinutes === null ? { c: 'dimmed' } : {})}>
+            {card.estimateMinutes === null
+              ? strings.card.noEstimate
+              : formatEstimate(card.estimateMinutes)}
           </Text>
-        ) : (
-          <Text size="xs">{card.locationLabel}</Text>
-        )}
-      </Group>
-      <Group justify="space-between" mt="xs" gap="xs" wrap="nowrap">
-        <Group gap="sm" wrap="nowrap">
-          {card.estimateMinutes === null ? (
-            <Text size="xs" c="dimmed">
-              {strings.card.noEstimate}
+          {/* Location always renders (placeholder when unset); it ellipsizes so a
+              long room name never grows the card. */}
+          <Group
+            gap={4}
+            wrap="nowrap"
+            className={classes.grow}
+            {...(card.locationLabel === null ? { c: 'dimmed' } : {})}
+          >
+            <PinIcon size={14} />
+            <Text size="xs" truncate>
+              {card.locationLabel ?? strings.card.noLocation}
             </Text>
-          ) : (
-            <Text size="xs">{formatEstimate(card.estimateMinutes)}</Text>
-          )}
-          {/* Always shown (like estimate/location) so every card reads the same
-              and a zero is clearly "no files", not a missing feature. */}
+          </Group>
+          {/* Always shown (a zero is clearly "no files", not a missing feature). */}
           <Tooltip label={strings.card.attachmentCountLabel(card.attachmentCount)}>
             <Group
-              gap="xs"
+              gap={4}
               wrap="nowrap"
               {...(card.attachmentCount === 0 ? { c: 'dimmed' } : {})}
               aria-label={strings.card.attachmentCountLabel(card.attachmentCount)}

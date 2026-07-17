@@ -60,3 +60,16 @@
 .cardDragging {
   opacity: 0.5;
 }
+
+/* Fills the row and lets its text truncate (ellipsis) so a card keeps the same
+   shape regardless of title/location length. */
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Tags stay on one line; extras clip rather than wrap and change the height. */
+.tagRow {
+  overflow: hidden;
+  flex-wrap: nowrap;
+}
