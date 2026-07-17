@@ -29,9 +29,9 @@ It evaluates the **configured permission policy** — permissive by default, tig
 | Capability | Who |
 | --- | --- |
 | View board, cards, history, comments; create cards/comments; edit cards; move/reorder anywhere; attach files; block/unblock; cancel; reopen | any authenticated user |
-| Edit own comment | author only |
+| Edit own comment | author only (identity rule, not RBAC — impersonation prevention) |
 | Delete a comment | author (others' — via policy gate only) |
-| Manage users, lanes, permission policy, locations, service tokens | admin only — app administration is never openable |
+| Manage users, lanes, permission policy, locations, service tokens | **admin only — the single role-restricted surface by default**, and never openable: it is where permissions are configured |
 
 **Configurable gates (admin settings view):** transition enforcement (activates the seeded
 workflow graph), per-transition minimum roles, and action gates (approve, close review→done,

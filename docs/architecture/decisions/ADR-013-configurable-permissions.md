@@ -18,10 +18,15 @@ That in turn requires a way to configure the board — an app-wide admin view.
   The seeded document has enforcement off and carries the researched 7-lane workflow graph
   ready to activate. Stored as append-only versions in `board_policies` — configuration changes
   have history and authorship like everything else.
+- **The admin surface is the ONLY thing role-restricted by default.** The app-wide settings
+  view and its APIs (users, lanes, permission policy, locations, service tokens) require the
+  `admin` role, always — it cannot be opened up, because it is where permissions themselves are
+  configured. No other page or action checks a role until an admin enables a gate.
+- **Ownership rules are identity, not RBAC** (also unaffected by policy defaults): editing a
+  comment requires being its author. This is impersonation-prevention, not hierarchy.
 - **Always-on rules are data integrity, not hierarchy** (unaffected by policy): waiting-lane
   entry requires reason + resume date; cancellation is an explicit action, never a drag;
-  optimistic-lock and validation rules; app administration (users, lanes, policy, locations,
-  service tokens) is admin-only and never openable.
+  optimistic-lock and validation rules.
 - **App-wide admin view** in the SPA: user management, lane labels/WIP limits, permission
   policy editor (enforcement toggle, per-transition gates, action gates), location tree,
   service tokens.
