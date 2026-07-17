@@ -71,7 +71,6 @@ export function MoveCardModal({
   const choices = positionChoices(targetLane?.cards ?? [], card.id, {
     first: strings.move.positionFirst,
     last: strings.move.positionLast,
-    only: strings.move.positionOnly,
     after: strings.move.positionAfter,
   })
   const selected = choices.find((choice) => choice.value === positionValue) ?? choices[0]

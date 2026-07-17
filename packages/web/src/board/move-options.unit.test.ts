@@ -119,7 +119,6 @@ describe('canPerformAction', () => {
 const LABELS = {
   first: 'First',
   last: 'Last',
-  only: 'Only card',
   after: (title: string) => `After "${title}"`,
 }
 
@@ -158,23 +157,24 @@ describe('positionChoices', () => {
     expect(choices[1]).toMatchObject({ prevCardId: only.id, nextCardId: null })
   })
 
-  it('shows a single clear option for an empty target lane (no redundant First+Last)', () => {
+  it('always offers both First and Last for an empty target lane', () => {
     // Arrange
     const moving = makeCard('intake')
     // Act
     const choices = positionChoices([], moving.id, LABELS)
-    // Assert
-    expect(choices).toHaveLength(1)
-    expect(choices[0]).toMatchObject({ label: 'Only card', prevCardId: null, nextCardId: null })
+    // Assert — both shown (same landing spot) so the picker keeps its shape.
+    expect(choices.map((choice) => choice.label)).toEqual(['First', 'Last'])
+    expect(choices[0]).toMatchObject({ prevCardId: null, nextCardId: null })
+    expect(choices[1]).toMatchObject({ prevCardId: null, nextCardId: null })
   })
 
-  it('excludes the moving card so its own lane collapses to a single option', () => {
+  it('excludes the moving card so its own (otherwise empty) lane still shows First and Last', () => {
     // Arrange — the moving card is the only card in the lane.
     const moving = makeCard('ready')
     // Act
     const choices = positionChoices([moving], moving.id, LABELS)
     // Assert
-    expect(choices).toHaveLength(1)
+    expect(choices.map((choice) => choice.label)).toEqual(['First', 'Last'])
     expect(choices[0]).toMatchObject({ prevCardId: null, nextCardId: null })
   })
 })

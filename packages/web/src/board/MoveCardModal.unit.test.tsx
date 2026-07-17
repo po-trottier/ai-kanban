@@ -81,7 +81,7 @@ describe('MoveCardModal', () => {
     ])
   })
 
-  it('shows a single clear option when moving into an empty column (ITEM 2)', async () => {
+  it('always offers First and Last when moving into an empty column (ITEM 2)', async () => {
     // Arrange — Ready is empty in this board.
     const user = userEvent.setup()
     const moving = makeCard('intake', { title: 'Fresh work order' })
@@ -101,10 +101,11 @@ describe('MoveCardModal', () => {
     await user.click(screen.getByRole('combobox', { name: 'Column' }))
     await user.click(screen.getByRole('option', { name: 'Ready' }))
     await user.click(screen.getByRole('combobox', { name: 'Position' }))
-    // Assert — no redundant First + Last; one unambiguous choice.
+    // Assert — both Top and Bottom show (consistent shape), even when empty.
     const options = screen.getAllByRole('option')
-    expect(options).toHaveLength(1)
-    expect(options[0]).toHaveTextContent('Top of the column')
+    expect(options).toHaveLength(2)
+    expect(options[0]).toHaveTextContent('First (top)')
+    expect(options[1]).toHaveTextContent('Last (bottom)')
   })
 
   it('disables illegal target lanes when enforcement is on (policy affordances)', async () => {

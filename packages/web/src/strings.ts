@@ -240,8 +240,6 @@ export const strings = {
     positionLabel: 'Position',
     positionFirst: 'First (top)',
     positionLast: 'Last (bottom)',
-    /** Sole option when the target column is empty (no First/Last to weigh). */
-    positionOnly: 'Top of the column',
     positionAfter: (title: string) => `After "${title}"`,
     moveButton: 'Move',
     laneNotAllowed: 'Not allowed from the current column',
