@@ -6,6 +6,7 @@ import {
   Group,
   Loader,
   Modal,
+  MultiSelect,
   Select,
   SimpleGrid,
   Skeleton,
@@ -64,21 +65,24 @@ function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: (
   const [text, setText] = useState(seedQuery)
   const [priority, setPriority] = useState<(typeof PRIORITIES)[number] | null>(null)
   const [lane, setLane] = useState<(typeof LANE_KEYS)[number] | null>(null)
-  const [tag, setTag] = useState<string | null>(null)
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [locationId, setLocationId] = useState<string | null>(null)
-  // Archived cards are in scope by default — this modal is the only place they
-  // surface, so hiding them would defeat its purpose (docs/user/guide.md).
-  const [includeArchived, setIncludeArchived] = useState(true)
+  // Archived scope is a 3-way choice, defaulting to "both" — this modal is the
+  // only place archived cards surface, so they're in scope by default.
+  const [archivedScope, setArchivedScope] = useState<'both' | 'active' | 'archived'>('both')
   // Debounce the free-text so each keystroke doesn't fire a (potentially slow,
   // archive-wide) request; facet selects apply immediately.
   const [debouncedText] = useDebouncedValue(text.trim(), 300)
 
+  const includeArchived = archivedScope !== 'active'
+  const archivedOnly = archivedScope === 'archived'
   const search = useCardSearch({
     q: debouncedText,
     includeArchived,
+    archivedOnly,
     priority,
     lane,
-    tag,
+    tags: selectedTags,
     locationId,
   })
   const board = useBoard()
@@ -99,8 +103,9 @@ function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: (
   // even while the previous results stay on screen (keepPreviousData).
   const searching = search.isFetching && !search.isFetchingNextPage
   const activeFacetCount =
-    [priority, lane, tag, locationId].filter((value) => value !== null).length +
-    (includeArchived ? 0 : 1)
+    [priority, lane, locationId].filter((value) => value !== null).length +
+    (selectedTags.length > 0 ? 1 : 0) +
+    (archivedScope === 'both' ? 0 : 1)
 
   const openCard = (cardId: string) => {
     // Navigating to the card drops `?search=1`, which closes this modal, and
@@ -157,14 +162,14 @@ function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: (
                   setLane(value)
                 }}
               />
-              <Select
+              <MultiSelect
                 label={strings.search.tagFilter}
-                placeholder={strings.search.anyTag}
+                placeholder={selectedTags.length === 0 ? strings.search.anyTag : undefined}
                 data={(tags.data ?? []).map((option) => option.name)}
-                value={tag}
+                value={selectedTags}
                 clearable
                 searchable
-                onChange={setTag}
+                onChange={setSelectedTags}
               />
               <LocationPicker
                 locations={locations.data ?? []}
@@ -176,13 +181,14 @@ function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: (
               <Select
                 label={strings.search.archivedFilter}
                 data={[
-                  { value: 'include', label: strings.search.includeArchived },
-                  { value: 'exclude', label: strings.search.activeOnly },
+                  { value: 'both', label: strings.search.archivedBoth },
+                  { value: 'active', label: strings.search.activeOnly },
+                  { value: 'archived', label: strings.search.archivedOnly },
                 ]}
-                value={includeArchived ? 'include' : 'exclude'}
+                value={archivedScope}
                 allowDeselect={false}
                 onChange={(value) => {
-                  setIncludeArchived(value === 'include')
+                  if (value !== null) setArchivedScope(value)
                 }}
               />
             </SimpleGrid>

@@ -8,10 +8,13 @@ export interface RequestOptions {
   body?: unknown
   /** Card version for `If-Match: "<version>"` optimistic locking (ADR-012). */
   ifMatch?: number
-  query?: Record<string, string | number | boolean | undefined>
+  query?: QueryParams
   /** Multipart payload (attachment upload); mutually exclusive with `body`. */
   formData?: FormData
 }
+
+/** Query values; a string[] repeats the key (`?tags=a&tags=b`) for array filters. */
+export type QueryParams = Record<string, string | number | boolean | string[] | undefined>
 
 export const API_BASE = '/api/v1'
 
@@ -78,15 +81,18 @@ export class ApiClient {
 }
 
 /** Joins base path, resource path, and defined query params. */
-export function buildUrl(
-  path: string,
-  query?: Record<string, string | number | boolean | undefined>,
-): string {
+export function buildUrl(path: string, query?: QueryParams): string {
   const url = `${API_BASE}${path}`
   if (query === undefined) return url
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined) params.set(key, String(value))
+    if (value === undefined) continue
+    if (Array.isArray(value)) {
+      // Repeat the key so the server parses an array (`?tags=a&tags=b`).
+      for (const item of value) params.append(key, item)
+    } else {
+      params.set(key, String(value))
+    }
   }
   const search = params.toString()
   return search === '' ? url : `${url}?${search}`

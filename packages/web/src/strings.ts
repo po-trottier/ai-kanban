@@ -195,20 +195,22 @@ export const strings = {
     queryAriaLabel: 'Search cards',
     /** Collapsible facet section (the search bar stays; only the facets fold). */
     filtersToggle: 'Filters',
-    /** Facet filters (each defaults to "any"). Column maps to the board lane. */
+    /** Facet filters (each defaults to "any"). Column maps to the board lane;
+     * Tags is multi-select (any-of); Location is recursively inclusive. */
     priorityFilter: 'Priority',
     columnFilter: 'Column',
-    tagFilter: 'Tag',
+    tagFilter: 'Tags',
     locationFilter: 'Location',
     anyPriority: 'Any priority',
     anyColumn: 'Any column',
     anyTag: 'Any tag',
     anyLocation: 'Any location',
-    /** Archived-scope combobox (matches the other facet selects). Include is the
-     * default so archived cards are always in scope (docs/user/guide.md). */
+    /** Archived-scope combobox (matches the other facet selects): a 3-way choice
+     * defaulting to both, so archived cards are in scope (docs/user/guide.md). */
     archivedFilter: 'Archived cards',
-    includeArchived: 'Include archived',
+    archivedBoth: 'Active and archived',
     activeOnly: 'Active cards only',
+    archivedOnly: 'Archived only',
     resultsLabel: 'Search results',
     /** Count summary above the results list. */
     resultCount: (count: number) => `${String(count)} ${count === 1 ? 'result' : 'results'}`,

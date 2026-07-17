@@ -9,6 +9,7 @@ import {
   makeCard,
   permissivePolicy,
   policyRecordOf,
+  uid,
 } from '../test/fixtures.ts'
 import { renderApp } from '../test/render.tsx'
 
@@ -97,6 +98,58 @@ describe('SearchModal', () => {
     const results = await screen.findByRole('list', { name: 'Search results' })
     expect(within(results).getByText('Burst pipe')).toBeInTheDocument()
     expect(lastCardsCall(fake)).toContain('priority=P0')
+  })
+
+  it('narrows results with the tags facet (multi-select, any-of)', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const tagged = makeCard('ready', { title: 'HVAC job' })
+    const fake = searchApp({
+      'GET /api/v1/tags': [
+        { id: uid(701), name: 'HVAC' },
+        { id: uid(702), name: 'urgent' },
+      ],
+      'GET /api/v1/cards': (_init: RequestInit | undefined, url: string) =>
+        jsonResponse(
+          url.includes('tags=HVAC')
+            ? { items: [tagged], nextCursor: null }
+            : { items: [], nextCursor: null },
+        ),
+    })
+    renderApp({ fetchFn: fake.fetch, route: '/?search=1' })
+    // Act — pick a tag chip from the multi-select
+    await user.click(await screen.findByRole('combobox', { name: 'Tags' }))
+    await user.click(await screen.findByRole('option', { name: 'HVAC' }))
+    // Assert
+    const results = await screen.findByRole('list', { name: 'Search results' })
+    expect(within(results).getByText('HVAC job')).toBeInTheDocument()
+    expect(lastCardsCall(fake)).toContain('tags=HVAC')
+  })
+
+  it('restricts to archived-only through the 3-way archived-scope facet', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const archived = makeCard('done', {
+      title: 'Old job',
+      resolution: 'completed',
+      archivedAt: '2026-04-01T10:00:00.000Z',
+    })
+    const fake = searchApp({
+      'GET /api/v1/cards': (_init: RequestInit | undefined, url: string) =>
+        jsonResponse(
+          url.includes('archivedOnly=true')
+            ? { items: [archived], nextCursor: null }
+            : { items: [], nextCursor: null },
+        ),
+    })
+    renderApp({ fetchFn: fake.fetch, route: '/?search=1' })
+    // Act — switch the archived scope to "Archived only"
+    await user.click(await screen.findByRole('combobox', { name: 'Archived cards' }))
+    await user.click(await screen.findByRole('option', { name: 'Archived only' }))
+    // Assert
+    const results = await screen.findByRole('list', { name: 'Search results' })
+    expect(within(results).getByText('Old job')).toBeInTheDocument()
+    expect(lastCardsCall(fake)).toContain('archivedOnly=true')
   })
 
   it('narrows results with the column (lane) facet', async () => {

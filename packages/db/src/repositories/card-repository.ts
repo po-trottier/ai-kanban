@@ -6,7 +6,20 @@ import {
   type CardRepository,
   type CursorKey,
 } from '@rivian-kanban/core'
-import { and, asc, desc, eq, exists, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { mapCardWriteError } from '../errors.ts'
 import { attachments, cards, cardTags, locations, tags } from '../schema.ts'
@@ -139,7 +152,11 @@ export class SqliteCardRepository implements CardRepository {
 
   query(filter: CardQueryFilter, page?: { after?: CursorKey; limit?: number }): Promise<Card[]> {
     const conditions: (SQL | undefined)[] = []
-    if (filter.includeArchived !== true) conditions.push(isNull(cards.archivedAt))
+    if (filter.archivedOnly === true) {
+      conditions.push(isNotNull(cards.archivedAt))
+    } else if (filter.includeArchived !== true) {
+      conditions.push(isNull(cards.archivedAt))
+    }
     if (filter.boardId !== undefined) conditions.push(eq(cards.boardId, filter.boardId))
     if (filter.laneId !== undefined) conditions.push(eq(cards.laneId, filter.laneId))
     if (filter.assigneeId !== undefined) conditions.push(eq(cards.assigneeId, filter.assigneeId))
@@ -147,7 +164,9 @@ export class SqliteCardRepository implements CardRepository {
     if (filter.priority !== undefined) {
       conditions.push(eq(cards.priority, filter.priority))
     }
-    if (filter.locationId !== undefined) conditions.push(eq(cards.locationId, filter.locationId))
+    if (filter.locationIds !== undefined && filter.locationIds.length > 0) {
+      conditions.push(inArray(cards.locationId, filter.locationIds))
+    }
     if (filter.blocked !== undefined) conditions.push(eq(cards.blocked, filter.blocked))
     if (filter.waitingReason !== undefined) {
       conditions.push(eq(cards.waitingReason, filter.waitingReason))
@@ -156,16 +175,17 @@ export class SqliteCardRepository implements CardRepository {
       // NULL expected_resume_at never satisfies `<` — matches the port contract.
       conditions.push(lt(cards.expectedResumeAt, filter.overdueBefore))
     }
-    if (filter.tag !== undefined) {
+    if (filter.tags !== undefined && filter.tags.length > 0) {
+      // Any-of: the card carries at least one of the wanted tags (lower()-folded
+      // like the single-tag path, ASCII case-insensitive).
+      const wanted = filter.tags.map((name) => name.toLowerCase())
       conditions.push(
         exists(
           this.db
             .select({ one: sql`1` })
             .from(cardTags)
             .innerJoin(tags, eq(cardTags.tagId, tags.id))
-            .where(
-              and(eq(cardTags.cardId, cards.id), sql`lower(${tags.name}) = lower(${filter.tag})`),
-            ),
+            .where(and(eq(cardTags.cardId, cards.id), inArray(sql`lower(${tags.name})`, wanted))),
         ),
       )
     }

@@ -248,8 +248,15 @@ export class BoardQueryService {
     if (filter.assignee !== undefined) repoFilter.assigneeId = filter.assignee
     if (filter.reporter !== undefined) repoFilter.reporterId = filter.reporter
     if (filter.priority !== undefined) repoFilter.priority = filter.priority
-    if (filter.locationId !== undefined) repoFilter.locationId = filter.locationId
-    if (filter.tag !== undefined) repoFilter.tag = filter.tag
+    if (filter.locationId !== undefined) {
+      // Recursively inclusive: selecting a building matches every card in its
+      // floors and rooms (its whole subtree), not just cards pinned to the
+      // building node itself.
+      repoFilter.locationIds = await locationSubtreeIds(tx, filter.locationId)
+    }
+    // `tags` (any-of, advanced search) supersedes the single `tag` (MCP etc.).
+    const tags = filter.tags ?? (filter.tag !== undefined ? [filter.tag] : undefined)
+    if (tags !== undefined && tags.length > 0) repoFilter.tags = tags
     if (filter.blocked !== undefined) repoFilter.blocked = filter.blocked
     if (filter.waitingReason !== undefined) repoFilter.waitingReason = filter.waitingReason
     if (filter.overdueResume === true) {
@@ -257,12 +264,39 @@ export class BoardQueryService {
     }
     if (filter.q !== undefined) repoFilter.q = filter.q
     if (filter.includeArchived !== undefined) repoFilter.includeArchived = filter.includeArchived
+    if (filter.archivedOnly !== undefined) repoFilter.archivedOnly = filter.archivedOnly
     return repoFilter
   }
 }
 
 async function activeLaneCards(tx: TransactionContext, laneId: string): Promise<Card[]> {
   return tx.cards.listByLane(laneId, { activeOnly: true })
+}
+
+/**
+ * The selected location plus every descendant (building → floors → rooms), so
+ * a location filter is recursively inclusive. Walks the flat location list by
+ * parentId; an unknown root simply yields itself (matching no card).
+ */
+async function locationSubtreeIds(tx: TransactionContext, rootId: string): Promise<string[]> {
+  const all = await tx.locations.list()
+  const childrenByParent = new Map<string, string[]>()
+  for (const location of all) {
+    if (location.parentId === null) continue
+    const siblings = childrenByParent.get(location.parentId) ?? []
+    siblings.push(location.id)
+    childrenByParent.set(location.parentId, siblings)
+  }
+  const ids: string[] = []
+  const stack = [rootId]
+  while (stack.length > 0) {
+    const id = stack.pop()
+    if (id === undefined) continue
+    ids.push(id)
+    const children = childrenByParent.get(id)
+    if (children !== undefined) stack.push(...children)
+  }
+  return ids
 }
 
 /** The card's detail composition — shared by `cardDetail` and `cardDetailWithThread`. */

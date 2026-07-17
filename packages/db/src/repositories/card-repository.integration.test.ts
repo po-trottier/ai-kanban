@@ -289,13 +289,16 @@ describe('query — filters', () => {
     expect(boundary).toEqual([])
   })
 
-  it('matches tags case-insensitively', async () => {
+  it('matches tags case-insensitively (any-of)', async () => {
     const laneId = filterLane()
 
-    const hits = await run((tx) => tx.cards.query({ laneId, tag: 'eLeCtRiCaL' }))
-    const misses = await run((tx) => tx.cards.query({ laneId, tag: 'plumbing' }))
+    const hits = await run((tx) => tx.cards.query({ laneId, tags: ['eLeCtRiCaL'] }))
+    const anyOf = await run((tx) => tx.cards.query({ laneId, tags: ['plumbing', 'ELECTRICAL'] }))
+    const misses = await run((tx) => tx.cards.query({ laneId, tags: ['plumbing'] }))
 
     expect(hits.map((c) => c.title)).toEqual(['Tagged waiting card'])
+    // Any-of: a card with at least one of the wanted tags still matches.
+    expect(anyOf.map((c) => c.title)).toEqual(['Tagged waiting card'])
     expect(misses).toEqual([])
   })
 

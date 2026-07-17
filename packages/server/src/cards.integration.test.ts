@@ -307,7 +307,7 @@ describe('GET /cards — filters', () => {
     }
   })
 
-  it('filters by locationId (a specific room)', async () => {
+  it('filters by locationId recursively (a building matches cards in its rooms)', async () => {
     const solo = await createTestApp()
     try {
       const { cookie: adminCookie } = await solo.asRole('admin')
@@ -344,14 +344,51 @@ describe('GET /cards — filters', () => {
         payload: { title: 'Nowhere in particular' },
       })
 
-      const byLocation = await solo.request(cookie, {
-        method: 'GET',
-        url: `/api/v1/cards?locationId=${roomId}`,
+      // Every level of the tree — room, floor, and building — matches the card
+      // pinned to the leaf room: the filter is recursively inclusive.
+      for (const locationId of [roomId, floorId, buildingId]) {
+        const byLocation = await solo.request(cookie, {
+          method: 'GET',
+          url: `/api/v1/cards?locationId=${locationId}`,
+        })
+        expect(byLocation.json<{ items: CardBody[] }>().items.map((card) => card.id)).toEqual([
+          locatedId,
+        ])
+      }
+    } finally {
+      await solo.cleanup()
+    }
+  })
+
+  it('filters by tags with any-of semantics', async () => {
+    const solo = await createTestApp()
+    try {
+      const { cookie } = await solo.asRole('technician')
+      const hvac = await solo.request(cookie, {
+        method: 'POST',
+        url: '/api/v1/cards',
+        payload: { title: 'HVAC work', tags: ['HVAC'] },
+      })
+      const hvacId = hvac.json<CardBody>().id
+      const plumbing = await solo.request(cookie, {
+        method: 'POST',
+        url: '/api/v1/cards',
+        payload: { title: 'Plumbing work', tags: ['plumbing'] },
+      })
+      const plumbingId = plumbing.json<CardBody>().id
+      await solo.request(cookie, {
+        method: 'POST',
+        url: '/api/v1/cards',
+        payload: { title: 'Untagged work' },
       })
 
-      expect(byLocation.json<{ items: CardBody[] }>().items.map((card) => card.id)).toEqual([
-        locatedId,
-      ])
+      // Any-of: a card carrying at least one of the requested tags matches.
+      const byTags = await solo.request(cookie, {
+        method: 'GET',
+        url: '/api/v1/cards?tags=HVAC&tags=plumbing',
+      })
+      const ids = new Set(byTags.json<{ items: CardBody[] }>().items.map((card) => card.id))
+      expect(ids).toEqual(new Set([hvacId, plumbingId]))
     } finally {
       await solo.cleanup()
     }
@@ -373,14 +410,32 @@ describe('GET /cards — filters', () => {
         if (row) await tx.cards.update({ ...row, archivedAt: new Date().toISOString() })
       })
 
+      // A second, still-active card so the three scopes are distinguishable.
+      const active = await solo.request(cookie, {
+        method: 'POST',
+        url: '/api/v1/cards',
+        payload: { title: 'Fresh work' },
+      })
+      const activeId = active.json<CardBody>().id
+
       const withoutFlag = await solo.request(cookie, { method: 'GET', url: '/api/v1/cards' })
       const withFlag = await solo.request(cookie, {
         method: 'GET',
         url: '/api/v1/cards?includeArchived=true',
       })
+      const archivedOnly = await solo.request(cookie, {
+        method: 'GET',
+        url: '/api/v1/cards?archivedOnly=true',
+      })
 
-      expect(withoutFlag.json<{ items: CardBody[] }>().items).toHaveLength(0)
-      expect(withFlag.json<{ items: CardBody[] }>().items.map((c) => c.id)).toEqual([card.id])
+      // active only → the fresh card, not the archived one.
+      expect(withoutFlag.json<{ items: CardBody[] }>().items.map((c) => c.id)).toEqual([activeId])
+      // both → active and archived.
+      expect(new Set(withFlag.json<{ items: CardBody[] }>().items.map((c) => c.id))).toEqual(
+        new Set([activeId, card.id]),
+      )
+      // archived only → just the archived card.
+      expect(archivedOnly.json<{ items: CardBody[] }>().items.map((c) => c.id)).toEqual([card.id])
     } finally {
       await solo.cleanup()
     }

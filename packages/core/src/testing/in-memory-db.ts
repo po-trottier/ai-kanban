@@ -316,13 +316,19 @@ class InMemoryCardRepository implements CardRepository {
   }
 
   private matches(card: Card, filter: CardQueryFilter): boolean {
-    if (filter.includeArchived !== true && card.archivedAt !== null) return false
+    if (filter.archivedOnly === true) {
+      if (card.archivedAt === null) return false
+    } else if (filter.includeArchived !== true && card.archivedAt !== null) {
+      return false
+    }
     if (filter.boardId !== undefined && card.boardId !== filter.boardId) return false
     if (filter.laneId !== undefined && card.laneId !== filter.laneId) return false
     if (filter.assigneeId !== undefined && card.assigneeId !== filter.assigneeId) return false
     if (filter.reporterId !== undefined && card.reporterId !== filter.reporterId) return false
     if (filter.priority !== undefined && card.priority !== filter.priority) return false
-    if (filter.locationId !== undefined && card.locationId !== filter.locationId) return false
+    if (filter.locationIds !== undefined) {
+      if (card.locationId === null || !filter.locationIds.includes(card.locationId)) return false
+    }
     if (filter.blocked !== undefined && card.blocked !== filter.blocked) return false
     if (filter.waitingReason !== undefined && card.waitingReason !== filter.waitingReason) {
       return false
@@ -332,15 +338,16 @@ class InMemoryCardRepository implements CardRepository {
         return false
       }
     }
-    if (filter.tag !== undefined) {
-      const wanted = filter.tag.toLowerCase()
+    if (filter.tags !== undefined && filter.tags.length > 0) {
+      const wanted = filter.tags.map((name) => name.toLowerCase())
       const tagIds = this.state.cardTags
         .filter((row) => row.cardId === card.id)
         .map((row) => row.tagId)
       const names = this.state.tags
         .filter((tag) => tagIds.includes(tag.id))
         .map((tag) => tag.name.toLowerCase())
-      if (!names.includes(wanted)) return false
+      // Any-of: keep the card when it carries at least one of the wanted tags.
+      if (!names.some((name) => wanted.includes(name))) return false
     }
     if (filter.q !== undefined) {
       const haystack = `${card.title}\n${card.description}`.toLowerCase()

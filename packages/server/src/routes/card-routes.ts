@@ -44,6 +44,13 @@ const listCardsQuerySchema = z.object({
   blocked: z.stringbool().optional(),
   overdueResume: z.stringbool().optional(),
   includeArchived: z.stringbool().optional(),
+  archivedOnly: z.stringbool().optional(),
+  // A repeated query key (`?tags=a&tags=b`) parses to an array, a single one to
+  // a string — normalize the lone string to a one-element array before validation.
+  tags: z.preprocess(
+    (value) => (value === undefined || Array.isArray(value) ? value : [value]),
+    listCardsFilterSchema.shape.tags,
+  ),
   cursor: pageRequestSchema.shape.cursor,
   limit: queryLimitSchema,
 })

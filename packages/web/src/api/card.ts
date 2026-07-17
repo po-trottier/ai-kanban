@@ -57,10 +57,13 @@ export function useCardEvents(cardId: string) {
 export interface CardSearchFilters {
   q: string
   includeArchived: boolean
-  /** Advanced-search facets; an unset facet (null) is omitted from the request. */
+  /** Restrict to archived cards only (the third archived-scope state). */
+  archivedOnly?: boolean
+  /** Advanced-search facets; an unset facet (null / empty) is omitted from the request. */
   priority?: Priority | null
   lane?: LaneKey | null
-  tag?: string | null
+  /** Any-of tag match: a card with at least one of these tags. */
+  tags?: string[]
   locationId?: string | null
 }
 
@@ -75,9 +78,10 @@ export function useCardSearch(filters: CardSearchFilters) {
         query: {
           q: filters.q === '' ? undefined : filters.q,
           includeArchived: filters.includeArchived ? true : undefined,
+          archivedOnly: filters.archivedOnly ? true : undefined,
           priority: filters.priority ?? undefined,
           lane: filters.lane ?? undefined,
-          tag: filters.tag ?? undefined,
+          tags: filters.tags && filters.tags.length > 0 ? filters.tags : undefined,
           locationId: filters.locationId ?? undefined,
           cursor: pageParam,
         },

@@ -12,10 +12,13 @@ async function search(page: Page, query: string): Promise<void> {
   await page.getByLabel('Search cards').fill(query)
 }
 
-/** Switch the archived-scope facet (a combobox, default "Include archived"). */
-async function setArchivedScope(page: Page, option: 'Include archived' | 'Active cards only') {
+/** Switch the archived-scope facet (a 3-way combobox, default "Active and archived"). */
+async function setArchivedScope(
+  page: Page,
+  option: 'Active and archived' | 'Active cards only' | 'Archived only',
+) {
   await page.getByRole('combobox', { name: 'Archived cards' }).click()
-  await page.getByRole('option', { name: option }).click()
+  await page.getByRole('option', { name: option, exact: true }).click()
 }
 
 test('finds a seeded card by substring', async ({ page, context }) => {
@@ -50,7 +53,8 @@ test('surfaces the archived demo card (in scope by default), read-only until reo
   // Narrowing to active-only proves the archived-scope facet filters it out.
   await setArchivedScope(page, 'Active cards only')
   await expect(page.getByText('No cards match your search.')).toBeVisible()
-  await setArchivedScope(page, 'Include archived')
+  // "Archived only" brings it back (it is archived).
+  await setArchivedScope(page, 'Archived only')
   await expect(result).toBeVisible()
 
   await result.click()

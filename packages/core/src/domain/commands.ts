@@ -146,15 +146,21 @@ export const listCardsFilterSchema = z.strictObject({
   assignee: z.uuid().optional(),
   reporter: z.uuid().optional(),
   priority: prioritySchema.optional(),
-  /** A specific location (building/floor/room); matched exactly against the card's own location. */
+  /** A location (building/floor/room); matches the card's own location and, by
+   * the query service, every card in that location's subtree. */
   locationId: z.uuid().optional(),
+  /** Single tag match, case-insensitive (kept for existing callers e.g. MCP). */
   tag: tagNameSchema.optional(),
+  /** Any-of tag match: a card with at least one of these tags (advanced search). */
+  tags: z.array(tagNameSchema).max(20).optional(),
   blocked: z.boolean().optional(),
   waitingReason: waitingReasonSchema.optional(),
   overdueResume: z.boolean().optional(),
   /** Title + description substring match, case-insensitive; capped on every surface. */
   q: z.string().max(200).optional(),
   includeArchived: z.boolean().optional(),
+  /** Restrict to archived cards only (takes precedence over includeArchived). */
+  archivedOnly: z.boolean().optional(),
 })
 export type ListCardsFilter = z.infer<typeof listCardsFilterSchema>
 

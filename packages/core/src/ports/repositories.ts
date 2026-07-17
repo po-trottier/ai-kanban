@@ -39,10 +39,11 @@ export interface CardQueryFilter {
   assigneeId?: string
   reporterId?: string
   priority?: Priority
-  /** A specific location id; matched exactly against the card's own location. */
-  locationId?: string
-  /** Tag name, matched case-insensitively. */
-  tag?: string
+  /** Location ids to match a card's own location against — a selected location
+   * plus its descendants, so a location filter is recursively inclusive. */
+  locationIds?: string[]
+  /** Tag names (any-of), matched case-insensitively: a card with at least one. */
+  tags?: string[]
   blocked?: boolean
   waitingReason?: WaitingReason
   /** Matches cards whose expectedResumeAt is strictly before this `YYYY-MM-DD` date. */
@@ -51,6 +52,8 @@ export interface CardQueryFilter {
   q?: string
   /** Default false: archived cards are excluded. */
   includeArchived?: boolean
+  /** Restrict to archived cards only (takes precedence over includeArchived). */
+  archivedOnly?: boolean
 }
 
 export interface CardRepository {
