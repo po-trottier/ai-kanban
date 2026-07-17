@@ -1,6 +1,14 @@
 import { notifications } from '@mantine/notifications'
+import { type ReactNode } from 'react'
 import { strings } from '../strings.ts'
 import { isConflictError } from './problem.ts'
+
+/** Confirms a successful mutation — a green, clearly-visible toast (not a plain
+ * white card that blends into the app background). Accepts rich content so a
+ * message can bold its subject (e.g. the destination lane). */
+export function notifySuccess(message: ReactNode): void {
+  notifications.show({ message, color: 'teal' })
+}
 
 /** Toasts a failed mutation with the problem+json title (generic fallback). */
 export function notifyError(error: unknown): void {

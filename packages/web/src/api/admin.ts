@@ -7,12 +7,11 @@ import {
   type UpdateLaneInput,
   type UpdateUserInput,
 } from '@rivian-kanban/core'
-import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { strings } from '../strings.ts'
 import { useApi } from './api-context.ts'
 import { queryKeys } from './keys.ts'
-import { notifyError } from './notify.ts'
+import { notifyError, notifySuccess } from './notify.ts'
 import { isConflictError } from './problem.ts'
 import {
   adminUserResponseSchema,
@@ -32,7 +31,7 @@ export function useCreateUser() {
     mutationFn: (input: CreateUserInput) =>
       api.post('/users', adminUserResponseSchema, { body: input }),
     onSuccess: () => {
-      notifications.show({ message: strings.users.userCreated })
+      notifySuccess(strings.users.userCreated)
       void queryClient.invalidateQueries({ queryKey: queryKeys.users })
     },
     onError: notifyError,
@@ -46,7 +45,7 @@ export function usePatchUser() {
     mutationFn: ({ userId, input }: { userId: string; input: UpdateUserInput }) =>
       api.patch(`/users/${userId}`, adminUserResponseSchema, { body: input }),
     onSuccess: () => {
-      notifications.show({ message: strings.users.userUpdated })
+      notifySuccess(strings.users.userUpdated)
       void queryClient.invalidateQueries({ queryKey: queryKeys.users })
     },
     onError: notifyError,
@@ -61,9 +60,7 @@ export function usePatchLane() {
       api.patch(`/lanes/${laneId}`, laneSchema, { body: input }),
     onSuccess: (_lane, { label }) => {
       // Name the column so a table of identical Save buttons confirms clearly.
-      notifications.show({
-        message: label === undefined ? strings.lanes.saved : strings.lanes.savedNamed(label),
-      })
+      notifySuccess(label === undefined ? strings.lanes.saved : strings.lanes.savedNamed(label))
       void queryClient.invalidateQueries({ queryKey: queryKeys.board })
     },
     onError: notifyError,
@@ -78,7 +75,7 @@ export function usePutPolicy() {
     mutationFn: (document: PolicyDocument) =>
       api.put('/policy', policyResponseSchema, { body: document }),
     onSuccess: () => {
-      notifications.show({ message: strings.policy.saved })
+      notifySuccess(strings.policy.saved)
       void queryClient.invalidateQueries({ queryKey: queryKeys.policy })
     },
     onError: notifyError,

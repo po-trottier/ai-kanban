@@ -7,13 +7,13 @@ import {
   type CreateCardInput,
   type UpdateCardInput,
 } from '@rivian-kanban/core'
-import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { strings } from '../strings.ts'
 import { useApi } from './api-context.ts'
 import { applyMoveToBoard, type MoveIntent } from './board-cache.ts'
 import { queryKeys } from './keys.ts'
-import { notifyCardError } from './notify.ts'
+import { notifyCardError, notifySuccess } from './notify.ts'
+import { movedToMessage } from './toast-messages.tsx'
 import { boardResponseSchema, type BoardResponse } from './schemas.ts'
 
 export function useBoard() {
@@ -64,12 +64,9 @@ export function useMoveCard(onMoved?: (args: MoveCardArgs) => void) {
     onSuccess: (_card, args) => {
       // Every move confirms on-screen (a non-technical user needs reassurance
       // the action took) — naming the destination lane when we know it.
-      notifications.show({
-        message:
-          args.laneLabel === undefined
-            ? strings.board.moved
-            : strings.board.movedTo(args.laneLabel),
-      })
+      notifySuccess(
+        args.laneLabel === undefined ? strings.board.moved : movedToMessage(args.laneLabel),
+      )
       onMoved?.(args)
     },
     onSettled: () => {
@@ -84,7 +81,7 @@ export function useCreateCard() {
   return useMutation({
     mutationFn: (input: CreateCardInput) => api.post('/cards', cardSchema, { body: input }),
     onSuccess: () => {
-      notifications.show({ message: strings.newCard.created })
+      notifySuccess(strings.newCard.created)
       void queryClient.invalidateQueries({ queryKey: queryKeys.board })
     },
     onError: notifyCardError,
@@ -104,7 +101,7 @@ export function useUpdateCard() {
       changes: Omit<UpdateCardInput, 'expectedVersion'>
     }) => api.patch(`/cards/${card.id}`, cardSchema, { body: changes, ifMatch: card.version }),
     onSuccess: (updated) => {
-      notifications.show({ message: strings.detail.fieldsSaved })
+      notifySuccess(strings.detail.fieldsSaved)
       invalidateCard(queryClient, updated.id)
     },
     onError: (error, { card }) => {
@@ -145,7 +142,7 @@ export function useCardAction() {
     onSuccess: (updated, { action }) => {
       // Name the outcome and (for cancel/reopen) its destination lane so a
       // card that "vanishes" to Done is never a mystery (workflow.md).
-      notifications.show({ message: ACTION_TOAST[action] })
+      notifySuccess(ACTION_TOAST[action])
       invalidateCard(queryClient, updated.id)
     },
     onError: (error, { card }) => {

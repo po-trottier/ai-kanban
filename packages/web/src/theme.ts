@@ -1,6 +1,7 @@
 import {
   createTheme,
   MultiSelect,
+  Notification,
   Select,
   type CSSVariablesResolver,
   type MantineColor,
@@ -60,6 +61,9 @@ export const theme = createTheme({
   components: {
     Select: Select.extend({ defaultProps: { checkIconPosition: 'right' } }),
     MultiSelect: MultiSelect.extend({ defaultProps: { checkIconPosition: 'right' } }),
+    // Toasts get a visible border + shadow so they stand out from the white app
+    // background instead of blending into it.
+    Notification: Notification.extend({ defaultProps: { withBorder: true } }),
   },
   other,
 })

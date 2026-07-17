@@ -119,7 +119,8 @@ export const strings = {
     loadFailed: 'The board could not be loaded.',
     /** Move confirmation toasts (every move reassures a non-technical user). */
     moved: 'Card moved',
-    movedTo: (lane: string) => `Card moved to ${lane}`,
+    /** Prefix for the move toast; the destination lane is bolded after it. */
+    movedToPrefix: 'Card moved to ',
     /** WIP badge tooltip + visible over-limit cue. */
     wipTooltip: (count: number, limit: number) =>
       `${String(count)} of ${String(limit)} — this column's work-in-progress limit`,

@@ -1,10 +1,10 @@
 import { PASSWORD_MIN_LENGTH } from '@rivian-kanban/core'
 import { Button, Center, Paper, PasswordInput, Stack, Text, Title } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { useChangePassword } from '../api/auth.ts'
+import { notifySuccess } from '../api/notify.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
@@ -45,7 +45,7 @@ export function ChangePasswordPage() {
                 { currentPassword: values.currentPassword, newPassword: values.newPassword },
                 {
                   onSuccess: () => {
-                    notifications.show({ message: strings.auth.passwordChanged })
+                    notifySuccess(strings.auth.passwordChanged)
                   },
                 },
               )

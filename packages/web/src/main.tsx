@@ -28,7 +28,7 @@ if (root) {
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>
             <ApiContext.Provider value={apiClient}>
-              <Notifications position="bottom-right" />
+              <Notifications position="top-right" />
               <RouterProvider router={router} />
             </ApiContext.Provider>
           </QueryClientProvider>
