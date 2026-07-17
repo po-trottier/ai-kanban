@@ -1,0 +1,27 @@
+# ADR-009: Server-side sessions for the web; bearer service tokens for MCP
+
+**Status**: accepted (2026-07-16)
+
+## Context
+
+Pilot auth is local accounts (PO decision) with OIDC/SSO later. Research suggested
+@fastify/jwt; the choice deserved scrutiny.
+
+## Decision
+
+- **Web: server-side sessions**, not JWTs. Random 256-bit id in an httpOnly/Secure/SameSite=Lax
+  cookie, stored hashed in the `sessions` table, sliding expiry. Rationale: instant revocation
+  (logout, deactivation), no signing-key rotation, no refresh-token dance, trivially correct —
+  and one extra indexed SQLite read per request is free at this scale. JWT's stateless-scaling
+  benefit is worthless on a deliberately single-node deployment.
+- **MCP: bearer service tokens** (admin-issued, sha256-hashed, role-scoped, revocable). The
+  MCP auth spec's full OAuth resource-server behavior (RFC 9728 metadata, IdP-issued tokens)
+  is adopted at the OIDC cutover, when an authorization server actually exists.
+- **OIDC-ready**: the login handler is the only component that knows about passwords. OIDC
+  replaces it (code flow → find-or-create user → same session issuance); sessions, RBAC, and
+  every downstream consumer are unchanged.
+
+## Consequences
+
+A `sessions` table and periodic purge job. No JWT libraries in v1. Slack actors never get
+sessions — Bolt resolves them per-event to an `Actor` by verified email.

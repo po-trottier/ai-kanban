@@ -1,0 +1,32 @@
+# ADR-004: Hexagonal architecture — one framework-free core, three thin inbound adapters
+
+**Status**: accepted (2026-07-16)
+
+## Context
+
+Three consumer surfaces (REST, MCP, Slack) must behave identically: same rules, same RBAC, same
+audit trail. Storage, blob store, LLM, Slack client, clock, ids, notifications, and event bus
+must all be swappable (SQLite→Postgres, disk→S3, none→SMTP, local→OIDC).
+
+## Decision
+
+Ports-and-adapters:
+
+- `packages/core` holds entities, Zod schemas, the policy module (RBAC + transition matrix),
+  services (CardService, CommentService, AuditService, BoardQueryService, AttachmentService),
+  and **ports** (interfaces): CardRepository, CommentRepository, UserRepository, UnitOfWork,
+  EventBus, Clock, IdGenerator, BlobStorePort, SummarizerPort, SlackClientPort, NotifierPort.
+  Core imports no framework or IO library — enforced by dependency-cruiser.
+- Inbound adapters (REST routes, MCP tool handlers, Bolt listeners) translate protocol ↔
+  service calls and construct an `Actor`; they contain no business logic. "Thin" is reviewable:
+  an adapter that branches on domain state is a rule violation.
+- Outbound adapters implement ports: Drizzle repositories (db package), local-disk blob store,
+  Anthropic summarizer, Slack WebClient, croner scheduler, in-process EventBus.
+- `packages/server` is the composition root: it wires adapters to ports and owns startup order.
+
+## Consequences
+
+Unit tests exercise services against in-memory port fakes (hand-written, not mocking-library
+constructs). Every infrastructure swap named in the requirements is a new adapter, not a core
+change. The cost — interface indirection — is accepted as the price of the swap guarantees and
+of the three-surface identical-behavior requirement.
