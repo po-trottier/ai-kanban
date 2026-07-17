@@ -69,5 +69,5 @@ The table is a summary only; the [LICENSE](LICENSE) text governs.
 - **Backend**: Node 24 LTS, Fastify 5, Drizzle ORM on better-sqlite3 (WAL), SSE realtime
 - **MCP**: official `@modelcontextprotocol/sdk` (Streamable HTTP at `/mcp`)
 - **Slack**: Bolt (Socket Mode), Anthropic API for optional thread summarization
-- **Frontend**: React 19, Vite, Pragmatic drag-and-drop, TanStack Query, Tailwind 4 + shadcn/ui
+- **Frontend**: React 19, Vite, Pragmatic drag-and-drop, TanStack Query, Mantine 9 (ADR-016)
 - **Testing**: Vitest (unit + no-mock integration), Playwright (e2e)
