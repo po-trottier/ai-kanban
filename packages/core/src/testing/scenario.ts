@@ -157,6 +157,7 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
     const card = cardWith({
       id: fixtureId(seedCounter),
       boardId,
+      number: seedCounter,
       title: `Card ${seedCounter.toString()}`,
       reporterId: users.requester.id,
       createdAt: nowIso,

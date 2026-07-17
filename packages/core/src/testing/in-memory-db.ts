@@ -239,6 +239,13 @@ class InMemoryCardRepository implements CardRepository {
     return Promise.resolve(card ? clone(card) : null)
   }
 
+  nextCardNumber(boardId: string): Promise<number> {
+    const max = this.state.cards
+      .filter((card) => card.boardId === boardId)
+      .reduce((highest, card) => Math.max(highest, card.number), 0)
+    return Promise.resolve(max + 1)
+  }
+
   insert(card: Card): Promise<void> {
     this.assertUniquePosition(card)
     this.state.cards.push(clone(card))

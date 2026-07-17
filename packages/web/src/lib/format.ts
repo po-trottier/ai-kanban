@@ -71,6 +71,11 @@ export function formatDate(iso: string): string {
   return dayjs(iso).format('MMM D')
 }
 
+/** The human-readable ticket number ("#42") shown on cards, the panel, and search. */
+export function formatTicketNumber(cardNumber: number): string {
+  return `#${String(cardNumber)}`
+}
+
 /** Initials for avatar fallbacks: "Ada Lovelace" → "AL". */
 export function initials(displayName: string): string {
   return displayName

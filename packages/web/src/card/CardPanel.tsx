@@ -31,7 +31,7 @@ import { useLocations, usePolicy, useTags, useUsers } from '../api/meta.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
 import { CardBadges } from '../board/CardBadges.tsx'
 import { canPerformAction } from '../board/move-options.ts'
-import { utcToday } from '../lib/format.ts'
+import { formatTicketNumber, utcToday } from '../lib/format.ts'
 import { CloseIcon } from '../shell/icons.tsx'
 import { useCardPanelSlot } from '../shell/card-panel-slot.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
@@ -133,6 +133,9 @@ export function CardPanel({ cardId }: { cardId: string }) {
             </Text>
           ) : (
             <>
+              <Text fw={EMPHASIS_FONT_WEIGHT} c="dimmed">
+                {formatTicketNumber(card.number)}
+              </Text>
               <Text fw={EMPHASIS_FONT_WEIGHT} lineClamp={1}>
                 {card.title}
               </Text>

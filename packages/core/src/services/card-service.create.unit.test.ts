@@ -22,6 +22,19 @@ describe('CardService.create', () => {
     expect(card.version).toBe(1)
   })
 
+  it('assigns sequential, per-board ticket numbers starting at 1', async () => {
+    // Arrange — a fresh board has no cards yet
+    const scenario = createScenario()
+
+    // Act
+    const first = await scenario.cards.create(scenario.actors.requester, { title: 'First' })
+    const second = await scenario.cards.create(scenario.actors.technician, { title: 'Second' })
+
+    // Assert
+    expect(first.number).toBe(1)
+    expect(second.number).toBe(2)
+  })
+
   it('writes a card.created audit event with a full snapshot including tags', async () => {
     // Arrange
     const scenario = createScenario()

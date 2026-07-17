@@ -58,6 +58,13 @@ export interface CardQueryFilter {
 
 export interface CardRepository {
   findById(id: string): Promise<Card | null>
+  /**
+   * The next sequential ticket number for the board — `MAX(number) + 1`, or 1
+   * for the first card. Called inside the create transaction; SQLite's single
+   * writer makes read-then-insert atomic, and UNIQUE(board_id, number) is the
+   * backstop (the Postgres port would use a sequence).
+   */
+  nextCardNumber(boardId: string): Promise<number>
   /** May reject with DuplicatePositionError — the UNIQUE(laneId, position) backstop. */
   insert(card: Card): Promise<void>
   /** May reject with DuplicatePositionError — the UNIQUE(laneId, position) backstop. */

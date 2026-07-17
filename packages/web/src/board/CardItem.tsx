@@ -3,7 +3,7 @@ import { Avatar, Badge, Group, Paper, Text, Tooltip } from '@mantine/core'
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { useRef } from 'react'
 import { type PickerUser } from '../api/schemas.ts'
-import { formatDate, formatEstimate, initials } from '../lib/format.ts'
+import { formatDate, formatEstimate, formatTicketNumber, initials } from '../lib/format.ts'
 import { PinIcon } from '../shell/icons.tsx'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT, PRIORITY_COLORS } from '../theme.ts'
@@ -72,11 +72,16 @@ export function CardItem({
         onOpen(card.id)
       }}
     >
-      {/* Title … priority + menu */}
+      {/* #number · title … priority + menu */}
       <Group justify="space-between" align="center" wrap="nowrap" gap="xs">
-        <Text size="sm" fw={EMPHASIS_FONT_WEIGHT} truncate className={classes.grow}>
-          {card.title}
-        </Text>
+        <Group gap={6} wrap="nowrap" className={classes.grow}>
+          <Text size="xs" c="dimmed" fw={EMPHASIS_FONT_WEIGHT}>
+            {formatTicketNumber(card.number)}
+          </Text>
+          <Text size="sm" fw={EMPHASIS_FONT_WEIGHT} truncate className={classes.grow}>
+            {card.title}
+          </Text>
+        </Group>
         <Group gap="xs" wrap="nowrap">
           <Badge color={PRIORITY_COLORS[card.priority]} size="sm" variant="filled">
             {strings.priorities[card.priority]}

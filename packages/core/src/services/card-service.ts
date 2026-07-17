@@ -132,6 +132,7 @@ export class CardService {
       const card: Card = {
         id: this.deps.ids.newId(),
         boardId: this.deps.boardId,
+        number: await tx.cards.nextCardNumber(this.deps.boardId),
         laneId: intake.id,
         position: generateKeyBetween(null, top?.position ?? null),
         title: input.title,

@@ -275,6 +275,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       const card = cardWith({
         id: ids.newId(),
         boardId: board.id,
+        number: cardCount,
         position: appendPosition(positionIndex),
         reporterId: demoUsers.requester.id,
         createdAt,

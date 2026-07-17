@@ -8,12 +8,18 @@ import { type Card, type Comment, type User } from '../domain/entities.ts'
  * required keys.
  */
 
+/** Auto-incrementing default ticket number so fixtures never collide on the
+ * UNIQUE(board_id, number) index; callers that care set `number` explicitly. */
+let nextDefaultNumber = 0
+
 /** A neutral Card: P2, manual, unblocked, no slack metadata, version 1, live. */
 export function cardWith(
   overrides: Partial<Card> &
     Pick<Card, 'id' | 'boardId' | 'laneId' | 'position' | 'reporterId' | 'createdAt'>,
 ): Card {
+  nextDefaultNumber += 1
   return {
+    number: nextDefaultNumber,
     title: 'Card',
     description: '',
     priority: 'P2',

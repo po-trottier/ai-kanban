@@ -127,6 +127,8 @@ export const cards = sqliteTable(
     boardId: text('board_id')
       .notNull()
       .references(() => boards.id),
+    /** Human-readable sequential ticket number, UNIQUE(board_id, number). */
+    number: integer('number').notNull(),
     laneId: text('lane_id')
       .notNull()
       .references(() => lanes.id),
@@ -167,6 +169,8 @@ export const cards = sqliteTable(
   (table) => [
     /** The concurrent-duplicate backstop (ADR-006) → DuplicatePositionError. */
     uniqueIndex('cards_lane_id_position_unique').on(table.laneId, table.position),
+    /** Sequential ticket-number uniqueness per board (also serves `MAX(number)`). */
+    uniqueIndex('cards_board_id_number_unique').on(table.boardId, table.number),
     index('cards_board_id_archived_at_idx').on(table.boardId, table.archivedAt),
     index('cards_assignee_id_idx').on(table.assigneeId),
     index('cards_reporter_id_idx').on(table.reporterId),

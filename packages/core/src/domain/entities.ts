@@ -73,6 +73,9 @@ export type Location = z.infer<typeof locationSchema>
 export const cardSchema = z.strictObject({
   id: z.uuid(),
   boardId: z.uuid(),
+  /** Human-readable sequential ticket number, unique per board (Jira-style),
+   * assigned atomically on create. The UUID `id` stays the internal key. */
+  number: z.number().int().positive(),
   laneId: z.uuid(),
   /** Fractional ordering key, UNIQUE(laneId, position) (ADR-006). */
   position: z.string().min(1),

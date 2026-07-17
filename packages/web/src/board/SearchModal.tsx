@@ -24,7 +24,7 @@ import { useCardSearch } from '../api/card.ts'
 import { useLocations, useTags, useUsers } from '../api/meta.ts'
 import { LocationPicker } from '../card/LocationPicker.tsx'
 import { cx } from '../lib/cx.ts'
-import { formatEstimate, utcToday } from '../lib/format.ts'
+import { formatEstimate, formatTicketNumber, utcToday } from '../lib/format.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { PinIcon, SearchIcon } from '../shell/icons.tsx'
 import { useBoardSearchQuery } from '../shell/board-search-param.ts'
@@ -381,11 +381,16 @@ function SearchResultCard({
         onOpen(card.id)
       }}
     >
-      {/* One dense line: title (ellipsized) then badges, lane, and dimmed meta. */}
+      {/* One dense line: #number, title (ellipsized), badges, lane, dimmed meta. */}
       <Group wrap="nowrap" align="center" gap="sm">
-        <Text size="sm" fw={EMPHASIS_FONT_WEIGHT} truncate className={classes.grow}>
-          {card.title}
-        </Text>
+        <Group gap={6} wrap="nowrap" className={classes.grow}>
+          <Text size="xs" c="dimmed" fw={EMPHASIS_FONT_WEIGHT}>
+            {formatTicketNumber(card.number)}
+          </Text>
+          <Text size="sm" fw={EMPHASIS_FONT_WEIGHT} truncate className={classes.grow}>
+            {card.title}
+          </Text>
+        </Group>
         <CardBadges card={card} today={today} />
         {laneLabel === undefined ? null : (
           <Badge color="gray" size="sm" variant="light">
