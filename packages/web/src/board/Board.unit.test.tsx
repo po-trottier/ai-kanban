@@ -129,12 +129,12 @@ describe('Board', () => {
         onMenuAction={noop}
       />,
     )
-    // Assert — the message shows and the link forwards the current query to
-    // /search (not the first-run "New card" CTA, which would be wrong here).
+    // Assert — the message shows and the link opens advanced search (`?search=1`)
+    // carrying the current query (not the first-run "New card" CTA, wrong here).
     expect(screen.getByText('No cards match your filter')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'New card' })).not.toBeInTheDocument()
     const link = screen.getByRole('link', { name: 'Search all cards, including archived' })
-    expect(link).toHaveAttribute('href', '/search?q=boiler')
+    expect(link).toHaveAttribute('href', '/?q=boiler&search=1')
   })
 
   it('shows the assignee avatar with initials', () => {

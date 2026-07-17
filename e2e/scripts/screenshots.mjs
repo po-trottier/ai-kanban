@@ -150,16 +150,19 @@ try {
   await shot(page, '08c-badge-legend-modal')
   await page.keyboard.press('Escape')
 
-  // ITEM A: archived/global search is no longer a permanent header button —
-  // reach the /search page by URL (its affordance also lives in the board-
-  // filter no-results state).
-  await page.goto(`${BASE}/search`)
-  await page.getByRole('textbox', { name: 'Search' }).fill('door')
-  // Submit so the shot shows actual filtered results, not the idle page.
-  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  // ITEM A: archived/global search is a modal opened from the header field's
+  // sliders icon (also reached via the board no-matches link and the legacy
+  // /search redirect). It searches live across every card with a collapsible
+  // facet panel; archived cards are in scope by default.
+  await page.getByRole('button', { name: 'Advanced search' }).click()
+  await page.getByRole('textbox', { name: 'Search cards' }).fill('door')
+  await page.getByRole('list', { name: 'Search results' }).waitFor()
   await shot(page, '09-search')
-  await page.getByRole('checkbox', { name: 'Include archived' }).check()
+  // Archived is in scope by default, so the seeded archived card surfaces.
+  await page.getByRole('textbox', { name: 'Search cards' }).fill('fire extinguisher')
+  await page.getByText('Annual fire extinguisher inspection').waitFor()
   await shot(page, '10-search-archived')
+  await page.keyboard.press('Escape')
 
   await page.goto(`${BASE}/settings`)
   await page.getByRole('tab', { name: 'Users' }).click()

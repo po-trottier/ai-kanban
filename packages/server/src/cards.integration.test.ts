@@ -307,6 +307,56 @@ describe('GET /cards — filters', () => {
     }
   })
 
+  it('filters by locationId (a specific room)', async () => {
+    const solo = await createTestApp()
+    try {
+      const { cookie: adminCookie } = await solo.asRole('admin')
+      const { cookie } = await solo.asRole('technician')
+      // Build a minimal building → floor → room to place one card in.
+      const building = await solo.request(adminCookie, {
+        method: 'POST',
+        url: '/api/v1/locations',
+        payload: { kind: 'building', name: 'Filter Building' },
+      })
+      const buildingId = building.json<{ id: string }>().id
+      const floor = await solo.request(adminCookie, {
+        method: 'POST',
+        url: '/api/v1/locations',
+        payload: { kind: 'floor', name: 'Filter Floor', parentId: buildingId },
+      })
+      const floorId = floor.json<{ id: string }>().id
+      const room = await solo.request(adminCookie, {
+        method: 'POST',
+        url: '/api/v1/locations',
+        payload: { kind: 'room', name: 'Filter Room', parentId: floorId },
+      })
+      const roomId = room.json<{ id: string }>().id
+
+      const located = await solo.request(cookie, {
+        method: 'POST',
+        url: '/api/v1/cards',
+        payload: { title: 'In the room', locationId: roomId },
+      })
+      const locatedId = located.json<CardBody>().id
+      await solo.request(cookie, {
+        method: 'POST',
+        url: '/api/v1/cards',
+        payload: { title: 'Nowhere in particular' },
+      })
+
+      const byLocation = await solo.request(cookie, {
+        method: 'GET',
+        url: `/api/v1/cards?locationId=${roomId}`,
+      })
+
+      expect(byLocation.json<{ items: CardBody[] }>().items.map((card) => card.id)).toEqual([
+        locatedId,
+      ])
+    } finally {
+      await solo.cleanup()
+    }
+  })
+
   it('excludes archived cards unless includeArchived=true', async () => {
     const solo = await createTestApp()
     try {

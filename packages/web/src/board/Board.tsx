@@ -16,7 +16,7 @@ export interface BoardProps {
   board: BoardResponse
   /** Whether the header live-filter is narrowing the board (ITEM 1). */
   filtering?: boolean
-  /** The active filter query, forwarded to /search from the no-matches state. */
+  /** The active filter query, carried into advanced search from the no-matches state. */
   filterQuery?: string
   policy: PolicyDocument
   role: Role
@@ -57,9 +57,10 @@ export function Board({
   const boardEmpty = !filtering && noCards
   // The header filter matched nothing anywhere: rather than seven "No matching
   // cards" columns, surface a single message with the ONE place archived and
-  // closed cards live — the /search page, carrying the current query. This is
-  // the subtle affordance that keeps global/archived search reachable now that
-  // the permanent "Search cards" header button is gone (ITEM A).
+  // closed cards live — the advanced-search modal, carrying the current query
+  // (`?search=1`). This is the subtle affordance that keeps global/archived
+  // search reachable now that the permanent "Search cards" header button is
+  // gone (ITEM A); the header field's sliders icon opens the same modal.
   const filterNoMatches = filtering && noCards
 
   return (
@@ -93,7 +94,9 @@ export function Board({
             </Text>
             <Anchor
               component={Link}
-              to={filterQuery === '' ? '/search' : `/search?q=${encodeURIComponent(filterQuery)}`}
+              to={
+                filterQuery === '' ? '?search=1' : `?q=${encodeURIComponent(filterQuery)}&search=1`
+              }
               size="sm"
             >
               {strings.search.searchAllArchived}

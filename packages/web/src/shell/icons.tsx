@@ -65,3 +65,13 @@ export function SearchIcon({ size = DEFAULT_SIZE }: IconProps) {
     </svg>
   )
 }
+
+/** A map-pin glyph for card location lines (board card + search result rows). */
+export function PinIcon({ size = DEFAULT_SIZE }: IconProps) {
+  return (
+    <svg {...svgProps(size)}>
+      <path d="M12 21s-6-5.686-6-10a6 6 0 0 1 12 0c0 4.314-6 10-6 10Z" />
+      <circle cx="12" cy="11" r="2" />
+    </svg>
+  )
+}

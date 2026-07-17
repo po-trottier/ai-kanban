@@ -1,0 +1,27 @@
+/* A search result reads as a distinct, tappable row — a filled surface with a
+   border and hover feedback so it stands out against the white modal instead of
+   blending in. Compact: a title/badge line and a single dimmed meta line. */
+.result {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--mantine-spacing-sm);
+  border: 1px solid var(--mantine-color-gray-3);
+  border-radius: var(--mantine-radius-md);
+  background-color: var(--mantine-color-gray-0);
+  transition:
+    background-color 100ms ease,
+    border-color 100ms ease;
+}
+
+.result:hover {
+  background-color: var(--mantine-color-gray-1);
+  border-color: var(--mantine-color-gray-4);
+}
+
+/* Fills the row and clips long text to one line (title, location) so the row
+   height stays fixed regardless of content length. */
+.grow {
+  flex: 1;
+  min-width: 0;
+}

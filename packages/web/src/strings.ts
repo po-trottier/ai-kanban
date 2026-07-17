@@ -178,21 +178,40 @@ export const strings = {
   },
 
   search: {
-    pageTitle: 'Search cards',
-    /** Subtle link from the board-filter no-results state to the full /search
-     * page (archived + description-scoped), carrying the current query. Not a
-     * permanent header button — the live filter is the primary affordance. */
+    /** The advanced-search modal — the one place archived and closed cards are
+     * reachable. Opened from the header field's filter icon or the board's
+     * no-matches state; replaces the former full-page /search view. */
+    modalTitle: 'Search all cards',
+    /** aria-label for the header trigger icon and the board no-matches link. */
+    advancedButton: 'Advanced search',
+    /** Explicit dismiss that names the destination (the modal X does the same). */
+    backToBoard: 'Back to board',
+    /** Subtle link from the board-filter no-results state into advanced search,
+     * carrying the current query so the modal opens pre-populated. */
     searchAllArchived: 'Search all cards, including archived',
-    queryLabel: 'Search',
-    /** Stable accessible name for the query input (tests target it) while the
-     * visible label stays short under the identical page title. */
+    /** Full-width query field: title + description substring, live as you type. */
+    queryPlaceholder: 'Search by title or description…',
+    /** Stable accessible name for the query input (tests target it). */
     queryAriaLabel: 'Search cards',
-    submit: 'Search',
+    /** Collapsible facet section (the search bar stays; only the facets fold). */
+    filtersToggle: 'Filters',
+    /** Facet filters (each defaults to "any"). Column maps to the board lane. */
+    priorityFilter: 'Priority',
+    columnFilter: 'Column',
+    tagFilter: 'Tag',
+    locationFilter: 'Location',
+    anyPriority: 'Any priority',
+    anyColumn: 'Any column',
+    anyTag: 'Any tag',
+    anyLocation: 'Any location',
+    /** Archived-scope combobox (matches the other facet selects). Include is the
+     * default so archived cards are always in scope (docs/user/guide.md). */
+    archivedFilter: 'Archived cards',
     includeArchived: 'Include archived',
+    activeOnly: 'Active cards only',
     resultsLabel: 'Search results',
-    empty: 'No matching cards',
-    /** Friendly initial hint (a non-technical user must press Search). */
-    initialHint: 'Type part of a card title or description, then press Search.',
+    /** Count summary above the results list. */
+    resultCount: (count: number) => `${String(count)} ${count === 1 ? 'result' : 'results'}`,
     /** Clear no-results wording (distinct from an error). */
     noResults: 'No cards match your search.',
     loadFailed: 'Cards could not be loaded.',

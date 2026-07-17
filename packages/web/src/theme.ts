@@ -36,6 +36,8 @@ export const SIZES = {
   laneWipLimitInputWidth: '6.5rem',
   /** The docked card-detail Aside width (matches the old Drawer `size="lg"`). */
   cardPanelWidth: 620,
+  /** Header search trailing controls (clear + advanced-search icons side by side). */
+  headerSearchActionsWidth: 64,
 } as const
 
 /** The viewport below which the card panel goes full-screen (matches <=62em). */

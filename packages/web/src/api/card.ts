@@ -1,5 +1,16 @@
-import { type AddCommentInput, type EditCommentInput } from '@rivian-kanban/core'
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  type AddCommentInput,
+  type EditCommentInput,
+  type LaneKey,
+  type Priority,
+} from '@rivian-kanban/core'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { useApi } from './api-context.ts'
 import { API_BASE } from './client.ts'
 import { queryKeys } from './keys.ts'
@@ -46,9 +57,14 @@ export function useCardEvents(cardId: string) {
 export interface CardSearchFilters {
   q: string
   includeArchived: boolean
+  /** Advanced-search facets; an unset facet (null) is omitted from the request. */
+  priority?: Priority | null
+  lane?: LaneKey | null
+  tag?: string | null
+  locationId?: string | null
 }
 
-/** `GET /cards` — the filterable card list (search + include-archived), cursor-paginated. */
+/** `GET /cards` — the filterable card list (search + facets + include-archived), cursor-paginated. */
 export function useCardSearch(filters: CardSearchFilters) {
   const api = useApi()
   return useInfiniteQuery({
@@ -59,10 +75,18 @@ export function useCardSearch(filters: CardSearchFilters) {
         query: {
           q: filters.q === '' ? undefined : filters.q,
           includeArchived: filters.includeArchived ? true : undefined,
+          priority: filters.priority ?? undefined,
+          lane: filters.lane ?? undefined,
+          tag: filters.tag ?? undefined,
+          locationId: filters.locationId ?? undefined,
           cursor: pageParam,
         },
       }),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    // Archived search can be slow; keep the current results on screen while the
+    // next query (a changed facet or query term) loads, rather than blanking to
+    // a skeleton on every keystroke — the modal shows a spinner meanwhile.
+    placeholderData: keepPreviousData,
   })
 }
 

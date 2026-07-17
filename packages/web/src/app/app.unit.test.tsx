@@ -22,6 +22,7 @@ function authedRoutes(overrides: Record<string, unknown> = {}): FakeFetch {
     'GET /api/v1/users': fixturePickerUsers,
     'GET /api/v1/locations': [],
     'GET /api/v1/tags': [],
+    'GET /api/v1/cards': { items: [], nextCursor: null },
     ...overrides,
   })
 }
@@ -80,15 +81,16 @@ describe('app routing', () => {
     expect(screen.getByLabelText('Settings')).toBeInTheDocument()
   })
 
-  it('renders the header board-filter only on the board route, not on /search', async () => {
-    // Arrange — the header filter drives the board only; on /search it would
-    // silently no-op, so it must not appear there (only the page's own search).
+  it('redirects the legacy /search route to the board with advanced search open', async () => {
+    // Arrange — /search is no longer a standalone page: search is a modal over
+    // the board. An old bookmark should land on the board with the modal open.
     const fake = authedRoutes()
-    // Act — land directly on the standalone /search page.
+    // Act — land directly on the legacy /search route.
     renderApp({ fetchFn: fake.fetch, route: '/search' })
-    // Assert — the search page is up, but the header board-filter is absent.
-    expect(await screen.findByRole('heading', { name: 'Search cards' })).toBeInTheDocument()
-    expect(screen.queryByRole('textbox', { name: 'Filter the board' })).not.toBeInTheDocument()
+    // Assert — the board (header filter) is shown and the advanced-search modal
+    // is open (its own query field is present).
+    expect(await screen.findByRole('textbox', { name: 'Filter the board' })).toBeInTheDocument()
+    expect(await screen.findByRole('textbox', { name: 'Search cards' })).toBeInTheDocument()
   })
 
   it('shows the header board-filter on the board route', async () => {

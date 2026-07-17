@@ -4,6 +4,7 @@ import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indi
 import { useRef } from 'react'
 import { type PickerUser } from '../api/schemas.ts'
 import { formatDate, formatEstimate, initials } from '../lib/format.ts'
+import { PinIcon } from '../shell/icons.tsx'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
 import { CardBadges } from './CardBadges.tsx'
@@ -96,7 +97,7 @@ export function CardItem({
       {/* The location line always renders (placeholder when unset) so a card
           with no location reads consistently against ones that have it. */}
       <Group gap="xs" mt="xs" wrap="nowrap">
-        <LocationPin />
+        <PinIcon size={14} />
         {card.locationLabel === null ? (
           <Text size="xs" c="dimmed">
             {strings.card.noLocation}
@@ -151,27 +152,6 @@ export function CardItem({
         <DropIndicator edge={closestEdge} gap="var(--mantine-spacing-xs)" />
       ) : null}
     </Paper>
-  )
-}
-
-/** A location pin glyph (currentColor SVG — no design values, ADR-016). */
-function LocationPin() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      focusable="false"
-    >
-      <path d="M12 21s-6-5.686-6-10a6 6 0 0 1 12 0c0 4.314-6 10-6 10Z" />
-      <circle cx="12" cy="11" r="2" />
-    </svg>
   )
 }
 

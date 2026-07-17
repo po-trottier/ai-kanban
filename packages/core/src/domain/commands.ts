@@ -146,6 +146,8 @@ export const listCardsFilterSchema = z.strictObject({
   assignee: z.uuid().optional(),
   reporter: z.uuid().optional(),
   priority: prioritySchema.optional(),
+  /** A specific location (building/floor/room); matched exactly against the card's own location. */
+  locationId: z.uuid().optional(),
   tag: tagNameSchema.optional(),
   blocked: z.boolean().optional(),
   waitingReason: waitingReasonSchema.optional(),

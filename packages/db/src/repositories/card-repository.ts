@@ -147,6 +147,7 @@ export class SqliteCardRepository implements CardRepository {
     if (filter.priority !== undefined) {
       conditions.push(eq(cards.priority, filter.priority))
     }
+    if (filter.locationId !== undefined) conditions.push(eq(cards.locationId, filter.locationId))
     if (filter.blocked !== undefined) conditions.push(eq(cards.blocked, filter.blocked))
     if (filter.waitingReason !== undefined) {
       conditions.push(eq(cards.waitingReason, filter.waitingReason))

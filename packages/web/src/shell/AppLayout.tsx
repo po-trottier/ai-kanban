@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link, Outlet, useMatch, useNavigate } from 'react-router'
 import { useLogout } from '../api/auth.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
+import { SearchModal } from '../board/SearchModal.tsx'
 import { CardPanel } from '../card/CardPanel.tsx'
 import { initials } from '../lib/format.ts'
 import { strings } from '../strings.ts'
@@ -126,6 +127,9 @@ export function AppLayout() {
             <CardPanel cardId={openCardId} />
           </AppShell.Aside>
         ) : null}
+        {/* Advanced search is board-scoped (archived + facet search over every
+            card); mounted only on the board route, opened via `?search=1`. */}
+        {onBoardRoute ? <SearchModal /> : null}
       </AppShell>
     </CardPanelSlotContext.Provider>
   )

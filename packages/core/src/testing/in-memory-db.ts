@@ -322,6 +322,7 @@ class InMemoryCardRepository implements CardRepository {
     if (filter.assigneeId !== undefined && card.assigneeId !== filter.assigneeId) return false
     if (filter.reporterId !== undefined && card.reporterId !== filter.reporterId) return false
     if (filter.priority !== undefined && card.priority !== filter.priority) return false
+    if (filter.locationId !== undefined && card.locationId !== filter.locationId) return false
     if (filter.blocked !== undefined && card.blocked !== filter.blocked) return false
     if (filter.waitingReason !== undefined && card.waitingReason !== filter.waitingReason) {
       return false

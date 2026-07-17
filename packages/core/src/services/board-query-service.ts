@@ -248,6 +248,7 @@ export class BoardQueryService {
     if (filter.assignee !== undefined) repoFilter.assigneeId = filter.assignee
     if (filter.reporter !== undefined) repoFilter.reporterId = filter.reporter
     if (filter.priority !== undefined) repoFilter.priority = filter.priority
+    if (filter.locationId !== undefined) repoFilter.locationId = filter.locationId
     if (filter.tag !== undefined) repoFilter.tag = filter.tag
     if (filter.blocked !== undefined) repoFilter.blocked = filter.blocked
     if (filter.waitingReason !== undefined) repoFilter.waitingReason = filter.waitingReason

@@ -39,6 +39,8 @@ export interface CardQueryFilter {
   assigneeId?: string
   reporterId?: string
   priority?: Priority
+  /** A specific location id; matched exactly against the card's own location. */
+  locationId?: string
   /** Tag name, matched case-insensitively. */
   tag?: string
   blocked?: boolean

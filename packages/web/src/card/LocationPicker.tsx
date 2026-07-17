@@ -9,6 +9,10 @@ export interface LocationPickerProps {
   disabled?: boolean
   onChange: (locationId: string | null) => void
   error?: string
+  /** Overrides the default "Location" field label (e.g. the search filter row). */
+  label?: string
+  /** Placeholder shown when nothing is selected (e.g. "Any location"). */
+  placeholder?: string
 }
 
 /** Site-tree picker (building/floor/room) backed by Mantine's keyboard-navigable tree. */
@@ -18,17 +22,20 @@ export function LocationPicker({
   disabled = false,
   onChange,
   error,
+  label,
+  placeholder,
 }: LocationPickerProps) {
   const data = buildLocationTree(locations).map(toTreeNode)
   return (
     <TreeSelect
-      label={strings.detail.locationLabel}
+      label={label ?? strings.detail.locationLabel}
       data={data}
       value={value}
       onChange={onChange}
       clearable
       defaultExpandAll
       disabled={disabled}
+      {...(placeholder === undefined ? {} : { placeholder })}
       {...(error === undefined ? {} : { error })}
     />
   )
