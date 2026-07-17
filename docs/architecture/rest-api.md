@@ -13,6 +13,9 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
   through the response schema — fields not in the schema (e.g. `password_hash`) cannot leak.
 - **Auth**: session cookie (see [security.md](security.md)). All routes require auth except
   `POST /auth/login` and the health endpoints.
+- **Authorization**: the Role column below shows the out-of-the-box default. Rows marked
+  *policy* consult the configurable permission policy, which defaults to "any authenticated
+  user" ([ADR-013](decisions/ADR-013-configurable-permissions.md)); admin rows are fixed.
 - **Optimistic locking**: mutating card routes require `If-Match: "<version>"`; stale versions
   get `409 Conflict` with the current resource in the body.
 - **Pagination**: cursor-based (`?cursor=&limit=`), keyset on `(created_at, id)`. Responses:
@@ -40,34 +43,34 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
 | --- | --- | --- |
 | GET /board | any | lanes (with WIP state) + non-archived card summaries in position order |
 | GET /cards | any | filterable list: `lane, assignee, reporter, priority, tag, blocked, q (title search), includeArchived`; cursor-paginated |
-| POST /cards | requester+ | create → lands in `intake` (origin `manual`); server assigns position at top of lane |
+| POST /cards | any | create → lands in `intake` (origin `manual`); server assigns position at top of lane |
 | GET /cards/:id | any | full detail: card + tags + location + attachment metadata |
-| PATCH /cards/:id | per-field policy | field edits (title, description, priority, estimate, assignee, location, tags); If-Match required; one audit event per changed field |
-| POST /cards/:id/move | per transition matrix | `{ toLane, prevCardId, nextCardId, waitingReason?, expectedResumeAt? }`; If-Match required |
-| POST /cards/:id/cancel | supervisor (owner in intake/waiting_approval) | `{ resolution }` |
-| POST /cards/:id/reopen | supervisor | done → ready |
-| POST /cards/:id/block / unblock | technician+ | `{ reason }` on block |
+| PATCH /cards/:id | any (policy) | field edits (title, description, priority, estimate, assignee, location, tags); If-Match required; one audit event per changed field |
+| POST /cards/:id/move | any (policy) | `{ toLane, prevCardId, nextCardId, waitingReason?, expectedResumeAt? }`; If-Match required; waiting-lane fields always required on entry |
+| POST /cards/:id/cancel | any (policy) | `{ resolution }` |
+| POST /cards/:id/reopen | any (policy) | done → ready |
+| POST /cards/:id/block / unblock | any (policy) | `{ reason }` on block |
 
 ### Comments
 | Method & path | Role | Description |
 | --- | --- | --- |
 | GET /cards/:id/comments | any | full thread, oldest-first |
 | POST /cards/:id/comments | any | `{ body, parentCommentId? }` |
-| PATCH /comments/:id | author (admin) | edit own comment |
-| DELETE /comments/:id | author or supervisor | soft delete |
+| PATCH /comments/:id | author | edit own comment |
+| DELETE /comments/:id | author (policy for others) | soft delete |
 
 ### Attachments
 | Method & path | Role | Description |
 | --- | --- | --- |
-| POST /cards/:id/attachments | technician+ or reporter | multipart; ≤ 25 MB/file, ≤ 10 files/card; MIME sniffed server-side (images + PDF only) |
+| POST /cards/:id/attachments | any (policy) | multipart; ≤ 25 MB/file, ≤ 10 files/card; MIME sniffed server-side (images + PDF only) |
 | GET /attachments/:id | any | download; `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` |
-| DELETE /attachments/:id | uploader or supervisor | soft delete + blob removal |
+| DELETE /attachments/:id | uploader (policy for others) | soft delete + blob removal |
 
 ### History & metadata
 | Method & path | Role | Description |
 | --- | --- | --- |
 | GET /cards/:id/events | any | audit trail for a card; filter `type`; cursor-paginated |
-| GET /events | supervisor+ | board-wide event query (`type`, `since`); feeds AI/reporting |
+| GET /events | any | board-wide event query (`type`, `since`); feeds AI/reporting |
 | GET /locations | any | tree; admin CRUD via POST/PATCH/DELETE |
 | GET /tags | any | known tags for autocomplete |
 | GET /stream | any | SSE: `{ type, cardId, version, eventId }` invalidation hints |
@@ -76,6 +79,8 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
 | Method & path | Role | Description |
 | --- | --- | --- |
 | PATCH /lanes/:id | admin | edit label / WIP limit |
+| GET /policy | any | active permission policy (drives UI affordances) |
+| PUT /policy | admin | apply a new policy version (append-only history) |
 | POST /service-tokens, GET /service-tokens, DELETE /service-tokens/:id | admin | MCP credentials; raw token returned once on create |
 
 ### Operational (not under /api/v1, no auth)

@@ -10,7 +10,7 @@ enum — so renames need no migration and the audit trail stays queryable.
 | # | Key | Default label | Meaning |
 | --- | --- | --- | --- |
 | 1 | `intake` | Intake | Freshly reported work awaiting human triage: validate, dedupe, classify, set priority, set location. |
-| 2 | `waiting_approval` | Waiting for Approval | Triaged work gated on supervisor sign-off. **Every** card passes through here (product-owner decision — no skip). |
+| 2 | `waiting_approval` | Waiting for Approval | Triaged work gated on sign-off. The seeded workflow graph routes **every** card through here — there is no Intake → Ready shortcut when enforcement is on. |
 | 3 | `ready` | Ready | Approved, prioritized queue. Vertical order is the execution order: top = address first. |
 | 4 | `in_progress` | In Progress | Technician or vendor actively performing the work. WIP-limited. |
 | 5 | `waiting_parts_vendor` | Waiting on Parts / Vendor | Paused on a structural external dependency. Entry **requires** a waiting reason and an expected-resume date. |
@@ -21,28 +21,41 @@ enum — so renames need no migration and the audit trail stays queryable.
 drag target) that sets `resolution` to `cancelled`, `declined`, or `duplicate`. Cancelled cards
 render at the end of Done with a badge and are excluded from throughput metrics.
 
-## Transition matrix
+## Movement policy: permissive by default
 
-Enforced by the service-layer policy module for every actor (web, MCP, Slack). Any transition
-not listed is rejected.
+**By default, any authenticated user can move any card to any lane and reorder freely** — the
+team is trusted to follow the process socially (product-owner decision, 2026-07-16). Hierarchy
+is *supported, not imposed*: an admin can turn on **transition enforcement** in the app-wide
+settings view, which activates the seeded workflow graph below and (optionally) per-transition
+role gates. See [ADR-013](../architecture/decisions/ADR-013-configurable-permissions.md).
 
-| From | To | Minimum role | Notes |
+Two kinds of rules apply regardless of the policy setting, because they are data integrity, not
+hierarchy:
+
+- Entering `waiting_parts_vendor` always requires `waiting_reason` + `expected_resume_at`.
+- Cancelling is always an explicit action (never a drag), and terminal fields (`resolution`)
+  are only writable through it.
+
+## Seeded workflow graph (active when transition enforcement is on)
+
+| From | To | Suggested role gate | Notes |
 | --- | --- | --- | --- |
-| intake | waiting_approval | technician | Triage complete |
+| intake | waiting_approval | — | Triage complete |
 | waiting_approval | ready | supervisor | Approval |
-| waiting_approval | intake | technician | Send back for more triage |
-| ready | in_progress | technician | Work starts |
-| in_progress | ready | technician | Deprioritized / handed back |
-| in_progress | waiting_parts_vendor | technician | Requires `waiting_reason` + `expected_resume_at` |
-| waiting_parts_vendor | in_progress | technician | Dependency resolved |
-| in_progress | review | technician | Work physically complete |
-| review | done | **supervisor** | Verification + close-out; requester notified |
-| review | in_progress | technician | Failed verification / rework |
+| waiting_approval | intake | — | Send back for more triage |
+| ready | in_progress | — | Work starts |
+| in_progress | ready | — | Deprioritized / handed back |
+| in_progress | waiting_parts_vendor | — | |
+| waiting_parts_vendor | in_progress | — | Dependency resolved |
+| in_progress | review | — | Work physically complete |
+| review | done | supervisor | Verification + close-out; requester notified |
+| review | in_progress | — | Failed verification / rework |
 | done | ready | supervisor | Reopen |
-| *any non-terminal* | *(cancel action)* | supervisor | Sets `resolution`; requesters may cancel their own card while it is in intake or waiting_approval |
 
-Drag-and-drop in the UI offers only the legal targets for the current user's role; the server
-re-validates every move regardless.
+Role gates are per-transition and individually configurable; the "suggested" column is what the
+seeded graph proposes when an admin flips enforcement on, not a default restriction. With
+enforcement on, drag-and-drop offers only legal targets for the current user, and the server
+re-validates every move regardless of what the UI allowed.
 
 ## Blocked flag (any lane)
 
@@ -78,8 +91,9 @@ report on it.
 Within a lane, order is a persisted, meaningful ranking (top = first). Cards carry a fractional
 position key; moving a card sends only its intended neighbors and the server computes the new
 key transactionally (see [ADR-006](../architecture/decisions/ADR-006-fractional-ordering.md)).
-Reordering Ready is restricted to supervisors; reorders are distinct audit events
-(`card.reordered`) so they never pollute status-change history.
+Reordering is open to everyone by default (a policy gate for the Ready lane is available);
+reorders are distinct audit events (`card.reordered`) so they never pollute status-change
+history.
 
 ## Priorities and estimates
 

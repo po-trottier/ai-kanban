@@ -9,7 +9,7 @@ rewrite behind unchanged repository ports ([ADR-003](decisions/ADR-003-drizzle-s
 ## Entity-relationship sketch
 
 ```
-users ─┬────────────< cards >────────────┬─ lanes >── boards
+users ─┬────────────< cards >────────────┬─ lanes >── boards ──< board_policies
        │  (reporter, assignee)           │
        │                                 ├──< card_tags >── tags
        ├──< comments >── cards           ├──< comments (threaded via parent_comment_id)
@@ -50,6 +50,20 @@ Seeded rows — stable `key`, editable `label` (see [workflow.md](../product/wor
 ### locations
 Optional tree: `id, parent_id NULL FK, kind ('building'|'floor'|'room'), name`. Seeded,
 admin-editable.
+
+### board_policies
+Permission policy as data, **append-only versions** — newest row per board wins, history is
+free (see [ADR-013](decisions/ADR-013-configurable-permissions.md)).
+| column | type | notes |
+| --- | --- | --- |
+| id | TEXT PK | UUIDv7 |
+| board_id | TEXT FK NOT NULL | |
+| config | TEXT NOT NULL | Zod-validated JSON: `{ transitionEnforcement: boolean, transitions: [{from, to, minRole?}], actionGates: {...} }` |
+| created_by | TEXT FK NOT NULL | admin who applied it |
+| created_at | TEXT NOT NULL | |
+
+Seeded with the permissive default (`transitionEnforcement: false`, no gates) plus the
+7-lane workflow graph ready to activate. Index: `(board_id, created_at)`.
 
 ### cards
 | column | type | notes |

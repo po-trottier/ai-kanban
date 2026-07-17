@@ -18,25 +18,33 @@ Slack/Anthropic calls. Every control below is enforced by code or CI, not conven
 - Login endpoint: strict rate limit (5/min/IP + exponential backoff per account), uniform
   error message (no user enumeration), no lockout DoS (backoff, not hard lock).
 
-## Authorization (RBAC)
+## Authorization
 
-One policy module in `core`, consulted by services (not adapters), so no surface can bypass it.
+One policy engine in `core`, consulted by services (not adapters), so no surface can bypass it.
+It evaluates the **configured permission policy** — permissive by default, tightened by admins
+([ADR-013](decisions/ADR-013-configurable-permissions.md)).
 
-| Capability | requester | technician | supervisor | admin |
-| --- | :-: | :-: | :-: | :-: |
-| View board, cards, history, comments | ✔ | ✔ | ✔ | ✔ |
-| Create card / comment / reply | ✔ | ✔ | ✔ | ✔ |
-| Edit own card while in intake/waiting_approval | ✔ | ✔ | ✔ | ✔ |
-| Cancel own card while in intake/waiting_approval | ✔ | ✔ | ✔ | ✔ |
-| Edit card fields; attach files; block/unblock | | ✔ | ✔ | ✔ |
-| Execute transitions per [matrix](../product/workflow.md#transition-matrix) | | ✔ | ✔ | ✔ |
-| Approve (waiting_approval → ready) | | | ✔ | ✔ |
-| Verify/close (review → done), cancel any, reopen, reorder ready | | | ✔ | ✔ |
-| Edit/delete others' comments (delete only) | | | ✔ | ✔ |
-| Manage users, lanes, locations, service tokens | | | | ✔ |
+**Defaults (out of the box):**
 
-Policy denials are 403 with the failed rule named; illegal lane transitions are 422. Both are
-audited nowhere (no event) but logged.
+| Capability | Who |
+| --- | --- |
+| View board, cards, history, comments; create cards/comments; edit cards; move/reorder anywhere; attach files; block/unblock; cancel; reopen | any authenticated user |
+| Edit own comment | author only |
+| Delete a comment | author (others' — via policy gate only) |
+| Manage users, lanes, permission policy, locations, service tokens | admin only — app administration is never openable |
+
+**Configurable gates (admin settings view):** transition enforcement (activates the seeded
+workflow graph), per-transition minimum roles, and action gates (approve, close review→done,
+cancel any, reopen, reorder Ready, delete others' comments). Roles
+(`requester < technician < supervisor < admin`) exist as assignable levels that these gates
+reference; they impose nothing until a gate is enabled.
+
+Policy documents are Zod-validated and stored as **append-only versions** (who changed what,
+when — configuration has an audit history too). The active policy is cached in-process and
+invalidated on update.
+
+Policy denials are 403 with the failed gate named; illegal lane transitions (enforcement on)
+are 422. Both are logged.
 
 ## Input & output
 

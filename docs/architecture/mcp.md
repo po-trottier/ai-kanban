@@ -39,7 +39,7 @@ listing tools accept the same filters and cursors as REST.
 | `list_stale_cards` | BoardQueryService | cards past `expected_resume_at`, in review > N days, or blocked > N days — the follow-up feed |
 | `create_card` | CardService.create | lands in intake, origin recorded from token |
 | `update_card` | CardService.update | requires `expectedVersion` like REST |
-| `move_card` | CardService.move | full transition-matrix + role enforcement |
+| `move_card` | CardService.move | same configurable permission policy as REST |
 | `comment_on_card` | CommentService | supports `parentCommentId` replies |
 
 Design rules:

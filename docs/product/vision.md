@@ -55,14 +55,16 @@ advice, and follow-up nudges.
 | Decision | Choice |
 | --- | --- |
 | Authentication | Local accounts (email + password), OIDC-ready design |
-| Approval policy | **All** work orders pass through Waiting for Approval — no Intake → Ready shortcut |
+| Approval policy | The seeded workflow graph routes **all** work through Waiting for Approval (no Intake → Ready shortcut when transition enforcement is enabled) |
+| Permissions | **Permissive by default** — any authenticated user can move/edit any card; transition enforcement and role gates are opt-in, admin-configurable policy ([ADR-013](../architecture/decisions/ADR-013-configurable-permissions.md)) |
+| Admin view | App-wide settings UI: users, lane labels/WIP limits, permission policy, locations, service tokens |
 | Board shape | 7 lanes (see [workflow.md](workflow.md)), single board |
 | Slack integration | Fully implemented and contract-tested in CI without a live workspace; credentials connected later |
 | AI thread summarization | Implemented, enabled per-deployment by config flag (`claude-haiku-4-5`); invoker always reviews the draft in a modal |
 | Deployment | Single-node Docker Compose; SQLite (WAL) + Litestream backups |
 | Attachments | Images + PDF, 25 MB/file, 10 files/card, local blob volume behind a port |
 | Location | Optional per card, from a seeded building/floor/room tree |
-| Review → Done | Supervisor role required; requester auto-notified with reopen path |
+| Review → Done | Requester auto-notified with reopen path; supervisor gate available via policy, off by default |
 | Slack-created tickets | Always land in Intake; AI-suggested priority/tags attached as drafts for the triager |
 | Done-card archival | Auto-archive off the board after 90 days; retained and queryable |
 

@@ -32,7 +32,7 @@ This is the hexagonal (ports-and-adapters) pattern; see
 
 ```
 packages/
-  core/     # entities, Zod schemas, ports, policy (RBAC + transitions), services. No framework imports.
+  core/     # entities, Zod schemas, ports, policy engine (configurable permissions + transition rules), services. No framework imports.
   db/       # Drizzle schema + migrations + repository adapters implementing core ports (only package allowed to import better-sqlite3)
   server/   # composition root: Fastify app, REST routes, MCP mount, Slack Bolt adapter, SSE, jobs, static SPA serving
   web/      # React SPA (Vite)
@@ -64,8 +64,8 @@ the Postgres migration; the EventBus and scheduler are ports precisely so that m
 1. SPA sends `POST /api/v1/cards/:id/move { toLane, prevCardId, nextCardId, expectedVersion }`.
 2. Route handler validates the body against the shared Zod schema, resolves the session to an
    `Actor { userId, role, kind: 'user' }`, and calls `cardService.move(actor, cmd)`.
-3. `CardService` — in one transaction via the unit-of-work port — checks the policy module
-   (role + transition matrix + optimistic lock), computes the fractional position key from the
+3. `CardService` — in one transaction via the unit-of-work port — checks the policy engine
+   (configured permission policy + lane-entry data rules + optimistic lock), computes the fractional position key from the
    neighbors, updates the card, bumps `version`, and appends the audit event
    (`card.status_changed` or `card.reordered`).
 4. On commit, the service publishes a domain event to the EventBus; the SSE adapter fans it out
