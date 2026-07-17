@@ -44,11 +44,12 @@
 }
 
 /* The docked card panel: no padding (the panel owns its own), full height so
-   its body can scroll independently of the board (Main) beside it. Positioned
-   so the resize handle can pin to its left edge. */
+   its body can scroll independently of the board (Main) beside it. Mantine's
+   Aside is already position:fixed — DO NOT override it (that drops it out of
+   the dock into normal flow, below the board). The fixed Aside is itself the
+   positioning context the resize handle pins to. */
 .aside {
   padding: 0;
-  position: relative;
 }
 
 /* Drag handle on the panel's left edge: a thin grab strip that highlights on

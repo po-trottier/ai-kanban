@@ -51,9 +51,13 @@ test('docks the panel below the header without overlapping it', async ({ page, c
   await expect(header.getByRole('button', { name: 'New card' })).toBeVisible()
   // Fallbacks make a null box fail the numeric comparison (no conditional).
   const headerBox = (await header.boundingBox()) ?? { y: Number.NaN, height: Number.NaN }
-  const panelBox = (await panel.boundingBox()) ?? { y: Number.NaN }
+  const panelBox = (await panel.boundingBox()) ?? { x: Number.NaN, y: Number.NaN }
+  const viewport = page.viewportSize() ?? { width: Number.NaN, height: Number.NaN }
   // The panel's top edge sits at or below the header's bottom edge — docked, not over.
   expect(panelBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height - 1)
+  // …and it docks on the RIGHT (its left edge is past the viewport midpoint), not
+  // stacked full-width below the board — the regression guard.
+  expect(panelBox.x).toBeGreaterThan(viewport.width / 2)
 })
 
 test('resizes the detail panel by dragging the handle, and remembers the width', async ({
