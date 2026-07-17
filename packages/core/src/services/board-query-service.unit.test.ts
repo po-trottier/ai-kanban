@@ -303,7 +303,7 @@ describe('BoardQueryService.cardHistory', () => {
   })
 })
 
-describe('BoardQueryService.latestEvents', () => {
+describe('BoardQueryService.cardDetailWithThread', () => {
   it('returns only the trailing take events, in chronological order', async () => {
     // Arrange
     const scenario = createScenario()
@@ -324,10 +324,35 @@ describe('BoardQueryService.latestEvents', () => {
     })
 
     // Act
-    const latest = await scenario.queries.latestEvents(card.id, 2)
+    const detail = await scenario.queries.cardDetailWithThread(card.id, 2)
 
     // Assert
-    expect(latest.map((event) => event.eventType)).toEqual(['card.status_changed', 'card.blocked'])
+    expect(detail.card.id).toBe(card.id)
+    expect(detail.latestEvents.map((event) => event.eventType)).toEqual([
+      'card.status_changed',
+      'card.blocked',
+    ])
+  })
+
+  it('includes the comment thread with soft-deleted bodies blanked', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard()
+    const kept = await scenario.comments.add(scenario.actors.technician, card.id, {
+      body: 'Parts ordered.',
+    })
+    const deleted = await scenario.comments.add(scenario.actors.technician, card.id, {
+      body: 'sensitive text the author deleted',
+    })
+    await scenario.comments.softDelete(scenario.actors.technician, deleted.id)
+
+    // Act
+    const detail = await scenario.queries.cardDetailWithThread(card.id, 5)
+
+    // Assert
+    expect(detail.comments.map((comment) => comment.id)).toEqual([kept.id, deleted.id])
+    expect(detail.comments.at(0)?.body).toBe('Parts ordered.')
+    expect(detail.comments.at(1)?.body).toBe('')
   })
 
   it('rejects an unknown card id', async () => {
@@ -335,7 +360,7 @@ describe('BoardQueryService.latestEvents', () => {
     const scenario = createScenario()
 
     // Act
-    const act = scenario.queries.latestEvents(fixtureId(999), 5)
+    const act = scenario.queries.cardDetailWithThread(fixtureId(999), 5)
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(NotFoundError)

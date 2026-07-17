@@ -1,20 +1,11 @@
-import { ROLES, TOKEN_SCOPES, type Role, type TokenScope } from '@rivian-kanban/core'
-import {
-  Badge,
-  Button,
-  Code,
-  Group,
-  Modal,
-  Select,
-  Stack,
-  Table,
-  Text,
-  TextInput,
-} from '@mantine/core'
+import { TOKEN_SCOPES, type Role, type TokenScope } from '@rivian-kanban/core'
+import { Badge, Button, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
 import { useState } from 'react'
 import { useCreateServiceToken, useRevokeServiceToken, useServiceTokens } from '../api/admin.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { strings } from '../strings.ts'
+import { RevealOnceModal } from './RevealOnceModal.tsx'
+import { ROLE_SELECT_DATA } from './role-select-data.ts'
 
 /** MCP service tokens: create (raw `rkb_…` shown once) and revoke. */
 export function TokensAdmin() {
@@ -111,7 +102,7 @@ export function TokensAdmin() {
             />
             <Select
               label={strings.tokens.roleLabel}
-              data={ROLES.map((role) => ({ value: role, label: strings.users.roles[role] }))}
+              data={ROLE_SELECT_DATA}
               value={draft.role}
               allowDeselect={false}
               onChange={(role) => {
@@ -152,20 +143,14 @@ export function TokensAdmin() {
       ) : null}
 
       {rawToken !== null ? (
-        <Modal
-          opened
+        <RevealOnceModal
+          title={strings.tokens.tokenTitle}
+          hint={strings.tokens.tokenHint}
+          secret={rawToken}
           onClose={() => {
             setRawToken(null)
           }}
-          title={strings.tokens.tokenTitle}
-        >
-          <Stack gap="md">
-            <Code block>{rawToken}</Code>
-            <Text size="sm" c="dimmed">
-              {strings.tokens.tokenHint}
-            </Text>
-          </Stack>
-        </Modal>
+        />
       ) : null}
     </Stack>
   )

@@ -1,10 +1,17 @@
 import { z } from 'zod'
-import { CANCEL_RESOLUTIONS, CARD_DESCRIPTION_MAX, CARD_TITLE_MAX } from './constants.ts'
+import {
+  CANCEL_RESOLUTIONS,
+  CARD_DESCRIPTION_MAX,
+  CARD_TITLE_MAX,
+  LOCATION_KINDS,
+} from './constants.ts'
 import {
   isoDateSchema,
   laneKeySchema,
   prioritySchema,
+  roleSchema,
   tagNameSchema,
+  tokenScopeSchema,
   waitingReasonSchema,
 } from './entities.ts'
 
@@ -128,15 +135,72 @@ export const listCardsFilterSchema = z.strictObject({
   blocked: z.boolean().optional(),
   waitingReason: waitingReasonSchema.optional(),
   overdueResume: z.boolean().optional(),
-  /** Title + description substring match, case-insensitive. */
-  q: z.string().optional(),
+  /** Title + description substring match, case-insensitive; capped on every surface. */
+  q: z.string().max(200).optional(),
   includeArchived: z.boolean().optional(),
 })
 export type ListCardsFilter = z.infer<typeof listCardsFilterSchema>
 
 /** Cursor pagination envelope: default limit 50, max 200 (400 above). */
 export const pageRequestSchema = z.strictObject({
-  cursor: z.string().optional(),
+  /** Opaque base64url cursor — short by construction; the cap rejects garbage. */
+  cursor: z.string().max(500).optional(),
   limit: z.number().int().min(1).max(200).default(50),
 })
 export type PageRequest = z.infer<typeof pageRequestSchema>
+
+/**
+ * Admin command inputs (docs/architecture/rest-api.md#admin). They live here
+ * with the card commands so REST bodies and the web forms share one schema
+ * (single-schema rule) — the admin services in the server package parse them,
+ * the SPA derives its input types from them.
+ */
+
+export const createUserInputSchema = z.strictObject({
+  email: z.email().max(254),
+  displayName: z.string().trim().min(1).max(100),
+  role: roleSchema,
+})
+export type CreateUserInput = z.infer<typeof createUserInputSchema>
+
+export const updateUserInputSchema = z
+  .strictObject({
+    displayName: z.string().trim().min(1).max(100).optional(),
+    role: roleSchema.optional(),
+    isActive: z.boolean().optional(),
+    /** Issues a fresh one-time temp password (shown once in the response). */
+    resetPassword: z.literal(true).optional(),
+  })
+  .refine((input) => Object.keys(input).length > 0, { message: 'no fields to update' })
+export type UpdateUserInput = z.infer<typeof updateUserInputSchema>
+
+/** Label and WIP limit only — lane keys/positions are structural (seeded). */
+export const updateLaneInputSchema = z
+  .strictObject({
+    label: z.string().trim().min(1).max(50).optional(),
+    /** null clears the WIP limit. */
+    wipLimit: z.number().int().positive().nullable().optional(),
+  })
+  .refine((patch) => Object.keys(patch).length > 0, {
+    message: 'at least one of label or wipLimit is required',
+  })
+export type UpdateLaneInput = z.infer<typeof updateLaneInputSchema>
+
+export const createLocationInputSchema = z.strictObject({
+  parentId: z.uuid().nullable().default(null),
+  kind: z.enum(LOCATION_KINDS),
+  name: z.string().trim().min(1).max(100),
+})
+export type CreateLocationInput = z.infer<typeof createLocationInputSchema>
+
+export const updateLocationInputSchema = z.strictObject({
+  name: z.string().trim().min(1).max(100),
+})
+export type UpdateLocationInput = z.infer<typeof updateLocationInputSchema>
+
+export const createServiceTokenInputSchema = z.strictObject({
+  name: z.string().trim().min(1).max(100),
+  role: roleSchema,
+  scope: tokenScopeSchema,
+})
+export type CreateServiceTokenInput = z.infer<typeof createServiceTokenInputSchema>

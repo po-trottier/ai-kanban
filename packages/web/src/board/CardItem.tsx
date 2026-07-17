@@ -1,8 +1,8 @@
-import { type Card, type LaneKey } from '@rivian-kanban/core'
-import { Avatar, Group, Paper, Pill, Text, Tooltip } from '@mantine/core'
+import { type BoardCard, type LaneKey } from '@rivian-kanban/core'
+import { Avatar, Group, Paper, Text, Tooltip } from '@mantine/core'
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { useRef } from 'react'
-import { type BoardCard, type PickerUser } from '../api/schemas.ts'
+import { type PickerUser } from '../api/schemas.ts'
 import { formatEstimate, initials } from '../lib/format.ts'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
@@ -21,10 +21,10 @@ export interface CardItemProps {
   canReopen: boolean
   canDropFrom: (source: { cardId: string; laneKey: LaneKey }) => boolean
   onOpen: (cardId: string) => void
-  onMenuAction: (card: Card, action: CardMenuAction) => void
+  onMenuAction: (card: BoardCard, action: CardMenuAction) => void
 }
 
-/** One board card: badges, estimate, tags, assignee avatar, the ⋯ menu. */
+/** One board card: badges, estimate, assignee avatar, the ⋯ menu. */
 export function CardItem({
   card,
   laneKey,
@@ -70,15 +70,6 @@ export function CardItem({
       <Group justify="space-between" mt="xs" gap="xs">
         <CardBadges card={card} today={today} />
       </Group>
-      {card.tags.length > 0 ? (
-        <Group gap="xs" mt="xs">
-          {card.tags.map((tag) => (
-            <Pill key={tag} size="xs">
-              {tag}
-            </Pill>
-          ))}
-        </Group>
-      ) : null}
       <Group justify="space-between" mt="xs" gap="xs">
         <Text size="xs" c="dimmed">
           {card.estimateMinutes === null ? '' : formatEstimate(card.estimateMinutes)}

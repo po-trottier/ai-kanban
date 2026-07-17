@@ -294,3 +294,38 @@ describe('query — cursor contract (createdAt DESC, id DESC, strictly older)', 
     expect(rows.map((c) => c.id)).toEqual([idLow])
   })
 })
+
+describe('query plans — the partial indexes serve the hot reads', () => {
+  // The done lane archives in place, so these queries must stay proportional
+  // to LIVE rows. EXPLAIN QUERY PLAN proves the planner picks the partial
+  // indexes for the exact predicate shapes the repository issues (bound
+  // parameters included — SQLite re-prepares on bind to prove implication).
+  function planOf(sql: string, ...params: unknown[]): string {
+    return (
+      db.connection.raw.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...params) as {
+        detail: string
+      }[]
+    )
+      .map((row) => row.detail)
+      .join(' | ')
+  }
+
+  it('uses cards_lane_active_position_idx for activeOnly listByLane', () => {
+    const plan = planOf(
+      'SELECT * FROM cards WHERE lane_id = ? AND archived_at IS NULL ORDER BY position',
+      base.lanes.done.id,
+    )
+
+    expect(plan).toContain('cards_lane_active_position_idx')
+  })
+
+  it('uses cards_blocked_active_idx for the stale-cards blocked leg', () => {
+    const plan = planOf(
+      'SELECT * FROM cards WHERE archived_at IS NULL AND blocked = ? ' +
+        'ORDER BY created_at DESC, id DESC',
+      1,
+    )
+
+    expect(plan).toContain('cards_blocked_active_idx')
+  })
+})

@@ -9,12 +9,13 @@ import {
   updateCardInputSchema,
   waitingLaneEntrySchema,
 } from '../domain/commands.ts'
-import { type ActorKind, type CardOrigin } from '../domain/constants.ts'
-import { ConflictError } from '../domain/errors.ts'
-import { type Actor, type Card } from '../domain/entities.ts'
+import { DONE_ARCHIVAL_DAYS, type ActorKind, type CardOrigin } from '../domain/constants.ts'
+import { utcDayOf } from '../domain/dates.ts'
+import { ConflictError, NotFoundError } from '../domain/errors.ts'
+import { type Actor, type Card, type User } from '../domain/entities.ts'
 import { type AuditedCardField, type CardEvent } from '../domain/events.ts'
 import { evaluatePolicy } from '../policy/policy-engine.ts'
-import { type UnitOfWork } from '../ports/repositories.ts'
+import { type TransactionContext, type UnitOfWork } from '../ports/repositories.ts'
 import { type Clock, type EventBus, type IdGenerator, type NotifierPort } from '../ports/runtime.ts'
 import {
   activePolicy,
@@ -39,6 +40,8 @@ export interface CardServiceDeps {
   eventBus: EventBus
   notifier: NotifierPort
   boardId: string
+  /** The seeded automation user — hidden from pickers, never a valid assignee. */
+  systemUserId: string
 }
 
 /**
@@ -116,14 +119,14 @@ export class CardService {
       const reporterId = options.reporterId ?? actor.id
       requireFound(await tx.users.findById(reporterId), 'reporter')
       if (input.assigneeId !== undefined) {
-        requireFound(await tx.users.findById(input.assigneeId), 'assignee')
+        await this.requireAssignable(tx, input.assigneeId)
       }
       if (input.locationId !== undefined) {
         requireFound(await tx.locations.findById(input.locationId), 'location')
       }
 
       const intake = await laneByKey(tx, this.deps.boardId, 'intake')
-      const top = (await tx.cards.listByLane(intake.id)).at(0)
+      const top = await tx.cards.edgeOfLane(intake.id, 'first')
       const nowIso = this.deps.clock.now().toISOString()
       const card: Card = {
         id: this.deps.ids.newId(),
@@ -211,7 +214,7 @@ export class CardService {
       }
       if (input.assigneeId !== undefined && input.assigneeId !== card.assigneeId) {
         if (input.assigneeId !== null) {
-          requireFound(await tx.users.findById(input.assigneeId), 'assignee')
+          await this.requireAssignable(tx, input.assigneeId)
         }
         next.assigneeId = input.assigneeId
         fieldChanged(changeOf('assigneeId', card.assigneeId, input.assigneeId))
@@ -354,10 +357,10 @@ export class CardService {
           }
           let wipLimitExceeded = false
           if (toLane.wipLimit !== null) {
-            const active = (await tx.cards.listByLane(toLane.id)).filter(
-              (laneCard) => laneCard.archivedAt === null,
-            )
-            wipLimitExceeded = active.length + 1 > toLane.wipLimit
+            // COUNT, not a row hydration: this runs inside the busiest write
+            // transaction and soft limits leave lane size unbounded.
+            const active = await tx.cards.countActiveByLane(toLane.id)
+            wipLimitExceeded = active + 1 > toLane.wipLimit
           }
           body = {
             eventType: 'card.status_changed',
@@ -378,12 +381,14 @@ export class CardService {
     )
     publishCardHints(this.deps.eventBus, result.card, result.events)
     if (result.completed) {
-      try {
-        await this.deps.notifier.cardCompleted(result.card)
-      } catch {
-        // Best-effort: the move is committed and broadcast — a notification
-        // failure (e.g. Slack outage) must never surface as a command failure.
-      }
+      // Best-effort and deliberately NOT awaited (NotifierPort contract): the
+      // move is committed and broadcast, and nothing in the response depends
+      // on the DM — a Slack outage must never hold the mover's request (or
+      // their optimistic UI) hostage. Failures are swallowed here; the
+      // adapter owns failure logging.
+      void this.deps.notifier.cardCompleted(result.card).catch(() => {
+        // Intentionally ignored — see above.
+      })
     }
     return result.card
   }
@@ -412,7 +417,7 @@ export class CardService {
         ensureVersion(card, input.expectedVersion)
 
         const done = await laneByKey(tx, card.boardId, 'done')
-        const bottom = (await tx.cards.listByLane(done.id)).at(-1)
+        const bottom = await tx.cards.edgeOfLane(done.id, 'last')
         const updated: Card = {
           ...card,
           laneId: done.id,
@@ -462,7 +467,7 @@ export class CardService {
         ensureVersion(card, input.expectedVersion)
 
         const ready = await laneByKey(tx, card.boardId, 'ready')
-        const bottom = (await tx.cards.listByLane(ready.id)).at(-1)
+        const bottom = await tx.cards.edgeOfLane(ready.id, 'last')
         const updated: Card = {
           ...card,
           laneId: ready.id,
@@ -484,6 +489,117 @@ export class CardService {
     )
     publishCardHints(this.deps.eventBus, result.card, result.events)
     return result.card
+  }
+
+  /**
+   * Archives every done card that entered Done more than DONE_ARCHIVAL_DAYS
+   * ago (docs/product/workflow.md#archival) — the nightly job's work, owned
+   * here so archival inherits the invariants every mutation gets: the
+   * canonical event envelope and post-commit SSE hints (connected boards drop
+   * archived cards without a reload). "Entered Done" is the newest matching
+   * audit event, falling back to `updatedAt` for rows without a trail
+   * (fixtures, imports). One transaction per card keeps every write-queue
+   * slot small; idempotent — the candidate query excludes archived rows in
+   * SQL, so a missed night simply catches up.
+   *
+   * Policy checks: none — `actor` is the system actor (jobs bypass policy).
+   * Audit events: one `card.archived` per archived card.
+   */
+  async archiveExpired(actor: Actor): Promise<{ archived: number }> {
+    const now = this.deps.clock.now()
+    const cutoffIso = new Date(now.getTime() - DONE_ARCHIVAL_DAYS * 86_400_000).toISOString()
+    const candidates = await this.deps.uow.read(async (tx) => {
+      const done = await tx.lanes.findByKey(this.deps.boardId, 'done')
+      if (done === null) return []
+      // query() excludes archived rows by default — the scan stays
+      // proportional to the LIVE done lane, not the unbounded archive.
+      return tx.cards.query({ laneId: done.id })
+    })
+
+    let archived = 0
+    for (const candidate of candidates) {
+      const result = await this.deps.uow.run(async (tx) => {
+        // Re-read inside the transaction: the card may have moved, changed,
+        // or been archived since the candidate list was taken.
+        const card = await tx.cards.findById(candidate.id)
+        if (card?.archivedAt !== null || card.laneId !== candidate.laneId) {
+          return null
+        }
+        if ((await enteredDoneAt(tx, card)) > cutoffIso) return null
+
+        const nowIso = this.deps.clock.now().toISOString()
+        const updated: Card = {
+          ...card,
+          archivedAt: nowIso,
+          version: card.version + 1,
+          updatedAt: nowIso,
+        }
+        await tx.cards.update(updated)
+        const event = makeEvent(this.deps.ids, this.deps.clock, actor, card.id, {
+          eventType: 'card.archived',
+          payload: {},
+        })
+        await tx.events.append(event)
+        return { card: updated, events: [event] } satisfies MutationResult
+      })
+      if (result !== null) {
+        publishCardHints(this.deps.eventBus, result.card, result.events)
+        archived += 1
+      }
+    }
+    return { archived }
+  }
+
+  /**
+   * Claims every overdue, un-alerted waiting-lane episode — the hourly aging
+   * job's work (docs/product/workflow.md#waiting-on-parts--vendor-discipline),
+   * owned here so the overdue rule (`isOverdueResume` over UTC days), the
+   * at-most-once-per-episode claim, and the recipient policy (assignee first,
+   * then every active supervisor, deduped; deactivated users never resolved)
+   * are core business rules like `archiveExpired` — the server job only
+   * schedules and delivers.
+   *
+   * One transaction claims every due episode and resolves its recipients
+   * BEFORE any delivery is attempted: a crash between claim and DM costs one
+   * alert, never a re-fire storm, and a restart re-derives everything from
+   * persisted state.
+   *
+   * Policy checks: none — a scheduled system flow (like archiveExpired).
+   * Audit events: none — `resumeAlertedAt` is delivery bookkeeping, not a
+   * user-visible edit: no version bump, no updatedAt churn (data-model.md).
+   */
+  async claimOverdueWaitingAlerts(): Promise<{ card: Card; recipients: User[] }[]> {
+    const now = this.deps.clock.now()
+    const nowIso = now.toISOString()
+    const today = utcDayOf(now)
+    return this.deps.uow.run(async (tx) => {
+      const lane = await tx.lanes.findByKey(this.deps.boardId, 'waiting_parts_vendor')
+      if (lane === null) return []
+      const overdue = (await tx.cards.query({ laneId: lane.id, overdueBefore: today })).filter(
+        (card) => card.resumeAlertedAt === null,
+      )
+      if (overdue.length === 0) return []
+
+      const supervisors = (await tx.userAccounts.list()).filter(
+        (user) => user.role === 'supervisor' && user.isActive,
+      )
+      const alerts: { card: Card; recipients: User[] }[] = []
+      for (const card of overdue) {
+        // Assignee first, then supervisors, deduped (an assignee who is also
+        // a supervisor gets one DM). Deactivated assignees get none.
+        const recipients = new Map<string, User>()
+        if (card.assigneeId !== null) {
+          const assignee = await tx.users.findById(card.assigneeId)
+          if (assignee?.isActive === true) recipients.set(assignee.id, assignee)
+        }
+        for (const supervisor of supervisors) recipients.set(supervisor.id, supervisor)
+
+        const marked: Card = { ...card, resumeAlertedAt: nowIso }
+        await tx.cards.update(marked)
+        alerts.push({ card: marked, recipients: [...recipients.values()] })
+      }
+      return alerts
+    })
   }
 
   /**
@@ -509,6 +625,20 @@ export class CardService {
   async unblock(actor: Actor, cardId: string, rawInput: unknown): Promise<Card> {
     const input = unblockCardInputSchema.parse(rawInput)
     return this.setBlockedFlag(actor, cardId, input.expectedVersion, null)
+  }
+
+  /**
+   * Assignees must be ACTIVE board users: a deactivated (offboarded) identity
+   * or the hidden automation user is not a valid work target — the same rule
+   * the Slack assignee field and the MCP reporter resolver enforce. Resolving
+   * them exactly like unknown ids keeps the API from doubling as an
+   * account-existence oracle.
+   */
+  private async requireAssignable(tx: TransactionContext, assigneeId: string): Promise<void> {
+    const assignee = requireFound(await tx.users.findById(assigneeId), 'assignee')
+    if (!assignee.isActive || assignee.id === this.deps.systemUserId) {
+      throw new NotFoundError('assignee')
+    }
   }
 
   private async setBlockedFlag(
@@ -562,6 +692,24 @@ function changeOf(
   to: string | number | string[] | null,
 ): CardEventBody {
   return { eventType: 'card.field_changed', payload: { field, from, to } }
+}
+
+/**
+ * When the card last entered Done, from its audit trail (fallback:
+ * `updatedAt`). O(1): a card sitting in done arrived via a move
+ * (`card.status_changed` into done) or a cancel (`card.cancelled`), and any
+ * later lane change would have taken it out of done — so the newest event of
+ * those two types is the arrival, read with LIMIT 1.
+ */
+async function enteredDoneAt(tx: TransactionContext, card: Card): Promise<string> {
+  const newest = (
+    await tx.events.listLatestByCard(card.id, 1, ['card.status_changed', 'card.cancelled'])
+  ).at(0)
+  if (newest?.eventType === 'card.cancelled') return newest.createdAt
+  if (newest?.eventType === 'card.status_changed' && newest.payload.toLane === 'done') {
+    return newest.createdAt
+  }
+  return card.updatedAt
 }
 
 /** Neighbors whose keys no longer bracket a valid gap are stale → 409. */

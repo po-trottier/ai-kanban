@@ -1,4 +1,4 @@
-import { type Clock } from '@rivian-kanban/core'
+import { utcDayOf, type Clock } from '@rivian-kanban/core'
 
 /**
  * Per-user daily upload quota (docs/architecture/security.md#uploads:
@@ -19,7 +19,7 @@ export class UploadQuota {
   }
 
   private rollover(): void {
-    const today = this.clock.now().toISOString().slice(0, 10)
+    const today = utcDayOf(this.clock.now())
     if (today !== this.day) {
       this.day = today
       this.byUser = new Map()

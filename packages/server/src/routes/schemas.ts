@@ -1,20 +1,25 @@
 import {
   ACTOR_KINDS,
   attachmentSchema,
+  boardCardSchema,
   boardPolicySchema,
+  boardSnapshotSchemaOf,
   CARD_EVENT_TYPES,
+  cardDetailSchemaOf,
   cardSchema,
-  commentSchema,
   laneSchema,
   locationSchema,
+  pageSchemaOf,
+  pickerUserSchema as corePickerUserSchema,
   policyActionGatesSchema,
   policyDocumentSchema,
   policyTransitionSchema,
+  redactedCommentSchema,
   serviceTokenSchema,
   tagSchema,
   userSchema,
 } from '@rivian-kanban/core'
-import { z, type ZodType } from 'zod'
+import { z } from 'zod'
 
 /**
  * Response schemas (docs/architecture/rest-api.md#conventions). Entities in
@@ -45,34 +50,31 @@ export const serviceTokenResponseSchema = z.object(
   serviceTokenSchema.omit({ tokenHash: true }).shape,
 )
 
-/** Soft-deleted comment bodies are blanked before serialization. */
-export const commentResponseSchema = z.object({ ...commentSchema.shape, body: z.string() })
+/** Soft-deleted comment bodies are blanked by core before serialization. */
+export const commentResponseSchema = z.object(redactedCommentSchema.shape)
 
-/** Users for pickers: id, name, role — picked from the core user schema. */
-export const pickerUserSchema = z.object(
-  userSchema.pick({ id: true, displayName: true, role: true }).shape,
-)
+/** Users for pickers — core's shared pick roster, as a stripping wrapper. */
+export const pickerUserSchema = z.object(corePickerUserSchema.shape)
 
-/** `{ items, nextCursor | null }` pagination envelope. */
-export function pageResponseOf<Item extends ZodType>(item: Item) {
-  return z.object({ items: z.array(item), nextCursor: z.string().nullable() })
-}
+/** Core's `{ items, nextCursor | null }` envelope over the stripping wrappers. */
+export const pageResponseOf = pageSchemaOf
 
-export const cardDetailResponseSchema = z.object({
+/** Core's CardDetail envelope, composed from the stripping wrappers above. */
+export const cardDetailResponseSchema = cardDetailSchemaOf({
   card: cardResponseSchema,
-  tags: z.array(tagResponseSchema),
-  location: locationResponseSchema.nullable(),
-  attachments: z.array(attachmentResponseSchema),
+  tag: tagResponseSchema,
+  location: locationResponseSchema,
+  attachment: attachmentResponseSchema,
 })
 
-export const boardResponseSchema = z.object({
-  lanes: z.array(
-    z.object({
-      lane: laneResponseSchema,
-      cards: z.array(cardResponseSchema),
-      wipLimitExceeded: z.boolean(),
-    }),
-  ),
+/**
+ * Core's BoardSnapshot envelope over the board-card SUMMARY (rest-api.md:
+ * "non-archived card summaries") — never the full card: the hottest response
+ * in the system must not carry 20 KB descriptions for the 90-day done backlog.
+ */
+export const boardResponseSchema = boardSnapshotSchemaOf({
+  lane: laneResponseSchema,
+  card: z.object(boardCardSchema.shape),
 })
 
 /** Card audit events — the payload union is validated at write time (ADR-005). */

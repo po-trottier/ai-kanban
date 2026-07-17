@@ -6,6 +6,7 @@ import {
   MAX_ATTACHMENT_BYTES,
   NotFoundError,
   PolicyDeniedError,
+  type ProblemIssue,
 } from '@rivian-kanban/core'
 import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod'
 import { ZodError } from 'zod'
@@ -68,12 +69,8 @@ function problem(
   }
 }
 
-interface ValidationIssue {
-  path: string
-  message: string
-}
-
-function validationProblem(issues: ValidationIssue[]): ProblemResult {
+/** Issues are typed by core's problem schema — the exact shape clients parse. */
+function validationProblem(issues: ProblemIssue[]): ProblemResult {
   return problem(400, 'validation', 'Validation failed', 'the request did not match the schema', {
     issues,
   })

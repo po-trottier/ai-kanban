@@ -438,3 +438,34 @@ describe('CardService.move — transition enforcement on', () => {
     expect(moved.laneId).toBe(scenario.lanes.ready.id)
   })
 })
+
+describe('CardService.claimOverdueWaitingAlerts', () => {
+  it('claims overdue episodes once, resolving assignee + active supervisors deduped', async () => {
+    // Arrange: fixed clock is 2026-07-16 — overdue starts the day AFTER the date
+    const scenario = createScenario()
+    const overdue = scenario.seedCard({
+      laneId: scenario.lanes.waiting_parts_vendor.id,
+      waitingReason: 'parts',
+      expectedResumeAt: '2026-07-15',
+      assigneeId: scenario.users.technician.id,
+    })
+    scenario.seedCard({
+      laneId: scenario.lanes.waiting_parts_vendor.id,
+      waitingReason: 'vendor',
+      expectedResumeAt: '2026-07-16',
+    })
+
+    // Act
+    const first = await scenario.cards.claimOverdueWaitingAlerts()
+    const second = await scenario.cards.claimOverdueWaitingAlerts()
+
+    // Assert — one claim per episode; assignee first, then the supervisor
+    expect(first.map((alert) => alert.card.id)).toEqual([overdue.id])
+    expect(first.at(0)?.card.resumeAlertedAt).toBe('2026-07-16T12:00:00.000Z')
+    expect(first.at(0)?.recipients.map((user) => user.id)).toEqual([
+      scenario.users.technician.id,
+      scenario.users.supervisor.id,
+    ])
+    expect(second).toEqual([])
+  })
+})

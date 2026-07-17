@@ -15,6 +15,15 @@ export const CARD_RATE_LIMIT_MESSAGE =
 export const CREATE_FAILED_MESSAGE =
   'Sorry — creating that ticket failed. Try again, or use the board directly.'
 
+/**
+ * Deliberately non-distinguishing (like core's uniform NotFoundError for
+ * assignees): confirming "no active board user has that email" would make the
+ * draft modal an account-membership oracle for arbitrary emails — a fact no
+ * other surface exposes (GET /users strips emails).
+ */
+export const ASSIGNEE_UNRESOLVED_MESSAGE =
+  "Couldn't resolve that assignee — leave the field blank and the card can be assigned on the board."
+
 /** Where a card lives in the web UI (PUBLIC_BASE_URL is the SPA origin). */
 function cardUrl(publicBaseUrl: string, cardId: string): string {
   return `${publicBaseUrl.replace(/\/$/, '')}/cards/${cardId}`

@@ -16,7 +16,7 @@ export async function resolveSlackUser(
   client: WebClient,
   slackUserId: string,
 ): Promise<User | null> {
-  const bound = await ctx.uow.run((tx) => tx.userAccounts.findBySlackUserId(slackUserId))
+  const bound = await ctx.uow.read((tx) => tx.userAccounts.findBySlackUserId(slackUserId))
   if (bound !== null) {
     return bound.user.isActive ? bound.user : null
   }
@@ -24,7 +24,7 @@ export async function resolveSlackUser(
   const email = await slackEmailOf(client, slackUserId)
   if (email === null) return null
 
-  const byEmail = await ctx.uow.run((tx) => tx.userAccounts.findByEmail(email))
+  const byEmail = await ctx.uow.read((tx) => tx.userAccounts.findByEmail(email))
   if (byEmail?.user.isActive !== true) return null
 
   return bindSlackIdentity(ctx.uow, ctx.logger, byEmail.user, slackUserId)

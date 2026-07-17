@@ -21,6 +21,8 @@ import { type BoardPolicy } from '../domain/policy.ts'
 
 /** Filters for the card list query; keys the db adapter can push into SQL. */
 export interface CardQueryFilter {
+  /** Board scope for legs not already scoped through a lane (multi-board seam). */
+  boardId?: string
   laneId?: string
   assigneeId?: string
   reporterId?: string
@@ -43,8 +45,26 @@ export interface CardRepository {
   insert(card: Card): Promise<void>
   /** May reject with DuplicatePositionError — the UNIQUE(laneId, position) backstop. */
   update(card: Card): Promise<void>
-  /** Every card in the lane (archived included), ordered by position ascending. */
-  listByLane(laneId: string): Promise<Card[]>
+  /**
+   * Cards in the lane ordered by position ascending. Archived rows are
+   * included by default (they keep occupying the lane's UNIQUE(laneId,
+   * position) space); `activeOnly` pushes the `archived_at IS NULL` filter
+   * into the adapter so hot reads (board snapshot, WIP checks) never hydrate
+   * the ever-growing done-lane archive.
+   */
+  listByLane(laneId: string, options?: { activeOnly?: boolean }): Promise<Card[]>
+  /**
+   * COUNT of non-archived cards in the lane — the WIP-marker read inside the
+   * move transaction, which must not hydrate rows just to take a length
+   * (soft limits mean lane size is unbounded).
+   */
+  countActiveByLane(laneId: string): Promise<number>
+  /**
+   * The first/last card of a lane by position — an O(1) `ORDER BY position
+   * LIMIT 1` boundary read (archived rows included: they occupy position
+   * space). Null for an empty lane.
+   */
+  edgeOfLane(laneId: string, edge: 'first' | 'last'): Promise<Card | null>
   /**
    * Filtered list, newest-first: `ORDER BY createdAt DESC, id DESC` — the id
    * tie-break is descending too. When `page.after` is set, returns only rows
@@ -148,6 +168,7 @@ export interface ServiceTokenRepository {
   updateLastUsed(id: string, lastUsedAt: string): Promise<void>
   /** All tokens, newest first (admin list). */
   list(): Promise<ServiceToken[]>
+  /** Rejects a duplicate tokenHash (UNIQUE backstop) with ConflictError. */
   insert(token: ServiceToken): Promise<void>
   /** Sets revokedAt (idempotent); NotFoundError when the id does not exist. */
   revoke(id: string, revokedAt: string): Promise<void>
@@ -163,6 +184,8 @@ export interface LaneRepository {
 
 export interface LocationRepository {
   findById(id: string): Promise<Location | null>
+  /** Case-insensitive name lookup (Slack draft resolution; mirrors tags.findByNameCi). */
+  findByNameCi(name: string): Promise<Location | null>
   /** Every location row; clients assemble the tree from parentId. */
   list(): Promise<Location[]>
   insert(location: Location): Promise<void>
@@ -212,9 +235,14 @@ export interface EventRepository {
    * `ORDER BY createdAt DESC, id DESC LIMIT n` — the trailing slice of the
    * card's history in O(limit), regardless of history depth. Tie-break
    * direction mirrors `listByCard` exactly (id disambiguates equal
-   * timestamps).
+   * timestamps). The optional type filter keeps "when did this card last
+   * enter lane X" reads O(1) instead of full-history scans.
    */
-  listLatestByCard(cardId: string, limit: number): Promise<CardEvent[]>
+  listLatestByCard(
+    cardId: string,
+    limit: number,
+    types?: readonly CardEventType[],
+  ): Promise<CardEvent[]>
 }
 
 /** The repositories available inside one atomic unit of work. */
@@ -240,4 +268,12 @@ export interface TransactionContext {
  */
 export interface UnitOfWork {
   run<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T>
+  /**
+   * Read-only unit of work: a consistent snapshot of committed state that
+   * never takes the write lock, so pure reads (board snapshot, session
+   * authentication, list queries) do not queue behind writers or long job
+   * transactions. `fn` must not mutate — the SQLite adapter enforces this
+   * with a read-only connection.
+   */
+  read<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T>
 }

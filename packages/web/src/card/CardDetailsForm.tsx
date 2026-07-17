@@ -1,28 +1,14 @@
-import {
-  PRIORITIES,
-  updateCardInputSchema,
-  type Location,
-  type UpdateCardInput,
-} from '@rivian-kanban/core'
-import {
-  Button,
-  Group,
-  NumberInput,
-  Select,
-  Stack,
-  TagsInput,
-  Text,
-  TextInput,
-} from '@mantine/core'
+import { updateCardInputSchema, type Location, type UpdateCardInput } from '@rivian-kanban/core'
+import { Button, Group, Stack, Text } from '@mantine/core'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { useEffect } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { type z } from 'zod'
 import { type CardDetailResponse, type PickerUser } from '../api/schemas.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { strings } from '../strings.ts'
-import { DescriptionEditor } from './DescriptionEditor.tsx'
-import { LocationPicker } from './LocationPicker.tsx'
+import { cardFieldsControl } from './card-fields.ts'
+import { CardFieldInputs } from './CardFieldInputs.tsx'
 
 /** Editable fields = the core PATCH command minus the If-Match version. */
 const cardFieldsSchema = updateCardInputSchema.omit({ expectedVersion: true })
@@ -80,98 +66,19 @@ export function CardDetailsForm({
       }}
     >
       <Stack gap="md">
-        <TextInput
-          label={strings.detail.titleLabel}
-          withAsterisk
+        <CardFieldInputs
+          control={cardFieldsControl(form.control)}
+          titleField={form.register('title')}
+          errors={{
+            title: form.formState.errors.title?.message,
+            estimateMinutes: form.formState.errors.estimateMinutes?.message,
+          }}
+          users={users}
+          locations={locations}
+          knownTags={knownTags}
+          // The update command clears optionals explicitly (core schema `.nullable()`).
+          cleared={null}
           disabled={disabled}
-          error={form.formState.errors.title?.message}
-          {...form.register('title')}
-        />
-        <Controller
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <DescriptionEditor
-              value={field.value ?? ''}
-              disabled={disabled}
-              onChange={field.onChange}
-            />
-          )}
-        />
-        <Group grow align="flex-start">
-          <Controller
-            control={form.control}
-            name="priority"
-            render={({ field }) => (
-              <Select
-                label={strings.detail.priorityLabel}
-                data={PRIORITIES.map((priority) => ({
-                  value: priority,
-                  label: strings.priorities[priority],
-                }))}
-                value={field.value ?? card.priority}
-                allowDeselect={false}
-                disabled={disabled}
-                onChange={(value) => {
-                  if (value !== null) field.onChange(value)
-                }}
-              />
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="estimateMinutes"
-            render={({ field }) => (
-              <NumberInput
-                label={strings.detail.estimateLabel}
-                value={field.value ?? ''}
-                disabled={disabled}
-                error={form.formState.errors.estimateMinutes?.message}
-                onChange={(value) => {
-                  field.onChange(typeof value === 'number' ? value : null)
-                }}
-              />
-            )}
-          />
-        </Group>
-        <Controller
-          control={form.control}
-          name="assigneeId"
-          render={({ field }) => (
-            <Select
-              label={strings.detail.assigneeLabel}
-              data={users.map((user) => ({ value: user.id, label: user.displayName }))}
-              value={field.value ?? null}
-              clearable
-              disabled={disabled}
-              onChange={field.onChange}
-            />
-          )}
-        />
-        <Controller
-          control={form.control}
-          name="locationId"
-          render={({ field }) => (
-            <LocationPicker
-              locations={locations}
-              value={field.value ?? null}
-              disabled={disabled}
-              onChange={field.onChange}
-            />
-          )}
-        />
-        <Controller
-          control={form.control}
-          name="tags"
-          render={({ field }) => (
-            <TagsInput
-              label={strings.detail.tagsLabel}
-              data={knownTags}
-              value={field.value ?? []}
-              disabled={disabled}
-              onChange={field.onChange}
-            />
-          )}
         />
         <Group gap="lg">
           <Text size="xs" c="dimmed">

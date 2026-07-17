@@ -1,9 +1,11 @@
-import { ROLES, type Role } from '@rivian-kanban/core'
-import { Button, Code, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
+import { type Role } from '@rivian-kanban/core'
+import { Button, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
 import { useState } from 'react'
 import { useCreateUser, usePatchUser } from '../api/admin.ts'
 import { useUsers } from '../api/meta.ts'
 import { strings } from '../strings.ts'
+import { RevealOnceModal } from './RevealOnceModal.tsx'
+import { ROLE_SELECT_DATA } from './role-select-data.ts'
 
 /** User administration: create, role change, reset password, deactivate. */
 export function UsersAdmin() {
@@ -50,7 +52,7 @@ export function UsersAdmin() {
                 <Select
                   aria-label={`${strings.users.roleLabel}: ${user.displayName}`}
                   size="xs"
-                  data={ROLES.map((role) => ({ value: role, label: strings.users.roles[role] }))}
+                  data={ROLE_SELECT_DATA}
                   value={user.role}
                   allowDeselect={false}
                   onChange={(role) => {
@@ -121,7 +123,7 @@ export function UsersAdmin() {
             />
             <Select
               label={strings.users.roleLabel}
-              data={ROLES.map((role) => ({ value: role, label: strings.users.roles[role] }))}
+              data={ROLE_SELECT_DATA}
               value={draft.role}
               allowDeselect={false}
               onChange={(role) => {
@@ -183,20 +185,14 @@ export function UsersAdmin() {
       ) : null}
 
       {tempPassword !== null ? (
-        <Modal
-          opened
+        <RevealOnceModal
+          title={strings.users.tempPasswordTitle}
+          hint={strings.users.tempPasswordHint}
+          secret={tempPassword}
           onClose={() => {
             setTempPassword(null)
           }}
-          title={strings.users.tempPasswordTitle}
-        >
-          <Stack gap="md">
-            <Code block>{tempPassword}</Code>
-            <Text size="sm" c="dimmed">
-              {strings.users.tempPasswordHint}
-            </Text>
-          </Stack>
-        </Modal>
+        />
       ) : null}
     </Stack>
   )

@@ -8,6 +8,9 @@ import {
   type Role,
   type User,
 } from '@rivian-kanban/core'
+// The demo dataset IS fixture data (docs/dev/testing.md#fixtures): it shares
+// the canonical neutral-entity defaults with every test harness.
+import { cardWith, commentWith, userWith } from '@rivian-kanban/core/testing'
 import { and, eq } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import {
@@ -224,16 +227,13 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
     const nowMs = Date.now()
     const demoUsers = Object.fromEntries(
       ROLES.map((role) => {
-        const user: User = {
+        const user = userWith({
           id: ids.newId(),
           email: demoUserEmail(role),
           displayName: `Demo ${role.charAt(0).toUpperCase()}${role.slice(1)}`,
           role,
-          mustChangePassword: false,
-          slackUserId: null,
-          isActive: true,
           createdAt: new Date(nowMs - 30 * 86_400_000).toISOString(),
-        }
+        })
         tx.insert(users)
           .values({ ...user, passwordHash: PLACEHOLDER_PASSWORD_HASH })
           .run()
@@ -267,33 +267,14 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       const createdAt = new Date(nowMs - (7 * 24 - cardCount) * 3_600_000).toISOString()
       const positionIndex = positionCounters.get(overrides.laneId) ?? 0
       positionCounters.set(overrides.laneId, positionIndex + 1)
-      const defaults: Omit<Card, 'laneId' | 'title'> = {
+      const card = cardWith({
         id: ids.newId(),
         boardId: board.id,
         position: appendPosition(positionIndex),
-        description: '',
-        priority: 'P2',
-        estimateMinutes: null,
         reporterId: demoUsers.requester.id,
-        assigneeId: null,
-        locationId: null,
-        origin: 'manual',
-        resolution: null,
-        blocked: false,
-        blockedReason: null,
-        blockedAt: null,
-        waitingReason: null,
-        expectedResumeAt: null,
-        resumeAlertedAt: null,
-        slackChannelId: null,
-        slackThreadTs: null,
-        slackPermalink: null,
-        version: 1,
         createdAt,
-        updatedAt: createdAt,
-        archivedAt: null,
-      }
-      const card: Card = { ...defaults, ...overrides }
+        ...overrides,
+      })
       tx.insert(cards).values(card).run()
       for (const name of tagNames) {
         const tagId = tagIdsByName.get(name)
@@ -412,16 +393,13 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       archivedAt: new Date(nowMs - 10 * 86_400_000).toISOString(),
     })
 
-    const parentComment = {
+    const parentComment = commentWith({
       id: ids.newId(),
       cardId: inProgressCard.id,
-      parentCommentId: null,
       authorId: demoUsers.requester.id,
       body: 'Any update? Deliveries are backing up at the dock.',
       createdAt: new Date(nowMs - 3 * 3_600_000).toISOString(),
-      updatedAt: new Date(nowMs - 3 * 3_600_000).toISOString(),
-      deletedAt: null,
-    }
+    })
     tx.insert(comments).values(parentComment).run()
     appendEvent({
       id: ids.newId(),
@@ -432,16 +410,14 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       payload: { commentId: parentComment.id },
       createdAt: parentComment.createdAt,
     })
-    const reply = {
+    const reply = commentWith({
       id: ids.newId(),
       cardId: inProgressCard.id,
       parentCommentId: parentComment.id,
       authorId: demoUsers.technician.id,
       body: 'Hydraulic pump is out — new seal kit arrives tomorrow morning.',
       createdAt: new Date(nowMs - 2 * 3_600_000).toISOString(),
-      updatedAt: new Date(nowMs - 2 * 3_600_000).toISOString(),
-      deletedAt: null,
-    }
+    })
     tx.insert(comments).values(reply).run()
     appendEvent({
       id: ids.newId(),

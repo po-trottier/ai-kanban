@@ -1,12 +1,13 @@
+import { PASSWORD_MIN_LENGTH } from '@rivian-kanban/core'
 import { COMMON_PASSWORDS } from './common-passwords.ts'
 
 /**
  * Password policy (docs/architecture/security.md#authentication): 12–128
  * characters, no composition rules (NIST-style), top-10k common passwords
- * rejected case-insensitively.
+ * rejected case-insensitively. The minimum is the shared core constant so the
+ * web form's inline validation cannot drift from the enforced policy.
  */
 
-const PASSWORD_MIN_LENGTH = 12
 const PASSWORD_MAX_LENGTH = 128
 
 /** The human-readable violation, or null when the password is acceptable. */

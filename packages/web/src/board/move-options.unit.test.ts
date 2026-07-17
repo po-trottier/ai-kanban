@@ -53,6 +53,17 @@ describe('canMoveToLane', () => {
     expect(asSupervisor).toBe(true)
     expect(otherLane).toBe(true)
   })
+
+  it('treats a drag out of done as reopen: the reopen gate applies (server parity)', () => {
+    // Arrange — CardService.move consults card.reopen for moves out of done
+    const gated = { ...permissivePolicy, actionGates: { reopen: 'supervisor' as const } }
+    // Act
+    const asTechnician = canMoveToLane(gated, 'technician', 'done', 'ready')
+    const asSupervisor = canMoveToLane(gated, 'supervisor', 'done', 'ready')
+    // Assert
+    expect(asTechnician).toBe(false)
+    expect(asSupervisor).toBe(true)
+  })
 })
 
 describe('canPerformAction', () => {
@@ -67,6 +78,20 @@ describe('canPerformAction', () => {
     expect(ungated).toBe(true)
     expect(denied).toBe(false)
     expect(allowed).toBe(true)
+  })
+
+  it('applies the done→ready transition to the reopen affordance when enforcement is on', () => {
+    // Arrange — core's engine ties reopen to the done→ready edge (supervisor
+    // in the seeded graph); the UI must not offer a Reopen the server rejects.
+    const policy = enforcedPolicy
+    // Act
+    const asTechnician = canPerformAction(policy, 'technician', 'reopen')
+    const asSupervisor = canPerformAction(policy, 'supervisor', 'reopen')
+    const enforcementOff = canPerformAction(permissivePolicy, 'technician', 'reopen')
+    // Assert
+    expect(asTechnician).toBe(false)
+    expect(asSupervisor).toBe(true)
+    expect(enforcementOff).toBe(true)
   })
 
   it('evaluates the delete-others gates for comments and attachments (ADR-013)', () => {

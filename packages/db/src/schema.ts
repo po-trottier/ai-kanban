@@ -10,6 +10,7 @@ import {
   type TokenScope,
   type WaitingReason,
 } from '@rivian-kanban/core'
+import { sql } from 'drizzle-orm'
 import {
   customType,
   index,
@@ -42,18 +43,33 @@ const nocaseText = customType<{ data: string }>({
   dataType: () => 'text COLLATE NOCASE',
 })
 
-export const users = sqliteTable('users', {
-  id: text('id').primaryKey(),
-  email: text('email').notNull().unique(),
-  displayName: text('display_name').notNull(),
-  role: text('role').$type<Role>().notNull(),
-  passwordHash: text('password_hash').notNull(),
-  /** While set, the session may only call change-password. */
-  mustChangePassword: integer('must_change_password', { mode: 'boolean' }).notNull().default(false),
-  slackUserId: text('slack_user_id'),
-  isActive: integer('is_active', { mode: 'boolean' }).notNull(),
-  createdAt: text('created_at').notNull(),
-})
+export const users = sqliteTable(
+  'users',
+  {
+    id: text('id').primaryKey(),
+    /** Stored lowercased (data-model.md); see the lower() unique index below. */
+    email: text('email').notNull().unique(),
+    displayName: text('display_name').notNull(),
+    role: text('role').$type<Role>().notNull(),
+    passwordHash: text('password_hash').notNull(),
+    /** While set, the session may only call change-password. */
+    mustChangePassword: integer('must_change_password', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    slackUserId: text('slack_user_id'),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    /**
+     * Every email lookup is case-insensitive (`lower(email) = lower(?)`), so
+     * the database must enforce case-insensitive uniqueness too — otherwise a
+     * stray mixed-case insert would make login lookups ambiguous. Maps to a
+     * CITEXT/lower() unique index on the Postgres port (ADR-003).
+     */
+    uniqueIndex('users_email_ci_unique').on(sql`lower(${table.email})`),
+  ],
+)
 
 /** Single seeded row in v1; cards reference it so multi-board is additive later. */
 export const boards = sqliteTable('boards', {
@@ -152,6 +168,33 @@ export const cards = sqliteTable(
     index('cards_board_id_archived_at_idx').on(table.boardId, table.archivedAt),
     index('cards_assignee_id_idx').on(table.assigneeId),
     index('cards_reporter_id_idx').on(table.reporterId),
+    /**
+     * Supports the keyset list query (`ORDER BY created_at DESC, id DESC`
+     * with a `(created_at, id) <` cursor) — SQLite walks the ASC index
+     * backwards, so every page is O(page) instead of a full scan + sort.
+     */
+    index('cards_created_at_id_idx').on(table.createdAt, table.id),
+    /**
+     * Partial index for the hottest read: `listByLane(…, { activeOnly })`
+     * (board snapshot per mutation, WIP counts, archival candidates). Done
+     * cards are archived in place, so the done lane accumulates every
+     * completed card forever — without this, each activeOnly read walks the
+     * whole lifetime archive under the UNIQUE index just to reject it. The
+     * UNIQUE index above still serves the duplicate-position backstop,
+     * edgeOfLane, and full-lane reads.
+     */
+    index('cards_lane_active_position_idx')
+      .on(table.laneId, table.position)
+      .where(sql`${table.archivedAt} is null`),
+    /**
+     * Partial index for the stale-cards blocked leg (`blocked AND archived_at
+     * IS NULL ORDER BY created_at DESC, id DESC`): the query predicate
+     * subsumes the index predicate, so the scan visits only live blocked
+     * cards instead of every card ever created.
+     */
+    index('cards_blocked_active_idx')
+      .on(table.createdAt, table.id)
+      .where(sql`${table.blocked} = 1 and ${table.archivedAt} is null`),
   ],
 )
 
@@ -251,18 +294,30 @@ export const sessions = sqliteTable('sessions', {
 })
 
 /** MCP/automation credentials; revocation is the only lifecycle end (ADR-009). */
-export const serviceTokens = sqliteTable('service_tokens', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  /** sha256 of the raw `rkb_…` token; the raw value is shown once at creation. */
-  tokenHash: text('token_hash').notNull(),
-  role: text('role').$type<Role>().notNull(),
-  /** Always-on identity rule: `read` tokens cannot call mutating tools. */
-  scope: text('scope').$type<TokenScope>().notNull(),
-  createdBy: text('created_by')
-    .notNull()
-    .references(() => users.id),
-  createdAt: text('created_at').notNull(),
-  lastUsedAt: text('last_used_at'),
-  revokedAt: text('revoked_at'),
-})
+export const serviceTokens = sqliteTable(
+  'service_tokens',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    /** sha256 of the raw `rkb_…` token; the raw value is shown once at creation. */
+    tokenHash: text('token_hash').notNull(),
+    role: text('role').$type<Role>().notNull(),
+    /** Always-on identity rule: `read` tokens cannot call mutating tools. */
+    scope: text('scope').$type<TokenScope>().notNull(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull(),
+    lastUsedAt: text('last_used_at'),
+    revokedAt: text('revoked_at'),
+  },
+  (table) => [
+    /**
+     * Credential-hash uniqueness is an integrity invariant the schema owns
+     * (like users_email_ci_unique): rows are never deleted, and two rows
+     * sharing a hash would make bearer auth resolve an arbitrary one. Also
+     * the index behind the per-request findByHash lookup.
+     */
+    uniqueIndex('service_tokens_token_hash_unique').on(table.tokenHash),
+  ],
+)

@@ -1,4 +1,5 @@
 import {
+  PASSWORD_MIN_LENGTH,
   type CancelResolution,
   type LaneKey,
   type Priority,
@@ -45,7 +46,7 @@ export const strings = {
     currentPassword: 'Current password',
     newPassword: 'New password',
     confirmPassword: 'Confirm new password',
-    passwordMinLength: 'Password must be at least 12 characters',
+    passwordMinLength: `Password must be at least ${String(PASSWORD_MIN_LENGTH)} characters`,
     passwordMismatch: 'Passwords do not match',
     changePasswordButton: 'Change password',
     passwordChanged: 'Password changed',
@@ -209,8 +210,6 @@ export const strings = {
 
   newCard: {
     modalTitle: 'New card',
-    titleLabel: 'Title',
-    titleRequired: 'Enter a title',
     created: 'Card created in Intake',
   },
 

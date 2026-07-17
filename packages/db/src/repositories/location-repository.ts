@@ -4,7 +4,7 @@ import {
   type Location,
   type LocationRepository,
 } from '@rivian-kanban/core'
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { isForeignKeyViolation, toError } from '../errors.ts'
 import { locations } from '../schema.ts'
@@ -18,6 +18,22 @@ export class SqliteLocationRepository implements LocationRepository {
 
   findById(id: string): Promise<Location | null> {
     const row = this.db.select().from(locations).where(eq(locations.id, id)).get()
+    return Promise.resolve(row ?? null)
+  }
+
+  /**
+   * Case-insensitive name lookup (Slack draft resolution). Explicit
+   * lower() = lower() — unlike tags.name, this column carries no NOCASE
+   * collation, and the unindexed scan is fine here: locations are a small,
+   * admin-curated set read on a cold path. Matches the in-memory fake's
+   * toLowerCase semantics (ASCII fold).
+   */
+  findByNameCi(name: string): Promise<Location | null> {
+    const row = this.db
+      .select()
+      .from(locations)
+      .where(sql`lower(${locations.name}) = lower(${name})`)
+      .get()
     return Promise.resolve(row ?? null)
   }
 

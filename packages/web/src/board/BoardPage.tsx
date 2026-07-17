@@ -1,5 +1,5 @@
 import {
-  type Card,
+  type BoardCard,
   type CancelResolution,
   type LaneKey,
   type WaitingReason,
@@ -26,10 +26,10 @@ import { dropPosition, moveIntentFromDrop, type DropTarget } from './move-option
 
 type ModalState =
   | { kind: 'none' }
-  | { kind: 'move'; card: Card; currentLane: LaneKey }
-  | { kind: 'waiting'; card: Card; intent: MoveIntent; announcement?: string }
-  | { kind: 'cancel'; card: Card }
-  | { kind: 'block'; card: Card }
+  | { kind: 'move'; card: BoardCard; currentLane: LaneKey }
+  | { kind: 'waiting'; card: BoardCard; intent: MoveIntent; announcement?: string }
+  | { kind: 'cancel'; card: BoardCard }
+  | { kind: 'block'; card: BoardCard }
 
 /** The board container: data, drag/menu move orchestration, card actions. */
 export function BoardPage() {
@@ -48,7 +48,7 @@ export function BoardPage() {
 
   /** Central move funnel: waiting-lane entry detours through the reason modal. */
   const requestMove = useCallback(
-    (card: Card, intent: MoveIntent, announcement?: string) => {
+    (card: BoardCard, intent: MoveIntent, announcement?: string) => {
       const from = board === undefined ? null : laneKeyOfCard(board, card)
       if (isWaitingLane(intent.toLane) && (from === null || !isWaitingLane(from))) {
         setModal({
@@ -106,7 +106,7 @@ export function BoardPage() {
     void navigate(`/cards/${cardId}`)
   }
 
-  const onMenuAction = (card: Card, action: CardMenuAction) => {
+  const onMenuAction = (card: BoardCard, action: CardMenuAction) => {
     const currentLane = laneKeyOfCard(board, card)
     switch (action) {
       case 'open':

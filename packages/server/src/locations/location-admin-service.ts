@@ -1,16 +1,14 @@
 import {
-  ADMIN_ONLY_RULE,
+  createLocationInputSchema,
+  ensureAdmin,
   NotFoundError,
-  PolicyDeniedError,
-  LOCATION_KINDS,
+  updateLocationInputSchema,
   type Actor,
-  type Clock,
   type EventBus,
   type IdGenerator,
   type Location,
   type UnitOfWork,
 } from '@rivian-kanban/core'
-import { z } from 'zod'
 import { RequestValidationError } from '../errors.ts'
 
 /**
@@ -19,16 +17,6 @@ import { RequestValidationError } from '../errors.ts'
  * rooms under floors — an always-on data-integrity rule, not policy.
  */
 
-export const createLocationInputSchema = z.strictObject({
-  parentId: z.uuid().nullable().default(null),
-  kind: z.enum(LOCATION_KINDS),
-  name: z.string().trim().min(1).max(100),
-})
-
-export const updateLocationInputSchema = z.strictObject({
-  name: z.string().trim().min(1).max(100),
-})
-
 /** kind → required parent kind (null = must be a root). */
 const REQUIRED_PARENT_KIND = {
   building: null,
@@ -36,13 +24,10 @@ const REQUIRED_PARENT_KIND = {
   room: 'floor',
 } as const
 
-function requireAdmin(actor: Actor): void {
-  if (actor.role !== 'admin') throw new PolicyDeniedError(ADMIN_ONLY_RULE)
-}
-
+// Location rows carry no timestamps, so unlike its admin siblings this
+// service takes no Clock.
 export interface LocationAdminServiceDeps {
   uow: UnitOfWork
-  clock: Clock
   ids: IdGenerator
   eventBus: EventBus
 }
@@ -56,7 +41,7 @@ export class LocationAdminService {
 
   /** The whole tree as a flat parentId-linked list (any authenticated user). */
   async list(): Promise<Location[]> {
-    return this.deps.uow.run((tx) => tx.locations.list())
+    return this.deps.uow.read((tx) => tx.locations.list())
   }
 
   /**
@@ -64,7 +49,7 @@ export class LocationAdminService {
    * matches the kind hierarchy (400 via ZodError; missing parent 404).
    */
   async create(actor: Actor, rawInput: unknown): Promise<Location> {
-    requireAdmin(actor)
+    ensureAdmin(actor)
     const input = createLocationInputSchema.parse(rawInput)
     const location: Location = {
       id: this.deps.ids.newId(),
@@ -103,7 +88,7 @@ export class LocationAdminService {
 
   /** Rename only — reparenting would silently move every child. Admin only. */
   async update(actor: Actor, locationId: string, rawInput: unknown): Promise<Location> {
-    requireAdmin(actor)
+    ensureAdmin(actor)
     const input = updateLocationInputSchema.parse(rawInput)
     const updated = await this.deps.uow.run(async (tx) => {
       const found = await tx.locations.findById(locationId)
@@ -121,7 +106,7 @@ export class LocationAdminService {
    * ConflictError from the repository (FK backstop). Admin only.
    */
   async delete(actor: Actor, locationId: string): Promise<void> {
-    requireAdmin(actor)
+    ensureAdmin(actor)
     await this.deps.uow.run((tx) => tx.locations.delete(locationId))
     this.deps.eventBus.publish({ type: 'location.updated' })
   }

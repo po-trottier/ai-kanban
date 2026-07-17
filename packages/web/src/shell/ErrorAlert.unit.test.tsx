@@ -20,21 +20,21 @@ describe('ErrorAlert', () => {
     expect(screen.getByText('intake → done is not a workflow edge')).toBeInTheDocument()
   })
 
-  it('lists Zod validation issues from a 400 problem', () => {
-    // Arrange
+  it('lists validation issues from a 400 problem (string paths, as the server emits)', () => {
+    // Arrange — paths are joined strings on the wire (core problemDetailsSchema)
     const error = new ApiError(400, {
       title: 'Validation failed',
       status: 400,
       issues: [
-        { path: ['title'], message: 'Required' },
-        { path: ['estimateMinutes'], message: 'Must be positive' },
+        { path: 'body.title', message: 'Required' },
+        { path: 'estimateMinutes', message: 'Must be positive' },
       ],
     })
     // Act
     renderWithProviders(<ErrorAlert error={error} />)
     // Assert
     expect(screen.getByText('Some fields need attention:')).toBeInTheDocument()
-    expect(screen.getByText('title: Required')).toBeInTheDocument()
+    expect(screen.getByText('body.title: Required')).toBeInTheDocument()
     expect(screen.getByText('estimateMinutes: Must be positive')).toBeInTheDocument()
   })
 

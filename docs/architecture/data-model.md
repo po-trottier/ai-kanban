@@ -25,7 +25,7 @@ sessions >── users        service_tokens (MCP)
 | column               | type                       | notes                                                                                    |
 | -------------------- | -------------------------- | ---------------------------------------------------------------------------------------- |
 | id                   | TEXT PK                    | UUIDv7                                                                                   |
-| email                | TEXT UNIQUE NOT NULL       | lowercased                                                                               |
+| email                | TEXT UNIQUE NOT NULL       | lowercased; a `lower(email)` unique index enforces case-insensitive uniqueness           |
 | display_name         | TEXT NOT NULL              | ≤ 100 chars                                                                              |
 | role                 | TEXT NOT NULL              | `requester \| technician \| supervisor \| admin`                                         |
 | password_hash        | TEXT NOT NULL              | argon2id                                                                                 |
@@ -105,7 +105,11 @@ Seeded with the permissive default (`transitionEnforcement: false`, no gates) pl
 | created_at / updated_at                              | TEXT NOT NULL              |                                                                                                                                                                                                                                                                                      |
 | archived_at                                          | TEXT NULL                  | set by archival job                                                                                                                                                                                                                                                                  |
 
-Indexes: `(lane_id, position)`, `(board_id, archived_at)`, `(assignee_id)`, `(reporter_id)`.
+Indexes: `(lane_id, position)`, `(board_id, archived_at)`, `(assignee_id)`, `(reporter_id)`,
+and `(created_at, id)` for the newest-first keyset list query. Two partial indexes keep hot
+reads proportional to LIVE rows despite the in-place done-lane archive growing forever:
+`(lane_id, position) WHERE archived_at IS NULL` (board snapshot / WIP counts) and
+`(created_at, id) WHERE blocked = 1 AND archived_at IS NULL` (the stale-cards blocked leg).
 
 ### tags / card_tags
 
@@ -178,7 +182,8 @@ role change, and deactivation revoke the user's other sessions.
 
 ### service_tokens
 
-MCP/automation credentials: `id, name, token_hash (sha256), role, scope ('read' |
+MCP/automation credentials: `id, name, token_hash (sha256, UNIQUE — credential uniqueness is
+a schema invariant and the index behind the per-request bearer lookup), role, scope ('read' |
 'read_write'), created_by FK, created_at, last_used_at, revoked_at NULL`. Admin-managed; the
 raw token (`rkb_` + 32 random bytes base64url, 256-bit CSPRNG — the prefix makes leaked tokens
 fingerprintable by secret scanners) is shown once at creation. Tokens never expire; revocation

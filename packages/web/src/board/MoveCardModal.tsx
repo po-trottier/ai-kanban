@@ -1,4 +1,4 @@
-import { type Card, type LaneKey, type PolicyDocument, type Role } from '@rivian-kanban/core'
+import { type BoardCard, type LaneKey, type PolicyDocument, type Role } from '@rivian-kanban/core'
 import { Button, Group, Modal, Select, Stack } from '@mantine/core'
 import { useState } from 'react'
 import { type MoveIntent } from '../api/board-cache.ts'
@@ -14,7 +14,7 @@ export interface MoveSelection {
 }
 
 export interface MoveCardModalProps {
-  card: Card
+  card: BoardCard
   currentLane: LaneKey
   board: BoardResponse
   policy: PolicyDocument

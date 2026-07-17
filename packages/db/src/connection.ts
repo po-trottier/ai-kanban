@@ -7,20 +7,27 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 
 /** One process-wide database handle (single-writer, ADR-003/deployment.md). */
 export interface DbConnection {
-  /** Drizzle over the single shared connection — what repositories consume. */
+  /** Drizzle over the single shared WRITE connection — what mutating units of work consume. */
   db: BetterSQLite3Database
-  /** The raw driver handle: transaction control (unit-of-work), pragmas, close. */
+  /** The raw write handle: transaction control (unit-of-work), pragmas, close. */
   raw: Database.Database
+  /** Drizzle over the read-only companion — what read-only units of work consume. */
+  readDb: BetterSQLite3Database
+  /** The raw read-only handle (UnitOfWork.read transaction control). */
+  readRaw: Database.Database
   close(): void
 }
 
 /**
  * Opens (or creates) the SQLite database file, applies the mandatory pragmas
  * (deployment.md#database-operations), and runs any pending committed
- * migrations. Open **exactly one** connection per process: better-sqlite3 is
- * synchronous, SQLite is single-writer, and the unit-of-work's manual
- * BEGIN/COMMIT discipline assumes no other connection shares the file from
- * this process.
+ * migrations. Open **exactly one write connection** per process:
+ * better-sqlite3 is synchronous, SQLite is single-writer, and the
+ * unit-of-work's manual BEGIN/COMMIT discipline assumes no other writer
+ * shares the file from this process. A read-only companion connection is
+ * opened alongside it: under WAL, readers on their own connection never
+ * contend with the writer, so pure reads (`UnitOfWork.read`) do not queue
+ * behind write transactions.
  *
  * `migrationsFolder` defaults to this package's checked-in ./migrations; the
  * production bundle passes MIGRATIONS_DIR explicitly because esbuild
@@ -37,10 +44,19 @@ export function openDatabase(databasePath: string, migrationsFolder?: string): D
   migrate(db, {
     migrationsFolder: migrationsFolder ?? fileURLToPath(new URL('../migrations', import.meta.url)),
   })
+  // Opened after the pragmas + migration so WAL mode and the schema exist.
+  // readonly makes SQLite itself reject any write attempted through a
+  // read-only unit of work.
+  const readRaw = new Database(databasePath, { readonly: true })
+  readRaw.pragma('busy_timeout = 5000')
+  const readDb = drizzle({ client: readRaw })
   return {
     db,
     raw,
+    readDb,
+    readRaw,
     close: () => {
+      readRaw.close()
       raw.close()
     },
   }

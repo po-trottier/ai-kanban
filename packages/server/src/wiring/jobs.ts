@@ -1,11 +1,11 @@
 import {
+  type Actor,
+  type CardService,
   type Clock,
-  type IdGenerator,
   type NotifierPort,
   type UnitOfWork,
 } from '@rivian-kanban/core'
 import { Cron } from 'croner'
-import { runDoneArchival } from '../jobs/done-archival.ts'
 import { runPositionRebalance } from '../jobs/position-rebalance.ts'
 import { runSessionPurge } from '../jobs/session-purge.ts'
 import { runSqliteSnapshot, type SnapshotStore } from '../jobs/sqlite-snapshot.ts'
@@ -16,12 +16,15 @@ import { type AdapterLogger } from '../types.ts'
 /**
  * Croner registration for the five scheduled jobs
  * (docs/architecture/overview.md#scheduled-jobs-croner-in-process). The jobs
- * themselves are pure functions over injected dependencies; this module is
- * the wiring that gives them a schedule, a shared outcome wrapper (metrics +
- * logging + error containment — a failing night must never take the process
- * down or skip the sibling jobs), and a stop() handle for graceful shutdown
- * that cancels future ticks AND drains any in-flight run — main.ts must not
- * close the SQLite connection under a job mid-transaction.
+ * themselves are pure functions over injected dependencies — the card-writing
+ * flows (done-archival via `CardService.archiveExpired`, the waiting-aging
+ * claim via `CardService.claimOverdueWaitingAlerts`) are core service methods,
+ * so card mutations inherit core's invariants. This module is the wiring
+ * that gives them a schedule, a shared outcome wrapper (metrics + logging +
+ * error containment — a failing night must never take the process down or
+ * skip the sibling jobs), and a stop() handle for graceful shutdown that
+ * cancels future ticks AND drains any in-flight run — main.ts must not close
+ * the SQLite connection under a job mid-transaction.
  * `protect: true` skips a tick while the previous run is still going —
  * overlapping runs of the same job would race their own claims.
  */
@@ -29,9 +32,11 @@ import { type AdapterLogger } from '../types.ts'
 export interface ScheduledJobsDeps {
   uow: UnitOfWork
   clock: Clock
-  ids: IdGenerator
+  cards: CardService
   notifier: NotifierPort
   boardId: string
+  /** The structural-seed automation user, acting for archival audit events. */
+  systemUserId: string
   auth: { deleteExpiredSessions(): Promise<number> }
   snapshots: SnapshotStore
   metrics: AppMetrics
@@ -51,6 +56,7 @@ export interface ScheduledJobs {
 
 export function scheduleJobs(deps: ScheduledJobsDeps): ScheduledJobs {
   const { metrics, logger } = deps
+  const systemActor: Actor = { kind: 'system', id: deps.systemUserId, role: 'admin' }
 
   // Croner's stop() only cancels FUTURE ticks; stop() below additionally
   // awaits these so shutdown never closes the database under a running job.
@@ -86,26 +92,12 @@ export function scheduleJobs(deps: ScheduledJobsDeps): ScheduledJobs {
   // has a fresh backup.
   const jobs: ScheduledJob[] = [
     define('waitingAgingAlerts', '0 * * * *', () =>
-      runWaitingAgingAlerts({
-        uow: deps.uow,
-        clock: deps.clock,
-        notifier: deps.notifier,
-        logger,
-        boardId: deps.boardId,
-      }),
+      runWaitingAgingAlerts({ cards: deps.cards, notifier: deps.notifier, logger }),
     ),
     define('sqliteSnapshot', '0 2 * * *', () =>
       runSqliteSnapshot({ snapshots: deps.snapshots, clock: deps.clock, logger }),
     ),
-    define('doneArchival', '20 3 * * *', () =>
-      runDoneArchival({
-        uow: deps.uow,
-        clock: deps.clock,
-        ids: deps.ids,
-        logger,
-        boardId: deps.boardId,
-      }),
-    ),
+    define('doneArchival', '20 3 * * *', () => deps.cards.archiveExpired(systemActor)),
     define('positionRebalance', '40 3 * * *', () =>
       runPositionRebalance({ uow: deps.uow, logger, boardId: deps.boardId }),
     ),

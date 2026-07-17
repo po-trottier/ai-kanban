@@ -1,12 +1,14 @@
-import { policyDocumentSchema } from '@rivian-kanban/core'
+import { randomUUID } from 'node:crypto'
+import {
+  affectsBoardSnapshot,
+  createLocationInputSchema,
+  policyDocumentSchema,
+  updateLaneInputSchema,
+  updateLocationInputSchema,
+} from '@rivian-kanban/core'
 import { type FastifyInstance } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { updateLaneInputSchema } from '../lanes/lane-admin-service.ts'
-import {
-  createLocationInputSchema,
-  updateLocationInputSchema,
-} from '../locations/location-admin-service.ts'
 import { type AppDeps } from '../types.ts'
 import { actorOf } from './user-routes.ts'
 import {
@@ -25,13 +27,72 @@ import {
  * #admin).
  */
 export function boardRoutes(deps: AppDeps) {
+  /**
+   * GET /board is the hottest read in the system: every board-changing SSE
+   * hint makes every connected client refetch it. The serialized body is
+   * memoized per board version — a monotonic counter bumped only by hints
+   * that can change the body (lane edits and card mutations; the shared
+   * `affectsBoardSnapshot` predicate) so a comment burst neither recomputes
+   * the snapshot nor breaks clients' If-None-Match. Because the hint fan-out
+   * makes all N refetches arrive together, concurrent misses for one version
+   * coalesce on a single in-flight compute — N clients after one mutation
+   * cost one snapshot read + one serialization. The version-stable ETag
+   * additionally lets a validating client cache turn repeats into 304s. The
+   * nonce keeps ETags from colliding across process restarts.
+   */
+  const bootNonce = randomUUID().slice(0, 8)
+  let boardVersion = 0
+  deps.eventBus.subscribe((hint) => {
+    if (affectsBoardSnapshot(hint)) boardVersion += 1
+  })
+  interface BoardCacheEntry {
+    version: number
+    etag: string
+    body: string
+  }
+  let boardCache: BoardCacheEntry | null = null
+  let pendingSnapshot: { version: number; promise: Promise<BoardCacheEntry> } | null = null
+
   return function routes(app: FastifyInstance): void {
     const r = app.withTypeProvider<ZodTypeProvider>()
     const { queries, policies, lanes, locations } = deps.services
 
-    r.get('/board', { schema: { response: { 200: boardResponseSchema } } }, async () =>
-      queries.boardSnapshot(),
-    )
+    const computeEntry = async (version: number): Promise<BoardCacheEntry> => {
+      // rawResponse route: the body is pre-serialized here; the schema parse
+      // applies the same stripping serialization the schema route path would.
+      const snapshot = boardResponseSchema.parse(await queries.boardSnapshot())
+      const entry: BoardCacheEntry = {
+        version,
+        etag: `W/"board-${String(version)}-${bootNonce}"`,
+        body: JSON.stringify(snapshot),
+      }
+      // Don't publish a cache entry that raced a mutation's invalidation.
+      if (boardVersion === version) boardCache = entry
+      return entry
+    }
+
+    r.get('/board', { config: { rawResponse: true }, schema: {} }, async (request, reply) => {
+      const version = boardVersion
+      let entry = boardCache
+      if (entry?.version !== version) {
+        let pending = pendingSnapshot
+        if (pending?.version !== version) {
+          pending = { version, promise: computeEntry(version) }
+          pendingSnapshot = pending
+          const settle = () => {
+            // boardCache holds the success; a failure must not be memoized.
+            if (pendingSnapshot === pending) pendingSnapshot = null
+          }
+          void pending.promise.then(settle, settle)
+        }
+        entry = await pending.promise
+      }
+      void reply.header('etag', entry.etag).header('cache-control', 'no-cache')
+      if (request.headers['if-none-match'] === entry.etag) {
+        return reply.code(304).send()
+      }
+      return reply.type('application/json; charset=utf-8').send(entry.body)
+    })
 
     r.patch(
       '/lanes/:id',

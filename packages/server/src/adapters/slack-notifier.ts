@@ -1,4 +1,10 @@
-import { type Card, type NotifierPort, type UnitOfWork, type User } from '@rivian-kanban/core'
+import {
+  type Card,
+  type NotifierPort,
+  type UnitOfWork,
+  type User,
+  type UserCredentials,
+} from '@rivian-kanban/core'
 import { type WebClient } from '@slack/web-api'
 import { type AdapterLogger } from '../types.ts'
 import { bindSlackIdentity } from '../slack/identity.ts'
@@ -30,31 +36,26 @@ export class SlackNotifier implements NotifierPort {
   }
 
   async cardCompleted(card: Card): Promise<void> {
+    let account: UserCredentials | null
     try {
-      const account = await this.deps.uow.run((tx) => tx.userAccounts.findById(card.reporterId))
-      if (account === null) {
-        this.deps.logger.info({ cardId: card.id }, 'completion DM skipped: reporter not found')
-        return
-      }
-      const slackUserId = account.user.slackUserId ?? (await this.lookupAndBind(account.user))
-      if (slackUserId === null) {
-        this.deps.logger.info(
-          { cardId: card.id, userId: account.user.id },
-          'completion DM skipped: no Slack match for reporter',
-        )
-        return
-      }
-      await this.deps.client.chat.postMessage({
-        channel: slackUserId,
-        text: completedMessage(this.deps.publicBaseUrl, card),
-      })
+      account = await this.deps.uow.read((tx) => tx.userAccounts.findById(card.reporterId))
     } catch (error) {
       // Log-and-skip, never throw: the mutation is already committed.
       this.deps.logger.warn(
         { cardId: card.id, reason: error instanceof Error ? error.name : 'unknown' },
         'completion DM failed; skipping',
       )
+      return
     }
+    if (account === null) {
+      this.deps.logger.info({ cardId: card.id }, 'completion DM skipped: reporter not found')
+      return
+    }
+    await this.dmUser(account.user, completedMessage(this.deps.publicBaseUrl, card), {
+      cardId: card.id,
+      skipMessage: 'completion DM skipped: no Slack match for reporter',
+      failMessage: 'completion DM failed; skipping',
+    })
   }
 
   /**
@@ -64,31 +65,42 @@ export class SlackNotifier implements NotifierPort {
    * unmatched supervisor must not cost the others their DM.
    */
   async waitingOverdue(card: Card, recipients: User[]): Promise<void> {
+    const text = waitingOverdueMessage(this.deps.publicBaseUrl, card)
     for (const recipient of recipients) {
-      try {
-        const slackUserId = recipient.slackUserId ?? (await this.lookupAndBind(recipient))
-        if (slackUserId === null) {
-          this.deps.logger.info(
-            { cardId: card.id, userId: recipient.id },
-            'overdue DM skipped: no Slack match for recipient',
-          )
-          continue
-        }
-        await this.deps.client.chat.postMessage({
-          channel: slackUserId,
-          text: waitingOverdueMessage(this.deps.publicBaseUrl, card),
-        })
-      } catch (error) {
-        // Log-and-skip, never throw: alerts are best-effort (NotifierPort).
-        this.deps.logger.warn(
-          {
-            cardId: card.id,
-            userId: recipient.id,
-            reason: error instanceof Error ? error.name : 'unknown',
-          },
-          'overdue DM failed; skipping recipient',
-        )
+      await this.dmUser(recipient, text, {
+        cardId: card.id,
+        skipMessage: 'overdue DM skipped: no Slack match for recipient',
+        failMessage: 'overdue DM failed; skipping recipient',
+      })
+    }
+  }
+
+  /**
+   * The shared per-recipient delivery: resolve the Slack id (stored binding
+   * first, one-time email lookup otherwise), skip-log unmatched users, DM,
+   * and catch-log failures — never throws (NotifierPort is best-effort).
+   */
+  private async dmUser(
+    recipient: User,
+    text: string,
+    log: { cardId: string; skipMessage: string; failMessage: string },
+  ): Promise<void> {
+    try {
+      const slackUserId = recipient.slackUserId ?? (await this.lookupAndBind(recipient))
+      if (slackUserId === null) {
+        this.deps.logger.info({ cardId: log.cardId, userId: recipient.id }, log.skipMessage)
+        return
       }
+      await this.deps.client.chat.postMessage({ channel: slackUserId, text })
+    } catch (error) {
+      this.deps.logger.warn(
+        {
+          cardId: log.cardId,
+          userId: recipient.id,
+          reason: error instanceof Error ? error.name : 'unknown',
+        },
+        log.failMessage,
+      )
     }
   }
 

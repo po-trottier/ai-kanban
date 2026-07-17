@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ZodError } from 'zod'
 import { NotFoundError, PolicyDeniedError } from '../domain/errors.ts'
-import { createScenario, fixtureId } from '../testing/index.ts'
+import { createScenario, fixtureId, userWith } from '../testing/index.ts'
 
 describe('CardService.create', () => {
   it('lands at the top of intake with the documented defaults', async () => {
@@ -184,6 +184,35 @@ describe('CardService.create', () => {
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(NotFoundError)
+  })
+
+  it('rejects an inactive assignee and the automation user exactly like unknown ids', async () => {
+    // Arrange — deactivated is not a valid attribution target on ANY surface
+    // (the Slack assignee field and MCP reporter resolver enforce the same).
+    const scenario = createScenario()
+    const offboarded = userWith({
+      id: fixtureId(997),
+      email: 'offboarded@example.com',
+      displayName: 'Offboarded',
+      role: 'technician',
+      createdAt: scenario.clock.now().toISOString(),
+      isActive: false,
+    })
+    scenario.db.seedUser(offboarded)
+
+    // Act
+    const inactive = scenario.cards.create(scenario.actors.requester, {
+      title: 'Assigned to offboarded',
+      assigneeId: offboarded.id,
+    })
+    const automation = scenario.cards.create(scenario.actors.requester, {
+      title: 'Assigned to automation',
+      assigneeId: scenario.systemUser.id,
+    })
+
+    // Assert
+    await expect(inactive).rejects.toMatchObject({ resource: 'assignee' })
+    await expect(automation).rejects.toMatchObject({ resource: 'assignee' })
   })
 
   it('rejects an MCP creation whose token id resolves to no reporter user', async () => {

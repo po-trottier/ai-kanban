@@ -64,7 +64,7 @@ describe('describeEvent covers every audit event type', () => {
   }
   const cases: [CardEvent, string][] = [
     [
-      { ...base, eventType: 'card.created', payload: { snapshot: { ...card } } },
+      { ...base, eventType: 'card.created', payload: { snapshot: { ...card, tags: [] } } },
       'created the card',
     ],
     [

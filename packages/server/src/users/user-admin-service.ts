@@ -1,9 +1,9 @@
 import { randomBytes } from 'node:crypto'
 import {
-  ADMIN_ONLY_RULE,
+  createUserInputSchema,
+  ensureAdmin,
   NotFoundError,
-  PolicyDeniedError,
-  roleSchema,
+  updateUserInputSchema,
   type Actor,
   type Clock,
   type EventBus,
@@ -11,31 +11,15 @@ import {
   type UnitOfWork,
   type User,
 } from '@rivian-kanban/core'
-import { z } from 'zod'
 import { LastActiveAdminError } from '../errors.ts'
 import { type PasswordHasher } from '../auth/password-hasher.ts'
 
 /**
  * Admin users CRUD (docs/architecture/rest-api.md#auth--users). The admin
  * surface is always role-restricted — it is where permissions are configured
- * (ADR-013) — so the check is a fixed identity rule, not the policy document.
+ * (ADR-013) — so the check is core's fixed `ensureAdmin` identity rule, not
+ * the policy document.
  */
-
-export const createUserInputSchema = z.strictObject({
-  email: z.email().max(254),
-  displayName: z.string().trim().min(1).max(100),
-  role: roleSchema,
-})
-
-export const updateUserInputSchema = z
-  .strictObject({
-    displayName: z.string().trim().min(1).max(100).optional(),
-    role: roleSchema.optional(),
-    isActive: z.boolean().optional(),
-    /** Issues a fresh one-time temp password (shown once in the response). */
-    resetPassword: z.literal(true).optional(),
-  })
-  .refine((input) => Object.keys(input).length > 0, { message: 'no fields to update' })
 
 export interface UserAdminServiceDeps {
   uow: UnitOfWork
@@ -53,10 +37,6 @@ export interface UserWithTempPassword {
   tempPassword?: string
 }
 
-function requireAdmin(actor: Actor): void {
-  if (actor.role !== 'admin') throw new PolicyDeniedError(ADMIN_ONLY_RULE)
-}
-
 /** 16-char base64url one-time password (satisfies the 12-char minimum). */
 function generateTempPassword(): string {
   return randomBytes(12).toString('base64url')
@@ -71,7 +51,7 @@ export class UserAdminService {
 
   /** Active users for pickers (id/name/role), automation user excluded. */
   async listActive(): Promise<User[]> {
-    const users = await this.deps.uow.run((tx) => tx.userAccounts.list())
+    const users = await this.deps.uow.read((tx) => tx.userAccounts.list())
     return users.filter((user) => user.isActive && user.id !== this.deps.systemUserId)
   }
 
@@ -82,7 +62,7 @@ export class UserAdminService {
    * Policy checks: admin only (always-on). Publishes `user.updated`.
    */
   async create(actor: Actor, rawInput: unknown): Promise<Required<UserWithTempPassword>> {
-    requireAdmin(actor)
+    ensureAdmin(actor)
     const input = createUserInputSchema.parse(rawInput)
     const tempPassword = generateTempPassword()
     const passwordHash = await this.deps.hasher.hash(tempPassword)
@@ -111,7 +91,7 @@ export class UserAdminService {
    * Policy checks: admin only (always-on). Publishes `user.updated`.
    */
   async update(actor: Actor, userId: string, rawInput: unknown): Promise<UserWithTempPassword> {
-    requireAdmin(actor)
+    ensureAdmin(actor)
     const input = updateUserInputSchema.parse(rawInput)
     const tempPassword = input.resetPassword === true ? generateTempPassword() : undefined
     const passwordHash =

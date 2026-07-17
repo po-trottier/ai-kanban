@@ -24,7 +24,7 @@ const envSchema = z
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
     DATABASE_PATH: z.string().min(1).default('./data/app.sqlite'),
     BLOB_DIR: z.string().min(1).default('./data/blobs'),
-    /** Nightly `VACUUM INTO` snapshots land here (deployment.md#database-operations). */
+    /** Nightly online-backup snapshots land here (deployment.md#database-operations). */
     SNAPSHOT_DIR: z.string().min(1).default('./data/snapshots'),
     /**
      * Drizzle migrations directory override. Unset in dev (packages/db

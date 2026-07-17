@@ -42,7 +42,15 @@ beforeAll(() => {
   const ids = new Uuidv7IdGenerator()
   const eventBus = new CapturingEventBus()
   notifier = new CapturingNotifier()
-  cardService = new CardService({ uow: db.uow, clock, ids, eventBus, notifier, boardId })
+  cardService = new CardService({
+    uow: db.uow,
+    clock,
+    ids,
+    eventBus,
+    notifier,
+    boardId,
+    systemUserId: structural.systemUserId,
+  })
   commentService = new CommentService({ uow: db.uow, clock, ids, eventBus })
   queries = new BoardQueryService({ uow: db.uow, clock, boardId })
 })

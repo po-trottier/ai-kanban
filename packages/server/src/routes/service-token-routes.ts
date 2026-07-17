@@ -1,7 +1,7 @@
+import { createServiceTokenInputSchema } from '@rivian-kanban/core'
 import { type FastifyInstance } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { createServiceTokenInputSchema } from '../tokens/service-token-service.ts'
 import { type AppDeps } from '../types.ts'
 import { actorOf } from './user-routes.ts'
 import { emptyBodySchema, idParamsSchema, serviceTokenResponseSchema } from './schemas.ts'

@@ -114,7 +114,7 @@ export class AttachmentService {
    * Soft-deleted attachments are NotFoundError, like a missing row.
    */
   async getActive(attachmentId: string): Promise<Attachment> {
-    return this.deps.uow.run(async (tx) => {
+    return this.deps.uow.read(async (tx) => {
       const attachment = requireFound(await tx.attachments.findById(attachmentId), 'attachment')
       if (attachment.deletedAt !== null) throw new NotFoundError('attachment')
       return attachment

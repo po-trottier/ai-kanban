@@ -244,7 +244,7 @@ describe('CommentService.softDelete', () => {
 })
 
 describe('CommentService.listForCard', () => {
-  it('returns the thread oldest-first including soft-deleted rows', async () => {
+  it('returns the thread oldest-first with soft-deleted bodies blanked', async () => {
     // Arrange
     const scenario = createScenario()
     const card = scenario.seedCard()
@@ -258,8 +258,11 @@ describe('CommentService.listForCard', () => {
     // Act
     const thread = await scenario.comments.listForCard(card.id)
 
-    // Assert
+    // Assert — thread shape kept, but deleted content never leaves the
+    // server on ANY surface (redaction lives here, not in a transport).
     expect(thread.map((comment) => comment.id)).toEqual([first.id, second.id])
     expect(thread.at(0)?.deletedAt).not.toBeNull()
+    expect(thread.at(0)?.body).toBe('')
+    expect(thread.at(1)?.body).toBe('later comment')
   })
 })

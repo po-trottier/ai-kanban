@@ -25,7 +25,9 @@ export async function authenticateBearer(
   }
 
   const tokenHash = hashServiceToken(rawToken)
-  const token = await deps.uow.run((tx) => tx.serviceTokens.findByHash(tokenHash))
+  // Read-only path: this runs on EVERY /mcp request (exactly like session
+  // authentication), so it must never queue behind the write FIFO.
+  const token = await deps.uow.read((tx) => tx.serviceTokens.findByHash(tokenHash))
   // Unknown and revoked are indistinguishable — no oracle for leaked tokens.
   if (token?.revokedAt !== null) {
     throw new BearerAuthRequiredError('unknown or revoked service token', true)

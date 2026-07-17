@@ -122,7 +122,11 @@ describe('view_submission → card in intake', () => {
     expect(ackResponse).toMatchObject({
       response_action: 'errors',
       errors: {
-        assignee_block: expect.stringContaining('ghost@test.example') as unknown,
+        // Deliberately generic and never echoing membership semantics for the
+        // typed email — the modal must not double as an account-membership
+        // oracle (emails are exposed on no other surface). Locations ARE
+        // fully listable, so that message stays specific.
+        assignee_block: expect.stringContaining("Couldn't resolve that assignee") as unknown,
         location_block: expect.stringContaining('Nowhere Hall') as unknown,
       },
     })

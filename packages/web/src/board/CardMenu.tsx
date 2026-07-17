@@ -1,11 +1,11 @@
-import { type Card } from '@rivian-kanban/core'
+import { type BoardCard } from '@rivian-kanban/core'
 import { ActionIcon, Menu } from '@mantine/core'
 import { strings } from '../strings.ts'
 
 export type CardMenuAction = 'open' | 'move' | 'block' | 'unblock' | 'cancel' | 'reopen'
 
 export interface CardMenuProps {
-  card: Card
+  card: BoardCard
   /** Policy-driven affordances (ADR-013): disabled entries stay visible. */
   canCancel: boolean
   canReopen: boolean

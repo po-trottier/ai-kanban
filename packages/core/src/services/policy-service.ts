@@ -26,7 +26,7 @@ export class PolicyService {
 
   /** The newest policy version for the board (drives UI affordances). */
   async getActive(): Promise<BoardPolicy> {
-    return this.deps.uow.run(async (tx) =>
+    return this.deps.uow.read(async (tx) =>
       requireFound(await tx.policies.getActive(this.deps.boardId), 'policy'),
     )
   }

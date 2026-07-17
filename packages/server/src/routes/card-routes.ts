@@ -1,13 +1,12 @@
 import {
-  CARD_EVENT_TYPES,
-  CANCEL_RESOLUTIONS,
+  blockCardInputSchema,
+  cancelCardInputSchema,
+  cardHistoryRequestSchema,
   createCardInputSchema,
-  laneKeySchema,
+  listCardsFilterSchema,
   moveCardInputSchema,
-  prioritySchema,
-  tagNameSchema,
+  pageRequestSchema,
   updateCardInputSchema,
-  waitingReasonSchema,
   type Card,
 } from '@rivian-kanban/core'
 import { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
@@ -32,26 +31,27 @@ import {
  * (ADR-012); responses carry the fresh `ETag`.
  */
 
-/** Query-string filters — string-typed booleans/numbers coerced explicitly. */
+/**
+ * Query-string shapes derived from the shared core filter/page schemas
+ * (single-schema rule): only fields that need query-string coercion are
+ * overridden (booleans via stringbool, the numeric limit), wrapped in a
+ * stripping z.object so unknown query params are ignored, not 400s.
+ */
+const queryLimitSchema = z.coerce.number().int().min(1).max(200).optional()
+
 const listCardsQuerySchema = z.object({
-  lane: laneKeySchema.optional(),
-  assignee: z.uuid().optional(),
-  reporter: z.uuid().optional(),
-  priority: prioritySchema.optional(),
-  tag: tagNameSchema.optional(),
+  ...listCardsFilterSchema.shape,
   blocked: z.stringbool().optional(),
-  waitingReason: waitingReasonSchema.optional(),
   overdueResume: z.stringbool().optional(),
-  q: z.string().max(200).optional(),
   includeArchived: z.stringbool().optional(),
-  cursor: z.string().max(500).optional(),
-  limit: z.coerce.number().int().min(1).max(200).optional(),
+  cursor: pageRequestSchema.shape.cursor,
+  limit: queryLimitSchema,
 })
 
 const eventsQuerySchema = z.object({
-  type: z.enum(CARD_EVENT_TYPES).optional(),
-  cursor: z.string().max(500).optional(),
-  limit: z.coerce.number().int().min(1).max(200).optional(),
+  type: cardHistoryRequestSchema.shape.type,
+  cursor: pageRequestSchema.shape.cursor,
+  limit: queryLimitSchema,
 })
 
 /** The version from a schema-required If-Match header (malformed → 400). */
@@ -162,7 +162,7 @@ export function cardRoutes(deps: AppDeps) {
         schema: {
           params: idParamsSchema,
           headers: ifMatchHeadersSchema,
-          body: z.strictObject({ resolution: z.enum(CANCEL_RESOLUTIONS) }),
+          body: cancelCardInputSchema.omit({ expectedVersion: true }),
           response: { 200: cardResponseSchema },
         },
       },
@@ -199,7 +199,7 @@ export function cardRoutes(deps: AppDeps) {
         schema: {
           params: idParamsSchema,
           headers: ifMatchHeadersSchema,
-          body: z.strictObject({ reason: z.string().trim().min(1).max(500) }),
+          body: blockCardInputSchema.omit({ expectedVersion: true }),
           response: { 200: cardResponseSchema },
         },
       },

@@ -1,7 +1,12 @@
-import { NotFoundError, type ServiceToken, type ServiceTokenRepository } from '@rivian-kanban/core'
+import {
+  ConflictError,
+  NotFoundError,
+  type ServiceToken,
+  type ServiceTokenRepository,
+} from '@rivian-kanban/core'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
-import { toError } from '../errors.ts'
+import { isUniqueViolation, toError } from '../errors.ts'
 import { serviceTokens } from '../schema.ts'
 
 /**
@@ -48,6 +53,10 @@ export class SqliteServiceTokenRepository implements ServiceTokenRepository {
       this.db.insert(serviceTokens).values(token).run()
       return Promise.resolve()
     } catch (error) {
+      // The DB-enforced credential-uniqueness backstop (port contract).
+      if (isUniqueViolation(error, ['service_tokens.token_hash'])) {
+        return Promise.reject(new ConflictError('service token hash already exists'))
+      }
       return Promise.reject(toError(error))
     }
   }

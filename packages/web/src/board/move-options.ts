@@ -1,7 +1,9 @@
 import {
-  roleAtLeast,
-  type Card,
+  evaluatePolicy,
+  type Actor,
+  type BoardCard,
   type LaneKey,
+  type PolicyAction,
   type PolicyActionGates,
   type PolicyDocument,
   type Role,
@@ -12,9 +14,26 @@ import { type MoveIntent } from '../api/board-cache.ts'
 import { type BoardResponse } from '../api/schemas.ts'
 
 /**
- * Policy-driven affordances (ADR-013): with enforcement off anyone moves
- * anywhere; with it on, only graph edges whose role gate the user meets are
- * offered. The server re-validates regardless.
+ * Policy-driven affordances (ADR-013), answered by core's `evaluatePolicy` —
+ * the SAME engine the server re-validates with, so what the UI offers and
+ * what the server accepts cannot drift. The engine takes an Actor but these
+ * affordances depend only on the role; the fixed id pair below models the
+ * acting user versus another author for the delete-others gates (the
+ * author-always-may branch is decided at the call site, which knows real ids).
+ */
+const SELF_ID = '00000000-0000-4000-8000-000000000001'
+const OTHER_AUTHOR_ID = '00000000-0000-4000-8000-000000000002'
+
+function allowed(role: Role, action: PolicyAction, policy: PolicyDocument): boolean {
+  const actor: Actor = { kind: 'user', id: SELF_ID, role }
+  return evaluatePolicy(actor, action, policy).allowed
+}
+
+/**
+ * Whether a card may be offered lane→lane (drag targets, the move modal).
+ * Mirrors CardService.move exactly: reorder within a lane, the transition
+ * graph for cross-lane moves, and — because a move out of `done` is reopen
+ * semantics on the server — the reopen action for drags out of done.
  */
 export function canMoveToLane(
   policy: PolicyDocument,
@@ -22,19 +41,18 @@ export function canMoveToLane(
   from: LaneKey,
   to: LaneKey,
 ): boolean {
-  if (from === to) return canReorderWithin(policy, role, from)
-  if (!policy.transitionEnforcement) return true
-  return policy.transitions.some(
-    (edge) =>
-      edge.from === from &&
-      edge.to === to &&
-      (edge.minRole === undefined || roleAtLeast(role, edge.minRole)),
-  )
+  if (from === to) return allowed(role, { type: 'card.reorder', lane: from }, policy)
+  if (from === 'done' && !allowed(role, { type: 'card.reopen' }, policy)) return false
+  return allowed(role, { type: 'card.move', fromLane: from, toLane: to }, policy)
 }
 
-/** Within-lane reorder: always legal except the optional Ready-lane gate. */
-function canReorderWithin(policy: PolicyDocument, role: Role, lane: LaneKey): boolean {
-  return lane !== 'ready' || canPerformAction(policy, role, 'reorderReady')
+/** The policy action each configurable gate protects (ADR-013). */
+const GATE_ACTIONS: Record<keyof PolicyActionGates, PolicyAction> = {
+  cancel: { type: 'card.cancel' },
+  reopen: { type: 'card.reopen' },
+  reorderReady: { type: 'card.reorder', lane: 'ready' },
+  deleteOthersComments: { type: 'comment.delete', authorId: OTHER_AUTHOR_ID },
+  deleteOthersAttachments: { type: 'attachment.remove', uploaderId: OTHER_AUTHOR_ID },
 }
 
 /** Actions behind the optional policy gates (ADR-013: absent = any authenticated user). */
@@ -43,8 +61,7 @@ export function canPerformAction(
   role: Role,
   action: keyof PolicyActionGates,
 ): boolean {
-  const gate = policy.actionGates[action]
-  return gate === undefined || roleAtLeast(role, gate)
+  return allowed(role, GATE_ACTIONS[action], policy)
 }
 
 export interface PositionChoice {
@@ -61,7 +78,7 @@ export interface PositionChoice {
  * move API wants (ADR-006: the server computes the position key).
  */
 export function positionChoices(
-  laneCards: Card[],
+  laneCards: BoardCard[],
   movingCardId: string,
   labels: { first: string; after: (title: string) => string },
 ): [PositionChoice, ...PositionChoice[]] {

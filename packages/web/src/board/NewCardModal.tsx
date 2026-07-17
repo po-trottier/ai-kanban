@@ -1,25 +1,11 @@
-import {
-  createCardInputSchema,
-  PRIORITIES,
-  type CreateCardInput,
-  type Location,
-} from '@rivian-kanban/core'
-import {
-  Button,
-  Group,
-  Modal,
-  NumberInput,
-  Select,
-  Stack,
-  TagsInput,
-  TextInput,
-} from '@mantine/core'
+import { createCardInputSchema, type CreateCardInput, type Location } from '@rivian-kanban/core'
+import { Button, Group, Modal, Stack } from '@mantine/core'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
-import { Controller, useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { type z } from 'zod'
 import { type PickerUser } from '../api/schemas.ts'
-import { DescriptionEditor } from '../card/DescriptionEditor.tsx'
-import { LocationPicker } from '../card/LocationPicker.tsx'
+import { cardFieldsControl } from '../card/card-fields.ts'
+import { CardFieldInputs } from '../card/CardFieldInputs.tsx'
 import { strings } from '../strings.ts'
 
 type NewCardValues = z.input<typeof createCardInputSchema>
@@ -56,91 +42,18 @@ export function NewCardModal({
         }}
       >
         <Stack gap="md">
-          <TextInput
-            label={strings.newCard.titleLabel}
-            withAsterisk
-            error={form.formState.errors.title?.message}
-            {...form.register('title')}
-          />
-          <Controller
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <DescriptionEditor value={field.value ?? ''} onChange={field.onChange} />
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="priority"
-            render={({ field }) => (
-              <Select
-                label={strings.detail.priorityLabel}
-                data={PRIORITIES.map((priority) => ({
-                  value: priority,
-                  label: strings.priorities[priority],
-                }))}
-                value={field.value ?? 'P2'}
-                allowDeselect={false}
-                onChange={(value) => {
-                  if (value !== null) field.onChange(value)
-                }}
-              />
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="estimateMinutes"
-            render={({ field }) => (
-              <NumberInput
-                label={strings.detail.estimateLabel}
-                min={1}
-                value={field.value ?? ''}
-                error={form.formState.errors.estimateMinutes?.message}
-                onChange={(value) => {
-                  field.onChange(typeof value === 'number' ? value : undefined)
-                }}
-              />
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="assigneeId"
-            render={({ field }) => (
-              <Select
-                label={strings.detail.assigneeLabel}
-                data={users.map((user) => ({ value: user.id, label: user.displayName }))}
-                value={field.value ?? null}
-                clearable
-                onChange={(value) => {
-                  field.onChange(value ?? undefined)
-                }}
-              />
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="locationId"
-            render={({ field }) => (
-              <LocationPicker
-                locations={locations}
-                value={field.value ?? null}
-                onChange={(value) => {
-                  field.onChange(value ?? undefined)
-                }}
-              />
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="tags"
-            render={({ field }) => (
-              <TagsInput
-                label={strings.detail.tagsLabel}
-                data={knownTags}
-                value={field.value ?? []}
-                onChange={field.onChange}
-              />
-            )}
+          <CardFieldInputs
+            control={cardFieldsControl(form.control)}
+            titleField={form.register('title')}
+            errors={{
+              title: form.formState.errors.title?.message,
+              estimateMinutes: form.formState.errors.estimateMinutes?.message,
+            }}
+            users={users}
+            locations={locations}
+            knownTags={knownTags}
+            // The create command omits cleared optionals (core schema `.optional()`).
+            cleared={undefined}
           />
           <Group justify="flex-end" gap="sm">
             <Button variant="default" onClick={onClose}>

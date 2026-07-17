@@ -72,9 +72,10 @@ try {
 jobs = scheduleJobs({
   uow: wired.deps.uow,
   clock: wired.deps.clock,
-  ids: wired.ids,
+  cards: wired.deps.services.cards,
   notifier: wired.notifier,
   boardId: wired.boardId,
+  systemUserId: wired.systemUserId,
   auth: wired.deps.services.auth,
   snapshots: new SqliteSnapshotStore(wired.connection, env.SNAPSHOT_DIR),
   metrics: wired.deps.metrics,

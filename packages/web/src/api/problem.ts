@@ -1,19 +1,12 @@
-import { z } from 'zod'
+import { type ProblemDetails } from '@rivian-kanban/core'
 
 /**
- * RFC 9457 problem+json as produced by the server (docs/architecture/rest-api.md#conventions).
- * Extras (`rule`, `from`/`to`, the current card on 409) ride along untyped.
+ * RFC 9457 problem+json handling. The document schema is core's
+ * `problemDetailsSchema` (single-schema rule) — the same declaration the
+ * server's problem mapper is typed against, so the parsed shape (string
+ * issue paths included) can never drift from the wire shape.
  */
-export const problemDetailsSchema = z.looseObject({
-  type: z.string().optional(),
-  title: z.string().optional(),
-  status: z.number().int().optional(),
-  detail: z.string().optional(),
-  issues: z
-    .array(z.looseObject({ path: z.array(z.union([z.string(), z.number()])), message: z.string() }))
-    .optional(),
-})
-export type ProblemDetails = z.infer<typeof problemDetailsSchema>
+export { problemDetailsSchema, type ProblemDetails } from '@rivian-kanban/core'
 
 /** A non-2xx REST response, carrying the parsed problem document. */
 export class ApiError extends Error {

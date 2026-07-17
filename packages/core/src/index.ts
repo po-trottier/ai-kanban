@@ -6,6 +6,7 @@
  */
 
 export * from './domain/constants.ts'
+export * from './domain/dates.ts'
 export * from './domain/entities.ts'
 export * from './domain/events.ts'
 export * from './domain/policy.ts'
@@ -13,6 +14,8 @@ export * from './domain/commands.ts'
 export * from './domain/errors.ts'
 export * from './domain/cursor.ts'
 export * from './domain/sse.ts'
+export * from './domain/problem.ts'
+export * from './domain/envelopes.ts'
 export * from './ports/repositories.ts'
 export * from './ports/runtime.ts'
 export * from './adapters/system-clock.ts'

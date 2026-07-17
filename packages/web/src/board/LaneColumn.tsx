@@ -1,4 +1,4 @@
-import { type Card, type LaneKey } from '@rivian-kanban/core'
+import { type BoardCard, type LaneKey } from '@rivian-kanban/core'
 import { Badge, Group, Text, Title } from '@mantine/core'
 import { useMemo, useRef } from 'react'
 import { type LaneSnapshot, type PickerUser } from '../api/schemas.ts'
@@ -17,7 +17,7 @@ export interface LaneColumnProps {
   canReopen: boolean
   canDropFrom: (target: LaneKey) => (source: { cardId: string; laneKey: LaneKey }) => boolean
   onOpenCard: (cardId: string) => void
-  onMenuAction: (card: Card, action: CardMenuAction) => void
+  onMenuAction: (card: BoardCard, action: CardMenuAction) => void
 }
 
 /** One lane: header (label + WIP state) and the card list in position order. */

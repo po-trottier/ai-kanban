@@ -11,6 +11,7 @@ import {
   ensureNotArchived,
   makeEvent,
   publishCardHints,
+  redactDeletedComments,
   requireFound,
 } from './internal.ts'
 
@@ -157,12 +158,18 @@ export class CommentService {
     return comment
   }
 
-  /** The full thread for a card, oldest-first (soft-deleted included). */
+  /**
+   * The full thread for a card, oldest-first. Soft-deleted comments keep
+   * their place (thread shape) but their body is blanked here, in the one
+   * shared read path — deleted content never leaves the server on ANY
+   * surface (rest-api.md#comments, `redactedCommentSchema`).
+   */
   async listForCard(cardId: string): Promise<Comment[]> {
-    return this.deps.uow.run(async (tx) => {
+    const thread = await this.deps.uow.read(async (tx) => {
       requireFound(await tx.cards.findById(cardId), 'card')
       return tx.comments.listByCard(cardId)
     })
+    return redactDeletedComments(thread)
   }
 
   private async requireActiveComment(tx: TransactionContext, commentId: string): Promise<Comment> {

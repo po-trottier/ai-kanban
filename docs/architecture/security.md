@@ -8,7 +8,10 @@ Slack/Anthropic calls. Every control below is enforced by code or CI, not conven
 
 - **Web**: email + password (argon2id, per-user salt, tuned params) → server-side session:
   256-bit random id, stored **sha256-hashed** (the cookie is the only place the raw id exists),
-  httpOnly + Secure + SameSite=Lax cookie, sliding expiry (7 days idle, 30 days absolute).
+  httpOnly + Secure + SameSite=Lax cookie, named `__Host-sid` in production (the `__Host-`
+  prefix stops a compromised sibling subdomain from setting/overwriting the cookie — session
+  fixation — the half of the same-site gap the CSRF header layer below cannot cover), sliding
+  expiry (7 days idle, 30 days absolute).
   No cookie signing — the id is already unforgeable randomness. A fresh session id is issued
   at every login (anti-fixation); logout, password change, role change, and admin deactivation
   revoke immediately — the reason sessions beat JWTs here
@@ -27,7 +30,9 @@ Slack/Anthropic calls. Every control below is enforced by code or CI, not conven
   see [slack.md](slack.md#identity-mapping).
 - Login endpoint: strict rate limit (see table below) **plus** per-account exponential backoff
   (1 s doubling, capped at 60 s, reset on success) so neither IP rotation nor a single IP can
-  brute-force; backoff, not hard lockout, so accounts can't be DoS'd shut.
+  brute-force; backoff, not hard lockout, so accounts can't be DoS'd shut. Attempts for one
+  account are serialized in-process, so a burst of simultaneous guesses (each within its own
+  per-IP budget) cannot race past the backoff check before the first failure is recorded.
 
 ## Authorization
 

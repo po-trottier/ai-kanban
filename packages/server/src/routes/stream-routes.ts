@@ -1,5 +1,6 @@
 import { type FastifyInstance } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
+import { rawSessionIdOf } from '../plugins/session-auth.ts'
 import { type AppDeps } from '../types.ts'
 
 /**
@@ -15,6 +16,8 @@ import { type AppDeps } from '../types.ts'
 
 interface StreamHandle {
   close(): void
+  /** Writes an already-serialized hint frame to the stream. */
+  send(data: string): void
 }
 
 export function streamRoutes(deps: AppDeps) {
@@ -23,9 +26,22 @@ export function streamRoutes(deps: AppDeps) {
   return function routes(app: FastifyInstance): void {
     const r = app.withTypeProvider<ZodTypeProvider>()
 
+    // ONE bus subscription per app: each hint is serialized once and the
+    // shared string fans out to every connected stream — per-stream
+    // subscriptions would re-JSON.stringify the same hint up to
+    // (users x maxStreamsPerUser) times per mutation.
+    const unsubscribe = deps.eventBus.subscribe((hint) => {
+      const data = JSON.stringify(hint)
+      for (const handles of streamsByUser.values()) {
+        // Snapshot: a handle closing mid-dispatch must not skip its siblings.
+        for (const handle of [...handles]) handle.send(data)
+      }
+    })
+
     // SSE responses are hijacked and never look idle: without this, a single
     // connected browser would block graceful shutdown until SIGKILL.
     app.addHook('onClose', () => {
+      unsubscribe()
       for (const handles of [...streamsByUser.values()]) {
         for (const handle of [...handles]) handle.close()
       }
@@ -33,7 +49,7 @@ export function streamRoutes(deps: AppDeps) {
 
     r.get('/stream', { config: { rawResponse: true }, schema: {} }, (request, reply) => {
       const user = request.authUser
-      const rawSessionId = request.cookies.sid
+      const rawSessionId = rawSessionIdOf(request, deps.config.nodeEnv)
       // The session hook guarantees a cookie-backed user; guards keep types honest.
       if (user === null || rawSessionId === undefined) return
 
@@ -43,7 +59,6 @@ export function streamRoutes(deps: AppDeps) {
         closed = true
         deps.metrics.sseStreamClosed()
         clearInterval(keepalive)
-        unsubscribe()
         // sseContext exists only once the first sse() write happened — a
         // client that aborted before that has nothing to end.
         if (reply.raw.headersSent) reply.sseContext.source.end()
@@ -51,16 +66,18 @@ export function streamRoutes(deps: AppDeps) {
         if (remaining.length === 0) streamsByUser.delete(user.id)
         else streamsByUser.set(user.id, remaining)
       }
-      const handle: StreamHandle = { close }
-      // Attach BEFORE subscribing: a client that disconnected while the
+      const handle: StreamHandle = {
+        close,
+        send: (data) => {
+          if (!closed) reply.sse({ data })
+        },
+      }
+      // Attach BEFORE registering: a client that disconnected while the
       // session hook awaited its DB read has already emitted 'close' — the
       // destroyed re-check below reaps that race instead of leaking the
-      // subscription and keepalive interval forever.
+      // registry entry and keepalive interval forever.
       request.raw.on('close', close)
 
-      const unsubscribe = deps.eventBus.subscribe((hint) => {
-        if (!closed) reply.sse({ data: JSON.stringify(hint) })
-      })
       const keepalive = setInterval(() => {
         if (closed) return
         reply.sse({ comment: 'keepalive' })

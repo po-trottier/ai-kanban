@@ -9,6 +9,7 @@ import {
   type LaneKey,
   type User,
 } from '@rivian-kanban/core'
+import { cardWith, commentWith, userWith } from '@rivian-kanban/core/testing'
 import { eq } from 'drizzle-orm'
 import { openDatabase, type DbConnection } from '../connection.ts'
 import { lanes, users } from '../schema.ts'
@@ -66,17 +67,14 @@ export const T0 = '2026-07-16T12:00:00.000Z'
 
 function makeUser(overrides: Partial<User> = {}): User {
   const id = overrides.id ?? newId()
-  return {
+  return userWith({
     id,
     email: `${id}@example.com`,
     displayName: 'Test User',
     role: 'technician',
-    mustChangePassword: false,
-    slackUserId: null,
-    isActive: true,
     createdAt: T0,
     ...overrides,
-  }
+  })
 }
 
 /** Inserts the user row (with a placeholder hash) and returns the entity. */
@@ -92,46 +90,19 @@ export function insertUser(connection: DbConnection, overrides: Partial<User> = 
 export function makeCard(
   overrides: Partial<Card> & Pick<Card, 'boardId' | 'laneId' | 'reporterId'>,
 ): Card {
-  return {
+  return cardWith({
     id: newId(),
     position: 'a0',
     title: 'Test card',
-    description: '',
-    priority: 'P2',
-    estimateMinutes: null,
-    assigneeId: null,
-    locationId: null,
-    origin: 'manual',
-    resolution: null,
-    blocked: false,
-    blockedReason: null,
-    blockedAt: null,
-    waitingReason: null,
-    expectedResumeAt: null,
-    resumeAlertedAt: null,
-    slackChannelId: null,
-    slackThreadTs: null,
-    slackPermalink: null,
-    version: 1,
     createdAt: T0,
-    updatedAt: T0,
-    archivedAt: null,
     ...overrides,
-  }
+  })
 }
 
 export function makeComment(
   overrides: Partial<Comment> & Pick<Comment, 'cardId' | 'authorId'>,
 ): Comment {
-  return {
-    id: newId(),
-    parentCommentId: null,
-    body: 'A comment',
-    createdAt: T0,
-    updatedAt: T0,
-    deletedAt: null,
-    ...overrides,
-  }
+  return commentWith({ id: newId(), createdAt: T0, ...overrides })
 }
 
 /** Flattens an error's `cause` chain into one searchable string. */

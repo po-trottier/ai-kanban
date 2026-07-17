@@ -2,7 +2,7 @@ import { type FastifyInstance } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { UnauthenticatedError } from '../errors.ts'
-import { SESSION_COOKIE } from '../plugins/session-auth.ts'
+import { rawSessionIdOf, sessionCookieName } from '../plugins/session-auth.ts'
 import { type AppDeps } from '../types.ts'
 import { userResponseSchema, emptyBodySchema } from './schemas.ts'
 
@@ -27,6 +27,7 @@ export function authRoutes(deps: AppDeps) {
   return function routes(app: FastifyInstance): void {
     const r = app.withTypeProvider<ZodTypeProvider>()
     const secureCookies = deps.config.nodeEnv === 'production'
+    const sessionCookie = sessionCookieName(deps.config.nodeEnv)
 
     r.post(
       '/auth/login',
@@ -48,7 +49,7 @@ export function authRoutes(deps: AppDeps) {
           request.body.email,
           request.body.password,
         )
-        reply.setCookie(SESSION_COOKIE, rawSessionId, {
+        reply.setCookie(sessionCookie, rawSessionId, {
           path: '/',
           httpOnly: true,
           sameSite: 'lax',
@@ -66,9 +67,9 @@ export function authRoutes(deps: AppDeps) {
         schema: { response: { 204: emptyBodySchema } },
       },
       async (request, reply) => {
-        const { sid: raw } = request.cookies
+        const raw = rawSessionIdOf(request, deps.config.nodeEnv)
         if (raw !== undefined) await deps.services.auth.logout(raw)
-        reply.clearCookie(SESSION_COOKIE, { path: '/' })
+        reply.clearCookie(sessionCookie, { path: '/' })
         await reply.code(204).send(null)
       },
     )
@@ -84,7 +85,7 @@ export function authRoutes(deps: AppDeps) {
       },
       async (request, reply) => {
         const user = request.authUser
-        const { sid: raw } = request.cookies
+        const raw = rawSessionIdOf(request, deps.config.nodeEnv)
         if (user === null || raw === undefined) throw new UnauthenticatedError()
         await deps.services.auth.changePassword(
           user.id,

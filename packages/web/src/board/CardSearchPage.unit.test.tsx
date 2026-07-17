@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { createFakeFetch, jsonResponse, type FakeFetch } from '../test/fake-fetch.ts'
 import {
-  coreCard,
   fixtureAdmin,
   fixturePickerUsers,
   makeBoard,
@@ -35,7 +34,7 @@ describe('CardSearchPage', () => {
       'GET /api/v1/cards': (_init: RequestInit | undefined, url: string) =>
         jsonResponse(
           url.includes('q=pump')
-            ? { items: [coreCard(match)], nextCursor: null }
+            ? { items: [match], nextCursor: null }
             : { items: [], nextCursor: null },
         ),
     })
@@ -62,7 +61,7 @@ describe('CardSearchPage', () => {
       'GET /api/v1/cards': (_init: RequestInit | undefined, url: string) =>
         jsonResponse(
           url.includes('includeArchived=true')
-            ? { items: [coreCard(archived)], nextCursor: null }
+            ? { items: [archived], nextCursor: null }
             : { items: [], nextCursor: null },
         ),
     })
@@ -81,9 +80,9 @@ describe('CardSearchPage', () => {
     const found = makeCard('ready', { title: 'Fix pump', description: 'It leaks' })
     const user = userEvent.setup()
     const fake = searchApp({
-      'GET /api/v1/cards': { items: [coreCard(found)], nextCursor: null },
+      'GET /api/v1/cards': { items: [found], nextCursor: null },
       [`GET /api/v1/cards/${found.id}`]: {
-        card: coreCard(found),
+        card: found,
         tags: [],
         location: null,
         attachments: [],
@@ -108,8 +107,8 @@ describe('CardSearchPage', () => {
       'GET /api/v1/cards': (_init: RequestInit | undefined, url: string) =>
         jsonResponse(
           url.includes('cursor=cursor-2')
-            ? { items: [coreCard(second)], nextCursor: null }
-            : { items: [coreCard(first)], nextCursor: 'cursor-2' },
+            ? { items: [second], nextCursor: null }
+            : { items: [first], nextCursor: 'cursor-2' },
         ),
     })
     const user = userEvent.setup()

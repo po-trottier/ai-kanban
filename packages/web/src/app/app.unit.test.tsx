@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { createFakeFetch, problemResponse, type FakeFetch } from '../test/fake-fetch.ts'
 import {
-  coreCard,
   fixtureAdmin,
   fixturePickerUsers,
   fixtureTech,
@@ -104,7 +103,7 @@ describe('app routing', () => {
     const fake = authedRoutes({
       'GET /api/v1/board': makeBoard({ ready: [card] }),
       [`GET /api/v1/cards/${card.id}`]: {
-        card: coreCard(card),
+        card: card,
         tags: [],
         location: null,
         attachments: [],

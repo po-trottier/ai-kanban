@@ -21,8 +21,8 @@ export function ErrorAlert({ error, fallbackMessage }: ErrorAlertProps) {
             </Text>
             <List size="sm">
               {problem.issues.map((issue) => (
-                <List.Item key={`${issue.path.join('.')}:${issue.message}`}>
-                  {issue.path.length > 0 ? `${issue.path.join('.')}: ` : ''}
+                <List.Item key={`${issue.path}:${issue.message}`}>
+                  {issue.path !== '' ? `${issue.path}: ` : ''}
                   {issue.message}
                 </List.Item>
               ))}

@@ -6,13 +6,16 @@ import {
 } from '../domain/commands.ts'
 import { DEFAULT_BLOCKED_STALE_DAYS, DEFAULT_REVIEW_STALE_DAYS } from '../domain/constants.ts'
 import { decodeCursor, encodeCursor, type CursorKey } from '../domain/cursor.ts'
+import { isOverdueResume, utcDayOf } from '../domain/dates.ts'
 import {
   type Attachment,
   type Card,
+  type Comment,
   type Lane,
   type Location,
   type Tag,
 } from '../domain/entities.ts'
+import { boardCardOf, type BoardCard } from '../domain/envelopes.ts'
 import { CARD_EVENT_TYPES, type CardEvent } from '../domain/events.ts'
 import {
   type CardQueryFilter,
@@ -20,7 +23,7 @@ import {
   type UnitOfWork,
 } from '../ports/repositories.ts'
 import { type Clock } from '../ports/runtime.ts'
-import { DAY_MS, laneByKey, requireFound, utcDateOf } from './internal.ts'
+import { DAY_MS, laneByKey, redactDeletedComments, requireFound } from './internal.ts'
 
 export interface BoardQueryServiceDeps {
   uow: UnitOfWork
@@ -28,10 +31,15 @@ export interface BoardQueryServiceDeps {
   boardId: string
 }
 
-/** One lane with its non-archived cards in position order plus WIP state. */
+/**
+ * One lane with its non-archived card summaries in position order plus WIP
+ * state. Summaries, not full cards (rest-api.md#history--metadata): the
+ * snapshot is refetched by every client on every mutation hint, so it never
+ * carries descriptions or Slack bookkeeping.
+ */
 export interface LaneSnapshot {
   lane: Lane
-  cards: Card[]
+  cards: BoardCard[]
   wipLimitExceeded: boolean
 }
 
@@ -45,6 +53,12 @@ export interface CardDetail {
   location: Location | null
   /** Active (non-soft-deleted) attachment metadata. */
   attachments: Attachment[]
+}
+
+/** `CardDetail` plus the redacted comment thread and the trailing audit events. */
+export interface CardDetailWithThread extends CardDetail {
+  comments: Comment[]
+  latestEvents: CardEvent[]
 }
 
 export interface Page<T> {
@@ -84,16 +98,16 @@ export class BoardQueryService {
 
   /** Lanes in board order with non-archived cards in position order + WIP state. */
   async boardSnapshot(): Promise<BoardSnapshot> {
-    return this.deps.uow.run(async (tx) => {
+    return this.deps.uow.read(async (tx) => {
       const lanes = await tx.lanes.listByBoard(this.deps.boardId)
       const snapshots: LaneSnapshot[] = []
       for (const lane of lanes) {
-        const cards = (await tx.cards.listByLane(lane.id)).filter(
-          (card) => card.archivedAt === null,
-        )
+        // activeOnly pushes the archived filter into SQL: the hottest read in
+        // the system must never hydrate the unbounded done-lane archive.
+        const cards = await tx.cards.listByLane(lane.id, { activeOnly: true })
         snapshots.push({
           lane,
-          cards,
+          cards: cards.map(boardCardOf),
           wipLimitExceeded: lane.wipLimit !== null && cards.length > lane.wipLimit,
         })
       }
@@ -109,7 +123,7 @@ export class BoardQueryService {
     const filter = listCardsFilterSchema.parse(rawFilter)
     const page = pageRequestSchema.parse(rawPage ?? {})
     const after = page.cursor !== undefined ? decodeCursor(page.cursor) : undefined
-    return this.deps.uow.run(async (tx) => {
+    return this.deps.uow.read(async (tx) => {
       const repoFilter = await this.toRepoFilter(tx, filter)
       const items = await tx.cards.query(repoFilter, {
         ...(after !== undefined ? { after } : {}),
@@ -121,20 +135,34 @@ export class BoardQueryService {
 
   /** Every known tag, name order (`GET /tags` autocomplete). */
   async listTags(): Promise<Tag[]> {
-    return this.deps.uow.run((tx) => tx.tags.listAll())
+    return this.deps.uow.read((tx) => tx.tags.listAll())
   }
 
   /** Full card detail: card + tags + location + active attachment metadata. */
   async cardDetail(cardId: string): Promise<CardDetail> {
-    return this.deps.uow.run(async (tx) => {
+    return this.deps.uow.read(async (tx) => {
       const card = requireFound(await tx.cards.findById(cardId), 'card')
-      const tags = await tx.tags.listByCard(card.id)
-      const location =
-        card.locationId === null ? null : await tx.locations.findById(card.locationId)
-      const attachments = (await tx.attachments.listByCard(card.id)).filter(
-        (attachment) => attachment.deletedAt === null,
-      )
-      return { card, tags, location, attachments }
+      return detailOf(tx, card)
+    })
+  }
+
+  /**
+   * The MCP `get_card` composition: full detail plus the redacted comment
+   * thread and the trailing `latestEventsTake` audit events (chronological;
+   * O(take) — the repository reads newest-first with a LIMIT). Composed
+   * inside ONE read snapshot with one card lookup, so the three parts can
+   * never disagree about a concurrently committed mutation.
+   */
+  async cardDetailWithThread(
+    cardId: string,
+    latestEventsTake: number,
+  ): Promise<CardDetailWithThread> {
+    return this.deps.uow.read(async (tx) => {
+      const card = requireFound(await tx.cards.findById(cardId), 'card')
+      const detail = await detailOf(tx, card)
+      const comments = redactDeletedComments(await tx.comments.listByCard(card.id))
+      const latestEvents = (await tx.events.listLatestByCard(card.id, latestEventsTake)).reverse()
+      return { ...detail, comments, latestEvents }
     })
   }
 
@@ -142,7 +170,7 @@ export class BoardQueryService {
   async cardHistory(cardId: string, rawRequest?: unknown): Promise<Page<CardEvent>> {
     const request = cardHistoryRequestSchema.parse(rawRequest ?? {})
     const after = request.cursor !== undefined ? decodeCursor(request.cursor) : undefined
-    return this.deps.uow.run(async (tx) => {
+    return this.deps.uow.read(async (tx) => {
       requireFound(await tx.cards.findById(cardId), 'card')
       const events = await tx.events.listByCard(cardId, {
         ...(request.type !== undefined ? { types: [request.type] } : {}),
@@ -157,19 +185,6 @@ export class BoardQueryService {
   }
 
   /**
-   * The trailing `take` audit events in chronological order — the "latest
-   * events" panel of the MCP `get_card` tool. O(take) regardless of history
-   * depth (the repository reads newest-first with a LIMIT).
-   */
-  async latestEvents(cardId: string, take: number): Promise<CardEvent[]> {
-    return this.deps.uow.run(async (tx) => {
-      requireFound(await tx.cards.findById(cardId), 'card')
-      const newestFirst = await tx.events.listLatestByCard(cardId, take)
-      return newestFirst.reverse()
-    })
-  }
-
-  /**
    * The follow-up feed (`list_stale_cards`): cards past `expectedResumeAt`
    * (overdue starts the UTC day after the date), in review longer than
    * `reviewDays` (default 7), or blocked longer than `blockedDays` (default 3).
@@ -177,7 +192,7 @@ export class BoardQueryService {
   async staleCards(rawInput?: unknown): Promise<StaleCard[]> {
     const input = staleCardsInputSchema.parse(rawInput ?? {})
     const now = this.deps.clock.now()
-    return this.deps.uow.run(async (tx) => {
+    return this.deps.uow.read(async (tx) => {
       const stale = new Map<string, StaleCard>()
       const mark = (card: Card, reason: StaleReason) => {
         const entry = stale.get(card.id) ?? { card, reasons: [] }
@@ -186,9 +201,9 @@ export class BoardQueryService {
       }
 
       const waiting = await laneByKey(tx, this.deps.boardId, 'waiting_parts_vendor')
-      const today = utcDateOf(now)
+      const today = utcDayOf(now)
       for (const card of await activeLaneCards(tx, waiting.id)) {
-        if (card.expectedResumeAt !== null && card.expectedResumeAt < today) {
+        if (isOverdueResume(card.expectedResumeAt, today)) {
           mark(card, 'overdue_resume')
         }
       }
@@ -201,7 +216,9 @@ export class BoardQueryService {
         }
       }
 
-      for (const card of await tx.cards.query({ blocked: true })) {
+      // Board-scoped like the lane legs above (the multi-board seam); the
+      // partial live-blocked index keeps this proportional to blocked cards.
+      for (const card of await tx.cards.query({ boardId: this.deps.boardId, blocked: true })) {
         if (
           card.blockedAt !== null &&
           now.getTime() - new Date(card.blockedAt).getTime() > input.blockedDays * DAY_MS
@@ -234,7 +251,7 @@ export class BoardQueryService {
     if (filter.blocked !== undefined) repoFilter.blocked = filter.blocked
     if (filter.waitingReason !== undefined) repoFilter.waitingReason = filter.waitingReason
     if (filter.overdueResume === true) {
-      repoFilter.overdueBefore = utcDateOf(this.deps.clock.now())
+      repoFilter.overdueBefore = utcDayOf(this.deps.clock.now())
     }
     if (filter.q !== undefined) repoFilter.q = filter.q
     if (filter.includeArchived !== undefined) repoFilter.includeArchived = filter.includeArchived
@@ -243,18 +260,32 @@ export class BoardQueryService {
 }
 
 async function activeLaneCards(tx: TransactionContext, laneId: string): Promise<Card[]> {
-  return (await tx.cards.listByLane(laneId)).filter((card) => card.archivedAt === null)
+  return tx.cards.listByLane(laneId, { activeOnly: true })
 }
 
-/** When the card last arrived in the review lane (falls back to creation). */
+/** The card's detail composition — shared by `cardDetail` and `cardDetailWithThread`. */
+async function detailOf(tx: TransactionContext, card: Card): Promise<CardDetail> {
+  const tags = await tx.tags.listByCard(card.id)
+  const location = card.locationId === null ? null : await tx.locations.findById(card.locationId)
+  const attachments = (await tx.attachments.listByCard(card.id)).filter(
+    (attachment) => attachment.deletedAt === null,
+  )
+  return { card, tags, location, attachments }
+}
+
+/**
+ * When the card last arrived in the review lane (falls back to creation).
+ * O(1): a card sitting in review got there by a cross-lane move, and any
+ * later `card.status_changed` would have moved it elsewhere — so the newest
+ * status event IS the arrival, read with LIMIT 1 instead of scanning the
+ * card's whole append-only history.
+ */
 async function reviewEnteredAt(tx: TransactionContext, card: Card): Promise<string> {
-  const statusEvents = await tx.events.listByCard(card.id, { types: ['card.status_changed'] })
-  const lastArrival = statusEvents
-    .filter(
-      (event) => event.eventType === 'card.status_changed' && event.payload.toLane === 'review',
-    )
-    .at(-1)
-  return lastArrival?.createdAt ?? card.createdAt
+  const newest = (await tx.events.listLatestByCard(card.id, 1, ['card.status_changed'])).at(0)
+  if (newest?.eventType === 'card.status_changed' && newest.payload.toLane === 'review') {
+    return newest.createdAt
+  }
+  return card.createdAt
 }
 
 /** Fetch limit+1 rows, then slice and derive the opaque nextCursor. */

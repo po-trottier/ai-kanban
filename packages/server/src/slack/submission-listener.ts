@@ -1,8 +1,13 @@
 import { type App } from '@slack/bolt'
 import { slackActorOf, type SlackContext } from './context.ts'
 import { resolveSlackUser } from './identity.ts'
-import { ASK_ADMIN_MESSAGE, CARD_RATE_LIMIT_MESSAGE, CREATE_FAILED_MESSAGE } from './messages.ts'
-import { createdMessage } from './messages.ts'
+import {
+  ASK_ADMIN_MESSAGE,
+  ASSIGNEE_UNRESOLVED_MESSAGE,
+  CARD_RATE_LIMIT_MESSAGE,
+  CREATE_FAILED_MESSAGE,
+  createdMessage,
+} from './messages.ts'
 import {
   ASSIGNEE_BLOCK,
   DRAFT_CALLBACK_ID,
@@ -47,30 +52,36 @@ export function registerSubmissionListener(app: App, ctx: SlackContext): void {
       return
     }
 
-    // Optional assignee/location resolution; unresolvable values surface as
-    // modal field errors so the human can correct them in place.
+    // Optional assignee/location resolution — one read-only unit of work,
+    // repository lookups (indexed email, case-insensitive location name);
+    // unresolvable values surface as modal field errors so the human can
+    // correct them in place.
+    const assigneeEmail = submission.assigneeEmail
+    const locationName = submission.locationName
+    const { account, location } = await ctx.uow.read(async (tx) => ({
+      account: assigneeEmail === null ? null : await tx.userAccounts.findByEmail(assigneeEmail),
+      location: locationName === null ? null : await tx.locations.findByNameCi(locationName),
+    }))
     let assigneeId: string | undefined
     let assigneeProblem: string | null = null
-    const assigneeEmail = submission.assigneeEmail
     if (assigneeEmail !== null) {
-      const account = await ctx.uow.run((tx) => tx.userAccounts.findByEmail(assigneeEmail))
       if (account?.user.isActive !== true) {
-        assigneeProblem = `No active board user has the email ${assigneeEmail}.`
+        // Uniform for unknown AND deactivated, and never echoing membership
+        // semantics — the same no-account-existence-oracle rule as core's
+        // requireAssignable (the location message may stay specific: location
+        // names are fully listable via GET /locations).
+        assigneeProblem = ASSIGNEE_UNRESOLVED_MESSAGE
       } else {
         assigneeId = account.user.id
       }
     }
     let locationId: string | undefined
     let locationProblem: string | null = null
-    const locationName = submission.locationName
     if (locationName !== null) {
-      const locations = await ctx.uow.run((tx) => tx.locations.list())
-      const wanted = locationName.toLowerCase()
-      const match = locations.find((location) => location.name.toLowerCase() === wanted)
-      if (match === undefined) {
+      if (location === null) {
         locationProblem = `No location named "${locationName}" exists on the board.`
       } else {
-        locationId = match.id
+        locationId = location.id
       }
     }
     if (assigneeProblem !== null || locationProblem !== null) {

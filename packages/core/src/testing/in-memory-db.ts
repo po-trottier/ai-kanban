@@ -108,6 +108,11 @@ export class InMemoryDb implements UnitOfWork {
     return result
   }
 
+  /** Read-only unit of work: `fn` sees a copy of committed state; nothing commits. */
+  async read<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T> {
+    return fn(this.transactionOver(clone(this.state)))
+  }
+
   private transactionOver(state: DbState): TransactionContext {
     return {
       cards: new InMemoryCardRepository(state, this),
@@ -247,14 +252,25 @@ class InMemoryCardRepository implements CardRepository {
     return Promise.resolve()
   }
 
-  listByLane(laneId: string): Promise<Card[]> {
+  listByLane(laneId: string, options?: { activeOnly?: boolean }): Promise<Card[]> {
     return Promise.resolve(
       clone(
         this.state.cards
           .filter((card) => card.laneId === laneId)
+          .filter((card) => options?.activeOnly !== true || card.archivedAt === null)
           .sort((a, b) => binaryCompare(a.position, b.position)),
       ),
     )
+  }
+
+  async countActiveByLane(laneId: string): Promise<number> {
+    const cards = await this.listByLane(laneId, { activeOnly: true })
+    return cards.length
+  }
+
+  async edgeOfLane(laneId: string, edge: 'first' | 'last'): Promise<Card | null> {
+    const cards = await this.listByLane(laneId)
+    return (edge === 'first' ? cards.at(0) : cards.at(-1)) ?? null
   }
 
   query(filter: CardQueryFilter, page?: { after?: CursorKey; limit?: number }): Promise<Card[]> {
@@ -279,6 +295,7 @@ class InMemoryCardRepository implements CardRepository {
 
   private matches(card: Card, filter: CardQueryFilter): boolean {
     if (filter.includeArchived !== true && card.archivedAt !== null) return false
+    if (filter.boardId !== undefined && card.boardId !== filter.boardId) return false
     if (filter.laneId !== undefined && card.laneId !== filter.laneId) return false
     if (filter.assigneeId !== undefined && card.assigneeId !== filter.assigneeId) return false
     if (filter.reporterId !== undefined && card.reporterId !== filter.reporterId) return false
@@ -546,6 +563,9 @@ class InMemoryServiceTokenRepository implements ServiceTokenRepository {
   }
 
   insert(token: ServiceToken): Promise<void> {
+    if (this.state.serviceTokens.some((candidate) => candidate.tokenHash === token.tokenHash)) {
+      return Promise.reject(new ConflictError('service token hash already exists'))
+    }
     this.state.serviceTokens.push(clone(token))
     return Promise.resolve()
   }
@@ -599,6 +619,14 @@ class InMemoryLocationRepository implements LocationRepository {
 
   findById(id: string): Promise<Location | null> {
     const location = this.state.locations.find((candidate) => candidate.id === id)
+    return Promise.resolve(location ? clone(location) : null)
+  }
+
+  findByNameCi(name: string): Promise<Location | null> {
+    const wanted = name.toLowerCase()
+    const location = this.state.locations.find(
+      (candidate) => candidate.name.toLowerCase() === wanted,
+    )
     return Promise.resolve(location ? clone(location) : null)
   }
 
@@ -729,8 +757,12 @@ class InMemoryEventRepository implements EventRepository {
     return Promise.resolve(clone(events))
   }
 
-  async listLatestByCard(cardId: string, limit: number): Promise<CardEvent[]> {
-    const events = await this.listByCard(cardId)
+  async listLatestByCard(
+    cardId: string,
+    limit: number,
+    types?: readonly CardEventType[],
+  ): Promise<CardEvent[]> {
+    const events = await this.listByCard(cardId, types === undefined ? {} : { types })
     return events.slice(-limit).reverse()
   }
 }

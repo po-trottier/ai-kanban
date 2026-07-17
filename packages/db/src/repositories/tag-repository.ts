@@ -1,5 +1,5 @@
 import { type Tag, type TagRepository } from '@rivian-kanban/core'
-import { asc, eq, sql } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { toError } from '../errors.ts'
 import { cardTags, tags } from '../schema.ts'
@@ -12,17 +12,16 @@ export class SqliteTagRepository implements TagRepository {
   }
 
   /**
-   * Case-insensitive name lookup. Explicit lower() = lower() rather than
-   * relying on the column's NOCASE collation, so the comparison is portable
-   * and matches the in-memory fake's toLowerCase semantics (ASCII fold — the
-   * NOCASE column collation is ASCII-only too).
+   * Case-insensitive name lookup. A plain `name = ?` comparison: the column
+   * is declared TEXT COLLATE NOCASE (schema.ts), so the comparison is
+   * case-insensitive AND served by the UNIQUE index — a `lower() = lower()`
+   * expression would force a full tags scan inside every card-create/update
+   * write transaction (tags grow for the product's lifetime). NOCASE and the
+   * in-memory fake's toLowerCase share the same ASCII-only fold, so the
+   * semantics are unchanged.
    */
   findByNameCi(name: string): Promise<Tag | null> {
-    const row = this.db
-      .select()
-      .from(tags)
-      .where(sql`lower(${tags.name}) = lower(${name})`)
-      .get()
+    const row = this.db.select().from(tags).where(eq(tags.name, name)).get()
     return Promise.resolve(row ?? null)
   }
 

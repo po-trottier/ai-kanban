@@ -1,8 +1,9 @@
+import { randomUUID } from 'node:crypto'
 import { pino } from 'pino'
 import { afterEach, describe, expect, it } from 'vitest'
 import { runWaitingAgingAlerts } from '../jobs/waiting-aging-alerts.ts'
 import { startSlackFixture, type SlackFixture } from '../test/slack.ts'
-import { createTestApp, type TestApp } from '../test/support.ts'
+import { createTestApp, rawCard, type TestApp } from '../test/support.ts'
 
 /**
  * SlackNotifier through the REAL service flow (docs/architecture/slack.md
@@ -10,6 +11,8 @@ import { createTestApp, type TestApp } from '../test/support.ts'
  * env pointing the notifier's WebClient at a local fixture server. A card is
  * driven review→done over REST; completion must DM the requester. Unmatched
  * requesters are logged and skipped — never an error surfaced to the mover.
+ * Completion DMs are fire-and-forget off the mutation path (the move response
+ * never waits on Slack), so the tests poll the fixture for delivery.
  */
 
 let t: TestApp
@@ -20,8 +23,10 @@ afterEach(async () => {
   await slack.close()
 })
 
-async function bootWithSlack(): Promise<void> {
-  slack = await startSlackFixture()
+async function bootWithSlack(
+  slackOverrides: Parameters<typeof startSlackFixture>[0] = {},
+): Promise<void> {
+  slack = await startSlackFixture(slackOverrides)
   t = await createTestApp({
     env: {
       SLACK_ENABLED: 'true',
@@ -77,8 +82,9 @@ describe('SlackNotifier (review→done completion DMs)', () => {
     const inReview = await moveCard(supervisor.cookie, card.id, 'review', card.version)
     await moveCard(supervisor.cookie, card.id, 'done', inReview.version)
 
+    // The DM is fire-and-forget off the move response — poll for delivery.
+    await expect.poll(() => slack.callsTo('chat.postMessage').length).toBe(1)
     const dms = slack.callsTo('chat.postMessage')
-    expect(dms).toHaveLength(1)
     expect(dms[0]).toMatchObject({ channel: 'U0REQUESTER' })
     expect(String(dms[0]?.text)).toContain('Compressor leaking in bay 4')
     expect(String(dms[0]?.text)).toContain(`/cards/${card.id}`)
@@ -98,10 +104,13 @@ describe('SlackNotifier (review→done completion DMs)', () => {
 
     const first = await createCard(requester.cookie, 'First ticket')
     await moveCard(supervisor.cookie, first.id, 'done', first.version)
+    // Wait for the first DM: the binding is persisted before it is sent, so
+    // the second completion below deterministically reuses it.
+    await expect.poll(() => slack.callsTo('chat.postMessage').length).toBe(1)
     const second = await createCard(requester.cookie, 'Second ticket')
     await moveCard(supervisor.cookie, second.id, 'done', second.version, { prevCardId: first.id })
 
-    expect(slack.callsTo('chat.postMessage')).toHaveLength(2)
+    await expect.poll(() => slack.callsTo('chat.postMessage').length).toBe(2)
     expect(slack.callsTo('users.lookupByEmail')).toHaveLength(1)
   })
 
@@ -115,7 +124,40 @@ describe('SlackNotifier (review→done completion DMs)', () => {
     const done = await moveCard(supervisor.cookie, card.id, 'done', card.version)
 
     expect(done.id).toBe(card.id)
-    expect(slack.callsTo('users.lookupByEmail')).toHaveLength(1)
+    // The unmatched flow ends at the email lookup: once it ran, no DM follows.
+    await expect.poll(() => slack.callsTo('users.lookupByEmail').length).toBe(1)
+    expect(slack.callsTo('chat.postMessage')).toHaveLength(0)
+  })
+
+  it('swallows a failing Slack DM — the move still succeeds', async () => {
+    await bootWithSlack({
+      'chat.postMessage': () => ({ ok: false, error: 'channel_not_found' }),
+    })
+    const requester = await t.asRole('requester')
+    const supervisor = await t.asRole('supervisor')
+    slack.setUserEmail('U0REQUESTER', requester.user.email)
+
+    const card = await createCard(requester.cookie, 'Slack is having a day')
+    const done = await moveCard(supervisor.cookie, card.id, 'done', card.version)
+
+    expect(done.id).toBe(card.id)
+    // The DM attempt reached Slack and failed; nothing surfaced to the mover.
+    await expect.poll(() => slack.callsTo('chat.postMessage').length).toBe(1)
+  })
+
+  it('skips silently when the reporter row cannot be resolved', async () => {
+    // Direct adapter call: no service flow can produce a dangling reporterId
+    // (FK), so the skip branch is exercised against the real wired notifier.
+    await bootWithSlack()
+    const ghost = rawCard({
+      boardId: t.wired.boardId,
+      laneId: randomUUID(),
+      reporterId: randomUUID(),
+    })
+
+    await t.wired.notifier.cardCompleted(ghost)
+
+    expect(slack.callsTo('users.lookupByEmail')).toHaveLength(0)
     expect(slack.callsTo('chat.postMessage')).toHaveLength(0)
   })
 
@@ -139,14 +181,12 @@ describe('SlackNotifier (review→done completion DMs)', () => {
 })
 
 describe('SlackNotifier (waiting-lane overdue DMs via the aging job)', () => {
-  /** Runs the real hourly job with the WIRED notifier (fixture Web API). */
+  /** Runs the real hourly job with the WIRED services (fixture Web API). */
   async function runAgingJob(): Promise<{ alerted: number }> {
     return runWaitingAgingAlerts({
-      uow: t.wired.deps.uow,
-      clock: t.wired.deps.clock,
+      cards: t.wired.deps.services.cards,
       notifier: t.wired.notifier,
       logger: pino({ level: 'silent' }),
-      boardId: t.wired.boardId,
     })
   }
 

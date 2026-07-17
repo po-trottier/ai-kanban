@@ -82,10 +82,16 @@ describe('SqliteUserAccountRepository', () => {
     const user = insertUser(db.connection, { email: 'unique@example.com' })
 
     const clash = { ...user, id: newId(), email: 'UNIQUE@example.com' }
-    // The email column is exact-unique; same-cased duplicates conflict.
+    // Same-cased duplicates conflict…
     await expect(
       run((tx) => tx.userAccounts.insert({ ...clash, email: user.email }, 'h')),
     ).rejects.toBeInstanceOf(ConflictError)
+    // …and so do differently-cased ones: the lower(email) unique index makes
+    // the DATABASE enforce the case-insensitive uniqueness every email
+    // lookup (login, Slack identity) already assumes.
+    await expect(run((tx) => tx.userAccounts.insert(clash, 'h'))).rejects.toBeInstanceOf(
+      ConflictError,
+    )
   })
 
   it('updates profile fields without touching the stored hash', async () => {

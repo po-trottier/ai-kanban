@@ -46,7 +46,8 @@ function indexSummaries(table: AnySQLiteTable): string[] {
   return getTableConfig(table).indexes.map((index) => {
     const config = index.config
     const columns = config.columns.map((column) => (column as { name: string }).name).join(', ')
-    return `${config.name}${config.unique ? ' UNIQUE' : ''} (${columns})`
+    const partial = config.where === undefined ? '' : ' PARTIAL'
+    return `${config.name}${config.unique ? ' UNIQUE' : ''} (${columns})${partial}`
   })
 }
 
@@ -131,7 +132,15 @@ describe('schema contract (data-model.md)', () => {
 
   it('creates exactly the documented indexes', () => {
     // Arrange
-    const tablesWithIndexes = { cards, cardEvents, comments, attachments, boardPolicies, lanes }
+    const tablesWithIndexes = {
+      cards,
+      cardEvents,
+      comments,
+      attachments,
+      boardPolicies,
+      lanes,
+      serviceTokens,
+    }
 
     // Act
     const summaries = Object.fromEntries(
@@ -145,12 +154,20 @@ describe('schema contract (data-model.md)', () => {
         'cards_board_id_archived_at_idx (board_id, archived_at)',
         'cards_assignee_id_idx (assignee_id)',
         'cards_reporter_id_idx (reporter_id)',
+        // Supports the newest-first keyset list query (O(page) per request).
+        'cards_created_at_id_idx (created_at, id)',
+        // Partial (live rows only): activeOnly lane reads skip the archive.
+        'cards_lane_active_position_idx (lane_id, position) PARTIAL',
+        // Partial (live blocked rows): the stale-cards blocked leg.
+        'cards_blocked_active_idx (created_at, id) PARTIAL',
       ],
       cardEvents: ['card_events_card_id_created_at_idx (card_id, created_at)'],
       comments: ['comments_card_id_created_at_idx (card_id, created_at)'],
       attachments: ['attachments_card_id_idx (card_id)'],
       boardPolicies: ['board_policies_board_id_created_at_idx (board_id, created_at)'],
       lanes: [],
+      // Credential-hash uniqueness is a schema invariant (like users email).
+      serviceTokens: ['service_tokens_token_hash_unique UNIQUE (token_hash)'],
     })
   })
 

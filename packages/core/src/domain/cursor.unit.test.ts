@@ -4,9 +4,9 @@ import { decodeCursor, encodeCursor } from './cursor.ts'
 
 /**
  * Known-vector tokens precomputed with standard tooling —
- * `Buffer.from(json).toString('base64url')` on Node 24 — so the hand-rolled
- * codec (core imports no node builtins) is pinned to RFC 4648 base64url
- * rather than merely round-tripping against itself.
+ * `Buffer.from(json).toString('base64url')` on Node 24 — so the codec (btoa/
+ * atob platform globals; core imports no node builtins) is pinned to RFC 4648
+ * base64url rather than merely round-tripping against itself.
  */
 const KNOWN_KEY = {
   createdAt: '2026-07-16T12:34:56.789Z',

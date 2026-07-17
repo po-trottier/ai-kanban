@@ -330,6 +330,21 @@ describe('mutating tools', () => {
     expect(problem.type).toBe('urn:rivian-kanban:problem:not-found')
   })
 
+  it('create_card rejects a deactivated reporterEmail exactly like an unknown one', async () => {
+    // Inactive accounts are not attribution targets (matching the Slack
+    // assignee rule), and the identical outcome closes the user-enumeration
+    // oracle a distinct error would open.
+    const client = await connect(writer.raw)
+    const { user } = await t.createUser('requester', { isActive: false })
+
+    const problem = await callProblem(client, 'create_card', {
+      title: 'Reporter is deactivated',
+      reporterEmail: user.email,
+    })
+
+    expect(problem.type).toBe('urn:rivian-kanban:problem:not-found')
+  })
+
   it('update_card edits fields under expectedVersion', async () => {
     const client = await connect(writer.raw)
     const card = await callOk<Card>(client, 'create_card', { title: 'To be updated' })
@@ -410,6 +425,26 @@ describe('mutating tools', () => {
 
     expect(comment.authorId).toBe(t.wired.systemUserId)
     expect(reply.parentCommentId).toBe(comment.id)
+  })
+
+  it('get_card blanks soft-deleted comment bodies (deleted content never leaves the server)', async () => {
+    const client = await connect(writer.raw)
+    const card = await callOk<Card>(client, 'create_card', { title: 'Redaction check' })
+    const comment = await callOk<Comment>(client, 'comment_on_card', {
+      cardId: card.id,
+      body: 'sensitive text the author deliberately deleted',
+    })
+    const deleted = await t.request(adminCookie, {
+      method: 'DELETE',
+      url: `/api/v1/comments/${comment.id}`,
+    })
+    expect(deleted.statusCode).toBe(204)
+
+    const detail = await callOk<{ comments: Comment[] }>(client, 'get_card', { cardId: card.id })
+
+    const thread = detail.comments.find((entry) => entry.id === comment.id)
+    expect(thread?.deletedAt).not.toBeNull()
+    expect(thread?.body).toBe('')
   })
 
   it('rejects malformed arguments before any service runs', async () => {

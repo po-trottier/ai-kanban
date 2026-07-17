@@ -1,3 +1,4 @@
+import { PASSWORD_MIN_LENGTH } from '@rivian-kanban/core'
 import { Button, Center, Paper, PasswordInput, Stack, Text, Title } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
@@ -11,7 +12,9 @@ import { SIZES } from '../theme.ts'
 const changePasswordFormSchema = z
   .object({
     currentPassword: z.string().min(1, strings.auth.passwordRequired),
-    newPassword: z.string().min(12, strings.auth.passwordMinLength),
+    // The shared policy constant — the server's password-policy module
+    // enforces the same number (plus the max/common-password checks).
+    newPassword: z.string().min(PASSWORD_MIN_LENGTH, strings.auth.passwordMinLength),
     confirmPassword: z.string(),
   })
   .refine((values) => values.newPassword === values.confirmPassword, {

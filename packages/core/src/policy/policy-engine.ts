@@ -1,5 +1,6 @@
 import { roleAtLeast, type LaneKey, type Role } from '../domain/constants.ts'
 import { type Actor } from '../domain/entities.ts'
+import { PolicyDeniedError } from '../domain/errors.ts'
 import {
   type PolicyActionGates,
   type PolicyDocument,
@@ -50,6 +51,25 @@ function denied(rule: string): PolicyDecision {
   return { allowed: false, kind: 'denied', rule }
 }
 
+/** The always-on admin identity rule, shared by `evaluatePolicy` and `ensureAdmin`. */
+function adminOnly(actor: Actor): PolicyDecision {
+  return actor.role === 'admin' ? ALLOW : denied(ADMIN_ONLY_RULE)
+}
+
+/**
+ * Throwing guard for the admin surface, used by the server's admin services —
+ * they carry no policy document, and the admin rule is always-on identity
+ * anyway (ADR-013). Mirrors `evaluatePolicy` exactly: system actors bypass
+ * (scheduled jobs), everyone else needs the admin role.
+ */
+export function ensureAdmin(actor: Actor): void {
+  if (actor.kind === 'system') return
+  const decision = adminOnly(actor)
+  if (!decision.allowed && decision.kind === 'denied') {
+    throw new PolicyDeniedError(decision.rule)
+  }
+}
+
 function checkGate(
   gate: keyof PolicyActionGates,
   minRole: Role | undefined,
@@ -98,7 +118,7 @@ export function evaluatePolicy(
 
   switch (action.type) {
     case 'admin':
-      return actor.role === 'admin' ? ALLOW : denied(ADMIN_ONLY_RULE)
+      return adminOnly(actor)
     case 'comment.edit':
       return actor.id === action.authorId ? ALLOW : denied(COMMENT_AUTHOR_RULE)
     case 'comment.delete':

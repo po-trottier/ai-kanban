@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatEstimate, initials, isOverdueResume, utcToday } from './format.ts'
+import { formatEstimate, initials } from './format.ts'
 
 describe('formatEstimate', () => {
   it('renders sub-hour estimates in minutes', () => {
@@ -36,46 +36,6 @@ describe('formatEstimate', () => {
     const result = formatEstimate(minutes)
     // Assert
     expect(result).toBe('1.5d')
-  })
-})
-
-describe('isOverdueResume', () => {
-  it('is not overdue on the expected resume day itself', () => {
-    // Arrange
-    const expectedResumeAt = '2026-07-16'
-    // Act
-    const result = isOverdueResume(expectedResumeAt, '2026-07-16')
-    // Assert
-    expect(result).toBe(false)
-  })
-
-  it('is overdue starting the following UTC day', () => {
-    // Arrange
-    const expectedResumeAt = '2026-07-15'
-    // Act
-    const result = isOverdueResume(expectedResumeAt, '2026-07-16')
-    // Assert
-    expect(result).toBe(true)
-  })
-
-  it('is never overdue without a resume date', () => {
-    // Arrange
-    const expectedResumeAt = null
-    // Act
-    const result = isOverdueResume(expectedResumeAt, '2026-07-16')
-    // Assert
-    expect(result).toBe(false)
-  })
-})
-
-describe('utcToday', () => {
-  it('formats the injected instant as a UTC date', () => {
-    // Arrange
-    const now = new Date('2026-07-16T23:59:00.000Z')
-    // Act
-    const result = utcToday(now)
-    // Assert
-    expect(result).toBe('2026-07-16')
   })
 })
 

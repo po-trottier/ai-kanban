@@ -10,6 +10,17 @@ import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { isUniqueViolation, toError } from '../errors.ts'
 import { users } from '../schema.ts'
 
+/**
+ * True for either spelling of a duplicate email: the plain column UNIQUE
+ * (`users.email`) or the case-insensitive lower(email) unique index — SQLite
+ * names expression-index violations by index, not table.column.
+ */
+function isDuplicateEmail(error: unknown): boolean {
+  return (
+    isUniqueViolation(error, ['users.email']) || isUniqueViolation(error, ['users_email_ci_unique'])
+  )
+}
+
 /** Splits a full row into the hash-free entity + its stored hash. */
 function toCredentials(row: typeof users.$inferSelect): UserCredentials {
   const { passwordHash, ...user } = row
@@ -75,7 +86,7 @@ export class SqliteUserAccountRepository implements UserAccountRepository {
         .run()
       return Promise.resolve()
     } catch (error) {
-      if (isUniqueViolation(error, ['users.email'])) {
+      if (isDuplicateEmail(error)) {
         return Promise.reject(new ConflictError('email already in use'))
       }
       return Promise.reject(toError(error))
@@ -99,7 +110,7 @@ export class SqliteUserAccountRepository implements UserAccountRepository {
       if (result.changes === 0) return Promise.reject(new NotFoundError('user'))
       return Promise.resolve()
     } catch (error) {
-      if (isUniqueViolation(error, ['users.email'])) {
+      if (isDuplicateEmail(error)) {
         return Promise.reject(new ConflictError('email already in use'))
       }
       return Promise.reject(toError(error))

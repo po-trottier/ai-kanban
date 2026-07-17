@@ -1,16 +1,13 @@
 import { randomBytes } from 'node:crypto'
 import {
-  ADMIN_ONLY_RULE,
-  PolicyDeniedError,
-  tokenScopeSchema,
-  roleSchema,
+  createServiceTokenInputSchema,
+  ensureAdmin,
   type Actor,
   type Clock,
   type IdGenerator,
   type ServiceToken,
   type UnitOfWork,
 } from '@rivian-kanban/core'
-import { z } from 'zod'
 import { hashServiceToken } from './token-hash.ts'
 
 /**
@@ -20,12 +17,6 @@ import { hashServiceToken } from './token-hash.ts'
  * DELETE revokes (rows are never deleted). Consumption (Authorization
  * header → Actor) is wired by the MCP task.
  */
-
-export const createServiceTokenInputSchema = z.strictObject({
-  name: z.string().trim().min(1).max(100),
-  role: roleSchema,
-  scope: tokenScopeSchema,
-})
 
 export interface ServiceTokenServiceDeps {
   uow: UnitOfWork
@@ -39,10 +30,6 @@ export interface CreatedServiceToken {
   rawToken: string
 }
 
-function requireAdmin(actor: Actor): void {
-  if (actor.role !== 'admin') throw new PolicyDeniedError(ADMIN_ONLY_RULE)
-}
-
 export class ServiceTokenService {
   private readonly deps: ServiceTokenServiceDeps
 
@@ -52,7 +39,7 @@ export class ServiceTokenService {
 
   /** Policy checks: admin only (always-on). */
   async create(actor: Actor, rawInput: unknown): Promise<CreatedServiceToken> {
-    requireAdmin(actor)
+    ensureAdmin(actor)
     const input = createServiceTokenInputSchema.parse(rawInput)
     const rawToken = `rkb_${randomBytes(32).toString('base64url')}`
     const token: ServiceToken = {
@@ -72,13 +59,13 @@ export class ServiceTokenService {
 
   /** Policy checks: admin only (always-on). */
   async list(actor: Actor): Promise<ServiceToken[]> {
-    requireAdmin(actor)
-    return this.deps.uow.run((tx) => tx.serviceTokens.list())
+    ensureAdmin(actor)
+    return this.deps.uow.read((tx) => tx.serviceTokens.list())
   }
 
   /** Policy checks: admin only (always-on). Unknown ids are 404. */
   async revoke(actor: Actor, tokenId: string): Promise<void> {
-    requireAdmin(actor)
+    ensureAdmin(actor)
     const nowIso = this.deps.clock.now().toISOString()
     await this.deps.uow.run((tx) => tx.serviceTokens.revoke(tokenId, nowIso))
   }

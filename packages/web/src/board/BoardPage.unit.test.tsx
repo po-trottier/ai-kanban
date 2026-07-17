@@ -17,10 +17,10 @@ import {
   policyRecordOf,
 } from '../test/fixtures.ts'
 import { renderApp } from '../test/render.tsx'
-import { type BoardCard } from '../api/schemas.ts'
+import { type Card } from '@rivian-kanban/core'
 
 function boardApp(
-  cards: { ready?: BoardCard[]; intake?: BoardCard[] },
+  cards: { ready?: Card[]; intake?: Card[] },
   extra: Record<string, unknown> = {},
 ): FakeFetch {
   return createFakeFetch({

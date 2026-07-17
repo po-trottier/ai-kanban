@@ -11,7 +11,6 @@ import {
   SystemClock,
   Uuidv7IdGenerator,
   type Card,
-  type IdGenerator,
   type NotifierPort,
   type User,
 } from '@rivian-kanban/core'
@@ -86,8 +85,6 @@ export interface WiredApp {
   boardId: string
   /** The wired NotifierPort — the scheduled-jobs wiring DMs through it. */
   notifier: NotifierPort
-  /** The production id generator — the scheduled-jobs wiring mints audit ids with it. */
-  ids: IdGenerator
   /**
    * One-time demo credentials, present only when this boot replaced the db
    * package's placeholder hashes (SEED_DEMO_DATA, non-production). Printed
@@ -145,6 +142,9 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
       '*.newPassword',
       '*.tempPassword',
       '*.rawToken',
+      // The raw web-session credential (LoginResult) — as sensitive as rawToken.
+      '*.rawSessionId',
+      '*.sid',
       '*.passwordHash',
     ],
   })
@@ -155,6 +155,14 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
       ? new SlackNotifier({
           client: new WebClient(env.SLACK_BOT_TOKEN, {
             ...(options.slackApiUrl !== undefined ? { slackApiUrl: options.slackApiUrl } : {}),
+            // NotifierPort is best-effort with BOUNDED latency: the SDK's
+            // defaults retry for ~30 minutes and sleep through 429s, which
+            // would hold a completing move's DM (and the hourly aging job)
+            // hostage through a Slack outage. Same budget philosophy as the
+            // AI summarizer's whole-call clamp.
+            retryConfig: { retries: 2 },
+            timeout: 5_000,
+            rejectRateLimitedCalls: true,
           }),
           uow,
           logger,
@@ -166,7 +174,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
   // One registry per wired app (never prom-client's global): production has
   // one, and every integration-test boot owns an isolated metric set.
   const metrics = new AppMetrics(
-    createMetricCollectors({ databasePath: env.DATABASE_PATH, blobDir: env.BLOB_DIR }),
+    createMetricCollectors({ databasePath: env.DATABASE_PATH, blobStore }),
   )
 
   const demoCredentials: DemoCredential[] = []
@@ -191,7 +199,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
 
   const shared = { uow, clock, ids, eventBus }
   const services: AppDeps['services'] = {
-    cards: new CardService({ ...shared, notifier, boardId }),
+    cards: new CardService({ ...shared, notifier, boardId, systemUserId }),
     comments: new CommentService(shared),
     attachments: new AttachmentService({ ...shared, blobStore }),
     queries: new BoardQueryService({ uow, clock, boardId }),
@@ -222,7 +230,6 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     systemUserId,
     boardId,
     notifier,
-    ids,
     demoCredentials,
   }
 }

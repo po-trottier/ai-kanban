@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Uuidv7IdGenerator, type Card, type Role, type User } from '@rivian-kanban/core'
+import { cardWith, userWith } from '@rivian-kanban/core/testing'
 import {
   type FastifyInstance,
   type InjectOptions,
@@ -95,17 +96,15 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
     userCounter += 1
     const password = `correct-horse-${String(userCounter)}-staple`
     const passwordHash = await wired.hasher.hash(password)
-    const user: User = {
+    // Neutral defaults come from core's shared userWith (one source, like rawCard).
+    const user: User = userWith({
       id: ids.newId(),
       email: `user${String(userCounter)}-${role}@test.example`,
       displayName: `Test ${role} ${String(userCounter)}`,
       role,
-      mustChangePassword: false,
-      slackUserId: null,
-      isActive: true,
       createdAt: new Date().toISOString(),
       ...overrides,
-    }
+    })
     await wired.deps.uow.run((tx) => tx.userAccounts.insert(user, passwordHash))
     return { user, password }
   }
@@ -173,33 +172,13 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
 export function rawCard(
   overrides: Partial<Card> & { boardId: string; laneId: string; reporterId: string },
 ): Card {
-  const now = new Date().toISOString()
-  return {
+  return cardWith({
     id: randomUUID(),
     position: 'a0',
     title: 'raw fixture card',
-    description: '',
-    priority: 'P2',
-    estimateMinutes: null,
-    assigneeId: null,
-    locationId: null,
-    origin: 'manual',
-    resolution: null,
-    blocked: false,
-    blockedReason: null,
-    blockedAt: null,
-    waitingReason: null,
-    expectedResumeAt: null,
-    resumeAlertedAt: null,
-    slackChannelId: null,
-    slackThreadTs: null,
-    slackPermalink: null,
-    version: 1,
-    createdAt: now,
-    updatedAt: now,
-    archivedAt: null,
+    createdAt: new Date().toISOString(),
     ...overrides,
-  }
+  })
 }
 
 /** Minimal real file fixtures (docs/dev/testing.md — real bytes, no fakes). */

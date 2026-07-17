@@ -31,9 +31,10 @@ function schedule(snapshotDir: string): ScheduledJobs {
   handle = scheduleJobs({
     uow: t.wired.deps.uow,
     clock: t.wired.deps.clock,
-    ids: t.wired.ids,
+    cards: t.wired.deps.services.cards,
     notifier: t.wired.notifier,
     boardId: t.wired.boardId,
+    systemUserId: t.wired.systemUserId,
     auth: t.wired.deps.services.auth,
     snapshots: new SqliteSnapshotStore(t.wired.connection, snapshotDir),
     metrics: t.wired.deps.metrics,
@@ -97,7 +98,7 @@ describe('croner job scheduling (wiring smoke test)', () => {
 
   it('a failing job records an error outcome and never escapes the scheduler', async () => {
     // A snapshot dir nested under an existing FILE cannot be created —
-    // VACUUM INTO fails, the wrapper contains it (exit-crash = missed
+    // the backup fails, the wrapper contains it (exit-crash = missed
     // snapshots for every later night).
     const jobs = schedule(join(t.env.DATABASE_PATH, 'not-a-directory'))
     const snapshot = jobs.jobs.find((job) => job.name === 'sqliteSnapshot')

@@ -5,14 +5,17 @@ import { type SnapshotStore } from '../jobs/sqlite-snapshot.ts'
 
 /**
  * The production SnapshotStore (docs/architecture/deployment.md
- * #database-operations): `VACUUM INTO` on the process's single database
+ * #database-operations): SQLite's online backup API on the process's database
  * connection, files under SNAPSHOT_DIR. Lives in wiring because it is the
  * composition of the two things jobs must not touch directly: packages/db
  * and the filesystem (docs/dev/standards.md).
  *
- * VACUUM cannot run inside a transaction; that is safe here because
- * SqliteUnitOfWork transactions drain entirely in microtasks (see its
- * invariant), so a macrotask-scheduled job can never observe one mid-flight.
+ * The backup API (not `VACUUM INTO`) because it copies incrementally and
+ * asynchronously, yielding to the event loop between page batches — a
+ * year-2-sized database must not freeze every request (and SSE keepalive)
+ * for the duration of a synchronous whole-file copy. Same self-consistent
+ * result: writes from this connection during the copy are folded in by the
+ * backup protocol.
  */
 export class SqliteSnapshotStore implements SnapshotStore {
   private readonly connection: DbConnection
@@ -23,23 +26,23 @@ export class SqliteSnapshotStore implements SnapshotStore {
     this.dir = dir
   }
 
-  async vacuumInto(filename: string): Promise<void> {
+  async backupInto(filename: string): Promise<void> {
     await mkdir(this.dir, { recursive: true })
-    // Interrupted earlier runs (SIGKILL mid-VACUUM, disk full) leave *.tmp
+    // Interrupted earlier runs (SIGKILL mid-copy, disk full) leave *.tmp
     // partials. They are inert — the job's SNAPSHOT_PATTERN never matches
     // them — but they are reclaimed here so nothing lingers and the same-day
     // retry finds a clear target.
     for (const stale of (await readdir(this.dir)).filter((name) => name.endsWith('.tmp'))) {
       await rm(join(this.dir, stale), { force: true })
     }
-    // VACUUM INTO writes the target incrementally, so the dated name must
+    // The backup writes the target incrementally, so the dated name must
     // only ever appear once the copy is complete: write to a .tmp sibling and
     // publish with a same-directory rename (atomic on the Linux data volume).
-    // The port contract (SnapshotStore.vacuumInto) depends on this.
+    // The port contract (SnapshotStore.backupInto) depends on this.
     const target = join(this.dir, filename)
     const partial = `${target}.tmp`
     try {
-      this.connection.raw.prepare('VACUUM INTO ?').run(partial)
+      await this.connection.raw.backup(partial)
       await rename(partial, target)
     } catch (error) {
       await rm(partial, { force: true })

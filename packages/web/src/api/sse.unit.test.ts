@@ -91,12 +91,18 @@ const immediateScheduler = (reconnect: () => void): (() => void) => {
   return () => undefined
 }
 
+/** Immediate flush: hint invalidations apply synchronously (time is injected). */
+const immediateFlush = (flush: () => void): (() => void) => {
+  flush()
+  return () => undefined
+}
+
 describe('connectStream', () => {
   it('invalidates the mapped queries when a valid hint arrives', () => {
     // Arrange
     const queryClient = seededClient()
     const source = new FakeEventSource()
-    connectStream(queryClient, () => source)
+    connectStream(queryClient, () => source, immediateScheduler, immediateFlush)
     // Act
     source.emit(JSON.stringify({ type: 'lane.updated' }))
     // Assert
@@ -104,11 +110,55 @@ describe('connectStream', () => {
     expect(queryClient.getQueryState(queryKeys.policy)?.isInvalidated).toBe(false)
   })
 
+  it('keeps invalidating across separate windows (a flushed window re-arms)', () => {
+    // Arrange — immediate flush: each hint is its own, already-flushed window
+    const queryClient = seededClient()
+    const source = new FakeEventSource()
+    connectStream(queryClient, () => source, immediateScheduler, immediateFlush)
+    source.emit(JSON.stringify({ type: 'lane.updated' }))
+    // Act — a second hint AFTER the first window flushed must open a new one
+    source.emit(JSON.stringify({ type: 'policy.updated' }))
+    // Assert
+    expect(queryClient.getQueryState(queryKeys.board)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(queryKeys.policy)?.isInvalidated).toBe(true)
+  })
+
+  it('coalesces a hint burst into one invalidation pass per window', () => {
+    // Arrange — the flush is held until the test releases the window
+    const queryClient = seededClient()
+    const source = new FakeEventSource()
+    const flushes: (() => void)[] = []
+    connectStream(
+      queryClient,
+      () => source,
+      immediateScheduler,
+      (flush) => {
+        flushes.push(flush)
+        return () => undefined
+      },
+    )
+    // Act — a bulk-edit burst: three hints land inside one window
+    source.emit(
+      JSON.stringify({ type: 'card.created', cardId: uid(1), version: 1, eventId: uid(2) }),
+    )
+    source.emit(
+      JSON.stringify({ type: 'card.created', cardId: uid(1), version: 2, eventId: uid(3) }),
+    )
+    source.emit(JSON.stringify({ type: 'lane.updated' }))
+    const scheduledDuringBurst = flushes.length
+    const invalidatedBeforeFlush = queryClient.getQueryState(queryKeys.board)?.isInvalidated
+    flushes[0]?.()
+    // Assert — ONE window was scheduled and the board invalidated once, on flush
+    expect(scheduledDuringBurst).toBe(1)
+    expect(invalidatedBeforeFlush).toBe(false)
+    expect(queryClient.getQueryState(queryKeys.board)?.isInvalidated).toBe(true)
+  })
+
   it('ignores malformed payloads (hints are validated with the core schema)', () => {
     // Arrange
     const queryClient = seededClient()
     const source = new FakeEventSource()
-    connectStream(queryClient, () => source)
+    connectStream(queryClient, () => source, immediateScheduler, immediateFlush)
     // Act
     source.emit('not json')
     source.emit(JSON.stringify({ type: 'unknown.hint' }))
@@ -120,7 +170,7 @@ describe('connectStream', () => {
     // Arrange
     const queryClient = seededClient()
     const source = new FakeEventSource()
-    connectStream(queryClient, () => source)
+    connectStream(queryClient, () => source, immediateScheduler, immediateFlush)
     // Act
     source.open()
     const afterFirstOpen = queryClient.getQueryState(queryKeys.board)?.isInvalidated
@@ -135,7 +185,7 @@ describe('connectStream', () => {
     // Arrange
     const queryClient = seededClient()
     const source = new FakeEventSource()
-    const dispose = connectStream(queryClient, () => source)
+    const dispose = connectStream(queryClient, () => source, immediateScheduler, immediateFlush)
     // Act
     dispose()
     // Assert
@@ -156,6 +206,7 @@ describe('connectStream', () => {
         return source
       },
       immediateScheduler,
+      immediateFlush,
     )
     nth(sources, 0).open()
     // Act
@@ -181,6 +232,7 @@ describe('connectStream', () => {
         return first
       },
       immediateScheduler,
+      immediateFlush,
     )
     first.open()
     // Act — established stream drops; readyState is CONNECTING, not CLOSED

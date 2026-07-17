@@ -30,3 +30,16 @@ export type BoardSseHint = z.infer<typeof boardSseHintSchema>
 
 export const sseHintSchema = z.discriminatedUnion('type', [cardSseHintSchema, boardSseHintSchema])
 export type SseHint = z.infer<typeof sseHintSchema>
+
+/**
+ * True when a hint can change the `GET /board` body (lanes + card rows + WIP
+ * state): lane config edits and card-row mutations. Comment/attachment events
+ * never touch card rows, and user/location/policy hints are outside the board
+ * body entirely — the server's board memo/ETag invalidation and the web's
+ * board refetch mapping (which encodes the same knowledge per hint type) must
+ * agree with this predicate; it lives here, next to the hint union, so a new
+ * hint type is classified exactly once.
+ */
+export function affectsBoardSnapshot(hint: SseHint): boolean {
+  return hint.type === 'lane.updated' || hint.type.startsWith('card.')
+}

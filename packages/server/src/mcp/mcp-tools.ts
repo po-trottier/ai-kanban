@@ -3,6 +3,8 @@ import { type CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import {
   addCommentInputSchema,
   attachmentSchema,
+  boardCardSchema,
+  cardDetailSchemaOf,
   cardEventSchema,
   cardHistoryRequestSchema,
   cardSchema,
@@ -15,14 +17,16 @@ import {
   moveCardInputSchema,
   NotFoundError,
   pageRequestSchema,
+  pageSchemaOf,
   PolicyDeniedError,
   READ_SCOPE_RULE,
+  redactedCommentSchema,
   STALE_REASONS,
   staleCardsInputSchema,
   tagSchema,
   updateCardInputSchema,
   type Actor,
-  type Card,
+  type BoardCard,
   type Lane,
 } from '@rivian-kanban/core'
 import { type FastifyBaseLogger } from 'fastify'
@@ -59,12 +63,8 @@ const commentToolSchema = addCommentInputSchema.extend(cardIdShape)
 /** How many trailing audit events get_card returns (its "latest events" panel). */
 const LATEST_EVENTS_TAKE = 20
 
-/** The shared cursor page envelope, itemized per tool (mirrors core's Page<T>). */
-const pageOf = <Item extends z.ZodType>(item: Item) =>
-  z.strictObject({ items: z.array(item), nextCursor: z.string().nullable() })
-
 /** Compact per-lane card projection — just enough to chain into get_card. */
-const snapshotCardSchema = cardSchema.pick({
+const snapshotCardSchema = boardCardSchema.pick({
   id: true,
   title: true,
   priority: true,
@@ -87,12 +87,25 @@ const snapshotOutputSchema = z.strictObject({
   ),
 })
 
-const cardDetailOutputSchema = z.strictObject({
+/**
+ * The lane-summary types derive from the output schema, so the projection in
+ * `laneSummaryOf` is compile-checked against the declared JSON Schema surface
+ * — `jsonResult` erases types, so nothing else would tie the two together.
+ */
+type LaneSummary = z.infer<typeof snapshotOutputSchema>['lanes'][number]
+type SnapshotCard = z.infer<typeof snapshotCardSchema>
+
+/**
+ * Core's CardDetail envelope plus the tool's comment thread (soft-deleted
+ * bodies arrive blanked from core) and latest-events panel.
+ */
+const cardDetailOutputSchema = cardDetailSchemaOf({
   card: cardSchema,
-  tags: z.array(tagSchema),
-  location: locationSchema.nullable(),
-  attachments: z.array(attachmentSchema),
-  comments: z.array(commentSchema),
+  tag: tagSchema,
+  location: locationSchema,
+  attachment: attachmentSchema,
+}).extend({
+  comments: z.array(redactedCommentSchema),
   latestEvents: z.array(cardEventSchema),
 })
 
@@ -126,7 +139,7 @@ function ensureWriteScope(actor: Actor): void {
 }
 
 /** Summary + compact cards per lane — counts and ids for chaining (mcp.md). */
-function laneSummaryOf(lane: Lane, cards: Card[], wipLimitExceeded: boolean) {
+function laneSummaryOf(lane: Lane, cards: BoardCard[], wipLimitExceeded: boolean): LaneSummary {
   return {
     lane,
     cardCount: cards.length,
@@ -136,7 +149,7 @@ function laneSummaryOf(lane: Lane, cards: Card[], wipLimitExceeded: boolean) {
       (oldest, card) => (oldest === null || card.createdAt < oldest ? card.createdAt : oldest),
       null,
     ),
-    cards: cards.map((card) => ({
+    cards: cards.map((card): SnapshotCard => ({
       id: card.id,
       title: card.title,
       priority: card.priority,
@@ -212,11 +225,17 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
   const readTool = registerVia(guarded)
   const writeTool = registerVia(mutating)
 
-  /** Resolves `reporterEmail` to a user id, else the seeded system user. */
+  /**
+   * Resolves `reporterEmail` to an ACTIVE user id, else the seeded system
+   * user. Inactive accounts resolve exactly like unknown ones (same 404):
+   * a deactivated user is not a valid attribution target (matching the Slack
+   * assignee path), and the uniform outcome keeps the tool from doubling as
+   * an account-existence oracle.
+   */
   const resolveReporterId = async (reporterEmail: string | undefined): Promise<string> => {
     if (reporterEmail === undefined) return deps.systemUserId
-    const account = await deps.uow.run((tx) => tx.userAccounts.findByEmail(reporterEmail))
-    if (account === null) throw new NotFoundError('reporter')
+    const account = await deps.uow.read((tx) => tx.userAccounts.findByEmail(reporterEmail))
+    if (!account?.user.isActive) throw new NotFoundError('reporter')
     return account.user.id
   }
 
@@ -247,7 +266,7 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
         'reporter, priority, tag, blocked, waitingReason, overdueResume, q (title+description ' +
         'substring), includeArchived — cursor-paginated (default limit 50, max 200).',
       inputSchema: listCardsToolSchema,
-      outputSchema: pageOf(cardSchema),
+      outputSchema: pageSchemaOf(cardSchema),
     },
     async (args: z.output<typeof listCardsToolSchema>) => {
       const { cursor, limit, ...filter } = args
@@ -269,14 +288,11 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       inputSchema: getCardToolSchema,
       outputSchema: cardDetailOutputSchema,
     },
-    async (args: z.output<typeof getCardToolSchema>) => {
-      const [detail, thread, latestEvents] = await Promise.all([
-        queries.cardDetail(args.cardId),
-        comments.listForCard(args.cardId),
-        queries.latestEvents(args.cardId, LATEST_EVENTS_TAKE),
-      ])
-      return jsonResult({ ...detail, comments: thread, latestEvents })
-    },
+    async (args: z.output<typeof getCardToolSchema>) =>
+      // ONE core read composes detail + thread + trailing events: a single
+      // snapshot and card lookup, and the three parts can never disagree
+      // about a concurrently committed mutation.
+      jsonResult(await queries.cardDetailWithThread(args.cardId, LATEST_EVENTS_TAKE)),
   )
 
   readTool(
@@ -286,7 +302,7 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
         "A card's audit trail (who did what, from which surface), oldest-first, optionally " +
         'filtered by event type — cursor-paginated.',
       inputSchema: cardHistoryToolSchema,
-      outputSchema: pageOf(cardEventSchema),
+      outputSchema: pageSchemaOf(cardEventSchema),
     },
     async (args: z.output<typeof cardHistoryToolSchema>) => {
       const { cardId, ...request } = args

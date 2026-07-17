@@ -1,4 +1,5 @@
 import {
+  boardCardOf,
   DEFAULT_POLICY_DOCUMENT,
   LANE_KEYS,
   type Card,
@@ -9,7 +10,12 @@ import {
   type PolicyDocument,
   type User,
 } from '@rivian-kanban/core'
-import { type BoardCard, type BoardResponse, type PickerUser } from '../api/schemas.ts'
+// The shared neutral-entity defaults (one literal for every harness). Imported
+// relatively like core-domain.ts does for domain files: the vite alias maps
+// the package name itself, so the /testing subpath is unreachable here.
+import { cardWith, commentWith, userWith } from '../../../core/src/testing/defaults.ts'
+import { type BoardResponse, type PickerUser } from '../api/schemas.ts'
+import { strings } from '../strings.ts'
 
 /** Deterministic RFC-9562-shaped ids for fixtures. */
 export function uid(n: number): string {
@@ -26,27 +32,17 @@ export function nth<T>(items: readonly T[], index: number): T {
 const FIXTURE_BOARD_ID = uid(9000)
 const T0 = '2026-07-01T10:00:00.000Z'
 
+// Labels come from strings.laneNames — the app's own fallback table for the
+// seeded lanes — so fixtures render exactly what the app declares (one
+// in-package source; db/src/seed.ts stays the canonical origin).
 const fixtureLanes: Lane[] = LANE_KEYS.map((key, index) => ({
   id: uid(100 + index),
   boardId: FIXTURE_BOARD_ID,
   key,
-  label: laneLabel(key),
+  label: strings.laneNames[key],
   position: index + 1,
   wipLimit: key === 'in_progress' ? 3 : key === 'waiting_parts_vendor' ? 5 : null,
 }))
-
-function laneLabel(key: LaneKey): string {
-  const labels: Record<LaneKey, string> = {
-    intake: 'Intake',
-    waiting_approval: 'Waiting for Approval',
-    ready: 'Ready',
-    in_progress: 'In Progress',
-    waiting_parts_vendor: 'Waiting on Parts / Vendor',
-    review: 'Review',
-    done: 'Done',
-  }
-  return labels[key]
-}
 
 export function laneByKey(key: LaneKey): Lane {
   const lane = fixtureLanes.find((candidate) => candidate.key === key)
@@ -54,27 +50,21 @@ export function laneByKey(key: LaneKey): Lane {
   return lane
 }
 
-export const fixtureAdmin: User = {
+export const fixtureAdmin: User = userWith({
   id: uid(1),
   email: 'admin@example.com',
   displayName: 'Ada Admin',
   role: 'admin',
-  mustChangePassword: false,
-  slackUserId: null,
-  isActive: true,
   createdAt: T0,
-}
+})
 
-export const fixtureTech: User = {
+export const fixtureTech: User = userWith({
   id: uid(2),
   email: 'tech@example.com',
   displayName: 'Terry Tech',
   role: 'technician',
-  mustChangePassword: false,
-  slackUserId: null,
-  isActive: true,
   createdAt: T0,
-}
+})
 
 export const fixturePickerUsers: PickerUser[] = [
   { id: fixtureAdmin.id, displayName: fixtureAdmin.displayName, role: fixtureAdmin.role },
@@ -83,55 +73,28 @@ export const fixturePickerUsers: PickerUser[] = [
 
 let cardCounter = 500
 
-export function makeCard(laneKey: LaneKey, overrides: Partial<BoardCard> = {}): BoardCard {
+export function makeCard(laneKey: LaneKey, overrides: Partial<Card> = {}): Card {
   cardCounter += 1
-  const id = uid(cardCounter)
-  return {
-    id,
+  return cardWith({
+    id: uid(cardCounter),
     boardId: FIXTURE_BOARD_ID,
     laneId: laneByKey(laneKey).id,
     position: `a${String(cardCounter)}`,
     title: `Card ${String(cardCounter)}`,
-    description: '',
-    priority: 'P2',
-    estimateMinutes: null,
     reporterId: fixtureAdmin.id,
-    assigneeId: null,
-    locationId: null,
-    origin: 'manual',
-    resolution: null,
-    blocked: false,
-    blockedReason: null,
-    blockedAt: null,
-    waitingReason: null,
-    expectedResumeAt: null,
-    resumeAlertedAt: null,
-    slackChannelId: null,
-    slackThreadTs: null,
-    slackPermalink: null,
-    version: 1,
     createdAt: T0,
-    updatedAt: T0,
-    archivedAt: null,
-    tags: [],
     ...overrides,
-  }
+  })
 }
 
-/** The strict core card (no board-only `tags`) for `GET /cards/:id` fixtures. */
-export function coreCard(boardCard: BoardCard): Card {
-  const { tags, ...card } = boardCard
-  void tags // rest-destructured off; the strict cardSchema rejects unknown keys
-  return card
-}
-
-export function makeBoard(cardsByLane: Partial<Record<LaneKey, BoardCard[]>>): BoardResponse {
+export function makeBoard(cardsByLane: Partial<Record<LaneKey, Card[]>>): BoardResponse {
   return {
     lanes: fixtureLanes.map((lane) => {
       const cards = cardsByLane[lane.key] ?? []
       return {
         lane,
-        cards,
+        // The board carries card SUMMARIES (strict schema) — project like the server.
+        cards: cards.map(boardCardOf),
         wipLimitExceeded: lane.wipLimit !== null && cards.length > lane.wipLimit,
       }
     }),
@@ -160,15 +123,7 @@ export const enforcedPolicy: PolicyDocument = {
 }
 
 export function makeComment(overrides: Partial<Comment> & Pick<Comment, 'id' | 'cardId'>): Comment {
-  return {
-    parentCommentId: null,
-    authorId: fixtureAdmin.id,
-    body: 'A comment',
-    createdAt: T0,
-    updatedAt: T0,
-    deletedAt: null,
-    ...overrides,
-  }
+  return commentWith({ authorId: fixtureAdmin.id, createdAt: T0, ...overrides })
 }
 
 export function makeStatusChangedEvent(

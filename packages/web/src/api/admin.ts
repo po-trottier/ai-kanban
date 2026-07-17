@@ -1,9 +1,11 @@
 import {
   laneSchema,
-  type LocationKind,
+  type CreateLocationInput,
+  type CreateServiceTokenInput,
+  type CreateUserInput,
   type PolicyDocument,
-  type Role,
-  type TokenScope,
+  type UpdateLaneInput,
+  type UpdateUserInput,
 } from '@rivian-kanban/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -19,18 +21,8 @@ import {
   serviceTokensResponseSchema,
 } from './schemas.ts'
 
-export interface CreateUserInput {
-  email: string
-  displayName: string
-  role: Role
-}
-
-/** `PATCH /users/:id` admin actions: role change, deactivation, password reset. */
-export interface PatchUserInput {
-  role?: Role
-  isActive?: boolean
-  resetPassword?: boolean
-}
+// Admin command inputs are core's schemas (single-schema rule): the forms
+// send exactly the shape the server parses — same field roster, same caps.
 
 export function useCreateUser() {
   const api = useApi()
@@ -50,7 +42,7 @@ export function usePatchUser() {
   const api = useApi()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ userId, input }: { userId: string; input: PatchUserInput }) =>
+    mutationFn: ({ userId, input }: { userId: string; input: UpdateUserInput }) =>
       api.patch(`/users/${userId}`, adminUserResponseSchema, { body: input }),
     onSuccess: () => {
       notifications.show({ message: strings.users.userUpdated })
@@ -60,16 +52,11 @@ export function usePatchUser() {
   })
 }
 
-export interface PatchLaneInput {
-  label?: string
-  wipLimit?: number | null
-}
-
 export function usePatchLane() {
   const api = useApi()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ laneId, input }: { laneId: string; input: PatchLaneInput }) =>
+    mutationFn: ({ laneId, input }: { laneId: string; input: UpdateLaneInput }) =>
       api.patch(`/lanes/${laneId}`, laneSchema, { body: input }),
     onSuccess: () => {
       notifications.show({ message: strings.lanes.saved })
@@ -92,12 +79,6 @@ export function usePutPolicy() {
     },
     onError: notifyError,
   })
-}
-
-export interface CreateLocationInput {
-  parentId: string | null
-  kind: LocationKind
-  name: string
 }
 
 export function useCreateLocation() {
@@ -144,12 +125,6 @@ export function useServiceTokens() {
     queryKey: queryKeys.serviceTokens,
     queryFn: () => api.get('/service-tokens', serviceTokensResponseSchema),
   })
-}
-
-export interface CreateServiceTokenInput {
-  name: string
-  role: Role
-  scope: TokenScope
 }
 
 export function useCreateServiceToken() {

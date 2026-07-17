@@ -1,4 +1,4 @@
-import { addCommentInputSchema, editCommentInputSchema, type Comment } from '@rivian-kanban/core'
+import { addCommentInputSchema, editCommentInputSchema } from '@rivian-kanban/core'
 import { type FastifyInstance } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
@@ -8,13 +8,9 @@ import { commentResponseSchema, emptyBodySchema, idParamsSchema } from './schema
 
 /**
  * Threaded comments (docs/architecture/rest-api.md#comments). Soft-deleted
- * comments keep their place in the thread but their body is blanked before
- * serialization — deleted content never leaves the server.
+ * comments keep their place in the thread but core's `listForCard` blanks
+ * their body — deleted content never leaves the server on any surface.
  */
-function redactDeleted(comment: Comment): Comment {
-  return comment.deletedAt === null ? comment : { ...comment, body: '' }
-}
-
 export function commentRoutes(deps: AppDeps) {
   return function routes(app: FastifyInstance): void {
     const r = app.withTypeProvider<ZodTypeProvider>()
@@ -28,10 +24,7 @@ export function commentRoutes(deps: AppDeps) {
           response: { 200: z.array(commentResponseSchema) },
         },
       },
-      async (request) => {
-        const thread = await comments.listForCard(request.params.id)
-        return thread.map(redactDeleted)
-      },
+      async (request) => comments.listForCard(request.params.id),
     )
 
     r.post(

@@ -51,6 +51,18 @@ export interface LoginResult {
  */
 export class AuthService {
   private readonly deps: AuthServiceDeps
+  /**
+   * Per-account attempt serialization. The backoff alone is check-then-record
+   * with the ~50 ms argon2 verify awaited in between, so K simultaneous
+   * guesses for one email (distributed attacker, each IP within its own rate
+   * limit) would all read `retryAfterMs == 0` before any failure is recorded —
+   * bursts would bypass the control the backoff exists for. Queueing attempts
+   * per email closes that TOCTOU: each attempt starts only after the previous
+   * one recorded its outcome, so the second guess of a burst sees the first
+   * failure and gets 429. Entries are removed as soon as the queue drains, so
+   * the map is bounded by in-flight logins (themselves rate-limited).
+   */
+  private readonly loginQueues = new Map<string, Promise<void>>()
 
   constructor(deps: AuthServiceDeps) {
     this.deps = deps
@@ -60,14 +72,30 @@ export class AuthService {
    * Email+password → fresh session (never reuses an id — anti-fixation).
    * Uniform failures: unknown email verifies a static dummy hash so timing
    * does not enumerate users; inactive accounts fail identically. Per-account
-   * exponential backoff throttles repeated failures (429 before any lookup).
+   * exponential backoff throttles repeated failures (429 before any lookup),
+   * with concurrent attempts for one account serialized (see loginQueues).
    */
-  async login(email: string, password: string): Promise<LoginResult> {
+  login(email: string, password: string): Promise<LoginResult> {
+    const account = email.toLowerCase()
+    const prior = this.loginQueues.get(account) ?? Promise.resolve()
+    const attempt = prior.then(() => this.attemptLogin(email, password))
+    const settled = attempt.then(
+      () => undefined,
+      () => undefined,
+    )
+    this.loginQueues.set(account, settled)
+    void settled.then(() => {
+      if (this.loginQueues.get(account) === settled) this.loginQueues.delete(account)
+    })
+    return attempt
+  }
+
+  private async attemptLogin(email: string, password: string): Promise<LoginResult> {
     const { uow, clock, hasher, backoff } = this.deps
     const waitMs = backoff.retryAfterMs(email)
     if (waitMs > 0) throw new BackoffActiveError(Math.ceil(waitMs / 1000))
 
-    const credentials = await uow.run((tx) => tx.userAccounts.findByEmail(email))
+    const credentials = await uow.read((tx) => tx.userAccounts.findByEmail(email))
     if (credentials === null) {
       await hasher.verifyDummy(password)
       backoff.recordFailure(email)
@@ -97,26 +125,42 @@ export class AuthService {
    * Resolves a raw cookie id to its live user, or null (expired, revoked,
    * unknown, or deactivated — a deactivated user's session is revoked on
    * sight). Slides the expiry, throttled to once per 5 minutes.
+   *
+   * Runs on the read-only path: this executes on EVERY authenticated request,
+   * so it must never queue behind writers. Only the throttled touch (and the
+   * revoke-on-sight of a deactivated user) opens a write unit of work — both
+   * are idempotent, so losing the read snapshot's atomicity is harmless.
    */
   async authenticate(rawSessionId: string): Promise<User | null> {
     const { uow, clock } = this.deps
     const idHash = sessionHashOf(rawSessionId)
     const now = clock.now()
     const nowIso = now.toISOString()
-    return uow.run(async (tx) => {
+    const resolved = await uow.read(async (tx) => {
       const session = await tx.sessions.findByHash(idHash)
       if (session === null || session.expiresAt <= nowIso) return null
       const user = await tx.users.findById(session.userId)
       if (user === null) return null
-      if (!user.isActive) {
-        await tx.sessions.revoke(idHash)
-        return null
-      }
-      if (now.getTime() - new Date(session.lastSeenAt).getTime() >= SESSION_TOUCH_THROTTLE_MS) {
-        await tx.sessions.touch(idHash, nowIso, foldedExpiry(session.createdAt, now))
-      }
-      return user
+      return { session, user }
     })
+    if (resolved === null) return null
+    const { session, user } = resolved
+    if (!user.isActive) {
+      await uow.run((tx) => tx.sessions.revoke(idHash))
+      return null
+    }
+    if (now.getTime() - new Date(session.lastSeenAt).getTime() >= SESSION_TOUCH_THROTTLE_MS) {
+      // Idempotent bookkeeping, deliberately NOT awaited: authenticate() runs
+      // on every request, and awaiting the touch would queue read-request
+      // latency behind the single-writer FIFO (a failed touch only delays the
+      // next slide by one throttle window).
+      void uow
+        .run((tx) => tx.sessions.touch(idHash, nowIso, foldedExpiry(session.createdAt, now)))
+        .catch(() => {
+          // Intentionally ignored — see above.
+        })
+    }
+    return user
   }
 
   /** Destroys the session (idempotent). */
@@ -129,6 +173,14 @@ export class AuthService {
    * Verifies the current password, enforces the policy on the new one,
    * replaces the hash, clears `must_change_password`, and revokes every
    * other session of the user (docs/architecture/rest-api.md#auth--users).
+   *
+   * The current-password check shares login's per-account backoff (keyed on
+   * the email): this is the second password-verification surface, and without
+   * it a session-holding attacker (hijacked/kiosk-left session) could guess
+   * the account password here without ever tripping the login control. No
+   * attempt queue like login's — the endpoint already requires an
+   * authenticated session, so the burst-TOCTOU window is not worth the
+   * serialization machinery.
    */
   async changePassword(
     userId: string,
@@ -136,11 +188,17 @@ export class AuthService {
     currentPassword: string,
     newPassword: string,
   ): Promise<void> {
-    const { uow, hasher } = this.deps
-    const credentials = await uow.run((tx) => tx.userAccounts.findById(userId))
+    const { uow, hasher, backoff } = this.deps
+    const credentials = await uow.read((tx) => tx.userAccounts.findById(userId))
     if (credentials === null) throw new CurrentPasswordMismatchError()
+    const waitMs = backoff.retryAfterMs(credentials.user.email)
+    if (waitMs > 0) throw new BackoffActiveError(Math.ceil(waitMs / 1000))
     const verified = await hasher.verify(credentials.passwordHash, currentPassword)
-    if (!verified) throw new CurrentPasswordMismatchError()
+    if (!verified) {
+      backoff.recordFailure(credentials.user.email)
+      throw new CurrentPasswordMismatchError()
+    }
+    backoff.reset(credentials.user.email)
 
     const violation = passwordPolicyViolation(newPassword)
     if (violation !== null) throw new PasswordPolicyError(violation)

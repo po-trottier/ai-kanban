@@ -64,13 +64,24 @@ export class SqliteEventRepository implements EventRepository {
 
   /**
    * The newest `limit` events, newest-first on (createdAt DESC, id DESC) —
-   * the O(limit) read behind "latest events" panels (port contract).
+   * the O(limit) read behind "latest events" panels and last-arrival lookups,
+   * optionally filtered by event type (port contract).
    */
-  listLatestByCard(cardId: string, limit: number): Promise<CardEvent[]> {
+  listLatestByCard(
+    cardId: string,
+    limit: number,
+    types?: readonly CardEventType[],
+  ): Promise<CardEvent[]> {
+    if (types?.length === 0) return Promise.resolve([])
     const rows = this.db
       .select()
       .from(cardEvents)
-      .where(eq(cardEvents.cardId, cardId))
+      .where(
+        and(
+          eq(cardEvents.cardId, cardId),
+          types === undefined ? undefined : inArray(cardEvents.eventType, [...types]),
+        ),
+      )
       .orderBy(desc(cardEvents.createdAt), desc(cardEvents.id))
       .limit(limit)
       .all()

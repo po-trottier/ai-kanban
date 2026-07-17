@@ -1,6 +1,7 @@
 import {
   cardSchema,
   type BlockCardInput,
+  type BoardCard,
   type CancelCardInput,
   type Card,
   type CreateCardInput,
@@ -24,7 +25,8 @@ export function useBoard() {
 }
 
 export interface MoveCardArgs {
-  card: Card
+  /** Board summary (the detail panel's full Card is a structural superset). */
+  card: BoardCard
   intent: MoveIntent
   /** Read to the live region after a successful menu-driven move (ADR-007). */
   announcement?: string
@@ -112,7 +114,7 @@ export function useCardAction() {
   const api = useApi()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ card, ...action }: { card: Card } & CardAction) =>
+    mutationFn: ({ card, ...action }: { card: BoardCard } & CardAction) =>
       api.post(`/cards/${card.id}/${action.action}`, cardSchema, {
         body: 'body' in action ? action.body : {},
         ifMatch: card.version,

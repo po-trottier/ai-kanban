@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DuplicatePositionError } from '../domain/errors.ts'
+import { commentWith } from './defaults.ts'
 import { createScenario } from './scenario.ts'
 import { InMemoryDb } from './in-memory-db.ts'
 
@@ -28,16 +29,15 @@ describe('InMemoryDb — honest transactionality', () => {
     const act = scenario.db.run(async (tx) => {
       const loaded = await tx.cards.findById(card.id)
       if (loaded) await tx.cards.update({ ...loaded, title: 'Leaked?' })
-      await tx.comments.insert({
-        id: '00000000-0000-7000-8000-00000000dead',
-        cardId: card.id,
-        parentCommentId: null,
-        authorId: card.reporterId,
-        body: 'leaked comment',
-        createdAt: card.createdAt,
-        updatedAt: card.createdAt,
-        deletedAt: null,
-      })
+      await tx.comments.insert(
+        commentWith({
+          id: '00000000-0000-7000-8000-00000000dead',
+          cardId: card.id,
+          authorId: card.reporterId,
+          body: 'leaked comment',
+          createdAt: card.createdAt,
+        }),
+      )
       throw new Error('boom')
     })
 

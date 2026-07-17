@@ -53,7 +53,7 @@ crash in prod.
 | `PORT`, `METRICS_PORT`, `PUBLIC_BASE_URL`, `TRUST_PROXY_HOPS`                                                | serving                                                                                                                                                           |
 | `METRICS_HOST`                                                                                               | metrics bind address: `127.0.0.1` by default; the image sets `0.0.0.0` so the org Prometheus can scrape over the internal network (the port is never published)   |
 | `DATABASE_PATH`, `BLOB_DIR`                                                                                  | `/data/app.sqlite`, `/data/blobs`                                                                                                                                 |
-| `SNAPSHOT_DIR`                                                                                               | nightly `VACUUM INTO` snapshots (`/data/snapshots`); the newest 7 are retained                                                                                    |
+| `SNAPSHOT_DIR`                                                                                               | nightly online-backup snapshots (`/data/snapshots`); the newest 7 are retained                                                                                    |
 | `MIGRATIONS_DIR`, `SPA_DIR`                                                                                  | image-only path pins (`/app/dist/migrations`, `/app/web`) — the esbuild bundle is relocated from the source tree; leave unset in dev                              |
 | `SEED_DEMO_DATA`                                                                                             | demo fixtures (dev only; refused in production)                                                                                                                   |
 | `SEED_DEMO_PASSWORD`                                                                                         | fixed demo-user password for deterministic dev/e2e logins (unset = random one-time passwords printed at first boot; refused in production)                        |
@@ -82,11 +82,11 @@ the Slack/summarizer secrets.
   corrupts. Backups are:
   1. **Litestream** continuous WAL streaming to S3-compatible storage (RPO ~seconds) — the
      compose `backup` profile, opt-in until S3 credentials exist (`litestream.yml`), and
-  2. nightly `VACUUM INTO` snapshots (self-contained files, safe to copy) under
+  2. nightly online-backup snapshots (self-contained files, safe to copy) under
      `SNAPSHOT_DIR`, dated `app-YYYY-MM-DD.sqlite`, newest 7 retained, and
   3. the blob directory synced in the same backup job.
 - **Restore drill**: the scheduled `restore-drill` workflow boots the image, snapshots via the
-  same `VACUUM INTO`, restores the snapshot into a fresh container (boot runs migrations), and
+  same online backup, restores the snapshot into a fresh container (boot runs migrations), and
   requires `/readyz` plus the seeded data to survive — backups that are never restored don't
   exist. The equivalent operator command for a Litestream restore is documented at the top of
   `docker-compose.yml`.

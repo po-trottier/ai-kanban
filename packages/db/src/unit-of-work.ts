@@ -34,36 +34,66 @@ import { createTransactionContext } from './repositories/transaction-context.ts'
  *
  * `BEGIN IMMEDIATE` (not DEFERRED) takes the write lock up front so a
  * read-then-write unit of work cannot hit SQLITE_BUSY mid-transaction; with
- * one connection per process (see connection.ts) contention only exists
+ * one write connection per process (see connection.ts) contention only exists
  * against external processes, absorbed by busy_timeout.
+ *
+ * ## The read path
+ *
+ * `read()` runs on the connection's read-only companion under WAL, where
+ * readers never contend with the writer — so board snapshots, list queries,
+ * and session authentication do not queue behind write transactions (or a
+ * long nightly job). Reads have their own serialization queue for the same
+ * interleaving reason as writes (rule set above, per connection), and a
+ * plain `BEGIN`/`COMMIT` read transaction gives each read a consistent
+ * snapshot. SQLite itself rejects any write attempted through the read-only
+ * handle.
  */
 export class SqliteUnitOfWork implements UnitOfWork {
   private readonly connection: DbConnection
   private readonly context: TransactionContext
+  private readonly readContext: TransactionContext
   /** Serialization queue: concurrent run() calls execute strictly one at a time. */
   private chain: Promise<unknown> = Promise.resolve()
-  /** Reentrancy guard: set while `fn` executes so a nested run() fails fast. */
+  /** The read connection's own queue — readers serialize among themselves only. */
+  private readChain: Promise<unknown> = Promise.resolve()
+  /** Reentrancy guard: set while `fn` executes so a nested run()/read() fails fast. */
   private readonly inRun = new AsyncLocalStorage<true>()
 
   constructor(connection: DbConnection) {
     this.connection = connection
     this.context = createTransactionContext(connection.db)
+    this.readContext = createTransactionContext(connection.readDb)
   }
 
   run<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T> {
-    if (this.inRun.getStore() === true) {
-      return Promise.reject(
-        new Error(
-          'nested UnitOfWork.run() — a unit of work must not open another (would deadlock the serialization queue)',
-        ),
-      )
-    }
+    const guard = this.rejectNested()
+    if (guard !== null) return guard
     const task = this.chain.then(() => this.inRun.run(true, () => this.runExclusive(fn)))
     this.chain = task.then(
       () => undefined,
       () => undefined,
     )
     return task
+  }
+
+  read<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T> {
+    const guard = this.rejectNested()
+    if (guard !== null) return guard
+    const task = this.readChain.then(() => this.inRun.run(true, () => this.readExclusive(fn)))
+    this.readChain = task.then(
+      () => undefined,
+      () => undefined,
+    )
+    return task
+  }
+
+  private rejectNested(): Promise<never> | null {
+    if (this.inRun.getStore() !== true) return null
+    return Promise.reject(
+      new Error(
+        'nested UnitOfWork.run()/read() — a unit of work must not open another (would deadlock the serialization queue)',
+      ),
+    )
   }
 
   private async runExclusive<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T> {
@@ -76,6 +106,20 @@ export class SqliteUnitOfWork implements UnitOfWork {
     } catch (error) {
       // A failed statement may already have aborted the transaction.
       if (raw.inTransaction) raw.exec('ROLLBACK')
+      throw error
+    }
+  }
+
+  private async readExclusive<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T> {
+    const { readRaw } = this.connection
+    // DEFERRED read transaction: a consistent snapshot, no write lock taken.
+    readRaw.exec('BEGIN')
+    try {
+      const result = await fn(this.readContext)
+      readRaw.exec('COMMIT')
+      return result
+    } catch (error) {
+      if (readRaw.inTransaction) readRaw.exec('ROLLBACK')
       throw error
     }
   }

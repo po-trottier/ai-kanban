@@ -1,6 +1,5 @@
-import { type Card } from '@rivian-kanban/core'
+import { isOverdueResume, type BoardCard } from '@rivian-kanban/core'
 import { Badge, Group } from '@mantine/core'
-import { isOverdueResume } from '../lib/format.ts'
 import { strings } from '../strings.ts'
 import {
   BLOCKED_COLOR,
@@ -11,7 +10,7 @@ import {
 } from '../theme.ts'
 
 /** Priority, blocked, waiting (with overdue styling), and terminal badges. */
-export function CardBadges({ card, today }: { card: Card; today: string }) {
+export function CardBadges({ card, today }: { card: BoardCard; today: string }) {
   const overdue = isOverdueResume(card.expectedResumeAt, today)
   return (
     <Group gap="xs">

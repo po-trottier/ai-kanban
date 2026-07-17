@@ -1,5 +1,5 @@
-import { mkdirSync, readdirSync, statSync } from 'node:fs'
-import { readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdirSync, readdirSync, statSync, type ReadStream } from 'node:fs'
+import { open, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { type BlobStorePort } from '@rivian-kanban/core'
 
@@ -17,11 +17,31 @@ export class LocalBlobStore implements BlobStorePort {
   private readonly dir: string
   /** Running byte total, maintained by put/delete after one boot-time scan. */
   private total: number
+  /** Bytes held by in-flight uploads (reserve-then-settle, like UploadQuota). */
+  private reserved = 0
 
   constructor(dir: string) {
     this.dir = dir
     mkdirSync(dir, { recursive: true })
     this.total = this.scanTotal()
+  }
+
+  /**
+   * Atomically checks AND holds `bytes` of headroom under the high-water
+   * mark: the synchronous check+add cannot interleave with another request's,
+   * so N concurrent uploads cannot all pass a read-then-write totalBytes
+   * check (TOCTOU) and overshoot the global disk cap. Callers `release` once
+   * settled — on success put() moved the bytes into the stored total.
+   */
+  reserve(bytes: number, highWaterBytes: number): boolean {
+    if (this.total + this.reserved + bytes > highWaterBytes) return false
+    this.reserved += bytes
+    return true
+  }
+
+  /** Releases a reservation once the upload settled (clamped at zero). */
+  release(bytes: number): void {
+    this.reserved = Math.max(0, this.reserved - bytes)
   }
 
   /** Defense in depth: keys are UUIDs by construction; anything else is a bug. */
@@ -46,9 +66,17 @@ export class LocalBlobStore implements BlobStorePort {
     this.total += content.byteLength
   }
 
-  async get(key: string): Promise<Uint8Array | null> {
+  /**
+   * Streaming read for the download route (beyond the BlobStorePort surface —
+   * core never reads blobs): O(1) memory per request instead of buffering a
+   * 25 MB blob per concurrent download. Opening the handle first turns a
+   * missing blob into `null` (→ 404) rather than a mid-response stream error;
+   * the stream closes the handle itself (autoClose).
+   */
+  async getStream(key: string): Promise<ReadStream | null> {
     try {
-      return await readFile(this.pathOf(key))
+      const handle = await open(this.pathOf(key), 'r')
+      return handle.createReadStream()
     } catch {
       return null
     }

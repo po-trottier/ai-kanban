@@ -53,6 +53,24 @@ const scheduleWithBackoff: RetryScheduler = (reconnect, attempt) => {
 }
 
 /**
+ * Injectable coalescing window for hint invalidations (like RetryScheduler,
+ * so tests stay timer-free): batch flows — the archival loop, MCP bulk edits
+ * — emit one hint per mutation, and invalidating per hint would refetch the
+ * board once per hint per client. Keys collected within one window dedupe
+ * into a single refetch per query key. Returns a cancel function.
+ */
+export type FlushScheduler = (flush: () => void) => () => void
+
+const COALESCE_WINDOW_MS = 150
+
+const flushAfterWindow: FlushScheduler = (flush) => {
+  const id = setTimeout(flush, COALESCE_WINDOW_MS)
+  return () => {
+    clearTimeout(id)
+  }
+}
+
+/**
  * Wires a stream source to targeted query invalidation. Native `EventSource`
  * retries dropped-but-established streams itself; after a drop the whole board
  * is refetched on reconnect because missed hints are irrelevant once state is
@@ -64,12 +82,35 @@ export function connectStream(
   queryClient: QueryClient,
   createSource: () => StreamSource,
   schedule: RetryScheduler = scheduleWithBackoff,
+  scheduleFlush: FlushScheduler = flushAfterWindow,
 ): () => void {
   let disposed = false
   let dropped = false
   let attempt = 0
   let cancelRetry: (() => void) | null = null
+  let cancelFlush: (() => void) | null = null
   let source: StreamSource
+
+  // One coalescing window per hint burst: keys dedupe in the map, and the
+  // flush invalidates each pending key exactly once. The pending flag is
+  // separate from the cancel handle: a synchronous scheduler (tests) runs the
+  // flush BEFORE scheduleFlush returns, so the flag must already be reset by
+  // then — the handle exists only for dispose.
+  const pendingKeys = new Map<string, readonly string[]>()
+  let flushPending = false
+  const queueInvalidations = (hint: SseHint) => {
+    for (const key of hintInvalidations(hint)) pendingKeys.set(key.join('|'), key)
+    if (flushPending) return
+    flushPending = true
+    cancelFlush = scheduleFlush(() => {
+      flushPending = false
+      const keys = [...pendingKeys.values()]
+      pendingKeys.clear()
+      for (const key of keys) {
+        void queryClient.invalidateQueries({ queryKey: key })
+      }
+    })
+  }
 
   const connect = () => {
     const current = createSource()
@@ -92,9 +133,7 @@ export function connectStream(
     current.onmessage = (event) => {
       const hint = parseHint(event.data)
       if (hint === null) return
-      for (const key of hintInvalidations(hint)) {
-        void queryClient.invalidateQueries({ queryKey: key })
-      }
+      queueInvalidations(hint)
     }
   }
 
@@ -102,6 +141,7 @@ export function connectStream(
   return () => {
     disposed = true
     cancelRetry?.()
+    cancelFlush?.()
     source.close()
   }
 }

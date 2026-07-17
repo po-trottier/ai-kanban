@@ -1,3 +1,4 @@
+import { utcDayOf } from '@rivian-kanban/core'
 import dayjs from 'dayjs'
 
 /** Hours in a working day (docs/product/workflow.md#priorities-and-estimates). */
@@ -21,17 +22,13 @@ function trimTrailingZero(value: number): string {
   return String(rounded)
 }
 
-/** Today as `YYYY-MM-DD` in UTC (waiting-lane overdue comparisons). */
-export function utcToday(now = new Date()): string {
-  return now.toISOString().slice(0, 10)
-}
-
 /**
- * A card counts as overdue starting the UTC day after `expectedResumeAt`
- * (docs/product/workflow.md#waiting-on-parts--vendor-discipline).
+ * Today as `YYYY-MM-DD` in UTC — core's `utcDayOf` (the domain UTC-day rule;
+ * `isOverdueResume` comparisons import it from core directly) over the wall
+ * clock, since components have no Clock port.
  */
-export function isOverdueResume(expectedResumeAt: string | null, today: string): boolean {
-  return expectedResumeAt !== null && expectedResumeAt < today
+export function utcToday(): string {
+  return utcDayOf(new Date())
 }
 
 export function formatDateTime(iso: string): string {

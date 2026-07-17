@@ -82,7 +82,7 @@ GitHub Actions, gates in order:
    strategy exists)
 6. Security: `npm audit --omit=dev --audit-level=high`, OSV-Scanner, gitleaks
 7. (scheduled, weekly) snapshot **restore drill**: boot the production image, snapshot via
-   the same `VACUUM INTO` the nightly job runs, restore that snapshot into a fresh container
+   the same online backup the nightly job runs, restore that snapshot into a fresh container
    (boot runs migrations), and require `/readyz` plus the seeded data to survive the trip.
    The Litestream restore path is the operator command documented atop `docker-compose.yml`
    (see deployment.md#database-operations)

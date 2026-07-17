@@ -7,6 +7,7 @@ import { BoardQueryService } from '../services/board-query-service.ts'
 import { CardService } from '../services/card-service.ts'
 import { CommentService } from '../services/comment-service.ts'
 import { PolicyService } from '../services/policy-service.ts'
+import { cardWith, userWith } from './defaults.ts'
 import {
   CapturingEventBus,
   CapturingNotifier,
@@ -96,30 +97,24 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
   const roleList: Role[] = ['requester', 'technician', 'supervisor', 'admin']
   const users = Object.fromEntries(
     roleList.map((role, index) => {
-      const user: User = {
+      const user = userWith({
         id: fixtureId(20 + index),
         email: `${role}@example.com`,
         displayName: role,
         role,
-        mustChangePassword: false,
-        slackUserId: null,
-        isActive: true,
         createdAt: nowIso,
-      }
+      })
       db.seedUser(user)
       return [role, user] as const
     }),
   ) as Record<Role, User>
-  const systemUser: User = {
+  const systemUser = userWith({
     id: fixtureId(29),
     email: 'system@example.com',
     displayName: 'Automation',
     role: 'admin',
-    mustChangePassword: false,
-    slackUserId: null,
-    isActive: true,
     createdAt: nowIso,
-  }
+  })
   db.seedUser(systemUser)
 
   if (options.omitPolicyRecord !== true) {
@@ -145,7 +140,7 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
   }
 
   const shared = { uow: db, clock, ids, eventBus }
-  const cards = new CardService({ ...shared, notifier, boardId })
+  const cards = new CardService({ ...shared, notifier, boardId, systemUserId: systemUser.id })
   const comments = new CommentService(shared)
   const attachments = new AttachmentService({ ...shared, blobStore })
   const queries = new BoardQueryService({ uow: db, clock, boardId })
@@ -159,35 +154,16 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
     const position =
       overrides.position ?? generateKeyBetween(lastPositionByLane.get(laneId) ?? null, null)
     lastPositionByLane.set(laneId, position)
-    const card: Card = {
+    const card = cardWith({
       id: fixtureId(seedCounter),
       boardId,
+      title: `Card ${seedCounter.toString()}`,
+      reporterId: users.requester.id,
+      createdAt: nowIso,
+      ...overrides,
       laneId,
       position,
-      title: `Card ${seedCounter.toString()}`,
-      description: '',
-      priority: 'P2',
-      estimateMinutes: null,
-      reporterId: users.requester.id,
-      assigneeId: null,
-      locationId: null,
-      origin: 'manual',
-      resolution: null,
-      blocked: false,
-      blockedReason: null,
-      blockedAt: null,
-      waitingReason: null,
-      expectedResumeAt: null,
-      resumeAlertedAt: null,
-      slackChannelId: null,
-      slackThreadTs: null,
-      slackPermalink: null,
-      version: 1,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      archivedAt: null,
-      ...overrides,
-    }
+    })
     db.seedCard(card)
     return card
   }

@@ -1,5 +1,5 @@
-import { type Card, type LaneKey, type MoveCardInput } from '@rivian-kanban/core'
-import { type BoardCard, type BoardResponse } from './schemas.ts'
+import { type BoardCard, type LaneKey, type MoveCardInput } from '@rivian-kanban/core'
+import { type BoardResponse } from './schemas.ts'
 
 /** The client-side move intent: the core command minus the version (mapped to If-Match). */
 export type MoveIntent = Omit<MoveCardInput, 'expectedVersion'>
@@ -73,7 +73,7 @@ function insertBetweenNeighbors(
 }
 
 /** Where a card currently sits on the board (lane key lookup by lane id). */
-export function laneKeyOfCard(board: BoardResponse, card: Card): LaneKey | null {
+export function laneKeyOfCard(board: BoardResponse, card: BoardCard): LaneKey | null {
   const lane = board.lanes.find((snapshot) => snapshot.lane.id === card.laneId)
   return lane?.lane.key ?? null
 }

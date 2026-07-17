@@ -1,4 +1,4 @@
-import { type Card, type LaneKey, type PolicyDocument, type Role } from '@rivian-kanban/core'
+import { type BoardCard, type LaneKey, type PolicyDocument, type Role } from '@rivian-kanban/core'
 import { useCallback, useMemo, useRef } from 'react'
 import { type BoardResponse, type PickerUser } from '../api/schemas.ts'
 import { strings } from '../strings.ts'
@@ -15,7 +15,7 @@ export interface BoardProps {
   users: PickerUser[]
   today: string
   onOpenCard: (cardId: string) => void
-  onMenuAction: (card: Card, action: CardMenuAction) => void
+  onMenuAction: (card: BoardCard, action: CardMenuAction) => void
 }
 
 /** The 7-lane board (presentational): affordances derive from the policy. */

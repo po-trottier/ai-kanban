@@ -46,21 +46,50 @@ export class SqliteCardRepository implements CardRepository {
     }
   }
 
-  listByLane(laneId: string): Promise<Card[]> {
+  listByLane(laneId: string, options?: { activeOnly?: boolean }): Promise<Card[]> {
     // TEXT position keys compare byte-wise (BINARY collation) — the fractional
-    // ordering contract (ADR-006).
+    // ordering contract (ADR-006). activeOnly pushes the archived filter into
+    // SQL so hot reads never hydrate the done-lane archive (port contract).
     const rows = this.db
       .select()
       .from(cards)
-      .where(eq(cards.laneId, laneId))
+      .where(
+        and(
+          eq(cards.laneId, laneId),
+          options?.activeOnly === true ? isNull(cards.archivedAt) : undefined,
+        ),
+      )
       .orderBy(asc(cards.position))
       .all()
     return Promise.resolve(rows)
   }
 
+  /** Index-only COUNT under the partial live-rows index (port contract). */
+  countActiveByLane(laneId: string): Promise<number> {
+    const row = this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(cards)
+      .where(and(eq(cards.laneId, laneId), isNull(cards.archivedAt)))
+      .get()
+    return Promise.resolve(row?.count ?? 0)
+  }
+
+  /** O(1) lane-boundary read (port contract): `ORDER BY position LIMIT 1`. */
+  edgeOfLane(laneId: string, edge: 'first' | 'last'): Promise<Card | null> {
+    const row = this.db
+      .select()
+      .from(cards)
+      .where(eq(cards.laneId, laneId))
+      .orderBy(edge === 'first' ? asc(cards.position) : desc(cards.position))
+      .limit(1)
+      .get()
+    return Promise.resolve(row ?? null)
+  }
+
   query(filter: CardQueryFilter, page?: { after?: CursorKey; limit?: number }): Promise<Card[]> {
     const conditions: (SQL | undefined)[] = []
     if (filter.includeArchived !== true) conditions.push(isNull(cards.archivedAt))
+    if (filter.boardId !== undefined) conditions.push(eq(cards.boardId, filter.boardId))
     if (filter.laneId !== undefined) conditions.push(eq(cards.laneId, filter.laneId))
     if (filter.assigneeId !== undefined) conditions.push(eq(cards.assigneeId, filter.assigneeId))
     if (filter.reporterId !== undefined) conditions.push(eq(cards.reporterId, filter.reporterId))

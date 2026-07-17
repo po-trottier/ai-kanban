@@ -81,6 +81,15 @@ export const ALLOWED_ATTACHMENT_MIME_TYPES = [
  */
 export const LAST_ACTIVE_ADMIN_RULE = 'last-active-admin'
 
+/**
+ * Password policy minimum (docs/architecture/security.md#authentication).
+ * Product policy like CARD_TITLE_MAX: the server's password-policy module
+ * enforces it (alongside the max-length and common-password checks, which
+ * stay server-side) and the web change-password form pre-validates inline
+ * with the same number — one declaration so the two cannot drift.
+ */
+export const PASSWORD_MIN_LENGTH = 12
+
 /** Staleness defaults for the follow-up feed (docs/architecture/mcp.md `list_stale_cards`). */
 export const DEFAULT_REVIEW_STALE_DAYS = 7
 export const DEFAULT_BLOCKED_STALE_DAYS = 3

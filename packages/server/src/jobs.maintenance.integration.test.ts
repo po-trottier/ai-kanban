@@ -13,7 +13,7 @@ import { createTestApp, sessionCookieOf, type TestApp } from './test/support.ts'
 
 /**
  * The maintenance pair against a real temp SQLite database: the daily session
- * purge (auth's deleteExpiredSessions) and the nightly `VACUUM INTO` snapshot
+ * purge (auth's deleteExpiredSessions) and the nightly online-backup snapshot
  * with 7-file retention (docs/architecture/deployment.md#database-operations).
  * A snapshot is only proven by opening it: the test restores one through the
  * regular openDatabase path — migrations and all — exactly like the drill.
@@ -63,7 +63,7 @@ describe('session purge job', () => {
 })
 
 describe('sqlite snapshot job', () => {
-  it('VACUUMs into a dated file that restores through the normal boot path', async () => {
+  it('backs up into a dated file that restores through the normal boot path', async () => {
     const supervisor = await t.createUser('supervisor')
     const card = await t.wired.deps.services.cards.create(
       { kind: 'user', id: supervisor.user.id, role: 'supervisor' },
@@ -94,8 +94,8 @@ describe('sqlite snapshot job', () => {
     }
   })
 
-  it('reclaims interrupted partials and retries the day that crashed mid-VACUUM', async () => {
-    // VACUUM INTO writes through a .tmp sibling and publishes by rename, so a
+  it('reclaims interrupted partials and retries the day that crashed mid-backup', async () => {
+    // The backup writes through a .tmp sibling and publishes by rename, so a
     // SIGKILL mid-write leaves only a partial — never the dated name the job
     // treats as "done for today". The rerun must reclaim partials and retry.
     const dir = join(t.env.DATABASE_PATH, '..', 'snapshots')
@@ -120,11 +120,11 @@ describe('sqlite snapshot job', () => {
   it('publishes atomically: a snapshot that cannot complete leaves nothing behind', async () => {
     const dir = join(t.env.DATABASE_PATH, '..', 'snapshots')
     // A directory squatting on the target name makes the final rename fail —
-    // any failure between VACUUM and publish must clean up its partial.
+    // any failure between the backup and publish must clean up its partial.
     await mkdir(join(dir, 'occupied.sqlite'), { recursive: true })
     const snapshots = new SqliteSnapshotStore(t.wired.connection, dir)
 
-    await expect(snapshots.vacuumInto('occupied.sqlite')).rejects.toThrow()
+    await expect(snapshots.backupInto('occupied.sqlite')).rejects.toThrow()
 
     expect((await readdir(dir)).filter((name) => name.endsWith('.tmp'))).toEqual([])
   })

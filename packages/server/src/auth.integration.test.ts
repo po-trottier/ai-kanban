@@ -152,6 +152,29 @@ describe('POST /auth/change-password', () => {
     )
   })
 
+  it('arms the per-account backoff after a wrong current password (429 + Retry-After)', async () => {
+    // change-password is the second password-verification surface: without
+    // the shared backoff, a session-holding attacker could guess the account
+    // password here without ever tripping the login control (security.md).
+    const { cookie } = await t.asRole('technician')
+    const guess = (attempt: number) =>
+      t.request(cookie, {
+        method: 'POST',
+        url: '/api/v1/auth/change-password',
+        payload: {
+          currentPassword: `wrong-guess-${String(attempt)}`,
+          newPassword: 'a-perfectly-fine-pw',
+        },
+      })
+
+    const first = await guess(1)
+    const second = await guess(2)
+
+    expect(first.statusCode).toBe(403)
+    expect(second.statusCode).toBe(429)
+    expect(Number(second.headers['retry-after'])).toBeGreaterThan(0)
+  })
+
   it('enforces the password policy: too short and top-10k common are 400', async () => {
     const { password, cookie } = await t.asRole('technician')
 
@@ -265,5 +288,33 @@ describe('per-account login backoff', () => {
     // If the counter had NOT reset, this immediate attempt would be 429.
     const after = await loginRaw(user.email, 'wrong-password')
     expect(after.statusCode).toBe(401)
+  })
+
+  it('serializes simultaneous guesses for one account: a burst cannot bypass the backoff', async () => {
+    // Check-then-record with argon2 awaited in between would let every
+    // request of a concurrent burst read "no failures yet" — the exact
+    // cross-IP attack the per-account backoff exists to stop. Attempts for
+    // one email are queued, so the second sees the first recorded failure.
+    const { user } = await t.createUser('technician')
+
+    const [first, second] = await Promise.all([
+      loginRaw(user.email, 'wrong-password'),
+      loginRaw(user.email, 'wrong-password'),
+    ])
+
+    expect([first.statusCode, second.statusCode].sort()).toEqual([401, 429])
+  })
+
+  it('keeps simultaneous CORRECT logins for one account working (both 200)', async () => {
+    // Serialization must not turn two tabs signing in at once into a 429:
+    // the first success resets the counter before the second attempt runs.
+    const { user, password } = await t.createUser('technician')
+
+    const [first, second] = await Promise.all([
+      loginRaw(user.email, password),
+      loginRaw(user.email, password),
+    ])
+
+    expect([first.statusCode, second.statusCode]).toEqual([200, 200])
   })
 })

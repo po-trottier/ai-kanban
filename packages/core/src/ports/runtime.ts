@@ -25,11 +25,14 @@ export interface EventBus {
   publish(hint: SseHint): void
 }
 
-/** Binary storage for attachment blobs; keys are server-generated UUIDs. */
+/**
+ * Binary storage for attachment blobs; keys are server-generated UUIDs.
+ * Deliberately write/delete only — that is all core's AttachmentService
+ * consumes. Reads (the download route) stream from the concrete adapter in
+ * the server package, which the composition root hands out directly.
+ */
 export interface BlobStorePort {
   put(key: string, content: Uint8Array): Promise<void>
-  /** The stored bytes, or null when the key is unknown (download route). */
-  get(key: string): Promise<Uint8Array | null>
   delete(key: string): Promise<void>
 }
 

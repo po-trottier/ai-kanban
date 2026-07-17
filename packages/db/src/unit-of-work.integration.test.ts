@@ -4,6 +4,7 @@ import {
   insertUser,
   makeCard,
   makeComment,
+  messageChain,
   newId,
   openTestDb,
   seedBaseline,
@@ -198,5 +199,38 @@ describe('SqliteUnitOfWork', () => {
     await expect(db.uow.run((tx) => tx.cards.findById(card.id))).resolves.toMatchObject({
       id: card.id,
     })
+  })
+
+  it('read() sees committed state and SQLite itself rejects writes through it', async () => {
+    const card = makeCard({
+      boardId: base.boardId,
+      laneId: base.lanes.waiting_approval.id,
+      reporterId,
+      position: 'w1',
+    })
+    await db.uow.run((tx) => tx.cards.insert(card))
+
+    // Reads flow through the read-only companion connection.
+    await expect(db.uow.read((tx) => tx.cards.findById(card.id))).resolves.toMatchObject({
+      id: card.id,
+    })
+    // The read handle is genuinely read-only: a write attempt fails at the
+    // driver, and the read path stays usable afterwards.
+    const rogue: unknown = await db.uow
+      .read((tx) => tx.cards.update({ ...card, title: 'mutated through the read path' }))
+      .then(
+        () => null,
+        (error: unknown) => error,
+      )
+    expect(messageChain(rogue)).toMatch(/readonly/i)
+    await expect(db.uow.read((tx) => tx.cards.findById(card.id))).resolves.toMatchObject({
+      title: card.title,
+    })
+  })
+
+  it('read() nested inside run() rejects fast like a nested run()', async () => {
+    const nested = db.uow.run(() => db.uow.read((tx) => tx.cards.findById('no-such-id')))
+
+    await expect(nested).rejects.toThrow('nested UnitOfWork.run()/read()')
   })
 })

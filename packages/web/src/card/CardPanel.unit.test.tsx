@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { createFakeFetch, problemResponse, type FakeFetch } from '../test/fake-fetch.ts'
 import {
-  coreCard,
   fixtureAdmin,
   fixturePickerUsers,
   fixtureTech,
@@ -28,7 +27,7 @@ function panelApp(extra: Record<string, unknown> = {}): FakeFetch {
     'GET /api/v1/locations': [],
     'GET /api/v1/tags': [{ id: uid(110), name: 'plumbing' }],
     [`GET /api/v1/cards/${card.id}`]: {
-      card: coreCard(card),
+      card: card,
       tags: [],
       location: null,
       attachments: [],
@@ -43,7 +42,7 @@ describe('CardPanel', () => {
   it('saves edited fields with If-Match from the card version', async () => {
     // Arrange
     const user = userEvent.setup()
-    const fake = panelApp({ [`PATCH /api/v1/cards/${card.id}`]: coreCard(card) })
+    const fake = panelApp({ [`PATCH /api/v1/cards/${card.id}`]: card })
     renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
     // Act
     const title = await screen.findByRole('textbox', { name: /Title/ })
@@ -170,14 +169,14 @@ describe('CardPanel', () => {
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
       [`GET /api/v1/cards/${archived.id}`]: {
-        card: coreCard(archived),
+        card: archived,
         tags: [],
         location: null,
         attachments: [],
       },
       [`GET /api/v1/cards/${archived.id}/comments`]: [],
       [`GET /api/v1/cards/${archived.id}/events`]: { items: [], nextCursor: null },
-      [`POST /api/v1/cards/${archived.id}/reopen`]: coreCard(archived),
+      [`POST /api/v1/cards/${archived.id}/reopen`]: archived,
     })
     renderApp({ fetchFn: fake.fetch, route: `/cards/${archived.id}` })
     // Act
@@ -230,7 +229,7 @@ describe('CardPanel', () => {
         actionGates: { deleteOthersAttachments: 'admin' as const },
       }),
       [`GET /api/v1/cards/${card.id}`]: {
-        card: coreCard(card),
+        card: card,
         tags: [],
         location: null,
         attachments: [theirs],

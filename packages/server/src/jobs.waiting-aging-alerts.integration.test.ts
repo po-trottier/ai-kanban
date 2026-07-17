@@ -1,6 +1,12 @@
 import { pino } from 'pino'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { type Actor, type Card, type User } from '@rivian-kanban/core'
+import {
+  CardService,
+  Uuidv7IdGenerator,
+  type Actor,
+  type Card,
+  type User,
+} from '@rivian-kanban/core'
 import { CapturingNotifier, FixedClock } from '@rivian-kanban/core/testing'
 import { runWaitingAgingAlerts } from './jobs/waiting-aging-alerts.ts'
 import { createTestApp, type TestApp } from './test/support.ts'
@@ -9,9 +15,10 @@ import { createTestApp, type TestApp } from './test/support.ts'
  * The hourly waiting-lane aging job against a real temp SQLite database
  * (docs/product/workflow.md#waiting-on-parts--vendor-discipline): one DM per
  * overdue episode to the assignee + all active supervisors, `resumeAlertedAt`
- * claimed in the same transaction, notifier failures never failing the loop.
- * The job's run function is invoked directly with a FixedClock — croner
- * scheduling is smoke-tested separately (docs/dev/testing.md).
+ * claimed in the same transaction (CardService.claimOverdueWaitingAlerts),
+ * notifier failures never failing the loop. The job's run function is invoked
+ * directly with a FixedClock-driven CardService — croner scheduling is
+ * smoke-tested separately (docs/dev/testing.md).
  */
 
 let t: TestApp
@@ -35,13 +42,18 @@ function actorOf(user: User): Actor {
 }
 
 async function runJob(): Promise<{ alerted: number }> {
-  return runWaitingAgingAlerts({
+  // The claim rule runs in core with the test's FixedClock (time is a port);
+  // everything else — db, event bus — is the wired app's real instance.
+  const cards = new CardService({
     uow: t.wired.deps.uow,
     clock,
+    ids: new Uuidv7IdGenerator(),
+    eventBus: t.wired.deps.eventBus,
     notifier,
-    logger: silentLog,
     boardId: t.wired.boardId,
+    systemUserId: t.wired.systemUserId,
   })
+  return runWaitingAgingAlerts({ cards, notifier, logger: silentLog })
 }
 
 /** Creates a card and moves it into waiting_parts_vendor with the given date. */

@@ -30,8 +30,12 @@ export function operationalRoutes(deps: AppDeps) {
       },
       async (_request, reply) => {
         try {
-          // A trivial read through the unit of work proves the DB answers.
-          await deps.uow.run((tx) => tx.tags.listAll())
+          // An O(1) indexed point read through the read-only path proves the
+          // DB answers — deliberately not the write queue (so the Compose
+          // healthcheck does not flap while a long write transaction holds
+          // the single writer) and never a table scan: this polls every few
+          // seconds forever, so its cost must not grow with the data.
+          await deps.uow.read((tx) => tx.cards.findById('00000000-0000-0000-0000-000000000000'))
           return { status: 'ok' as const }
         } catch {
           return reply.code(503).send({ status: 'unavailable' as const })

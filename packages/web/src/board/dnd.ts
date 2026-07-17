@@ -1,4 +1,4 @@
-import { type Card, type LaneKey } from '@rivian-kanban/core'
+import { type BoardCard, type LaneKey } from '@rivian-kanban/core'
 import { autoScrollForElements } from '@atlaskit/pragmatic-drag-and-drop-auto-scroll/element'
 import {
   attachClosestEdge,
@@ -46,7 +46,7 @@ const idleCardState: CardDndState = { dragging: false, closestEdge: null }
 /** Makes a card draggable and a drop target reporting the closest top/bottom edge. */
 export function useCardDnd(
   ref: RefObject<HTMLElement | null>,
-  card: Card,
+  card: BoardCard,
   laneKey: LaneKey,
   canDrop: (source: { cardId: string; laneKey: LaneKey }) => boolean,
 ): CardDndState {

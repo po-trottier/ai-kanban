@@ -1,4 +1,4 @@
-import { type Actor, type Card, type Lane, type Tag } from '../domain/entities.ts'
+import { type Actor, type Card, type Comment, type Lane, type Tag } from '../domain/entities.ts'
 import { type LaneKey } from '../domain/constants.ts'
 import {
   ArchivedError,
@@ -17,11 +17,6 @@ import { type Clock, type EventBus, type IdGenerator } from '../ports/runtime.ts
 /** Internal helpers shared by the core services. Not part of the public API. */
 
 export const DAY_MS = 86_400_000
-
-/** The `YYYY-MM-DD` UTC date of an instant (waiting-lane overdue math). */
-export function utcDateOf(instant: Date): string {
-  return instant.toISOString().slice(0, 10)
-}
 
 export function requireFound<T>(value: T | null, resource: string): T {
   if (value === null) throw new NotFoundError(resource)
@@ -103,16 +98,22 @@ export function makeEvent(
   })
 }
 
-/** Publishes one card-scoped SSE hint per committed audit event (ADR-008). */
+/**
+ * Publishes one card-scoped SSE hint per committed mutation (ADR-008). Hints
+ * are refetch triggers, not data: every event of one mutation shares the same
+ * cardId/version, so the last event stands for all of them — a k-field update
+ * must not k-multiply the fan-out (each hint reaches every SSE subscriber and
+ * triggers a board refetch per connected client).
+ */
 export function publishCardHints(bus: EventBus, card: Card, events: readonly CardEvent[]): void {
-  for (const event of events) {
-    bus.publish({
-      type: event.eventType,
-      cardId: card.id,
-      version: card.version,
-      eventId: event.id,
-    })
-  }
+  const last = events.at(-1)
+  if (last === undefined) return
+  bus.publish({
+    type: last.eventType,
+    cardId: card.id,
+    version: card.version,
+    eventId: last.id,
+  })
 }
 
 /**
@@ -135,7 +136,7 @@ export async function runWithPositionRetry<T>(
       return await uow.run(fn)
     } catch (retryError) {
       if (retryError instanceof DuplicatePositionError) {
-        const current = currentCard ? await uow.run(currentCard) : null
+        const current = currentCard ? await uow.read(currentCard) : null
         throw new ConflictError('position conflict persisted after retry', current ?? undefined)
       }
       throw retryError
@@ -168,6 +169,15 @@ export async function resolveTags(
     }
   }
   return resolved
+}
+
+/**
+ * Blanks the bodies of soft-deleted comments — deleted content never leaves
+ * the server on ANY surface (rest-api.md#comments, `redactedCommentSchema`).
+ * Shared by every core read that returns a comment thread.
+ */
+export function redactDeletedComments(thread: readonly Comment[]): Comment[] {
+  return thread.map((comment) => (comment.deletedAt === null ? comment : { ...comment, body: '' }))
 }
 
 /** Case-insensitive set equality for tag names (tags match case-insensitively). */

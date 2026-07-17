@@ -13,6 +13,8 @@
 /** @public */
 export * from '../../core/src/domain/constants.ts'
 /** @public */
+export * from '../../core/src/domain/dates.ts'
+/** @public */
 export * from '../../core/src/domain/entities.ts'
 /** @public */
 export * from '../../core/src/domain/events.ts'
@@ -26,3 +28,15 @@ export * from '../../core/src/domain/errors.ts'
 export * from '../../core/src/domain/cursor.ts'
 /** @public */
 export * from '../../core/src/domain/sse.ts'
+/** @public */
+export * from '../../core/src/domain/problem.ts'
+/** @public */
+export * from '../../core/src/domain/envelopes.ts'
+/**
+ * The policy engine is pure domain logic over the document (it imports only
+ * domain modules), and ADR-013 promises ONE evaluation path for every
+ * surface — the SPA's affordances must run the same rules the server
+ * re-validates with, never a re-implementation.
+ * @public
+ */
+export * from '../../core/src/policy/policy-engine.ts'

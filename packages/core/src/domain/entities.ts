@@ -122,6 +122,15 @@ export const commentSchema = z.strictObject({
 })
 export type Comment = z.infer<typeof commentSchema>
 
+/**
+ * A comment as read back out of a thread: `CommentService.listForCard` blanks
+ * soft-deleted bodies (deleted content never leaves the server —
+ * docs/architecture/rest-api.md#comments), so every read/response schema
+ * widens the stored `body: min(1)` to any string. One declaration keeps REST,
+ * MCP, and the web client on the identical shape (single-schema rule).
+ */
+export const redactedCommentSchema = z.strictObject({ ...commentSchema.shape, body: z.string() })
+
 export const attachmentSchema = z.strictObject({
   id: z.uuid(),
   cardId: z.uuid(),

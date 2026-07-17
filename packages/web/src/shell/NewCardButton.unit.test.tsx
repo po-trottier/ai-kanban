@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { createFakeFetch } from '../test/fake-fetch.ts'
-import { coreCard, fixturePickerUsers, makeCard } from '../test/fixtures.ts'
+import { fixturePickerUsers, makeCard } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import { NewCardButton } from './NewCardButton.tsx'
 
@@ -14,7 +14,7 @@ describe('NewCardButton', () => {
       'GET /api/v1/users': fixturePickerUsers,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
-      'POST /api/v1/cards': coreCard(makeCard('intake', { title: 'Broken door' })),
+      'POST /api/v1/cards': makeCard('intake', { title: 'Broken door' }),
     })
     renderWithProviders(<NewCardButton />, { fetchFn: fake.fetch })
     // Act

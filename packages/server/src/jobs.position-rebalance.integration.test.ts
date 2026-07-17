@@ -6,9 +6,11 @@ import { createTestApp, rawCard, type TestApp } from './test/support.ts'
 
 /**
  * The daily fractional-key rebalance against a real temp SQLite database
- * (ADR-006): lanes whose longest key exceeds 100 chars get short fresh keys
- * in one transaction — order preserved, no audit events, no version bumps —
- * and the UNIQUE(laneId, position) backstop never fires mid-rewrite.
+ * (ADR-006): lanes whose longest active key exceeds 100 chars get short fresh
+ * keys in one transaction — order preserved, no audit events, no version
+ * bumps — and the UNIQUE(laneId, position) backstop never fires mid-rewrite.
+ * Archived rows are never rewritten (the done-lane archive is unbounded), so
+ * the write transaction stays proportional to the live lane.
  */
 
 let t: TestApp
@@ -76,10 +78,10 @@ describe('position rebalance job', () => {
     expect(events).toHaveLength(0)
   })
 
-  it('survives fresh keys colliding with keys other cards still hold (two-pass rewrite)', async () => {
-    // Ascending order 'A0' < 'a0' < 'a1VVV…'; a naive single pass would set
-    // the first card to the fresh key 'a0' while the second still holds it,
-    // tripping UNIQUE(laneId, position).
+  it('never collides with keys other cards still hold: fresh keys sort above the lane maximum', async () => {
+    // Ascending order 'A0' < 'a0' < 'a1VVV…'; a rewrite anchored at null
+    // would try to set the first card to 'a0' while the second still holds
+    // it, tripping UNIQUE(laneId, position) — fresh keys start past the max.
     const ready = await lane('ready')
     await insertCard(ready.id, 'A0')
     await insertCard(ready.id, 'a0')
@@ -89,7 +91,47 @@ describe('position rebalance job', () => {
 
     expect(summary.rebalancedLanes).toBe(1)
     const positions = (await laneCards(ready.id)).map((card) => card.position)
-    expect(positions).toEqual(['a0', 'a1', 'a2'])
+    expect(positions).toEqual(['a2', 'a3', 'a4'])
+  })
+
+  it('leaves archived rows untouched and ignores their keys for the trigger', async () => {
+    // The done-lane archive is unbounded; rewriting it would hold the single
+    // writer for O(archive) statements. Archived keys are not rewritten, do
+    // not trigger the job, and fresh active keys never collide with them.
+    const ready = await lane('ready')
+    const archived = await t.wired.deps.uow.run(async (tx) => {
+      const card = rawCard({
+        boardId: t.wired.boardId,
+        laneId: ready.id,
+        reporterId,
+        position: `a9${'V'.repeat(120)}`,
+        title: 'archived, long key',
+        archivedAt: '2026-01-01T00:00:00.000Z',
+      })
+      await tx.cards.insert(card)
+      return card
+    })
+    const active = await insertCard(ready.id, 'a0')
+
+    const untouched = await runJob()
+    expect(untouched.rebalancedLanes).toBe(0)
+
+    const grown = await insertCard(ready.id, `a1${'V'.repeat(120)}`)
+    const summary = await runJob()
+
+    expect(summary.rebalancedLanes).toBe(1)
+    const after = await laneCards(ready.id)
+    const byId = new Map(after.map((card) => [card.id, card.position]))
+    expect(byId.get(archived.id)).toBe(archived.position)
+    // Actives re-keyed short, order preserved, past the archived maximum.
+    const activePosition = byId.get(active.id) ?? ''
+    const grownPosition = byId.get(grown.id) ?? ''
+    for (const position of [activePosition, grownPosition]) {
+      expect(position.length).toBeGreaterThan(0)
+      expect(position.length).toBeLessThanOrEqual(10)
+      expect(position > archived.position).toBe(true)
+    }
+    expect(activePosition < grownPosition).toBe(true)
   })
 
   it('leaves lanes at or under the threshold untouched', async () => {
