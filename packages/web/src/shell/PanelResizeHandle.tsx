@@ -21,7 +21,7 @@ export function PanelResizeHandle({ resize }: { resize: ResizableWidth }) {
       aria-label={strings.detail.resizeLabel}
       aria-valuenow={resize.width}
       aria-valuemin={SIZES.cardPanelMinWidth}
-      aria-valuemax={SIZES.cardPanelMaxWidth}
+      aria-valuemax={resize.maxWidth}
       onMouseDown={resize.onResizeStart}
       onKeyDown={(event) => {
         if (event.key === 'ArrowLeft') {

@@ -4,16 +4,25 @@ import { SIZES } from '../theme.ts'
 /** Persist the user's chosen panel width so it sticks across sessions. */
 const STORAGE_KEY = 'rivian-kanban:card-panel-width'
 
-/** Clamp a candidate width into the readable, on-screen drag bounds (ADR-016 tokens). */
-export function clampPanelWidth(width: number): number {
-  return Math.max(SIZES.cardPanelMinWidth, Math.min(SIZES.cardPanelMaxWidth, Math.round(width)))
+/** Clamp a candidate width into [min, maxWidth] (rounded). The max is dynamic
+ * (viewport-relative) so the panel can grow to nearly the whole screen. */
+export function clampPanelWidth(width: number, maxWidth: number): number {
+  return Math.max(SIZES.cardPanelMinWidth, Math.min(maxWidth, Math.round(width)))
+}
+
+/** The largest the panel may grow: almost the whole viewport, leaving a sliver
+ * of board. Falls back to the static cap when the viewport width is unknown. */
+export function panelMaxWidth(): number {
+  const viewport = globalThis.innerWidth
+  const base = Number.isFinite(viewport) && viewport > 0 ? viewport : SIZES.cardPanelMaxWidth
+  return Math.max(SIZES.cardPanelMinWidth, base - SIZES.cardPanelMinBoardVisible)
 }
 
 function readStoredWidth(): number {
   try {
     const raw = globalThis.localStorage.getItem(STORAGE_KEY)
     const parsed = raw === null ? NaN : Number(raw)
-    return Number.isFinite(parsed) ? clampPanelWidth(parsed) : SIZES.cardPanelWidth
+    return Number.isFinite(parsed) ? clampPanelWidth(parsed, panelMaxWidth()) : SIZES.cardPanelWidth
   } catch {
     // Private-mode / disabled storage — fall back to the default width.
     return SIZES.cardPanelWidth
@@ -30,6 +39,8 @@ function persistWidth(width: number): void {
 
 export interface ResizableWidth {
   width: number
+  /** Current maximum (viewport-relative) — for the handle's aria-valuemax. */
+  maxWidth: number
   /** Begin a drag from the panel's left-edge handle (mouse-tracked on window). */
   onResizeStart: (event: ReactMouseEvent) => void
   /** Keyboard resize: `delta` px added to the width (clamped, persisted). */
@@ -58,9 +69,10 @@ export function useCardPanelWidth(): ResizableWidth {
     const startWidth = latest.current
     setResizing(true)
 
+    const maxWidth = panelMaxWidth()
     const onMove = (move: MouseEvent) => {
       // Panel is on the right: moving left (smaller clientX) makes it wider.
-      const next = clampPanelWidth(startWidth + (startX - move.clientX))
+      const next = clampPanelWidth(startWidth + (startX - move.clientX), maxWidth)
       latest.current = next
       setWidth(next)
     }
@@ -76,12 +88,12 @@ export function useCardPanelWidth(): ResizableWidth {
 
   const nudge = useCallback((delta: number) => {
     setWidth((current) => {
-      const next = clampPanelWidth(current + delta)
+      const next = clampPanelWidth(current + delta, panelMaxWidth())
       latest.current = next
       persistWidth(next)
       return next
     })
   }, [])
 
-  return { width, onResizeStart, nudge, resizing }
+  return { width, maxWidth: panelMaxWidth(), onResizeStart, nudge, resizing }
 }

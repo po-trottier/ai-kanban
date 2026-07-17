@@ -3,7 +3,7 @@ import { type MouseEvent as ReactMouseEvent } from 'react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { SIZES } from '../theme.ts'
 import { PanelResizeHandle } from './PanelResizeHandle.tsx'
-import { clampPanelWidth, useCardPanelWidth } from './use-card-panel-width.ts'
+import { clampPanelWidth, panelMaxWidth, useCardPanelWidth } from './use-card-panel-width.ts'
 
 const STORAGE_KEY = 'rivian-kanban:card-panel-width'
 
@@ -31,16 +31,28 @@ describe('useCardPanelWidth', () => {
     localStorage.clear()
   })
 
-  it('clamps candidate widths to the readable bounds', () => {
+  it('clamps candidate widths to [min, maxWidth] and rounds', () => {
     // Arrange — nothing to set up (pure function).
     // Act
-    const belowMin = clampPanelWidth(10)
-    const aboveMax = clampPanelWidth(5000)
-    const rounded = clampPanelWidth(650.4)
+    const belowMin = clampPanelWidth(10, 900)
+    const aboveMax = clampPanelWidth(5000, 900)
+    const rounded = clampPanelWidth(650.4, 900)
+    const biggerMax = clampPanelWidth(5000, 1600)
     // Assert
     expect(belowMin).toBe(SIZES.cardPanelMinWidth)
-    expect(aboveMax).toBe(SIZES.cardPanelMaxWidth)
+    expect(aboveMax).toBe(900)
     expect(rounded).toBe(650)
+    // A larger (viewport-relative) max lets the panel grow well past the old cap.
+    expect(biggerMax).toBe(1600)
+  })
+
+  it('caps the max just short of the viewport, never below the minimum', () => {
+    // Arrange — jsdom provides window.innerWidth
+    // Act
+    const max = panelMaxWidth()
+    // Assert
+    expect(max).toBeLessThan(window.innerWidth)
+    expect(max).toBeGreaterThanOrEqual(SIZES.cardPanelMinWidth)
   })
 
   it('defaults to the configured width with no stored value', () => {

@@ -41,9 +41,12 @@ export const SIZES = {
   laneWipLimitInputWidth: '6.5rem',
   /** The docked card-detail Aside default width (matches the old Drawer `size="lg"`). */
   cardPanelWidth: 620,
-  /** Drag bounds for the resizable card panel (keeps it readable, not off-screen). */
-  cardPanelMinWidth: 380,
+  /** Resizable-panel bounds: a readable minimum, a fallback max when the
+   * viewport width is unknown, and the sliver of board kept visible when the
+   * panel is dragged to its (viewport-relative) maximum. */
+  cardPanelMinWidth: 450,
   cardPanelMaxWidth: 900,
+  cardPanelMinBoardVisible: 140,
   /** Header search trailing controls (clear + advanced-search icons side by side). */
   headerSearchActionsWidth: 64,
 } as const
