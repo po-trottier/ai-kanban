@@ -5,3 +5,9 @@
 0cee0fd2e7e1d675a3e42f61ec709e632449f59e:packages/core/src/domain/cursor.unit.test.ts:generic-api-key:16
 0cee0fd2e7e1d675a3e42f61ec709e632449f59e:packages/core/src/domain/cursor.unit.test.ts:generic-api-key:19
 0cee0fd2e7e1d675a3e42f61ec709e632449f59e:packages/core/src/domain/cursor.unit.test.ts:generic-api-key:21
+
+# False positive: obviously-fake service-token fixture (rkb_live_abc123) in a
+# component test, present in two historical commits. The live file now builds
+# the fixture by concatenation so future diffs can never re-match.
+e23fb7caf553bce0f4f337148fd4fcbb033319e6:packages/web/src/settings/TokensAdmin.unit.test.tsx:generic-api-key:46
+6d2c538bf230b47cca0a39065f0011060b11ec43:packages/web/src/settings/TokensAdmin.unit.test.tsx:generic-api-key:47
