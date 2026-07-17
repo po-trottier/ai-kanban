@@ -13,7 +13,7 @@
  Slack ──────────┤ Bolt   │  core services   │─────▶│  ports       │──▶ Drizzle/SQLite  │
  (Socket Mode)   │ agent  │  (framework-free)│      │ (interfaces) │──▶ blob dir        │
                  │        └──────────────────┘      └──────────────┘──▶ Slack Web API   │
-                 │               ▲                                  ──▶ Anthropic API   │
+                 │               ▲                                  ──▶ LLM provider    │
                  │        croner jobs (aging alerts, archival, rebalance)               │
                  └───────────────────────────────────────────────────────────────────────┘
 ```

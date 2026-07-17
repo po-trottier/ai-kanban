@@ -19,9 +19,9 @@ work in threads, and out-of-thread quick creation is the web UI's job).
 
 1. `ack()` within 3 s, immediately `views.open` a loading modal (the `trigger_id` is short-lived).
 2. Fetch the thread: `conversations.replies(channel, thread_ts ?? ts)`.
-3. If `SUMMARIZER_ENABLED`: SummarizerPort → Anthropic `claude-haiku-4-5` with **structured
-   outputs** → `{ title, description, suggestedPriority, tags[] }`. If disabled or on failure:
-   prefill the raw thread text. Either way the human reviews.
+3. If `SUMMARIZER_ENABLED`: SummarizerPort → the **configured LLM provider** with
+   schema-constrained structured output → `{ title, description, suggestedPriority, tags[] }`.
+   If disabled or on failure: prefill the raw thread text. Either way the human reviews.
 4. `views.update` the modal with the prefilled, editable draft (title, description, priority,
    tags, assignee, location).
 5. On `view_submission`: `cardService.create(actor, draft)` — card lands in **Intake** with
@@ -81,10 +81,19 @@ DM (logged, not fatal). SMTP becomes a second adapter later.
 
 ## Summarization & data handling
 
-Thread content is sent to the Anthropic API **only** when `SUMMARIZER_ENABLED=true`. The
+The summarizer is **provider-agnostic by requirement** (product-owner direction, 2026-07-16):
+the SummarizerPort adapter must make the concrete LLM a pure configuration choice — Anthropic,
+OpenAI, Google Gemini, NVIDIA (build.nvidia.com), or any OpenAI-compatible endpoint — via
+`SUMMARIZER_PROVIDER`, `SUMMARIZER_MODEL`, `SUMMARIZER_API_KEY`, and `SUMMARIZER_BASE_URL`
+(for compatible/self-hosted endpoints). The default remains `anthropic` /
+`claude-haiku-4-5` (the PO-approved cost/quality pick), but swapping models must never touch
+code outside the adapter and its config. The concrete abstraction library vs hand-rolled
+multi-adapter decision is recorded in its own ADR at implementation time.
+
+Thread content is sent to the configured provider **only** when `SUMMARIZER_ENABLED=true`. The
 invoking user already sees the full content in the review modal, so no information reaches the
-ticket unseen. Enabling the flag org-wide should follow a data-handling sign-off; a redaction
-step can be inserted in the SummarizerPort adapter if required.
+ticket unseen. Enabling the flag org-wide should follow a data-handling sign-off (per
+provider); a redaction step can be inserted in the SummarizerPort adapter if required.
 
 ## Testing without a workspace
 
@@ -92,7 +101,9 @@ step can be inserted in the SummarizerPort adapter if required.
   (`app.processEvent`) with recorded `message_action`, `app_mention`, and `view_submission`
   fixture payloads; assert the resulting core-service effects (card created in intake with
   origin slack) and the Web API calls the app attempted.
-- **Integration tests**: point `WebClient`'s `slackApiUrl` and the Anthropic SDK's `baseURL` at
-  local fixture HTTP servers serving recorded JSON — real HTTP, no mocking of our code.
+- **Integration tests**: point `WebClient`'s `slackApiUrl` and the summarizer provider's
+  `baseURL` at local fixture HTTP servers serving recorded JSON — real HTTP, no mocking of our
+  code; the provider-swap config is itself exercised by running the same test against two
+  fixture providers.
 - **Manual smoke test** (dev-only, not CI): one Socket Mode run against a staging workspace
   when credentials arrive.

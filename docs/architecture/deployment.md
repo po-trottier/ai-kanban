@@ -47,15 +47,15 @@ crash in prod.
 
 ## Configuration (env, Zod-validated at boot)
 
-| Variable                                                               | Purpose                                            |
-| ---------------------------------------------------------------------- | -------------------------------------------------- |
-| `NODE_ENV`                                                             | `production` disables demo seeding and dev docs UI |
-| `PORT`, `METRICS_PORT`, `PUBLIC_BASE_URL`, `TRUST_PROXY_HOPS`          | serving                                            |
-| `DATABASE_PATH`, `BLOB_DIR`                                            | `/data/app.sqlite`, `/data/blobs`                  |
-| `SEED_DEMO_DATA`                                                       | demo fixtures (dev only; refused in production)    |
-| `SLACK_ENABLED`, `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_TEAM_ID` | Slack adapter (all required when enabled)          |
-| `SUMMARIZER_ENABLED`, `ANTHROPIC_API_KEY`                              | AI summarization                                   |
-| `LOG_LEVEL`                                                            | pino                                               |
+| Variable                                                                                                     | Purpose                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                                                                                                   | `production` disables demo seeding and dev docs UI                                                                                                                |
+| `PORT`, `METRICS_PORT`, `PUBLIC_BASE_URL`, `TRUST_PROXY_HOPS`                                                | serving                                                                                                                                                           |
+| `DATABASE_PATH`, `BLOB_DIR`                                                                                  | `/data/app.sqlite`, `/data/blobs`                                                                                                                                 |
+| `SEED_DEMO_DATA`                                                                                             | demo fixtures (dev only; refused in production)                                                                                                                   |
+| `SLACK_ENABLED`, `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_TEAM_ID`                                       | Slack adapter (all required when enabled)                                                                                                                         |
+| `SUMMARIZER_ENABLED`, `SUMMARIZER_PROVIDER`, `SUMMARIZER_MODEL`, `SUMMARIZER_API_KEY`, `SUMMARIZER_BASE_URL` | AI summarization — provider-agnostic (anthropic \| openai \| google \| any OpenAI-compatible endpoint incl. build.nvidia.com); default anthropic/claude-haiku-4-5 |
+| `LOG_LEVEL`                                                                                                  | pino                                                                                                                                                              |
 
 (No session secret: session ids are raw 256-bit randomness stored hashed — there is nothing to
 sign; see security.md.)
