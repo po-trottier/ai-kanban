@@ -1,0 +1,17 @@
+/* Shell layout — token-only values (ADR-016 rule 7). */
+
+.shell {
+  height: 100vh;
+}
+
+/* The board page owns its scrolling; the main area pins to the viewport. */
+.main {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.main > * {
+  min-height: 0;
+}

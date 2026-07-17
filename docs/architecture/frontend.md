@@ -1,0 +1,109 @@
+# Frontend (SPA) Architecture
+
+React 19 + Vite single-page app in `packages/web`, served by the backend in production
+([overview.md](overview.md)); in dev, Vite proxies `/api` to `:3000`. UI framework is
+**Mantine 9** with token-only styling rules ([ADR-016](decisions/ADR-016-ui-framework.md));
+the board's drag-and-drop is **Pragmatic drag-and-drop**
+([ADR-007](decisions/ADR-007-pragmatic-drag-and-drop.md)).
+
+## Module layout (`packages/web/src`)
+
+| Module           | Responsibility                                                                                                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `api/`           | Typed REST layer: `ApiClient` (fetch + If-Match + problem+json), response schemas composed from core, TanStack Query hooks per resource, query-key catalog, SSE hint → invalidation mapping, optimistic board-cache updates                 |
+| `auth/`          | Login page, `RequireAuth` session gate, must-change-password interstitial, session context                                                                                                                                                  |
+| `board/`         | Board page, lanes, cards, ⋯ menu, Move to… modal, waiting/cancel/block modals, the card search view (`/search`, `GET /cards` with `q` + include-archived), policy affordance logic (`move-options.ts`), the one thin DnD adapter (`dnd.ts`) |
+| `card/`          | Card detail drawer (deep-linked at `/cards/:id`): fields form (dirty edits survive refetches), markdown editor/preview, attachments, threaded comments, history; archived cards render read-only with a Reopen action                       |
+| `settings/`      | Admin-only surface: users, lanes/WIP, permission policy editor, location tree, service tokens                                                                                                                                               |
+| `shell/`         | AppShell header, SSE bridge, error boundary/alerts, skeletons                                                                                                                                                                               |
+| `strings.ts`     | Every user-facing English string (i18n deferral rule)                                                                                                                                                                                       |
+| `theme.ts`       | The one Mantine theme file — all design values (ADR-016 rule 1)                                                                                                                                                                             |
+| `core-domain.ts` | Domain-only view of `@rivian-kanban/core` (see below)                                                                                                                                                                                       |
+
+## Data flow
+
+- **Single-schema rule**: every response body is parsed with Zod schemas composed from
+  `@rivian-kanban/core` (`api/schemas.ts`); request bodies are the core command schemas minus
+  `expectedVersion`, which rides as `If-Match: "<version>"` (ADR-012).
+- **TanStack Query** owns all server state; `api/keys.ts` is the one query-key vocabulary.
+- **Moves** send only `{ toLane, prevCardId, nextCardId }` (ADR-006) with the official
+  optimistic pattern: `onMutate` snapshot (`api/board-cache.ts` recomputes lanes + soft WIP) →
+  rollback `onError` → invalidate `onSettled`. A 409 rolls back, refetches, and shows the
+  non-blocking "card was just updated" toast (ADR-012).
+- **SSE** (`api/sse.ts`, mounted by `shell/SseBridge`): native `EventSource` on
+  `/api/v1/stream`; hints validated with core's `sseHintSchema` map to targeted query
+  invalidations; the board refetches after a reconnect (ADR-008). Native reconnect only
+  covers drops of an established stream — a CLOSED readyState (401/5xx on connect) is
+  terminal, so the client recreates the source with capped backoff and invalidates
+  `/auth/me` so an expired session lands on login promptly.
+- **Mutation errors are always surfaced**: card/comment/attachment/admin mutations toast the
+  problem+json title (`api/notify.ts`); card mutations special-case 409 with the calm
+  "just updated" message (ADR-012). The comment composer clears only on a successful POST.
+- **Auth**: `/auth/me` drives `RequireAuth`; any 401 (query or mutation) resets the session
+  query and lands on the login page; `mustChangePassword` interposes the change-password page.
+
+## Policy-driven affordances (ADR-013)
+
+`GET /policy` is cached and consulted by pure functions in `board/move-options.ts`:
+drag `canDrop`, Move to… lane options (disabled ≠ hidden), cancel/reopen menu gating, and
+the `deleteOthersComments`/`deleteOthersAttachments` affordances in the card panel all
+derive from one evaluation path (`canPerformAction` covers all five action gates). The
+server re-validates every action regardless.
+
+## Drag-and-drop (ADR-007)
+
+All Pragmatic DnD wiring lives in `board/dnd.ts` (one thin adapter): card draggables with
+`setCustomNativeDragPreview`, closest-edge card targets + lane targets (a card remains a
+valid target of itself so an in-place drop resolves to a no-op, not a lane-bottom move),
+auto-scroll on the plain `overflow-y: auto` lane containers (never Mantine ScrollArea), and
+a drop monitor that resolves targets through pure `move-options.ts` helpers. The
+keyboard/touch/AT path is the card's **⋯ → Move to…** modal driving the same neighbor-id
+move API; both the modal and drag paths announce successful moves through
+`pragmatic-drag-and-drop-live-region`.
+
+## Known limitations (deferred, tracked)
+
+- **User reactivation is API-only**: `GET /users` returns active users, so a deactivated
+  user disappears from the admin table and `PATCH /users/:id { isActive: true }` has no UI.
+  The Deactivate button therefore requires an explicit confirmation. Revisit when the server
+  grows an include-inactive listing.
+- `PUT /policy` carries no If-Match; the editor remounts on every refetch (SSE
+  `policy.updated` or its own save) so it never PUTs a stale snapshot, but two admins saving
+  in the same instant is still last-write-wins (recoverable via the append-only history).
+
+## Forms
+
+react-hook-form + `standardSchemaResolver` (`@hookform/resolvers`) consuming the core Zod
+schemas directly (Zod 4 implements Standard Schema). Deviation from ADR-016's
+`@mantine/form` + `mantine-form-zod-resolver` line: the task pinned react-hook-form, and
+carrying both form libraries would fail knip's unused-dependency gate — one form stack,
+same single-schema guarantee. Card field edits submit only dirty fields so the audit trail
+gets one event per real change.
+
+## `core-domain.ts` and coverage isolation
+
+The SPA needs only core's **domain** modules (schemas/constants/types). `vite.config.ts`
+aliases `@rivian-kanban/core` to `src/core-domain.ts`, which re-exports the domain files —
+so the browser bundle never ships core's services, and the web test pipeline never executes
+them (a second, Vite-transformed instrumentation of service sources skews the merged
+V8 coverage of the native-Node backend runs, ADR-014). Web tests additionally load core
+natively via `server.deps.external`. Type checking still resolves the real package, so the
+alias cannot drift from the published schema shapes.
+
+## React Compiler
+
+`@vitejs/plugin-react`'s `reactCompilerPreset` runs through `@rolldown/plugin-babel` +
+`babel-plugin-react-compiler` for dev/build. It is **excluded under Vitest**
+(`process.env.VITEST` guard): compiler memoization defeats react-hook-form's `formState`
+proxy subscriptions in the happy-dom pipeline (forms stop re-rendering on
+dirty/error changes).
+
+## Testing (docs/dev/testing.md)
+
+`*.unit.test.tsx` on happy-dom, AAA comments, Testing Library by role/label, no mocking
+libraries. Components take data via props/context; where a page needs a network, tests inject
+a hand-written fake `fetch` (route table → real `Response` objects) through `ApiContext` —
+dependency injection, not interception; the real network path belongs to Playwright.
+`src/test/setup.ts` carries hand-written happy-dom polyfills (`document.fonts`,
+`EventSource`) and drains the singleton notifications store between tests. The DnD adapter's
+native drag events cannot fire in happy-dom; that path is e2e-only by design (ADR-007).

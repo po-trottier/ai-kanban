@@ -1,0 +1,46 @@
+/* Board layout — custom CSS consumes only mantine/app token variables (ADR-016 rule 7). */
+.board {
+  display: flex;
+  align-items: stretch;
+  gap: var(--mantine-spacing-md);
+  overflow-x: auto;
+  height: 100%;
+  padding-bottom: var(--mantine-spacing-sm);
+}
+
+.lane {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 var(--app-lane-width);
+  max-height: 100%;
+  border-radius: var(--mantine-radius-md);
+  background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+}
+
+.laneHeader {
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-sm) var(--mantine-spacing-xs);
+}
+
+/* Plain overflow container — NOT Mantine ScrollArea (ADR-016 DnD rule). */
+.laneCards {
+  overflow-y: auto;
+  min-height: var(--app-board-column-min-height);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm) var(--mantine-spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-xs);
+  flex: 1;
+}
+
+.laneCardsOver {
+  background-color: light-dark(var(--mantine-color-indigo-0), var(--mantine-color-dark-5));
+}
+
+.card {
+  position: relative;
+  cursor: grab;
+}
+
+.cardDragging {
+  opacity: 0.5;
+}

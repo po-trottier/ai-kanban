@@ -1,0 +1,48 @@
+import { Button, Group, Modal, Stack, Textarea } from '@mantine/core'
+import { useState } from 'react'
+import { strings } from '../strings.ts'
+
+export interface BlockCardModalProps {
+  onSubmit: (reason: string) => void
+  onClose: () => void
+}
+
+/** Blocking flags a card in place with a required reason (docs/product/workflow.md). */
+export function BlockCardModal({ onSubmit, onClose }: BlockCardModalProps) {
+  const [reason, setReason] = useState('')
+  const [touched, setTouched] = useState(false)
+  const error = touched && reason.trim() === '' ? strings.blockAction.reasonRequired : null
+
+  return (
+    <Modal opened onClose={onClose} title={strings.blockAction.modalTitle}>
+      <Stack gap="md">
+        <Textarea
+          label={strings.blockAction.reasonLabel}
+          value={reason}
+          error={error}
+          autosize
+          minRows={2}
+          onChange={(event) => {
+            setReason(event.currentTarget.value)
+          }}
+        />
+        <Group justify="flex-end" gap="sm">
+          <Button variant="default" onClick={onClose}>
+            {strings.common.cancel}
+          </Button>
+          <Button
+            color="red"
+            onClick={() => {
+              setTouched(true)
+              const trimmed = reason.trim()
+              if (trimmed === '') return
+              onSubmit(trimmed)
+            }}
+          >
+            {strings.blockAction.confirm}
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  )
+}
