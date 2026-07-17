@@ -17,19 +17,37 @@ server for AI agents, and Slack-native ticket intake — all over one audited se
 
 ## Documentation
 
-| For | Read |
-| --- | --- |
-| Users | [docs/user/guide.md](docs/user/guide.md) · [docs/user/slack.md](docs/user/slack.md) |
-| Product | [docs/product/vision.md](docs/product/vision.md) · [docs/product/workflow.md](docs/product/workflow.md) |
-| Architecture | [docs/architecture/overview.md](docs/architecture/overview.md) · [data-model](docs/architecture/data-model.md) · [REST](docs/architecture/rest-api.md) · [MCP](docs/architecture/mcp.md) · [Slack](docs/architecture/slack.md) · [security](docs/architecture/security.md) · [deployment](docs/architecture/deployment.md) · [ADRs](docs/architecture/decisions/) |
-| Developers | [docs/dev/getting-started.md](docs/dev/getting-started.md) · [standards](docs/dev/standards.md) · [testing](docs/dev/testing.md) |
+- **Users**
+  - [User guide](docs/user/guide.md) — using the board, cards, comments, history
+  - [Slack guide](docs/user/slack.md) — creating tickets from Slack threads
+- **Product**
+  - [Vision & scope decisions](docs/product/vision.md)
+  - [Workflow: lanes, transitions, policies](docs/product/workflow.md)
+- **Architecture**
+  - [Overview](docs/architecture/overview.md) — hexagonal design, monorepo, process model
+  - [Data model](docs/architecture/data-model.md)
+  - [REST API](docs/architecture/rest-api.md)
+  - [MCP server](docs/architecture/mcp.md)
+  - [Slack integration](docs/architecture/slack.md)
+  - [Security](docs/architecture/security.md)
+  - [Deployment](docs/architecture/deployment.md)
+  - [Decision records (ADRs)](docs/architecture/decisions/)
+- **Developers**
+  - [Getting started](docs/dev/getting-started.md)
+  - [Engineering standards (enforced)](docs/dev/standards.md)
+  - [Testing standards (enforced)](docs/dev/testing.md)
 
 ## Quick start
 
 ```bash
-npm ci && cp .env.example .env && npm run dev
+npm ci && npm run setup && cp .env.example .env && npm run dev
 ```
 
-Stack: TypeScript end-to-end · Fastify 5 · Drizzle + better-sqlite3 · MCP SDK ·
-Slack Bolt (Socket Mode) · React 19 + Vite · Pragmatic drag-and-drop · TanStack Query ·
-Tailwind 4 + shadcn/ui · Vitest + Playwright.
+## Tech stack
+
+- **Language**: TypeScript end-to-end (one Zod schema source for REST, OpenAPI, MCP, and forms)
+- **Backend**: Node 24 LTS, Fastify 5, Drizzle ORM on better-sqlite3 (WAL), SSE realtime
+- **MCP**: official `@modelcontextprotocol/sdk` (Streamable HTTP at `/mcp`)
+- **Slack**: Bolt (Socket Mode), Anthropic API for optional thread summarization
+- **Frontend**: React 19, Vite, Pragmatic drag-and-drop, TanStack Query, Tailwind 4 + shadcn/ui
+- **Testing**: Vitest (unit + no-mock integration), Playwright (e2e)
