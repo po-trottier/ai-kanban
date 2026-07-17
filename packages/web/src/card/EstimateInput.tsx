@@ -1,4 +1,5 @@
-import { Group, NumberInput, Select, Stack, Text } from '@mantine/core'
+import { ActionIcon, Group, NumberInput, Select, Stack, Text, Tooltip } from '@mantine/core'
+import { Info } from 'lucide-react'
 import { useState } from 'react'
 import {
   ESTIMATE_UNITS,
@@ -84,7 +85,21 @@ export function EstimateInput({
           }}
         />
         <Select
-          label={strings.detail.estimateUnitLabel}
+          label={
+            <Group gap={4} wrap="nowrap" component="span">
+              {strings.detail.estimateUnitLabel}
+              <Tooltip label={strings.detail.estimateUnitHelp} withArrow multiline w={220}>
+                <ActionIcon
+                  variant="transparent"
+                  color="gray"
+                  size="xs"
+                  aria-label={strings.detail.estimateUnitHelp}
+                >
+                  <Info size={14} aria-hidden />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          }
           data={ESTIMATE_UNITS.map((option) => ({
             value: option,
             label: strings.estimateUnits[option],

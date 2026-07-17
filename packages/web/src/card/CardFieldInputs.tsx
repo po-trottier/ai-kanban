@@ -73,7 +73,7 @@ export function CardFieldInputs({
             label={strings.detail.priorityLabel}
             data={PRIORITIES.map((priority) => ({
               value: priority,
-              label: strings.priorityOptions[priority].label,
+              label: `${priority} — ${strings.priorityOptions[priority].name}`,
             }))}
             // A short plain-language description under each code (ITEM 3) so a
             // non-technical user understands P0/P1/P2, not just the labels.
@@ -81,7 +81,7 @@ export function CardFieldInputs({
               const priority = option.value
               return (
                 <Stack gap={0}>
-                  <Text size="sm">{strings.priorityOptions[priority].label}</Text>
+                  <Text size="sm">{`${priority} — ${strings.priorityOptions[priority].name}`}</Text>
                   <Text size="xs" c="dimmed">
                     {strings.priorityOptions[priority].description}
                   </Text>

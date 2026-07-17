@@ -134,9 +134,6 @@ export const strings = {
     legendTitle: 'Badge guide',
     legendPriorities: 'Priority',
     legendStates: 'Status',
-    legendPriorityP0: 'P0 — drop everything',
-    legendPriorityP1: 'P1 — high priority',
-    legendPriorityP2: 'P2 — normal priority',
     legendBlocked: 'Blocked — stuck on an exception; hover the badge for the reason',
     legendWaiting: 'Waiting — paused on parts or a vendor, with an expected resume date',
     /** Short badge word for the Overdue legend row (the board shows "Overdue: …"). */
@@ -267,6 +264,8 @@ export const strings = {
     /** Unmistakable that this is the estimated time to finish the work (ITEM 3). */
     estimateLabel: 'Estimated time to completion',
     estimateUnitLabel: 'Time unit',
+    estimateUnitHelp:
+      'Enter the estimate in minutes, hours, or days. One day means 8 working hours.',
     estimateOptional: 'How long the work should take. Optional until Ready.',
     assigneeLabel: 'Assignee',
     locationLabel: 'Location',
@@ -522,15 +521,15 @@ export const strings = {
   } satisfies Record<Priority, string>,
 
   /**
-   * The priority Select shows a short plain-language description under each
-   * code so a non-technical user understands P0/P1/P2 (ITEM 3). `label` is the
-   * bold option line ("P0 — Critical"); `description` is the dimmed hint below.
+   * The single source of plain-language priority meanings, consumed by BOTH the
+   * priority Select (bold "P0 — {name}" + dimmed {description}) and the badge
+   * guide (badge + "{name} — {description}") so the two can never drift.
    */
   priorityOptions: {
-    P0: { label: 'P0 — Critical', description: 'Drop everything' },
-    P1: { label: 'P1 — High', description: 'Do soon' },
-    P2: { label: 'P2 — Normal', description: 'Routine work' },
-  } satisfies Record<Priority, { label: string; description: string }>,
+    P0: { name: 'Critical', description: 'Drop everything' },
+    P1: { name: 'High', description: 'Do soon' },
+    P2: { name: 'Normal', description: 'Routine work' },
+  } satisfies Record<Priority, { name: string; description: string }>,
 
   resolutions: {
     completed: 'Completed',

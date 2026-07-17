@@ -1,0 +1,19 @@
+/* Two-column table: the badge column sizes to the widest badge (so no status
+   word clips) and every description starts at the same x. Section headers span
+   both columns. Gaps use Mantine spacing tokens (ADR-016). */
+.grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: var(--mantine-spacing-md);
+  row-gap: var(--mantine-spacing-xs);
+  align-items: center;
+  justify-items: start;
+}
+
+.section {
+  grid-column: 1 / -1;
+}
+
+.section:not(:first-child) {
+  margin-top: var(--mantine-spacing-xs);
+}

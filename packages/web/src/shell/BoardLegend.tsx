@@ -1,22 +1,30 @@
-import { ActionIcon, Badge, Group, Modal, Stack, Text, Tooltip } from '@mantine/core'
+import { ActionIcon, Badge, Modal, Text, Tooltip } from '@mantine/core'
 import { HelpCircle } from 'lucide-react'
 import { useState } from 'react'
 import { strings } from '../strings.ts'
-import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
 import {
   BLOCKED_COLOR,
   CANCELLED_COLOR,
+  EMPHASIS_FONT_WEIGHT,
   OVERDUE_COLOR,
   PRIORITY_COLORS,
   WAITING_COLOR,
 } from '../theme.ts'
+import classes from './legend.module.css'
+
+/** Priority descriptions come from the SAME source the priority dropdown uses
+ * (strings.priorityOptions) so the two can never disagree. */
+function priorityText(priority: 'P0' | 'P1' | 'P2'): string {
+  const meaning = strings.priorityOptions[priority]
+  return `${meaning.name} — ${meaning.description}`
+}
 
 /**
  * A compact, plain-language key to the board's colored badges — a first-time
  * facilities user should never have to guess what P0/P1/P2 or BLOCKED mean.
  * The trigger is a small help icon in the header cluster; the guide opens as a
- * centered modal so its rows never clip at the viewport edge (the old bottom-
- * end popover pushed them off-screen).
+ * centered modal laid out as an aligned two-column table (a fixed-width column
+ * clipped the longer status words; a ragged one was hard to scan).
  */
 export function BoardLegend() {
   const [opened, setOpened] = useState(false)
@@ -43,29 +51,29 @@ export function BoardLegend() {
         title={strings.board.legendTitle}
         centered
       >
-        <Stack gap="sm">
-          <Text size="sm" fw={EMPHASIS_FONT_WEIGHT}>
+        <div className={classes.grid}>
+          <Text className={classes.section} size="sm" fw={EMPHASIS_FONT_WEIGHT}>
             {strings.board.legendPriorities}
           </Text>
           <LegendRow
             color={PRIORITY_COLORS.P0}
             filled
             label={strings.priorities.P0}
-            text={strings.board.legendPriorityP0}
+            text={priorityText('P0')}
           />
           <LegendRow
             color={PRIORITY_COLORS.P1}
             filled
             label={strings.priorities.P1}
-            text={strings.board.legendPriorityP1}
+            text={priorityText('P1')}
           />
           <LegendRow
             color={PRIORITY_COLORS.P2}
             filled
             label={strings.priorities.P2}
-            text={strings.board.legendPriorityP2}
+            text={priorityText('P2')}
           />
-          <Text size="sm" fw={EMPHASIS_FONT_WEIGHT} mt="xs">
+          <Text className={classes.section} size="sm" fw={EMPHASIS_FONT_WEIGHT}>
             {strings.board.legendStates}
           </Text>
           <LegendRow
@@ -94,12 +102,14 @@ export function BoardLegend() {
             label={strings.card.archivedBadge}
             text={strings.board.legendArchived}
           />
-        </Stack>
+        </div>
       </Modal>
     </>
   )
 }
 
+/** One table row: a badge in the left column, its meaning in the right — each
+ * a direct grid child so the columns align (see legend.module.css). */
 function LegendRow({
   color,
   filled = false,
@@ -116,19 +126,11 @@ function LegendRow({
   text: string
 }) {
   return (
-    <Group gap="xs" wrap="nowrap" align="flex-start">
-      {/* The badge sizes to its own content and never shrinks, so every status
-          word stays whole (a fixed-width column clipped the longer ones to
-          BLOCK…, PAR…, CANCELL…). */}
-      <Badge
-        color={color}
-        size="sm"
-        variant={variant ?? (filled ? 'filled' : 'light')}
-        style={{ flexShrink: 0 }}
-      >
+    <>
+      <Badge color={color} size="sm" variant={variant ?? (filled ? 'filled' : 'light')}>
         {label}
       </Badge>
       <Text size="xs">{text}</Text>
-    </Group>
+    </>
   )
 }
