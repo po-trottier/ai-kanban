@@ -2,7 +2,9 @@ import { TOKEN_SCOPES, type Role, type TokenScope } from '@rivian-kanban/core'
 import { Badge, Button, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
 import { useState } from 'react'
 import { useCreateServiceToken, useRevokeServiceToken, useServiceTokens } from '../api/admin.ts'
+import { type ServiceTokenView } from '../api/schemas.ts'
 import { formatDateTime } from '../lib/format.ts'
+import { ConfirmModal } from '../shell/ConfirmModal.tsx'
 import { strings } from '../strings.ts'
 import { RevealOnceModal } from './RevealOnceModal.tsx'
 import { ROLE_SELECT_DATA } from './role-select-data.ts'
@@ -14,6 +16,7 @@ export function TokensAdmin() {
   const revokeToken = useRevokeServiceToken()
   const [createOpen, setCreateOpen] = useState(false)
   const [rawToken, setRawToken] = useState<string | null>(null)
+  const [revokeTarget, setRevokeTarget] = useState<ServiceTokenView | null>(null)
   const [draft, setDraft] = useState<{ name: string; role: Role; scope: TokenScope }>({
     name: '',
     role: 'technician',
@@ -81,7 +84,7 @@ export function TokensAdmin() {
                     variant="light"
                     color="red"
                     onClick={() => {
-                      revokeToken.mutate(token.id)
+                      setRevokeTarget(token)
                     }}
                   >
                     {strings.tokens.revoke}
@@ -158,6 +161,25 @@ export function TokensAdmin() {
           secret={rawToken}
           onClose={() => {
             setRawToken(null)
+          }}
+        />
+      ) : null}
+
+      {revokeTarget !== null ? (
+        <ConfirmModal
+          title={strings.tokens.revokeConfirmTitle}
+          body={strings.tokens.revokeConfirmBody(revokeTarget.name)}
+          confirmLabel={strings.tokens.revokeConfirm}
+          loading={revokeToken.isPending}
+          onConfirm={() => {
+            revokeToken.mutate(revokeTarget.id, {
+              onSuccess: () => {
+                setRevokeTarget(null)
+              },
+            })
+          }}
+          onClose={() => {
+            setRevokeTarget(null)
           }}
         />
       ) : null}

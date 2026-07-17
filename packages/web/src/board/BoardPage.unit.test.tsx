@@ -68,7 +68,7 @@ describe('BoardPage move flows', () => {
     expect(new Headers(call?.init?.headers).get('If-Match')).toBe('"7"')
   })
 
-  it('prompts for reason and resume date when moving into the waiting lane', async () => {
+  it('collects the waiting reason and resume date inline in the move modal', async () => {
     // Arrange
     const user = userEvent.setup()
     const moving = makeCard('intake', { title: 'Needs parts', version: 2 })
@@ -77,17 +77,18 @@ describe('BoardPage move flows', () => {
       { [`POST /api/v1/cards/${moving.id}/move`]: moving },
     )
     renderApp({ fetchFn: fake.fetch })
-    // Act
+    // Act — picking the waiting lane reveals the reason + date in the SAME
+    // modal (no confusing second hop), and Move stays disabled until both set.
     await openCardMenu(user, 'Needs parts')
     await user.click(await screen.findByRole('menuitem', { name: 'Move to…' }))
     await user.click(await screen.findByRole('combobox', { name: 'Column' }))
     await user.click(screen.getByRole('option', { name: 'Waiting on Parts / Vendor' }))
-    await user.click(screen.getByRole('button', { name: 'Move' }))
+    expect(screen.getByRole('button', { name: 'Move' })).toBeDisabled()
     await user.click(await screen.findByRole('combobox', { name: 'Waiting reason' }))
     await user.click(screen.getByRole('option', { name: 'Vendor' }))
     await user.click(screen.getByRole('button', { name: 'Expected resume date' }))
     await user.click(nth(screen.getAllByRole('button', { name: /20 July 2026/ }), 0))
-    await user.click(screen.getByRole('button', { name: 'Move card' }))
+    await user.click(screen.getByRole('button', { name: 'Move' }))
     // Assert
     expect(fake.lastBody('POST', `/api/v1/cards/${moving.id}/move`)).toMatchObject({
       toLane: 'waiting_parts_vendor',

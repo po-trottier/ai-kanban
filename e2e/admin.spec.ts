@@ -37,7 +37,8 @@ test('editing a lane WIP limit reflects on the board badge', async ({ page, cont
     .getByLabel('Column Waiting for Approval')
     .getByRole('button', { name: 'Save', exact: true })
     .click()
-  await expect(page.getByText('Column updated')).toBeVisible()
+  // The row-scoped toast now names the column that was saved.
+  await expect(page.getByText('Waiting for Approval updated')).toBeVisible()
 
   await openBoard(page)
   const lane = page.locator('section', { has: laneList(page, 'Waiting for Approval') })

@@ -79,6 +79,8 @@ describe('LocationsAdmin', () => {
     await user.type(nameInput, 'HQ West')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await user.click(await screen.findByLabelText('Delete HQ'))
+    // Deleting a location (and its children) is confirmed first.
+    await user.click(await screen.findByRole('button', { name: /^Delete$/ }))
     // Assert
     expect(fake.lastBody('PATCH', `/api/v1/locations/${building.id}`)).toEqual({ name: 'HQ West' })
     expect(fake.calls.some((c) => c.method === 'DELETE')).toBe(true)

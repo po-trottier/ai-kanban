@@ -16,7 +16,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useBoard } from '../api/board.ts'
 import { useCardSearch } from '../api/card.ts'
-import { utcToday } from '../lib/format.ts'
+import { useLocations, useUsers } from '../api/meta.ts'
+import { formatEstimate, utcToday } from '../lib/format.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT, SIZES } from '../theme.ts'
@@ -35,11 +36,19 @@ export function CardSearchPage() {
   const search = useCardSearch({ q, includeArchived })
   // Lane labels for the per-row column chip (shared board query, cached).
   const board = useBoard()
+  const users = useUsers()
+  const locations = useLocations()
   const laneLabelById = new Map(
     (board.data?.lanes ?? []).map((snapshot) => [snapshot.lane.id, snapshot.lane.label]),
   )
+  const userNameById = new Map((users.data ?? []).map((user) => [user.id, user.displayName]))
+  const locationNameById = new Map(
+    (locations.data ?? []).map((location) => [location.id, location.name]),
+  )
   const cards = (search.data?.pages ?? []).flatMap((page) => page.items)
   const today = utcToday()
+  // Distinguish "not searched yet" from "no results" (see the empty branch).
+  const searched = q !== ''
 
   return (
     <Container size="md" w="100%">
@@ -79,12 +88,18 @@ export function CardSearchPage() {
           <Skeleton height={SIZES.skeletonCardHeight} radius="md" />
         ) : cards.length === 0 ? (
           <Text size="sm" c="dimmed">
-            {strings.search.empty}
+            {/* Untouched box → gentle guidance; a run query with no hits → a
+                clear no-results message (distinct from an error). */}
+            {searched ? strings.search.noResults : strings.search.initialHint}
           </Text>
         ) : (
           <Stack gap="xs" role="list" aria-label={strings.search.resultsLabel}>
             {cards.map((card) => {
               const laneLabel = laneLabelById.get(card.laneId)
+              const assigneeName =
+                card.assigneeId === null ? null : (userNameById.get(card.assigneeId) ?? null)
+              const locationName =
+                card.locationId === null ? null : (locationNameById.get(card.locationId) ?? null)
               return (
                 <div role="listitem" key={card.id}>
                   <UnstyledButton
@@ -94,19 +109,36 @@ export function CardSearchPage() {
                     }}
                   >
                     <Paper withBorder p="sm" radius="md">
-                      <Group justify="space-between" gap="xs">
-                        <Text size="sm" fw={EMPHASIS_FONT_WEIGHT}>
-                          {card.title}
-                        </Text>
-                        <Group gap="xs">
-                          {laneLabel === undefined ? null : (
-                            <Badge color="gray" size="sm" variant="light">
-                              {laneLabel}
-                            </Badge>
-                          )}
-                          <CardBadges card={card} today={today} />
+                      <Stack gap="xs">
+                        <Group justify="space-between" gap="xs">
+                          <Text size="sm" fw={EMPHASIS_FONT_WEIGHT}>
+                            {card.title}
+                          </Text>
+                          <Group gap="xs">
+                            {laneLabel === undefined ? null : (
+                              <Badge color="gray" size="sm" variant="light">
+                                {laneLabel}
+                              </Badge>
+                            )}
+                            <CardBadges card={card} today={today} />
+                          </Group>
                         </Group>
-                      </Group>
+                        {/* Same fields and placeholders as the board card so a
+                            user can tell near-identical results apart. */}
+                        <Group gap="lg">
+                          <Text size="xs" c="dimmed">
+                            {assigneeName ?? strings.card.unassigned}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {locationName ?? strings.card.noLocation}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {card.estimateMinutes === null
+                              ? strings.card.noEstimate
+                              : formatEstimate(card.estimateMinutes)}
+                          </Text>
+                        </Group>
+                      </Stack>
                     </Paper>
                   </UnstyledButton>
                 </div>

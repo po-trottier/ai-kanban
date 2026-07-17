@@ -16,8 +16,8 @@ async function fillLogin(page: Page, email: string, password: string): Promise<v
 test('rejects bad credentials with the uniform authentication error', async ({ page }) => {
   await fillLogin(page, `nobody-${randomUUID()}@e2e.example`, 'definitely-not-the-password')
 
-  await expect(page.getByRole('alert')).toContainText('Authentication required')
-  await expect(page.getByRole('alert')).toContainText('invalid email or password')
+  // A 401 is mapped to friendly, specific copy rather than the raw problem title.
+  await expect(page.getByRole('alert')).toContainText('That email or password is not correct.')
   await expect(page).toHaveURL(/\/login$/)
 })
 

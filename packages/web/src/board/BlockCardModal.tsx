@@ -18,6 +18,7 @@ export function BlockCardModal({ onSubmit, onClose }: BlockCardModalProps) {
       <Stack gap="md">
         <Textarea
           label={strings.blockAction.reasonLabel}
+          placeholder={strings.blockAction.reasonPlaceholder}
           value={reason}
           error={error}
           autosize
@@ -30,8 +31,8 @@ export function BlockCardModal({ onSubmit, onClose }: BlockCardModalProps) {
           <Button variant="default" onClick={onClose}>
             {strings.common.cancel}
           </Button>
+          {/* Blocking is a routine, non-destructive flag — primary, not red. */}
           <Button
-            color="red"
             onClick={() => {
               setTouched(true)
               const trimmed = reason.trim()

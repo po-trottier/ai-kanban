@@ -100,6 +100,8 @@ describe('CardPanel', () => {
     await user.type(editBox, 'Edited note')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await user.click(await screen.findByRole('button', { name: 'Delete comment' }))
+    // A confirmation guards the irreversible delete — confirm it.
+    await user.click(await screen.findByRole('button', { name: 'Delete it' }))
     // Assert
     expect(fake.lastBody('POST', `/api/v1/cards/${card.id}/comments`)).toEqual({
       body: 'New note',
@@ -108,6 +110,30 @@ describe('CardPanel', () => {
       body: 'Edited note',
     })
     expect(fake.calls.some((c) => c.method === 'DELETE')).toBe(true)
+  })
+
+  it('keeps the panel open when Escape dismisses a nested delete-comment confirm', async () => {
+    // Arrange — a comment to delete, so the confirm dialog can open in-panel.
+    const user = userEvent.setup()
+    const existing = makeComment({
+      id: uid(117),
+      cardId: card.id,
+      authorId: fixtureAdmin.id,
+      body: 'Note to keep',
+    })
+    const fake = panelApp({ [`GET /api/v1/cards/${card.id}/comments`]: [existing] })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    await screen.findByRole('textbox', { name: /Title/ })
+    // Act — open the delete confirm, then press Escape to back out of it.
+    await user.click(screen.getByRole('tab', { name: 'Comments' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete comment' }))
+    expect(await screen.findByRole('button', { name: 'Delete it' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    // Assert — the confirm is gone but the whole card panel is still open, and
+    // nothing was deleted (Escape only dismissed the nested dialog).
+    expect(screen.queryByRole('button', { name: 'Delete it' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: /Card details/ })).toBeInTheDocument()
+    expect(fake.calls.some((c) => c.method === 'DELETE')).toBe(false)
   })
 
   it('renders the placeholder for a soft-deleted comment served with a blanked body', async () => {
@@ -280,6 +306,102 @@ describe('CardPanel', () => {
     const body = upload?.init?.body
     expect(body).toBeInstanceOf(FormData)
     expect((body as FormData).get('file')).toBeInstanceOf(File)
+  })
+
+  it('shows a blocked banner with the reason and an inline Unblock action', async () => {
+    // Arrange
+    const blocked = makeCard('in_progress', {
+      title: 'Stuck job',
+      blocked: true,
+      blockedReason: 'Waiting on landlord approval',
+      version: 3,
+    })
+    const user = userEvent.setup()
+    const fake = createFakeFetch({
+      'GET /api/v1/auth/me': fixtureAdmin,
+      'GET /api/v1/board': makeBoard({ in_progress: [blocked] }),
+      'GET /api/v1/policy': policyRecordOf(permissivePolicy),
+      'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/locations': [],
+      'GET /api/v1/tags': [],
+      [`GET /api/v1/cards/${blocked.id}`]: {
+        card: blocked,
+        tags: [],
+        location: null,
+        attachments: [],
+      },
+      [`GET /api/v1/cards/${blocked.id}/comments`]: [],
+      [`GET /api/v1/cards/${blocked.id}/events`]: { items: [], nextCursor: null },
+      [`POST /api/v1/cards/${blocked.id}/unblock`]: { ...blocked, blocked: false },
+    })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${blocked.id}` })
+    // Act
+    expect(await screen.findByText('This card is blocked')).toBeInTheDocument()
+    expect(screen.getByText('Waiting on landlord approval')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Unblock' }))
+    // Assert — unblock hit the API with the card's If-Match version
+    const unblock = fake.calls.find((c) => c.url.includes('/unblock'))
+    expect(new Headers(unblock?.init?.headers).get('If-Match')).toBe('"3"')
+  })
+
+  it('shows a cancelled banner naming the resolution with a Reopen action', async () => {
+    // Arrange
+    const cancelled = makeCard('done', {
+      title: 'Scrapped job',
+      resolution: 'cancelled',
+      version: 4,
+    })
+    const fake = createFakeFetch({
+      'GET /api/v1/auth/me': fixtureAdmin,
+      'GET /api/v1/board': makeBoard({ done: [cancelled] }),
+      'GET /api/v1/policy': policyRecordOf(permissivePolicy),
+      'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/locations': [],
+      'GET /api/v1/tags': [],
+      [`GET /api/v1/cards/${cancelled.id}`]: {
+        card: cancelled,
+        tags: [],
+        location: null,
+        attachments: [],
+      },
+      [`GET /api/v1/cards/${cancelled.id}/comments`]: [],
+      [`GET /api/v1/cards/${cancelled.id}/events`]: { items: [], nextCursor: null },
+    })
+    // Act
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${cancelled.id}` })
+    // Assert
+    expect(await screen.findByText('This card was cancelled')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reopen' })).toBeInTheDocument()
+  })
+
+  it('titles the banner grammatically for a duplicate resolution', async () => {
+    // Arrange — "This card is duplicate" would be ungrammatical; assert the
+    // resolution-specific phrasing instead.
+    const duplicate = makeCard('done', {
+      title: 'Dupe job',
+      resolution: 'duplicate',
+      version: 2,
+    })
+    const fake = createFakeFetch({
+      'GET /api/v1/auth/me': fixtureAdmin,
+      'GET /api/v1/board': makeBoard({ done: [duplicate] }),
+      'GET /api/v1/policy': policyRecordOf(permissivePolicy),
+      'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/locations': [],
+      'GET /api/v1/tags': [],
+      [`GET /api/v1/cards/${duplicate.id}`]: {
+        card: duplicate,
+        tags: [],
+        location: null,
+        attachments: [],
+      },
+      [`GET /api/v1/cards/${duplicate.id}/comments`]: [],
+      [`GET /api/v1/cards/${duplicate.id}/events`]: { items: [], nextCursor: null },
+    })
+    // Act
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${duplicate.id}` })
+    // Assert
+    expect(await screen.findByText('This card is a duplicate')).toBeInTheDocument()
   })
 
   it('surfaces an oversized upload (413) as a visible problem toast', async () => {

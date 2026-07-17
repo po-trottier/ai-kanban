@@ -46,6 +46,22 @@ function card(overrides: Partial<Card> = {}): Card {
   })
 }
 
+/** A minimal valid attachment row for the board-summary count join. */
+function attachment(cardId: string, filename: string) {
+  return {
+    id: newId(),
+    cardId,
+    filename,
+    mime: 'application/pdf',
+    bytes: 1024,
+    sha256: 'a'.repeat(64),
+    storageKey: newId(),
+    uploadedBy: reporterId,
+    createdAt: '2026-07-16T12:00:00.000Z',
+    deletedAt: null,
+  }
+}
+
 describe('CRUD + uniqueness backstop', () => {
   it('round-trips a full card through insert and findById', async () => {
     const original = card({
@@ -128,6 +144,66 @@ describe('listByLane', () => {
 
     // NOCASE would sort 'a0' first; BINARY sorts 'A1' (0x41) before 'a0' (0x61).
     expect(listed.map((c) => c.position)).toEqual(['A1', 'a0'])
+  })
+})
+
+describe('listBoardSummariesByLane', () => {
+  it('carries tag names, an active-attachment count, and the location label per card', async () => {
+    // Arrange — one card with two tags, two attachments (one soft-deleted),
+    // and a location, plus a bare card in the same lane. Uses `review`, which
+    // no later cursor/ordering test enumerates (shared-db isolation).
+    const laneId = base.lanes.review.id
+    const location = { id: newId(), parentId: null, kind: 'building' as const, name: 'Warehouse B' }
+    const tagA = { id: newId(), name: 'HVAC' }
+    const tagB = { id: newId(), name: 'urgent' }
+    const rich = card({ laneId, position: 'z0', locationId: location.id })
+    const bare = card({ laneId, position: 'z1' })
+    await run(async (tx) => {
+      await tx.locations.insert(location)
+      await tx.tags.insert(tagA)
+      await tx.tags.insert(tagB)
+      await tx.cards.insert(rich)
+      await tx.cards.insert(bare)
+      await tx.tags.setCardTags(rich.id, [tagA.id, tagB.id])
+      await tx.attachments.insert(attachment(rich.id, 'live.pdf'))
+      await tx.attachments.insert({
+        ...attachment(rich.id, 'gone.pdf'),
+        deletedAt: '2026-07-16T13:00:00.000Z',
+      })
+    })
+
+    // Act
+    const rows = await run((tx) => tx.cards.listBoardSummariesByLane(laneId))
+
+    // Assert — extras count only the live attachment; the bare card is empty.
+    const mine = rows.filter((row) => row.card.id === rich.id || row.card.id === bare.id)
+    const richRow = rows.find((row) => row.card.id === rich.id)
+    const bareRow = rows.find((row) => row.card.id === bare.id)
+    // My two cards keep their relative position order within the lane.
+    expect(mine.map((row) => row.card.position)).toEqual(['z0', 'z1'])
+    expect(richRow?.extras.tags.toSorted()).toEqual(['HVAC', 'urgent'])
+    expect(richRow?.extras.attachmentCount).toBe(1)
+    expect(richRow?.extras.locationLabel).toBe('Warehouse B')
+    expect(bareRow?.extras).toEqual({ tags: [], attachmentCount: 0, locationLabel: null })
+  })
+
+  it('excludes archived cards, matching the board snapshot contract', async () => {
+    // Arrange — a fresh, otherwise-empty lane so the shared db doesn't add rows.
+    const laneId = base.lanes.waiting_approval.id
+    const live = card({ laneId, position: 'yy0' })
+    const archived = card({ laneId, position: 'yy1', archivedAt: '2026-07-16T13:00:00.000Z' })
+    await run(async (tx) => {
+      await tx.cards.insert(live)
+      await tx.cards.insert(archived)
+    })
+
+    // Act
+    const rows = await run((tx) => tx.cards.listBoardSummariesByLane(laneId))
+
+    // Assert — the archived row is absent; the live row is present
+    const ids = rows.map((row) => row.card.id)
+    expect(ids).toContain(live.id)
+    expect(ids).not.toContain(archived.id)
   })
 })
 

@@ -31,7 +31,12 @@ export const SIZES = {
   /** Fixed lanes-admin inputs so the grid aligns regardless of label length. */
   laneLabelInputWidth: '16rem',
   laneWipLimitInputWidth: '6.5rem',
+  /** The docked card-detail Aside width (matches the old Drawer `size="lg"`). */
+  cardPanelWidth: 620,
 } as const
+
+/** The viewport below which the card panel goes full-screen (matches <=62em). */
+export const CARD_PANEL_FULLSCREEN_BREAKPOINT = '62em'
 
 export const theme = createTheme({
   primaryColor: 'indigo',

@@ -1,10 +1,11 @@
 import { PRIORITIES, type Location } from '@rivian-kanban/core'
-import { Group, NumberInput, Select, TagsInput, TextInput } from '@mantine/core'
+import { Select, TagsInput, TextInput } from '@mantine/core'
 import { Controller, type Control, type UseFormRegisterReturn } from 'react-hook-form'
 import { type PickerUser } from '../api/schemas.ts'
 import { strings } from '../strings.ts'
 import { type CardFieldValues } from './card-fields.ts'
 import { DescriptionEditor } from './DescriptionEditor.tsx'
+import { EstimateInput } from './EstimateInput.tsx'
 import { LocationPicker } from './LocationPicker.tsx'
 
 export interface CardFieldInputsProps {
@@ -64,44 +65,40 @@ export function CardFieldInputs({
           />
         )}
       />
-      <Group grow align="flex-start">
-        <Controller
-          control={control}
-          name="priority"
-          render={({ field }) => (
-            <Select
-              label={strings.detail.priorityLabel}
-              data={PRIORITIES.map((priority) => ({
-                value: priority,
-                label: strings.priorities[priority],
-              }))}
-              // Both forms default priority (schema default / current card),
-              // so the fallback is belt-and-braces for the never-unset field.
-              value={field.value ?? 'P2'}
-              allowDeselect={false}
-              disabled={disabled}
-              onChange={(value) => {
-                if (value !== null) field.onChange(value)
-              }}
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name="estimateMinutes"
-          render={({ field }) => (
-            <NumberInput
-              label={strings.detail.estimateLabel}
-              value={field.value ?? ''}
-              disabled={disabled}
-              error={errors.estimateMinutes}
-              onChange={(value) => {
-                field.onChange(typeof value === 'number' ? value : cleared)
-              }}
-            />
-          )}
-        />
-      </Group>
+      <Controller
+        control={control}
+        name="priority"
+        render={({ field }) => (
+          <Select
+            label={strings.detail.priorityLabel}
+            data={PRIORITIES.map((priority) => ({
+              value: priority,
+              label: strings.priorities[priority],
+            }))}
+            // Both forms default priority (schema default / current card),
+            // so the fallback is belt-and-braces for the never-unset field.
+            value={field.value ?? 'P2'}
+            allowDeselect={false}
+            disabled={disabled}
+            onChange={(value) => {
+              if (value !== null) field.onChange(value)
+            }}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="estimateMinutes"
+        render={({ field }) => (
+          <EstimateInput
+            minutes={field.value ?? null}
+            disabled={disabled}
+            error={errors.estimateMinutes}
+            cleared={cleared}
+            onChange={field.onChange}
+          />
+        )}
+      />
       <Controller
         control={control}
         name="assigneeId"

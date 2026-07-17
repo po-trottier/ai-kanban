@@ -11,6 +11,7 @@ import {
   type Tag,
   type User,
 } from '../domain/entities.ts'
+import { type BoardCardExtras } from '../domain/envelopes.ts'
 import { type CardEvent, type CardEventType } from '../domain/events.ts'
 import { type BoardPolicy } from '../domain/policy.ts'
 
@@ -18,6 +19,17 @@ import { type BoardPolicy } from '../domain/policy.ts'
  * Repository ports owned by core, implemented by packages/db (ADR-004).
  * Surfaces are deliberately minimal: only what the services consume.
  */
+
+/**
+ * A board summary row: the active card plus the lean, join-sourced extras the
+ * board card renders (tag names, active-attachment count, location label).
+ * The adapter computes the extras with joins so the hottest read stays one
+ * query per lane instead of N+1 lookups per card.
+ */
+export interface BoardCardRow {
+  card: Card
+  extras: BoardCardExtras
+}
 
 /** Filters for the card list query; keys the db adapter can push into SQL. */
 export interface CardQueryFilter {
@@ -53,6 +65,14 @@ export interface CardRepository {
    * the ever-growing done-lane archive.
    */
   listByLane(laneId: string, options?: { activeOnly?: boolean }): Promise<Card[]>
+  /**
+   * Non-archived cards in the lane in position order, each with the board
+   * summary's join-sourced extras (tag names, active-attachment count,
+   * location label). The board snapshot is the hottest read in the system, so
+   * the adapter resolves the extras with joins in a bounded number of queries
+   * per lane rather than a per-card lookup fan-out.
+   */
+  listBoardSummariesByLane(laneId: string): Promise<BoardCardRow[]>
   /**
    * COUNT of non-archived cards in the lane — the WIP-marker read inside the
    * move transaction, which must not hydrate rows just to take a length

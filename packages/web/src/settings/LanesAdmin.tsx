@@ -1,4 +1,4 @@
-import { Button, NumberInput, Table, Text, TextInput } from '@mantine/core'
+import { Button, NumberInput, Table, TextInput } from '@mantine/core'
 import { useState } from 'react'
 import { usePatchLane } from '../api/admin.ts'
 import { useBoard } from '../api/board.ts'
@@ -17,7 +17,6 @@ export function LanesAdmin() {
     <Table>
       <Table.Thead>
         <Table.Tr>
-          <Table.Th>{strings.lanes.keyHeader}</Table.Th>
           <Table.Th>{strings.lanes.labelHeader}</Table.Th>
           <Table.Th>{strings.lanes.wipLimitLabel}</Table.Th>
           <Table.Th />
@@ -41,14 +40,12 @@ function LaneRow({ snapshot }: { snapshot: LaneSnapshot }) {
   return (
     <Table.Tr aria-label={strings.lanes.rowLabel(snapshot.lane.label)}>
       <Table.Td>
-        <Text size="sm" c="dimmed" ff="monospace">
-          {snapshot.lane.key}
-        </Text>
-      </Table.Td>
-      <Table.Td>
         <TextInput
           aria-label={`${strings.lanes.labelLabel} (${snapshot.lane.key})`}
           w={SIZES.laneLabelInputWidth}
+          // The machine key is dev context, not a user-facing column: keep it
+          // as a dimmed secondary line under the editable label, not a header.
+          description={snapshot.lane.key}
           value={label}
           onChange={(event) => {
             setLabel(event.currentTarget.value)
@@ -76,6 +73,7 @@ function LaneRow({ snapshot }: { snapshot: LaneSnapshot }) {
             patchLane.mutate({
               laneId: snapshot.lane.id,
               input: { label: label.trim(), wipLimit },
+              label: label.trim(),
             })
           }}
         >

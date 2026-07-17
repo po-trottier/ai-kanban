@@ -12,9 +12,10 @@ describe('LanesAdmin', () => {
     const fake = createFakeFetch({ 'GET /api/v1/board': makeBoard({}) })
     // Act
     renderWithProviders(<LanesAdmin />, { fetchFn: fake.fetch })
-    // Assert — header row plus the machine key rendered per lane
+    // Assert — one friendly 'Column' header (no raw-key column) plus the
+    // machine key kept as a dimmed secondary line under each editable label.
     expect(await screen.findByDisplayValue('Intake')).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'Label' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Column' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'WIP limit' })).toBeInTheDocument()
     expect(screen.getByText('waiting_parts_vendor')).toBeInTheDocument()
     expect(screen.getAllByRole('textbox', { name: /Column label/ })).toHaveLength(7)

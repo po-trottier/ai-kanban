@@ -1,7 +1,9 @@
 import {
+  ActionIcon,
+  Alert,
   Badge,
   Button,
-  Drawer,
+  Divider,
   Group,
   Loader,
   Stack,
@@ -9,8 +11,9 @@ import {
   Text,
   VisuallyHidden,
 } from '@mantine/core'
-import { useMediaQuery } from '@mantine/hooks'
+import { useEffect, useId } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { type Card } from '@rivian-kanban/core'
 import { useBoard, useCardAction, useUpdateCard } from '../api/board.ts'
 import {
   useAddComment,
@@ -26,25 +29,54 @@ import { useLocations, usePolicy, useTags, useUsers } from '../api/meta.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
 import { CardBadges } from '../board/CardBadges.tsx'
 import { canPerformAction } from '../board/move-options.ts'
-import { utcToday } from '../lib/format.ts'
+import { formatDate, utcToday } from '../lib/format.ts'
+import { CloseIcon } from '../shell/icons.tsx'
+import { useCardPanelSlot } from '../shell/card-panel-slot.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { strings } from '../strings.ts'
-import { EMPHASIS_FONT_WEIGHT, PRIORITY_COLORS } from '../theme.ts'
+import {
+  BLOCKED_COLOR,
+  CANCELLED_COLOR,
+  EMPHASIS_FONT_WEIGHT,
+  PRIORITY_COLORS,
+  WAITING_COLOR,
+} from '../theme.ts'
+import { isOverdueResume } from '@rivian-kanban/core'
 import { AttachmentsSection } from './AttachmentsSection.tsx'
 import { CardDetailsForm } from './CardDetailsForm.tsx'
 import { CommentsThread } from './CommentsThread.tsx'
 import { HistoryList } from './HistoryList.tsx'
+import classes from './card.module.css'
 
 /**
- * The card detail panel: a right-side drawer (full-screen on small viewports)
- * deep-linked at /cards/:id. Fields, attachments, comments, history.
+ * The deep-linked `/cards/:cardId` route element. It renders NOTHING itself —
+ * it just publishes the open card id to the shell so AppLayout can dock the
+ * panel in its AppShell.Aside (below the header, not overlaying it). Clearing
+ * on unmount closes the Aside when the route changes (Escape / ✕ / navigate).
  */
-export function CardPanel() {
+export function CardPanelRoute() {
   const { cardId = '' } = useParams()
+  const { setOpenCardId } = useCardPanelSlot()
+
+  useEffect(() => {
+    setOpenCardId(cardId)
+    return () => {
+      setOpenCardId(null)
+    }
+  }, [cardId, setOpenCardId])
+
+  return null
+}
+
+/**
+ * The docked card detail panel body (rendered inside AppShell.Aside). Keeps
+ * the dialog accessible name (tests target `role="dialog"` named "Card
+ * details"), Escape + ✕ close, and full-screen behavior at the small
+ * breakpoint (the Aside's own breakpoint handles the width).
+ */
+export function CardPanel({ cardId }: { cardId: string }) {
   const navigate = useNavigate()
-  const smallViewport = useMediaQuery('(max-width: 62em)')
-  // Shares the body's query (deduplicated) so the header can carry the card
-  // title; the generic label remains as the fallback while it loads.
+  const labelId = useId()
   const detailQuery = useCardDetail(cardId)
   const card = detailQuery.data?.card
 
@@ -52,31 +84,73 @@ export function CardPanel() {
     void navigate('/')
   }
 
+  // Escape closes the panel regardless of where focus sits (the docked Aside
+  // is not a focus-trapping overlay like the old Drawer, so a window listener
+  // preserves the same keyboard-close behavior the tests rely on). But when a
+  // nested Mantine Modal is open inside the panel (e.g. the delete-comment
+  // confirm), Escape must dismiss only THAT dialog. Mantine closes it on its
+  // own bubble-phase window listener, so we register in the CAPTURE phase —
+  // which always runs first, before Mantine can synchronously flush the modal
+  // away — and bail while any Mantine Modal is still mounted. This keeps the
+  // whole card open when a user hits Escape to back out of a confirm dialog.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      if (document.querySelector('.mantine-Modal-root') !== null) return
+      void navigate('/')
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+    }
+  }, [navigate])
+
   return (
-    <Drawer
-      opened
-      onClose={close}
-      position="right"
-      size={smallViewport ? '100%' : 'lg'}
-      title={
-        card === undefined ? (
-          strings.detail.panelLabel
-        ) : (
-          <Group gap="xs" wrap="nowrap">
-            {/* Kept for assistive tech and selectors that name the panel. */}
-            <VisuallyHidden>{strings.detail.panelLabel}</VisuallyHidden>
-            <Text fw={EMPHASIS_FONT_WEIGHT} lineClamp={1}>
-              {card.title}
-            </Text>
-            <Badge color={PRIORITY_COLORS[card.priority]} size="sm" variant="filled">
-              {strings.priorities[card.priority]}
-            </Badge>
-          </Group>
-        )
-      }
+    <div
+      role="dialog"
+      // Labelled by the header (the hidden "Card details" + title + priority),
+      // so assistive tech and the tests get the same combined accessible name
+      // the old Drawer produced — never overridden by an aria-label.
+      aria-labelledby={labelId}
+      className={classes.panel}
     >
-      <CardPanelBody cardId={cardId} />
-    </Drawer>
+      <Group justify="space-between" wrap="nowrap" gap="xs" p="md" className={classes.panelHeader}>
+        <Group id={labelId} gap="xs" wrap="nowrap" className={classes.panelTitle}>
+          {/* Named for assistive tech and the selectors that target the panel.
+              The VisuallyHidden alone supplies the accessible name during load —
+              no visible duplicate, so the name never doubles to "Card details
+              Card details". A dimmed placeholder fills the header while loading. */}
+          <VisuallyHidden>{strings.detail.panelLabel}</VisuallyHidden>
+          {card === undefined ? (
+            <Text fw={EMPHASIS_FONT_WEIGHT} c="dimmed" aria-hidden>
+              {strings.common.loading}
+            </Text>
+          ) : (
+            <>
+              <Text fw={EMPHASIS_FONT_WEIGHT} lineClamp={1}>
+                {card.title}
+              </Text>
+              <Badge color={PRIORITY_COLORS[card.priority]} size="sm" variant="filled">
+                {strings.priorities[card.priority]}
+              </Badge>
+            </>
+          )}
+        </Group>
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          size="lg"
+          aria-label={strings.detail.closeLabel}
+          onClick={close}
+        >
+          <CloseIcon />
+        </ActionIcon>
+      </Group>
+      <Divider />
+      <div className={classes.panelBody}>
+        <CardPanelBody cardId={cardId} />
+      </div>
+    </div>
   )
 }
 
@@ -124,12 +198,25 @@ function CardPanelBody({ cardId }: { cardId: string }) {
   const canDeleteOthersAttachments =
     policy !== undefined && canPerformAction(policy, me.role, 'deleteOthersAttachments')
   const canReopen = policy !== undefined && canPerformAction(policy, me.role, 'reopen')
+  const canUnblock = detail.card.blocked
   // Archived cards are read-only except reopen (workflow.md#terminal-states).
   const archived = detail.card.archivedAt !== null
 
   return (
     <Stack gap="md">
-      {/* Priority lives in the drawer header; this row carries status only. */}
+      <StateBanner
+        card={detail.card}
+        canReopen={canReopen}
+        canUnblock={canUnblock}
+        acting={cardAction.isPending}
+        onReopen={() => {
+          cardAction.mutate({ card: detail.card, action: 'reopen' })
+        }}
+        onUnblock={() => {
+          cardAction.mutate({ card: detail.card, action: 'unblock' })
+        }}
+      />
+      {/* Priority lives in the panel header; this row carries status only. */}
       <CardBadges card={detail.card} today={utcToday()} showPriority={false} />
       {archived ? (
         <Group justify="space-between" gap="sm">
@@ -221,4 +308,86 @@ function CardPanelBody({ cardId }: { cardId: string }) {
       </Tabs>
     </Stack>
   )
+}
+
+/**
+ * A prominent colored banner explaining WHY a card is stalled (blocked reason,
+ * cancel resolution, waiting reason + resume date) with the inline action to
+ * unstick it. A user opening a stalled card must not have to hunt for this.
+ */
+function StateBanner({
+  card,
+  canReopen,
+  canUnblock,
+  acting,
+  onReopen,
+  onUnblock,
+}: {
+  card: Card
+  canReopen: boolean
+  canUnblock: boolean
+  acting: boolean
+  onReopen: () => void
+  onUnblock: () => void
+}) {
+  const cancelled = card.resolution !== null && card.resolution !== 'completed'
+  if (card.blocked) {
+    return (
+      <Alert color={BLOCKED_COLOR} title={strings.detail.blockedBannerTitle}>
+        <Stack gap="sm">
+          <Text size="sm">{card.blockedReason ?? strings.detail.blockedBannerNoReason}</Text>
+          <Group>
+            <Button
+              size="xs"
+              variant="white"
+              color={BLOCKED_COLOR}
+              disabled={!canUnblock || acting}
+              loading={acting}
+              onClick={onUnblock}
+            >
+              {strings.card.unblock}
+            </Button>
+          </Group>
+        </Stack>
+      </Alert>
+    )
+  }
+  if (cancelled && card.resolution !== null) {
+    return (
+      <Alert color={CANCELLED_COLOR} title={strings.detail.cancelledBannerTitle[card.resolution]}>
+        <Stack gap="sm">
+          <Text size="sm">{strings.detail.cancelledBannerBody}</Text>
+          <Group>
+            <Button
+              size="xs"
+              variant="light"
+              disabled={!canReopen || acting}
+              loading={acting}
+              onClick={onReopen}
+            >
+              {strings.card.reopen}
+            </Button>
+          </Group>
+        </Stack>
+      </Alert>
+    )
+  }
+  if (card.waitingReason !== null) {
+    const overdue = isOverdueResume(card.expectedResumeAt, utcToday())
+    const reason = strings.waiting.reasons[card.waitingReason]
+    const date =
+      card.expectedResumeAt === null
+        ? strings.common.notAvailable
+        : formatDate(card.expectedResumeAt)
+    return (
+      <Alert color={WAITING_COLOR} title={strings.detail.waitingBannerTitle}>
+        <Text size="sm">
+          {overdue
+            ? strings.detail.waitingBannerOverdue(reason, date)
+            : strings.detail.waitingBannerBody(reason, date)}
+        </Text>
+      </Alert>
+    )
+  }
+  return null
 }

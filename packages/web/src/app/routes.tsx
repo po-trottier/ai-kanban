@@ -3,7 +3,7 @@ import { LoginPage } from '../auth/LoginPage.tsx'
 import { RequireAuth } from '../auth/RequireAuth.tsx'
 import { BoardPage } from '../board/BoardPage.tsx'
 import { CardSearchPage } from '../board/CardSearchPage.tsx'
-import { CardPanel } from '../card/CardPanel.tsx'
+import { CardPanelRoute } from '../card/CardPanel.tsx'
 import { SettingsPage } from '../settings/SettingsPage.tsx'
 import { AppLayout } from '../shell/AppLayout.tsx'
 
@@ -22,7 +22,7 @@ export const routes: RouteObject[] = [
           {
             path: '/',
             element: <BoardPage />,
-            children: [{ path: 'cards/:cardId', element: <CardPanel /> }],
+            children: [{ path: 'cards/:cardId', element: <CardPanelRoute /> }],
           },
           { path: '/search', element: <CardSearchPage /> },
           { path: '/settings', element: <SettingsPage /> },

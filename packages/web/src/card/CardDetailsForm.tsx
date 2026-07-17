@@ -89,7 +89,16 @@ export function CardDetailsForm({
           </Text>
         </Group>
         {disabled ? null : (
-          <Group justify="flex-end">
+          <Group justify="space-between" gap="sm">
+            {/* Warns a user who edited a field not to switch tabs/close before
+                saving — the change persists only on this explicit click. */}
+            {form.formState.isDirty ? (
+              <Text size="xs" c="dimmed">
+                {strings.detail.unsavedWarning}
+              </Text>
+            ) : (
+              <span />
+            )}
             <Button type="submit" loading={saving} disabled={!form.formState.isDirty}>
               {strings.detail.saveFields}
             </Button>

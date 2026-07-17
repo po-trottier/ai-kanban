@@ -80,8 +80,9 @@ describe('TokensAdmin', () => {
       [`DELETE /api/v1/service-tokens/${activeToken.id}`]: {},
     })
     renderWithProviders(<TokensAdmin />, { fetchFn: fake.fetch })
-    // Act
+    // Act — revoking can break a live integration, so it is confirmed first.
     await user.click(await screen.findByRole('button', { name: 'Revoke' }))
+    await user.click(await screen.findByRole('button', { name: 'Revoke token' }))
     // Assert
     const call = fake.calls.find((c) => c.method === 'DELETE')
     expect(call?.url).toBe(`/api/v1/service-tokens/${activeToken.id}`)

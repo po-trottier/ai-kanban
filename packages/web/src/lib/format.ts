@@ -3,18 +3,49 @@ import dayjs from 'dayjs'
 
 /** Hours in a working day (docs/product/workflow.md#priorities-and-estimates). */
 const WORKING_HOURS_PER_DAY = 8
+const MINUTES_PER_HOUR = 60
+const MINUTES_PER_DAY = MINUTES_PER_HOUR * WORKING_HOURS_PER_DAY
+
+/** The units a user may enter an estimate in (stored as integer minutes). */
+export const ESTIMATE_UNITS = ['minutes', 'hours', 'days'] as const
+export type EstimateUnit = (typeof ESTIMATE_UNITS)[number]
+
+export function isEstimateUnit(value: string): value is EstimateUnit {
+  return (ESTIMATE_UNITS as readonly string[]).includes(value)
+}
 
 /**
  * Renders estimate minutes as hours/days with 1 day = 8 working hours
  * (90 → "1.5h", 960 → "2d").
  */
 export function formatEstimate(minutes: number): string {
-  const hours = minutes / 60
+  const hours = minutes / MINUTES_PER_HOUR
   if (hours >= WORKING_HOURS_PER_DAY) {
     return `${trimTrailingZero(hours / WORKING_HOURS_PER_DAY)}d`
   }
   if (hours >= 1) return `${trimTrailingZero(hours)}h`
   return `${String(minutes)}m`
+}
+
+/**
+ * Splits stored minutes into the largest whole-ish unit for the editor: a
+ * multiple of a working day → days, of an hour → hours, else minutes. Round
+ * trips exactly with `estimateToMinutes` (960 → 2 days → 960).
+ */
+export function estimateToParts(minutes: number): { value: number; unit: EstimateUnit } {
+  if (minutes % MINUTES_PER_DAY === 0) return { value: minutes / MINUTES_PER_DAY, unit: 'days' }
+  if (minutes % MINUTES_PER_HOUR === 0) return { value: minutes / MINUTES_PER_HOUR, unit: 'hours' }
+  return { value: minutes, unit: 'minutes' }
+}
+
+/**
+ * Converts an entered value + unit to integer minutes (1 day = 8 working
+ * hours). Fractions are allowed on entry (1.5 days → 720) then rounded to a
+ * whole minute — the stored unit (core schema: positive integer minutes).
+ */
+export function estimateToMinutes(value: number, unit: EstimateUnit): number {
+  const factor = unit === 'days' ? MINUTES_PER_DAY : unit === 'hours' ? MINUTES_PER_HOUR : 1
+  return Math.round(value * factor)
 }
 
 function trimTrailingZero(value: number): string {
@@ -33,6 +64,11 @@ export function utcToday(): string {
 
 export function formatDateTime(iso: string): string {
   return dayjs(iso).format('MMM D, YYYY HH:mm')
+}
+
+/** A short date ("Jul 20") for the board's resume cue and compact rows. */
+export function formatDate(iso: string): string {
+  return dayjs(iso).format('MMM D')
 }
 
 /** Initials for avatar fallbacks: "Ada Lovelace" → "AL". */

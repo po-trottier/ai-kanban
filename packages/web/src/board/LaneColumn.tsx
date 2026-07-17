@@ -1,9 +1,10 @@
 import { type BoardCard, type LaneKey } from '@rivian-kanban/core'
-import { Badge, Group, Text, Title } from '@mantine/core'
+import { Badge, Group, Text, Title, Tooltip } from '@mantine/core'
 import { useMemo, useRef } from 'react'
 import { type LaneSnapshot, type PickerUser } from '../api/schemas.ts'
 import { cx } from '../lib/cx.ts'
 import { strings } from '../strings.ts'
+import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
 import { CardItem } from './CardItem.tsx'
 import { type CardMenuAction } from './CardMenu.tsx'
 import classes from './board.module.css'
@@ -41,23 +42,40 @@ export function LaneColumn({
     lane.wipLimit === null
       ? String(cards.length)
       : `${String(cards.length)}/${String(lane.wipLimit)}`
+  const wipTooltip =
+    lane.wipLimit === null
+      ? strings.board.wipNoLimitTooltip(cards.length)
+      : strings.board.wipTooltip(cards.length, lane.wipLimit)
 
   return (
     <section className={classes.lane} aria-label={lane.label}>
-      <Group className={classes.laneHeader} justify="space-between" gap="xs">
+      <Group className={classes.laneHeader} justify="space-between" gap="xs" wrap="nowrap">
         <Title order={3} size="sm">
           {lane.label}
         </Title>
-        <Badge
-          color={wipLimitExceeded ? 'red' : 'gray'}
-          variant={wipLimitExceeded ? 'filled' : 'light'}
-          size="sm"
-          aria-label={
-            wipLimitExceeded ? `${wipLabel} — ${strings.board.wipLimitExceededSuffix}` : wipLabel
-          }
-        >
-          {wipLabel}
-        </Badge>
+        <Group gap="xs" wrap="nowrap">
+          {/* The count is opaque ("2/5") without words; explain it on hover
+              and surface a visible "Over limit" cue when exceeded. */}
+          {wipLimitExceeded ? (
+            <Text size="xs" c="red" fw={EMPHASIS_FONT_WEIGHT}>
+              {strings.board.overLimit}
+            </Text>
+          ) : null}
+          <Tooltip label={wipTooltip} multiline>
+            <Badge
+              color={wipLimitExceeded ? 'red' : 'gray'}
+              variant={wipLimitExceeded ? 'filled' : 'light'}
+              size="sm"
+              aria-label={
+                wipLimitExceeded
+                  ? `${wipLabel} — ${strings.board.wipLimitExceededSuffix}`
+                  : wipLabel
+              }
+            >
+              {wipLabel}
+            </Badge>
+          </Tooltip>
+        </Group>
       </Group>
       <div
         ref={listRef}

@@ -1,5 +1,5 @@
 import { CANCEL_RESOLUTIONS, type CancelResolution } from '@rivian-kanban/core'
-import { Button, Group, Modal, Select, Stack } from '@mantine/core'
+import { Button, Group, Modal, Select, Stack, Text } from '@mantine/core'
 import { useState } from 'react'
 import { strings } from '../strings.ts'
 
@@ -27,6 +27,10 @@ export function CancelCardModal({ onSubmit, onClose }: CancelCardModalProps) {
             if (value !== null) setResolution(value)
           }}
         />
+        {/* Explains the consequence: a cancelled card leaves the active board. */}
+        <Text size="sm" c="dimmed">
+          {strings.cancelAction.consequence(strings.cancelAction.resolutions[resolution])}
+        </Text>
         <Group justify="flex-end" gap="sm">
           <Button variant="default" onClick={onClose}>
             {strings.common.cancel}

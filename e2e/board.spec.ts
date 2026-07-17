@@ -26,6 +26,27 @@ test('renders the seven seeded lanes with the demo cards', async ({ page, contex
   await expect(boardCard(page, 'Quarterly HVAC filter replacement')).toBeVisible()
 })
 
+test('board cards always show estimate, location, tags and attachments (board payload)', async ({
+  page,
+  context,
+}) => {
+  await signIn(context)
+  await openBoard(page)
+
+  // The seeded HVAC card carries a tag, a location, an estimate, and one
+  // attachment — all rendered on the summary card from the board payload.
+  const rich = boardCard(page, 'Quarterly HVAC filter replacement')
+  // Exact match: the tag chip is exactly "HVAC" (the title also contains it).
+  await expect(rich.getByText('HVAC', { exact: true })).toBeVisible()
+  await expect(rich.getByText('1d')).toBeVisible() // 480 min = 8h = 1 working day
+  await expect(rich.getByLabel('1 attachment')).toBeVisible()
+
+  // A plain card still renders the placeholders, so every card reads the same.
+  const plain = boardCard(page, 'Flickering lights in stairwell B')
+  await expect(plain.getByText('No location')).toBeVisible()
+  await expect(plain.getByText('No estimate')).toBeVisible()
+})
+
 test('drags a card across lanes with the mouse and the move persists', async ({
   page,
   context,

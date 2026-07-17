@@ -1,14 +1,15 @@
 import {
   NotFoundError,
+  type BoardCardRow,
   type Card,
   type CardQueryFilter,
   type CardRepository,
   type CursorKey,
 } from '@rivian-kanban/core'
-import { and, asc, desc, eq, exists, isNull, lt, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, exists, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { mapCardWriteError } from '../errors.ts'
-import { cards, cardTags, tags } from '../schema.ts'
+import { attachments, cards, cardTags, locations, tags } from '../schema.ts'
 
 /** Escapes LIKE wildcards so `q` is a literal substring match (`ESCAPE '\'`). */
 function escapeLike(needle: string): string {
@@ -62,6 +63,56 @@ export class SqliteCardRepository implements CardRepository {
       .orderBy(asc(cards.position))
       .all()
     return Promise.resolve(rows)
+  }
+
+  listBoardSummariesByLane(laneId: string): Promise<BoardCardRow[]> {
+    // The active cards in position order plus the leaf location name (LEFT
+    // JOIN so location-less cards survive) — the same activeOnly filter and
+    // ORDER BY as listByLane, so the partial live-rows index still serves it.
+    const rows = this.db
+      .select({ card: cards, locationLabel: locations.name })
+      .from(cards)
+      .leftJoin(locations, eq(cards.locationId, locations.id))
+      .where(and(eq(cards.laneId, laneId), isNull(cards.archivedAt)))
+      .orderBy(asc(cards.position))
+      .all()
+    if (rows.length === 0) return Promise.resolve([])
+
+    const cardIds = rows.map((row) => row.card.id)
+    // Tag names per card (case-preserved stored form) and the active-attachment
+    // count per card — two grouped reads over the lane's cards, not per-card.
+    const tagRows = this.db
+      .select({ cardId: cardTags.cardId, name: tags.name })
+      .from(cardTags)
+      .innerJoin(tags, eq(cardTags.tagId, tags.id))
+      .where(inArray(cardTags.cardId, cardIds))
+      .orderBy(asc(tags.name))
+      .all()
+    const tagsByCard = new Map<string, string[]>()
+    for (const { cardId, name } of tagRows) {
+      const list = tagsByCard.get(cardId) ?? []
+      list.push(name)
+      tagsByCard.set(cardId, list)
+    }
+
+    const attachmentRows = this.db
+      .select({ cardId: attachments.cardId, count: sql<number>`count(*)` })
+      .from(attachments)
+      .where(and(inArray(attachments.cardId, cardIds), isNull(attachments.deletedAt)))
+      .groupBy(attachments.cardId)
+      .all()
+    const attachmentCountByCard = new Map(attachmentRows.map((row) => [row.cardId, row.count]))
+
+    return Promise.resolve(
+      rows.map((row) => ({
+        card: row.card,
+        extras: {
+          tags: tagsByCard.get(row.card.id) ?? [],
+          attachmentCount: attachmentCountByCard.get(row.card.id) ?? 0,
+          locationLabel: row.locationLabel,
+        },
+      })),
+    )
   }
 
   /** Index-only COUNT under the partial live-rows index (port contract). */

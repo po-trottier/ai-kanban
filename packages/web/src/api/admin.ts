@@ -56,10 +56,13 @@ export function usePatchLane() {
   const api = useApi()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ laneId, input }: { laneId: string; input: UpdateLaneInput }) =>
+    mutationFn: ({ laneId, input }: { laneId: string; input: UpdateLaneInput; label?: string }) =>
       api.patch(`/lanes/${laneId}`, laneSchema, { body: input }),
-    onSuccess: () => {
-      notifications.show({ message: strings.lanes.saved })
+    onSuccess: (_lane, { label }) => {
+      // Name the column so a table of identical Save buttons confirms clearly.
+      notifications.show({
+        message: label === undefined ? strings.lanes.saved : strings.lanes.savedNamed(label),
+      })
       void queryClient.invalidateQueries({ queryKey: queryKeys.board })
     },
     onError: notifyError,

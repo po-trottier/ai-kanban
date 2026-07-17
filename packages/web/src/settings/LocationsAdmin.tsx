@@ -1,25 +1,17 @@
 import { LOCATION_KINDS, type Location, type LocationKind } from '@rivian-kanban/core'
-import {
-  ActionIcon,
-  Button,
-  Group,
-  Modal,
-  Stack,
-  Text,
-  TextInput,
-  Tooltip,
-  Tree,
-} from '@mantine/core'
+import { Button, Group, Modal, Stack, Text, TextInput, Tree } from '@mantine/core'
 import { useState } from 'react'
 import { useCreateLocation, useDeleteLocation, useRenameLocation } from '../api/admin.ts'
 import { useLocations } from '../api/meta.ts'
 import { buildLocationTree } from '../lib/location-tree.ts'
+import { ConfirmModal } from '../shell/ConfirmModal.tsx'
 import { strings } from '../strings.ts'
 
 type LocationModal =
   | { kind: 'none' }
   | { kind: 'add'; parent: Location | null }
   | { kind: 'rename'; location: Location }
+  | { kind: 'delete'; location: Location }
 
 /** Location tree CRUD: buildings → floors → rooms. */
 export function LocationsAdmin() {
@@ -41,6 +33,9 @@ export function LocationsAdmin() {
   const openRename = (location: Location) => {
     setName(location.name)
     setModal({ kind: 'rename', location })
+  }
+  const openDelete = (location: Location) => {
+    setModal({ kind: 'delete', location })
   }
   const close = () => {
     setModal({ kind: 'none' })
@@ -94,9 +89,7 @@ export function LocationsAdmin() {
                     location={location}
                     onAdd={openAdd}
                     onRename={openRename}
-                    onDelete={(target) => {
-                      deleteLocation.mutate(target.id)
-                    }}
+                    onDelete={openDelete}
                   />
                 ) : null}
               </Group>
@@ -105,7 +98,7 @@ export function LocationsAdmin() {
         />
       )}
 
-      {modal.kind !== 'none' ? (
+      {modal.kind === 'add' || modal.kind === 'rename' ? (
         <Modal
           opened
           onClose={close}
@@ -131,6 +124,19 @@ export function LocationsAdmin() {
           </Stack>
         </Modal>
       ) : null}
+
+      {modal.kind === 'delete' ? (
+        <ConfirmModal
+          title={strings.locations.deleteConfirmTitle}
+          body={strings.locations.deleteConfirmBody(modal.location.name)}
+          confirmLabel={strings.locations.deleteConfirm}
+          loading={deleteLocation.isPending}
+          onConfirm={() => {
+            deleteLocation.mutate(modal.location.id, { onSuccess: close })
+          }}
+          onClose={close}
+        />
+      ) : null}
     </Stack>
   )
 }
@@ -146,50 +152,46 @@ function NodeActions({
   onRename: (location: Location) => void
   onDelete: (location: Location) => void
 }) {
+  // Labeled buttons, not cryptic glyphs: a non-technical admin should read
+  // "Add / Rename / Delete", not guess at + ✎ ✕. Delete stays red.
   return (
     <Group gap="xs">
       {location.kind !== 'room' ? (
-        <Tooltip label={strings.locations.addChildLabel(location.name)}>
-          <ActionIcon
-            size="sm"
-            variant="subtle"
-            aria-label={strings.locations.addChildLabel(location.name)}
-            onClick={(event) => {
-              event.stopPropagation()
-              onAdd(location)
-            }}
-          >
-            +
-          </ActionIcon>
-        </Tooltip>
+        <Button
+          size="compact-xs"
+          variant="subtle"
+          aria-label={strings.locations.addChildLabel(location.name)}
+          onClick={(event) => {
+            event.stopPropagation()
+            onAdd(location)
+          }}
+        >
+          {strings.locations.add}
+        </Button>
       ) : null}
-      <Tooltip label={strings.locations.renameLabel(location.name)}>
-        <ActionIcon
-          size="sm"
-          variant="subtle"
-          aria-label={strings.locations.renameLabel(location.name)}
-          onClick={(event) => {
-            event.stopPropagation()
-            onRename(location)
-          }}
-        >
-          ✎
-        </ActionIcon>
-      </Tooltip>
-      <Tooltip label={strings.locations.deleteLabel(location.name)}>
-        <ActionIcon
-          size="sm"
-          variant="subtle"
-          color="red"
-          aria-label={strings.locations.deleteLabel(location.name)}
-          onClick={(event) => {
-            event.stopPropagation()
-            onDelete(location)
-          }}
-        >
-          ✕
-        </ActionIcon>
-      </Tooltip>
+      <Button
+        size="compact-xs"
+        variant="subtle"
+        aria-label={strings.locations.renameLabel(location.name)}
+        onClick={(event) => {
+          event.stopPropagation()
+          onRename(location)
+        }}
+      >
+        {strings.locations.rename}
+      </Button>
+      <Button
+        size="compact-xs"
+        variant="subtle"
+        color="red"
+        aria-label={strings.locations.deleteLabel(location.name)}
+        onClick={(event) => {
+          event.stopPropagation()
+          onDelete(location)
+        }}
+      >
+        {strings.common.delete}
+      </Button>
     </Group>
   )
 }

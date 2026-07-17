@@ -36,9 +36,25 @@
   background-color: light-dark(var(--mantine-color-indigo-0), var(--mantine-color-dark-5));
 }
 
+/* Fills the board area when there are no cards at all (first-run CTA). */
+.emptyBoard {
+  flex: 1;
+  height: 100%;
+  text-align: center;
+}
+
 .card {
   position: relative;
   cursor: grab;
+  transition:
+    box-shadow 120ms ease,
+    border-color 120ms ease;
+}
+
+/* A hover affordance signals the whole card opens (not just the ⋯ menu). */
+.card:hover {
+  box-shadow: var(--mantine-shadow-md);
+  border-color: var(--mantine-color-indigo-4);
 }
 
 .cardDragging {

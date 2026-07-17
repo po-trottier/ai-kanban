@@ -40,6 +40,11 @@ export const strings = {
     loginButton: 'Sign in',
     emailInvalid: 'Enter a valid email address',
     passwordRequired: 'Enter your password',
+    /** Friendly, specific 401 copy (never the raw transport title). */
+    loginFailed: 'That email or password is not correct.',
+    /** On-screen help for a stuck user (no self-service reset in v1). */
+    forgotHelp:
+      'Forgot your password? Ask an admin to reset it. Temp passwords are set by your admin.',
     logout: 'Log out',
     changePasswordTitle: 'Change your password',
     changePasswordIntro: 'You must change your temporary password before continuing.',
@@ -59,6 +64,33 @@ export const strings = {
     wipLimitExceededSuffix: 'WIP limit exceeded',
     cardListLabel: (lane: string) => `Cards in ${lane}`,
     loadFailed: 'The board could not be loaded.',
+    /** Move confirmation toasts (every move reassures a non-technical user). */
+    moved: 'Card moved',
+    movedTo: (lane: string) => `Card moved to ${lane}`,
+    /** WIP badge tooltip + visible over-limit cue. */
+    wipTooltip: (count: number, limit: number) =>
+      `${String(count)} of ${String(limit)} — this column's work-in-progress limit`,
+    wipNoLimitTooltip: (count: number) =>
+      `${String(count)} ${count === 1 ? 'card' : 'cards'} in this column`,
+    overLimit: 'Over limit',
+    /** Friendly empty-board call to action (brand-new team, no cards yet). */
+    emptyBoardTitle: 'No work orders yet',
+    emptyBoardHint: 'Create your first work order with the New card button above.',
+    /** The badge legend (plain-language key to priorities and states). */
+    legendButton: 'What do the badges mean?',
+    legendTitle: 'Badge guide',
+    legendPriorities: 'Priority',
+    legendStates: 'Status',
+    legendPriorityP0: 'P0 — drop everything',
+    legendPriorityP1: 'P1 — high priority',
+    legendPriorityP2: 'P2 — normal priority',
+    legendBlocked: 'Blocked — stuck on an exception; hover the badge for the reason',
+    legendWaiting: 'Waiting — paused on parts or a vendor, with an expected resume date',
+    /** Short badge word for the Overdue legend row (the board shows "Overdue: …"). */
+    legendOverdueBadge: 'Overdue',
+    legendOverdue: 'Overdue — the expected resume date has passed',
+    legendCancelled: 'Cancelled / Declined / Duplicate — closed without completing',
+    legendArchived: 'Archived — an old Done card, read-only until reopened',
   },
 
   card: {
@@ -77,6 +109,20 @@ export const strings = {
     cardJustUpdated: 'This card was just updated by someone else — the board has been refreshed.',
     moveAnnouncement: (title: string, lane: string, position: number) =>
       `Card "${title}" moved to ${lane}, position ${String(position)}`,
+    /** Confirmation toasts for the explicit card actions (name the outcome). */
+    blockedToast: 'Card blocked',
+    unblockedToast: 'Card unblocked',
+    cancelledToast: 'Card cancelled — moved to Done',
+    reopenedToast: 'Card reopened — moved to Ready',
+    /** Always-visible board-card fields with clear placeholders (consistency). */
+    noEstimate: 'No estimate',
+    unassigned: 'Unassigned',
+    noLocation: 'No location',
+    locationLabel: (name: string) => `Location: ${name}`,
+    attachmentCountLabel: (count: number) =>
+      `${String(count)} ${count === 1 ? 'attachment' : 'attachments'}`,
+    tagsLabel: (tags: string) => `Tags: ${tags}`,
+    resumePrefix: (date: string) => `resume ${date}`,
   },
 
   search: {
@@ -90,6 +136,10 @@ export const strings = {
     includeArchived: 'Include archived',
     resultsLabel: 'Search results',
     empty: 'No matching cards',
+    /** Friendly initial hint (a non-technical user must press Search). */
+    initialHint: 'Type part of a card title or description, then press Search.',
+    /** Clear no-results wording (distinct from an error). */
+    noResults: 'No cards match your search.',
     loadFailed: 'Cards could not be loaded.',
   },
 
@@ -124,6 +174,9 @@ export const strings = {
     modalTitle: 'Cancel card',
     resolutionLabel: 'Reason',
     confirm: 'Cancel card',
+    /** Warns that cancelling is destructive-feeling: it leaves the board. */
+    consequence: (resolution: string) =>
+      `This moves the card to Done and marks it ${resolution}. You can reopen it later from Search.`,
     resolutions: {
       cancelled: 'Cancelled',
       declined: 'Declined',
@@ -134,6 +187,7 @@ export const strings = {
   blockAction: {
     modalTitle: 'Block card',
     reasonLabel: 'What is blocking this card?',
+    reasonPlaceholder: 'e.g. Waiting on landlord approval',
     reasonRequired: 'Enter a reason',
     confirm: 'Block card',
   },
@@ -147,8 +201,11 @@ export const strings = {
     descriptionWrite: 'Write',
     descriptionPreview: 'Preview',
     descriptionEmpty: 'Nothing to preview',
+    descriptionHelp: 'Supports simple formatting — use Preview to check it.',
     priorityLabel: 'Priority',
-    estimateLabel: 'Estimate (minutes)',
+    estimateLabel: 'Estimate',
+    estimateUnitLabel: 'Estimate unit',
+    estimateOptional: 'Optional until Ready',
     assigneeLabel: 'Assignee',
     locationLabel: 'Location',
     tagsLabel: 'Tags',
@@ -156,9 +213,35 @@ export const strings = {
     createdLabel: 'Created',
     saveFields: 'Save changes',
     fieldsSaved: 'Card updated',
+    unsavedWarning: 'You have unsaved changes — click Save changes to keep them.',
     panelLabel: 'Card details',
+    closeLabel: 'Close card',
     loadFailed: 'The card could not be loaded.',
     archivedNotice: 'This card is archived — reopen it to make changes.',
+    /** The prominent state banner at the top of the panel body. */
+    blockedBannerTitle: 'This card is blocked',
+    blockedBannerNoReason: 'No reason was given.',
+    /** Resolution-specific banner titles — a single "is ${lowercased}" template
+     * reads ungrammatically for "duplicate"/"declined", so each terminal
+     * resolution gets its own natural phrasing. */
+    cancelledBannerTitle: {
+      completed: 'This card is completed',
+      cancelled: 'This card was cancelled',
+      declined: 'This card was declined',
+      duplicate: 'This card is a duplicate',
+    } satisfies Record<Resolution, string>,
+    cancelledBannerBody: 'It sits at the bottom of Done. Reopen it to move it back to Ready.',
+    waitingBannerTitle: 'Waiting on Parts / Vendor',
+    waitingBannerBody: (reason: string, date: string) =>
+      `Paused for ${reason}, expected to resume ${date}. It resumes automatically when moved out of this column.`,
+    waitingBannerOverdue: (reason: string, date: string) =>
+      `Paused for ${reason}. Expected to resume ${date} — now overdue. It resumes when moved out of this column.`,
+  },
+
+  estimateUnits: {
+    minutes: 'Minutes',
+    hours: 'Hours',
+    days: 'Days',
   },
 
   attachments: {
@@ -183,6 +266,11 @@ export const strings = {
     editLabel: 'Edit comment',
     deleteLabel: 'Delete comment',
     saveEdit: 'Save',
+    /** Confirmation before an irreversible comment delete (distinct label so
+     * the confirm button never collides with the per-comment Delete action). */
+    deleteConfirmTitle: 'Delete comment',
+    deleteConfirmBody: 'Delete this comment? This cannot be undone.',
+    deleteConfirm: 'Delete it',
   },
 
   history: {
@@ -252,12 +340,13 @@ export const strings = {
   },
 
   lanes: {
-    keyHeader: 'Column',
-    labelHeader: 'Label',
+    labelHeader: 'Column',
     labelLabel: 'Column label',
     wipLimitLabel: 'WIP limit',
     wipLimitNone: 'No limit',
     saved: 'Column updated',
+    /** Row-scoped confirmation that names which column was saved. */
+    savedNamed: (lane: string) => `${lane} updated`,
     rowLabel: (lane: string) => `Column ${lane}`,
   },
 
@@ -266,10 +355,16 @@ export const strings = {
     enforcementHint:
       'When on, cards may only move along the workflow graph below, and role gates apply.',
     transitionsTitle: 'Workflow graph',
+    /** Plain-language help under each heading (dense admin screen). */
+    transitionsHint:
+      'The allowed moves between columns. When enforcement is off, every move is allowed and these have no effect.',
+    disabledWhenOff: 'Turn on enforcement above to use these settings.',
     transitionRowLabel: (from: string, to: string) => `${from} to ${to}`,
     minRoleLabel: 'Minimum role',
     anyRole: 'Any role',
     actionGatesTitle: 'Action gates',
+    actionGatesHint:
+      'The minimum role for each sensitive action. When enforcement is off, any signed-in user may do all of these.',
     gates: {
       cancel: 'Cancel cards',
       reopen: 'Reopen cards',
@@ -283,6 +378,8 @@ export const strings = {
   locations: {
     addRoot: 'Add building',
     addChildLabel: (name: string) => `Add inside ${name}`,
+    add: 'Add',
+    rename: 'Rename',
     renameLabel: (name: string) => `Rename ${name}`,
     deleteLabel: (name: string) => `Delete ${name}`,
     nameLabel: 'Name',
@@ -291,6 +388,11 @@ export const strings = {
     renameTitle: 'Rename location',
     empty: 'No locations yet',
     treeLabel: 'Location tree',
+    /** Confirmation before a destructive delete (buildings take children with them). */
+    deleteConfirmTitle: 'Delete location',
+    deleteConfirmBody: (name: string) =>
+      `Delete "${name}"? Everything inside it must be removed first. This cannot be undone.`,
+    deleteConfirm: 'Delete',
   },
 
   tokens: {
@@ -305,6 +407,11 @@ export const strings = {
       read_write: 'Read + write',
     } satisfies Record<TokenScope, string>,
     revoke: 'Revoke',
+    /** Confirmation before revoking (can break a live integration). */
+    revokeConfirmTitle: 'Revoke token',
+    revokeConfirmBody: (name: string) =>
+      `Revoke "${name}"? Any integration using it will stop working immediately. This cannot be undone.`,
+    revokeConfirm: 'Revoke token',
     revoked: 'Revoked',
     active: 'Active',
     tokenTitle: 'Service token created',

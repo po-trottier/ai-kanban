@@ -50,7 +50,17 @@ export function BoardPage() {
   const requestMove = useCallback(
     (card: BoardCard, intent: MoveIntent, announcement?: string) => {
       const from = board === undefined ? null : laneKeyOfCard(board, card)
-      if (isWaitingLane(intent.toLane) && (from === null || !isWaitingLane(from))) {
+      const laneLabel = board?.lanes.find((snapshot) => snapshot.lane.key === intent.toLane)?.lane
+        .label
+      // The move modal now collects the waiting reason + resume date inline, so
+      // an intent that already carries them skips the second modal entirely.
+      const needsWaitingData =
+        intent.waitingReason === undefined || intent.expectedResumeAt === undefined
+      if (
+        isWaitingLane(intent.toLane) &&
+        needsWaitingData &&
+        (from === null || !isWaitingLane(from))
+      ) {
         setModal({
           kind: 'waiting',
           card,
@@ -59,7 +69,12 @@ export function BoardPage() {
         })
         return
       }
-      moveCard.mutate({ card, intent, ...(announcement === undefined ? {} : { announcement }) })
+      moveCard.mutate({
+        card,
+        intent,
+        ...(announcement === undefined ? {} : { announcement }),
+        ...(laneLabel === undefined ? {} : { laneLabel }),
+      })
     },
     [board, moveCard],
   )
@@ -182,6 +197,9 @@ export function BoardPage() {
               card: modal.card,
               intent: { ...modal.intent, waitingReason, expectedResumeAt },
               ...(modal.announcement === undefined ? {} : { announcement: modal.announcement }),
+              laneLabel:
+                board.lanes.find((snapshot) => snapshot.lane.key === modal.intent.toLane)?.lane
+                  .label ?? strings.laneNames.waiting_parts_vendor,
             })
           }}
         />

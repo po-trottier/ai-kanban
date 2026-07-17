@@ -104,8 +104,37 @@ test('deleting a comment leaves a placeholder that keeps replies in context', as
     .filter({ hasText: parentBody })
     .getByRole('button', { name: 'Delete comment' })
     .click()
+  // The irreversible delete is confirmed in a dialog.
+  await page.getByRole('button', { name: 'Delete it' }).click()
 
   await expect(page.getByText('(deleted)')).toBeVisible()
   await expect(page.getByText(parentBody)).toBeHidden()
   await expect(page.getByRole('article').filter({ hasText: replyBody })).toBeVisible()
+})
+
+test('Escape in the delete-comment confirm closes only the dialog, not the panel', async ({
+  page,
+  context,
+}) => {
+  await signIn(context)
+  const card = await createCard(context.request, `Comments escape ${randomUUID()}`)
+  const body = `Keep the panel ${randomUUID()}`
+  await context.request.post(`/api/v1/cards/${card.id}/comments`, { data: { body } })
+
+  await openComments(page, card.id)
+  await page
+    .getByRole('article')
+    .filter({ hasText: body })
+    .getByRole('button', { name: 'Delete comment' })
+    .click()
+  // The confirm dialog is up; Escape is the natural way to back out of it.
+  const confirmButton = page.getByRole('button', { name: 'Delete it' })
+  await expect(confirmButton).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  // The confirm dialog is gone, the comment survives, and — crucially — the
+  // card panel is still open (Escape did NOT collapse it back to '/').
+  await expect(confirmButton).toBeHidden()
+  await expect(page.getByRole('article').filter({ hasText: body })).toBeVisible()
+  await expect(page).toHaveURL(new RegExp(`/cards/${card.id}$`))
 })

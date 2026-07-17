@@ -25,11 +25,14 @@ export function useBoard() {
 }
 
 export interface MoveCardArgs {
-  /** Board summary (the detail panel's full Card is a structural superset). */
-  card: BoardCard
+  /** Only id + version are read (route + If-Match), so a board summary or the
+   * detail panel's full Card both fit. */
+  card: Pick<BoardCard, 'id' | 'version'>
   intent: MoveIntent
   /** Read to the live region after a successful menu-driven move (ADR-007). */
   announcement?: string
+  /** Destination lane label, for the confirmation toast ("Card moved to Ready"). */
+  laneLabel?: string
 }
 
 /**
@@ -59,6 +62,14 @@ export function useMoveCard(onMoved?: (args: MoveCardArgs) => void) {
       notifyCardError(error)
     },
     onSuccess: (_card, args) => {
+      // Every move confirms on-screen (a non-technical user needs reassurance
+      // the action took) — naming the destination lane when we know it.
+      notifications.show({
+        message:
+          args.laneLabel === undefined
+            ? strings.board.moved
+            : strings.board.movedTo(args.laneLabel),
+      })
       onMoved?.(args)
     },
     onSettled: () => {
@@ -109,17 +120,30 @@ type CardAction =
   | { action: 'block'; body: Omit<BlockCardInput, 'expectedVersion'> }
   | { action: 'unblock' }
 
+/** The confirmation-toast copy for each card action (names the outcome). */
+const ACTION_TOAST: Record<CardAction['action'], string> = {
+  cancel: strings.card.cancelledToast,
+  reopen: strings.card.reopenedToast,
+  block: strings.card.blockedToast,
+  unblock: strings.card.unblockedToast,
+}
+
 /** Cancel / reopen / block / unblock — explicit card actions, never drags. */
 export function useCardAction() {
   const api = useApi()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ card, ...action }: { card: BoardCard } & CardAction) =>
+    // Only id + version are read (route + If-Match): the board summary and the
+    // panel's full Card both fit, so both surfaces call one mutation.
+    mutationFn: ({ card, ...action }: { card: Pick<BoardCard, 'id' | 'version'> } & CardAction) =>
       api.post(`/cards/${card.id}/${action.action}`, cardSchema, {
         body: 'body' in action ? action.body : {},
         ifMatch: card.version,
       }),
-    onSuccess: (updated) => {
+    onSuccess: (updated, { action }) => {
+      // Name the outcome and (for cancel/reopen) its destination lane so a
+      // card that "vanishes" to Done is never a mystery (workflow.md).
+      notifications.show({ message: ACTION_TOAST[action] })
       invalidateCard(queryClient, updated.id)
     },
     onError: (error, { card }) => {

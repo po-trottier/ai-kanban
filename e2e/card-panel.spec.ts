@@ -37,6 +37,39 @@ test('deep-links the panel at /cards/:id', async ({ page, context }) => {
   await expect(page.getByRole('region', { name: 'Kanban board' })).toBeVisible()
 })
 
+test('docks the panel below the header without overlapping it', async ({ page, context }) => {
+  await signIn(context)
+  const title = `Docked ${randomUUID()}`
+  const card = await createCard(context.request, title)
+  await page.goto(`/cards/${card.id}`)
+
+  // The header (title + New card + avatar) stays fully usable, and structurally
+  // the panel sits entirely below the header band — never over it.
+  const header = page.getByRole('banner')
+  const panel = page.getByRole('dialog')
+  await expect(panel.getByLabel('Title')).toHaveValue(title)
+  await expect(header.getByRole('button', { name: 'New card' })).toBeVisible()
+  // Fallbacks make a null box fail the numeric comparison (no conditional).
+  const headerBox = (await header.boundingBox()) ?? { y: Number.NaN, height: Number.NaN }
+  const panelBox = (await panel.boundingBox()) ?? { y: Number.NaN }
+  // The panel's top edge sits at or below the header's bottom edge — docked, not over.
+  expect(panelBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height - 1)
+})
+
+test('explains a blocked card with a banner and unblocks it inline', async ({ page, context }) => {
+  await signIn(context)
+  await openBoard(page)
+
+  // The seeded blocked card carries a reason; opening it surfaces the banner.
+  await boardCard(page, 'Patch drywall in Room 101').click()
+  const panel = page.getByRole('dialog')
+  await expect(panel).toContainText('This card is blocked')
+  await expect(panel).toContainText('Room occupied until the audit wraps up')
+
+  await panel.getByRole('button', { name: 'Unblock' }).click()
+  await expect(page.getByText('Card unblocked')).toBeVisible()
+})
+
 test('edits title and priority through the If-Match happy path', async ({ page, context }) => {
   await signIn(context)
   const title = `Panel edit ${randomUUID()}`

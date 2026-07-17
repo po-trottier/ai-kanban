@@ -15,6 +15,7 @@ import { type CardEvent, type CardEventType } from '../domain/events.ts'
 import { type BoardPolicy } from '../domain/policy.ts'
 import {
   type AttachmentRepository,
+  type BoardCardRow,
   type CardQueryFilter,
   type CardRepository,
   type CommentRepository,
@@ -261,6 +262,27 @@ class InMemoryCardRepository implements CardRepository {
           .sort((a, b) => binaryCompare(a.position, b.position)),
       ),
     )
+  }
+
+  async listBoardSummariesByLane(laneId: string): Promise<BoardCardRow[]> {
+    const cards = await this.listByLane(laneId, { activeOnly: true })
+    return cards.map((card) => {
+      const tagIds = new Set(
+        this.state.cardTags.filter((row) => row.cardId === card.id).map((row) => row.tagId),
+      )
+      const tagNames = this.state.tags
+        .filter((tag) => tagIds.has(tag.id))
+        .map((tag) => tag.name)
+        .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+      const attachmentCount = this.state.attachments.filter(
+        (attachment) => attachment.cardId === card.id && attachment.deletedAt === null,
+      ).length
+      const locationLabel =
+        card.locationId === null
+          ? null
+          : (this.state.locations.find((location) => location.id === card.locationId)?.name ?? null)
+      return { card, extras: { tags: tagNames, attachmentCount, locationLabel } }
+    })
   }
 
   async countActiveByLane(laneId: string): Promise<number> {

@@ -59,10 +59,18 @@ export function PolicyEditorForm({ value, laneLabels, saving, onSave }: PolicyEd
           setDocument((current) => ({ ...current, transitionEnforcement: checked }))
         }}
       />
-      <Stack gap="sm">
+      <Stack gap="sm" opacity={document.transitionEnforcement ? 1 : 0.5}>
         <Title order={3} size="sm">
           {strings.policy.transitionsTitle}
         </Title>
+        <Text size="xs" c="dimmed">
+          {strings.policy.transitionsHint}
+        </Text>
+        {document.transitionEnforcement ? null : (
+          <Text size="xs" c="dimmed">
+            {strings.policy.disabledWhenOff}
+          </Text>
+        )}
         <Table>
           <Table.Tbody>
             {document.transitions.map((edge, index) => (
@@ -82,6 +90,7 @@ export function PolicyEditorForm({ value, laneLabels, saving, onSave }: PolicyEd
                     data={roleOptions}
                     value={edge.minRole ?? NO_GATE}
                     allowDeselect={false}
+                    disabled={!document.transitionEnforcement}
                     onChange={(selected) => {
                       setTransitionRole(index, selected === NO_GATE ? null : (selected as Role))
                     }}
@@ -92,10 +101,13 @@ export function PolicyEditorForm({ value, laneLabels, saving, onSave }: PolicyEd
           </Table.Tbody>
         </Table>
       </Stack>
-      <Stack gap="sm">
+      <Stack gap="sm" opacity={document.transitionEnforcement ? 1 : 0.5}>
         <Title order={3} size="sm">
           {strings.policy.actionGatesTitle}
         </Title>
+        <Text size="xs" c="dimmed">
+          {strings.policy.actionGatesHint}
+        </Text>
         {(Object.keys(strings.policy.gates) as (keyof PolicyActionGates)[]).map((gate) => (
           <Select
             key={gate}
@@ -104,6 +116,7 @@ export function PolicyEditorForm({ value, laneLabels, saving, onSave }: PolicyEd
             data={roleOptions}
             value={document.actionGates[gate] ?? NO_GATE}
             allowDeselect={false}
+            disabled={!document.transitionEnforcement}
             onChange={(selected) => {
               setGate(gate, selected === NO_GATE ? null : (selected as Role))
             }}

@@ -58,6 +58,53 @@ describe('GET /board', () => {
     expect(intake?.wipLimitExceeded).toBe(false)
     expect(first.statusCode).toBe(201)
   })
+
+  it('carries tag names, an attachment count, and the location label on each summary card', async () => {
+    // A room to locate the card in (the leaf label the board card renders).
+    const building = await createLocation({ kind: 'building', name: 'Summary Building' })
+    const floor = await createLocation({
+      kind: 'floor',
+      name: 'Summary Floor',
+      parentId: building.json<LocationBody>().id,
+    })
+    const room = await createLocation({
+      kind: 'room',
+      name: 'Summary Room 7',
+      parentId: floor.json<LocationBody>().id,
+    })
+    const roomId = room.json<LocationBody>().id
+
+    const created = await t.request(adminCookie, {
+      method: 'POST',
+      url: '/api/v1/cards',
+      payload: {
+        title: 'Summary-fields card',
+        locationId: roomId,
+        tags: ['HVAC', 'urgent'],
+      },
+    })
+    expect(created.statusCode).toBe(201)
+
+    const response = await t.request(adminCookie, { method: 'GET', url: '/api/v1/board' })
+
+    const board = response.json<{
+      lanes: {
+        cards: {
+          title: string
+          tags: string[]
+          attachmentCount: number
+          locationLabel: string | null
+        }[]
+      }[]
+    }>()
+    const summary = board.lanes
+      .flatMap((lane) => lane.cards)
+      .find((card) => card.title === 'Summary-fields card')
+    expect(summary?.tags.toSorted()).toEqual(['HVAC', 'urgent'])
+    expect(summary?.locationLabel).toBe('Summary Room 7')
+    // No uploads yet: the lean count is present and zero (never a full object).
+    expect(summary?.attachmentCount).toBe(0)
+  })
 })
 
 describe('PATCH /lanes/:id (admin)', () => {
