@@ -51,6 +51,20 @@ describe('CardPanel', () => {
     expect(dialog).toHaveAccessibleName(new RegExp(card.priority))
   })
 
+  it('renders non-modal on desktop so the board behind stays interactive', async () => {
+    // Arrange — desktop is the default viewport in the test environment
+    const user = userEvent.setup()
+    const fake = panelApp()
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    await screen.findByRole('dialog', { name: /Fix pump/ })
+    // Act — operate the shell BEHIND the open drawer: a modal drawer would
+    // swallow the outside click (and close on it) instead of letting it land.
+    await user.click(screen.getByRole('button', { name: 'New card' }))
+    // Assert — the New card modal opened and the drawer is still open.
+    expect(await screen.findByRole('button', { name: 'Create' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: /Fix pump/ })).toBeInTheDocument()
+  })
+
   it('saves edited fields with If-Match from the card version', async () => {
     // Arrange
     const user = userEvent.setup()

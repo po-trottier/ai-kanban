@@ -20,7 +20,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:3000',
+      // Explicit IPv4 to match the server's 0.0.0.0 (IPv4) bind. `localhost`
+      // resolves to IPv6 ::1 first on many machines, so proxying there yields
+      // ECONNREFUSED even while the backend is up (the server isn't on ::1).
+      '/api': 'http://127.0.0.1:3000',
     },
   },
   test: {

@@ -36,13 +36,18 @@ import { CommentsThread } from './CommentsThread.tsx'
 import { HistoryList } from './HistoryList.tsx'
 
 /**
- * The card detail panel: a right-side drawer (full-screen on small viewports)
- * deep-linked at /cards/:id. Fields, attachments, comments, history.
+ * The card detail panel: a right-side drawer deep-linked at /cards/:id.
+ * Non-modal on desktop — no overlay, focus trap, or scroll lock, so the board
+ * stays visible and fully interactive (drag, scroll, opening another card)
+ * while the panel is open. Small viewports keep the full-screen modal
+ * behavior. Fields, attachments, comments, history.
  */
 export function CardPanel() {
   const { cardId = '' } = useParams()
   const navigate = useNavigate()
-  const smallViewport = useMediaQuery('(max-width: 62em)')
+  // Deterministic `false` before the first media-query evaluation — via the
+  // hook's own initialValue (its declared return type is non-nullable).
+  const smallViewport = useMediaQuery('(max-width: 62em)', false)
   // Shares the body's query (deduplicated) so the header can carry the card
   // title; the generic label remains as the fallback while it loads.
   const detailQuery = useCardDetail(cardId)
@@ -58,6 +63,11 @@ export function CardPanel() {
       onClose={close}
       position="right"
       size={smallViewport ? '100%' : 'lg'}
+      withOverlay={smallViewport}
+      lockScroll={smallViewport}
+      trapFocus={smallViewport}
+      closeOnClickOutside={smallViewport}
+      shadow="xl"
       title={
         card === undefined ? (
           strings.detail.panelLabel
