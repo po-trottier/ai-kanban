@@ -83,6 +83,7 @@ const DEFAULT_RATE_LIMITS: AppConfig['rateLimits'] = {
   global: { max: 300, timeWindowMs: 60_000 },
   login: { max: 5, timeWindowMs: 60_000 },
   upload: { max: 20, timeWindowMs: 60_000 },
+  mcp: { max: 120, timeWindowMs: 60_000 },
 }
 
 const DEFAULT_SSE: AppConfig['sse'] = { keepaliveMs: 25_000, maxStreamsPerUser: 5 }
@@ -157,7 +158,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
   }
 
   return {
-    deps: { config, uow, clock, eventBus, blobStore, services },
+    deps: { config, uow, clock, eventBus, blobStore, services, systemUserId },
     connection,
     hasher,
     systemUserId,

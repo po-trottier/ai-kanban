@@ -5,7 +5,7 @@ import {
   type CursorKey,
   type EventRepository,
 } from '@rivian-kanban/core'
-import { and, asc, eq, gt, inArray, or, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, inArray, or, type SQL } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { toError } from '../errors.ts'
 import { cardEvents } from '../schema.ts'
@@ -59,6 +59,21 @@ export class SqliteEventRepository implements EventRepository {
       .where(and(...conditions))
       .orderBy(asc(cardEvents.createdAt), asc(cardEvents.id))
     const rows = options?.limit !== undefined ? query.limit(options.limit).all() : query.all()
+    return Promise.resolve(rows.map((row) => cardEventSchema.parse(row)))
+  }
+
+  /**
+   * The newest `limit` events, newest-first on (createdAt DESC, id DESC) —
+   * the O(limit) read behind "latest events" panels (port contract).
+   */
+  listLatestByCard(cardId: string, limit: number): Promise<CardEvent[]> {
+    const rows = this.db
+      .select()
+      .from(cardEvents)
+      .where(eq(cardEvents.cardId, cardId))
+      .orderBy(desc(cardEvents.createdAt), desc(cardEvents.id))
+      .limit(limit)
+      .all()
     return Promise.resolve(rows.map((row) => cardEventSchema.parse(row)))
   }
 }

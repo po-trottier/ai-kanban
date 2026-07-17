@@ -10,6 +10,7 @@ import {
 } from 'fastify-type-provider-zod'
 import { randomUUID } from 'node:crypto'
 import { pino } from 'pino'
+import { mcpRoutes } from './mcp/mcp-routes.ts'
 import { registerErrorHandling } from './plugins/error-handler.ts'
 import { registerSchemaGuard } from './plugins/schema-guard.ts'
 import { registerRateLimiting, registerSecurity } from './plugins/security.ts'
@@ -113,6 +114,11 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       configuration: { url: '/api/v1/openapi.json' },
     })
   }
+
+  // Bearer-authenticated MCP mount at POST /mcp — outside /api/v1, so the
+  // session-auth and CSRF hooks skip it by URL while the global per-IP
+  // bucket, helmet and under-pressure (all app-level) still cover it.
+  mcpRoutes(deps)(app)
 
   operationalRoutes(deps)(app)
 

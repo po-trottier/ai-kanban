@@ -79,6 +79,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
       global: { max: 100_000, timeWindowMs: 60_000 },
       login: { max: 100_000, timeWindowMs: 60_000 },
       upload: { max: 100_000, timeWindowMs: 60_000 },
+      mcp: { max: 100_000, timeWindowMs: 60_000 },
       ...wireOptions.rateLimits,
     },
   })

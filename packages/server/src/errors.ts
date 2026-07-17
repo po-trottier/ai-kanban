@@ -14,6 +14,22 @@ export class UnauthenticatedError extends Error {
   }
 }
 
+/**
+ * Missing/invalid/revoked bearer token on /mcp (401 + `WWW-Authenticate:
+ * Bearer`, docs/architecture/mcp.md#authentication). `tokenPresented`
+ * selects the RFC 6750 challenge: a bare `Bearer` when no credential came at
+ * all, `error="invalid_token"` when one did and was rejected.
+ */
+export class BearerAuthRequiredError extends Error {
+  readonly tokenPresented: boolean
+
+  constructor(detail: string, tokenPresented: boolean) {
+    super(detail)
+    this.name = 'BearerAuthRequiredError'
+    this.tokenPresented = tokenPresented
+  }
+}
+
 /** Uniform login failure — unknown email and wrong password are identical (401). */
 export class InvalidCredentialsError extends Error {
   constructor() {

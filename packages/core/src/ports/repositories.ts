@@ -201,6 +201,14 @@ export interface EventRepository {
     cardId: string,
     options?: { types?: readonly CardEventType[]; after?: CursorKey; limit?: number },
   ): Promise<CardEvent[]>
+  /**
+   * The newest `limit` events for a card, newest-first:
+   * `ORDER BY createdAt DESC, id DESC LIMIT n` — the trailing slice of the
+   * card's history in O(limit), regardless of history depth. Tie-break
+   * direction mirrors `listByCard` exactly (id disambiguates equal
+   * timestamps).
+   */
+  listLatestByCard(cardId: string, limit: number): Promise<CardEvent[]>
 }
 
 /** The repositories available inside one atomic unit of work. */

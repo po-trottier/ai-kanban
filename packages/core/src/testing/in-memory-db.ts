@@ -723,4 +723,9 @@ class InMemoryEventRepository implements EventRepository {
     if (options?.limit !== undefined) events = events.slice(0, options.limit)
     return Promise.resolve(clone(events))
   }
+
+  async listLatestByCard(cardId: string, limit: number): Promise<CardEvent[]> {
+    const events = await this.listByCard(cardId)
+    return events.slice(-limit).reverse()
+  }
 }

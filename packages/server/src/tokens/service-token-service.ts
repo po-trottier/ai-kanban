@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import {
   ADMIN_ONLY_RULE,
   PolicyDeniedError,
@@ -11,6 +11,7 @@ import {
   type UnitOfWork,
 } from '@rivian-kanban/core'
 import { z } from 'zod'
+import { hashServiceToken } from './token-hash.ts'
 
 /**
  * Admin-issued MCP bearer credentials (ADR-009,
@@ -57,7 +58,7 @@ export class ServiceTokenService {
     const token: ServiceToken = {
       id: this.deps.ids.newId(),
       name: input.name,
-      tokenHash: createHash('sha256').update(rawToken).digest('hex'),
+      tokenHash: hashServiceToken(rawToken),
       role: input.role,
       scope: input.scope,
       createdBy: actor.id,

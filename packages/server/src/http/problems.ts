@@ -11,6 +11,7 @@ import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod'
 import { ZodError } from 'zod'
 import {
   BackoffActiveError,
+  BearerAuthRequiredError,
   CsrfError,
   CurrentPasswordMismatchError,
   InvalidCredentialsError,
@@ -113,6 +114,16 @@ export function toProblem(error: unknown): ProblemResult {
   if (error instanceof UnauthenticatedError || error instanceof InvalidCredentialsError) {
     // Uniform wording: unknown email and wrong password are indistinguishable.
     return problem(401, 'unauthenticated', 'Authentication required', error.message)
+  }
+  if (error instanceof BearerAuthRequiredError) {
+    // /mcp bearer challenge (RFC 6750): 401 + WWW-Authenticate before any
+    // JSON-RPC processing (docs/architecture/mcp.md#authentication).
+    return {
+      ...problem(401, 'unauthenticated', 'Authentication required', error.message),
+      headers: {
+        'www-authenticate': error.tokenPresented ? 'Bearer error="invalid_token"' : 'Bearer',
+      },
+    }
   }
   if (error instanceof CurrentPasswordMismatchError) {
     return problem(403, 'invalid-current-password', 'Current password incorrect', error.message)

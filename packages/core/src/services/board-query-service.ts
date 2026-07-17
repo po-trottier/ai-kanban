@@ -60,13 +60,14 @@ export interface StaleCard {
   reasons: StaleReason[]
 }
 
-const staleCardsInputSchema = z.strictObject({
+/** Shared by `staleCards` and the MCP `list_stale_cards` tool (single-schema rule). */
+export const staleCardsInputSchema = z.strictObject({
   reviewDays: z.number().int().positive().default(DEFAULT_REVIEW_STALE_DAYS),
   blockedDays: z.number().int().positive().default(DEFAULT_BLOCKED_STALE_DAYS),
 })
 
 /** Extends the shared pagination envelope (single-schema rule) with a type filter. */
-const cardHistoryRequestSchema = pageRequestSchema.extend({
+export const cardHistoryRequestSchema = pageRequestSchema.extend({
   type: z.enum(CARD_EVENT_TYPES).optional(),
 })
 
@@ -152,6 +153,19 @@ export class BoardQueryService {
         createdAt: event.createdAt,
         id: event.id,
       }))
+    })
+  }
+
+  /**
+   * The trailing `take` audit events in chronological order — the "latest
+   * events" panel of the MCP `get_card` tool. O(take) regardless of history
+   * depth (the repository reads newest-first with a LIMIT).
+   */
+  async latestEvents(cardId: string, take: number): Promise<CardEvent[]> {
+    return this.deps.uow.run(async (tx) => {
+      requireFound(await tx.cards.findById(cardId), 'card')
+      const newestFirst = await tx.events.listLatestByCard(cardId, take)
+      return newestFirst.reverse()
     })
   }
 

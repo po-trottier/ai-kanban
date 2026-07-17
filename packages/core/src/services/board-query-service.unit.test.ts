@@ -303,6 +303,45 @@ describe('BoardQueryService.cardHistory', () => {
   })
 })
 
+describe('BoardQueryService.latestEvents', () => {
+  it('returns only the trailing take events, in chronological order', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({ laneId: scenario.lanes.ready.id })
+    await scenario.cards.update(scenario.actors.technician, card.id, {
+      title: 'Renamed once',
+      expectedVersion: 1,
+    })
+    scenario.clock.advanceDays(1)
+    await scenario.cards.move(scenario.actors.technician, card.id, {
+      toLane: 'in_progress',
+      expectedVersion: 2,
+    })
+    scenario.clock.advanceDays(1)
+    await scenario.cards.block(scenario.actors.technician, card.id, {
+      reason: 'parts missing',
+      expectedVersion: 3,
+    })
+
+    // Act
+    const latest = await scenario.queries.latestEvents(card.id, 2)
+
+    // Assert
+    expect(latest.map((event) => event.eventType)).toEqual(['card.status_changed', 'card.blocked'])
+  })
+
+  it('rejects an unknown card id', async () => {
+    // Arrange
+    const scenario = createScenario()
+
+    // Act
+    const act = scenario.queries.latestEvents(fixtureId(999), 5)
+
+    // Assert
+    await expect(act).rejects.toBeInstanceOf(NotFoundError)
+  })
+})
+
 describe('BoardQueryService.staleCards', () => {
   it('reports waiting cards as overdue starting the UTC day after their resume date', async () => {
     // Arrange: fixed clock is 2026-07-16

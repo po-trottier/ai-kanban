@@ -12,6 +12,9 @@ checks and audit trail behave identically to web actions.
   GET stream, no DELETE, no server-initiated messages. This matches the direction of the
   upcoming 2026-07-28 spec release (SEP-2567 removes protocol-level sessions) and keeps the
   mount tiny.
+- JSON-RPC **batch bodies are rejected** (`400`, error `-32600`): batching was removed in the
+  2025-06-18 spec revision, and one POST = one message keeps the per-token rate limit
+  meaningful (a batch would otherwise smuggle many tool calls past one budget unit).
 - Mounted on the same Fastify server via a thin raw-request mount (~50 lines). The third-party
   `fastify-mcp-server` plugin is deliberately not used (stale, unlikely to track the transport
   changes). Migration to SDK v2 (`@modelcontextprotocol/server`, official `createMcpHandler`

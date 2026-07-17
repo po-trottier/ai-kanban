@@ -1,4 +1,5 @@
 import {
+  type Actor,
   type AttachmentService,
   type BoardQueryService,
   type CardService,
@@ -41,6 +42,8 @@ export interface AppConfig {
     global: RateLimitBudget
     login: RateLimitBudget
     upload: RateLimitBudget
+    /** /mcp bucket, keyed per service-token id — agents share egress IPs. */
+    mcp: RateLimitBudget
   }
   sse: {
     /** 25 s in production (ADR-008); tests shorten it. */
@@ -78,6 +81,12 @@ export interface AppDeps {
   eventBus: InProcessEventBus
   blobStore: LocalBlobStore
   services: AppServices
+  /**
+   * The seeded `system` user — the resolved reporter/author for MCP writes
+   * when no `reporterEmail` is given (docs/architecture/mcp.md#tools): a
+   * service-token id is not a user id, and cards/comments FK to users.
+   */
+  systemUserId: string
 }
 
 declare module 'fastify' {
@@ -86,6 +95,8 @@ declare module 'fastify' {
     authUser: User | null
     /** sha256 of the presented session cookie (revocation handle). */
     sessionHash: string | null
+    /** Resolved by the /mcp bearer hook (kind 'mcp', id = service-token id). */
+    mcpActor: Actor | null
   }
 
   interface FastifyContextConfig {

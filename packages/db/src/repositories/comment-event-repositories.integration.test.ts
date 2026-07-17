@@ -241,6 +241,13 @@ describe('SqliteEventRepository', () => {
     expect(afterHigh.at(0)?.createdAt).toBe('2026-07-16T16:00:00.000Z')
   })
 
+  it('listLatestByCard returns the newest N, newest-first on (createdAt DESC, id DESC)', async () => {
+    const latest = await run((tx) => tx.events.listLatestByCard(eventCard.id, 3))
+
+    expect(latest.map((e) => e.createdAt)).toEqual(['2026-07-16T16:00:00.000Z', shared, shared])
+    expect(latest.slice(1).map((e) => e.id)).toEqual([idHigh, idLow])
+  })
+
   it('filters by event type; an explicit empty type list matches nothing', async () => {
     const archived = await run((tx) =>
       tx.events.listByCard(eventCard.id, { types: ['card.archived'] }),
