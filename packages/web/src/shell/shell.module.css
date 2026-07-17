@@ -44,7 +44,42 @@
 }
 
 /* The docked card panel: no padding (the panel owns its own), full height so
-   its body can scroll independently of the board (Main) beside it. */
+   its body can scroll independently of the board (Main) beside it. Positioned
+   so the resize handle can pin to its left edge. */
 .aside {
   padding: 0;
+  position: relative;
+}
+
+/* Drag handle on the panel's left edge: a thin grab strip that highlights on
+   hover/focus. Hidden below the breakpoint where the panel goes full-screen. */
+.resizeHandle {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: var(--app-panel-resize-handle-width);
+  cursor: col-resize;
+  z-index: 2;
+  background-color: transparent;
+  transition: background-color 100ms ease;
+}
+
+.resizeHandle:hover,
+.resizeHandle:focus-visible {
+  background-color: var(--mantine-color-gray-4);
+  outline: none;
+}
+
+/* Matches CARD_PANEL_FULLSCREEN_BREAKPOINT (theme.ts): the panel is full-width
+   below it, so there is nothing to resize. */
+@media (max-width: 62em) {
+  .resizeHandle {
+    display: none;
+  }
+}
+
+/* While dragging, keep the cursor consistent and stop text selection everywhere. */
+.shellResizing {
+  cursor: col-resize;
+  user-select: none;
 }

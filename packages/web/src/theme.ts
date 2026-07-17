@@ -22,6 +22,8 @@ const other: MantineThemeOther = {
   /** Header logo height + centred-search cap, consumed by shell.module.css. */
   headerLogoHeight: '2rem',
   headerSearchMaxWidth: '28rem',
+  /** Grab width of the card-panel resize handle (shell.module.css). */
+  panelResizeHandleWidth: '0.375rem',
 }
 
 /** The one emphasis weight (card titles, comment authors, history actors) — matches headings. */
@@ -36,8 +38,11 @@ export const SIZES = {
   /** Fixed lanes-admin inputs so the grid aligns regardless of label length. */
   laneLabelInputWidth: '16rem',
   laneWipLimitInputWidth: '6.5rem',
-  /** The docked card-detail Aside width (matches the old Drawer `size="lg"`). */
+  /** The docked card-detail Aside default width (matches the old Drawer `size="lg"`). */
   cardPanelWidth: 620,
+  /** Drag bounds for the resizable card panel (keeps it readable, not off-screen). */
+  cardPanelMinWidth: 380,
+  cardPanelMaxWidth: 900,
   /** Header search trailing controls (clear + advanced-search icons side by side). */
   headerSearchActionsWidth: 64,
 } as const
@@ -67,6 +72,7 @@ export const cssVariablesResolver: CSSVariablesResolver = (resolved) => ({
     '--app-thumbnail-height': String(resolved.other.thumbnailHeight),
     '--app-header-logo-height': String(resolved.other.headerLogoHeight),
     '--app-header-search-max-width': String(resolved.other.headerSearchMaxWidth),
+    '--app-panel-resize-handle-width': String(resolved.other.panelResizeHandleWidth),
   },
   light: {},
   dark: {},

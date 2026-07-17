@@ -306,6 +306,8 @@ export const strings = {
     unsavedWarning: 'You have unsaved changes — click Save changes to keep them.',
     panelLabel: 'Card details',
     closeLabel: 'Close card',
+    /** Accessible name for the panel's drag-to-resize handle (also arrow-key aware). */
+    resizeLabel: 'Resize the detail panel — drag, or use the arrow keys',
     loadFailed: 'The card could not be loaded.',
     archivedNotice: 'This card is archived — reopen it to make changes.',
     /** The prominent state banner at the top of the panel body. */

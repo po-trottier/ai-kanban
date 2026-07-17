@@ -56,6 +56,37 @@ test('docks the panel below the header without overlapping it', async ({ page, c
   expect(panelBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height - 1)
 })
 
+test('resizes the detail panel by dragging the handle, and remembers the width', async ({
+  page,
+  context,
+}) => {
+  await signIn(context)
+  const title = `Resize ${randomUUID()}`
+  const card = await createCard(context.request, title)
+  await page.goto(`/cards/${card.id}`)
+
+  const panel = page.getByRole('complementary')
+  await expect(page.getByRole('dialog').getByLabel('Title')).toHaveValue(title)
+  const handle = page.getByRole('separator', { name: /Resize the detail panel/ })
+  await expect(handle).toBeVisible()
+  // Fallbacks keep a null box out of the assertion path (no conditional in a test).
+  const startWidth = ((await panel.boundingBox()) ?? { width: Number.NaN }).width
+
+  // The handle is an ARIA window-splitter: focus it and widen with the arrow
+  // keys (panel is on the right, so Left widens). Each press is a fixed step.
+  await handle.focus()
+  for (let press = 0; press < 6; press += 1) await page.keyboard.press('ArrowLeft')
+
+  const widened = ((await panel.boundingBox()) ?? { width: Number.NaN }).width
+  expect(widened).toBeGreaterThan(startWidth + 80)
+
+  // The chosen width survives a reload (persisted to localStorage).
+  await page.reload()
+  await expect(page.getByRole('dialog').getByLabel('Title')).toHaveValue(title)
+  const restored = (await page.getByRole('complementary').boundingBox())?.width ?? Number.NaN
+  expect(Math.abs(restored - widened)).toBeLessThan(4)
+})
+
 test('explains a blocked card with a banner and unblocks it inline', async ({ page, context }) => {
   await signIn(context)
   await openBoard(page)

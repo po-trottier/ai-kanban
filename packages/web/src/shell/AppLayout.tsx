@@ -13,7 +13,10 @@ import { CardPanelSlotContext } from './card-panel-slot.ts'
 import { HeaderSearch } from './HeaderSearch.tsx'
 import { GearIcon } from './icons.tsx'
 import { NewCardButton } from './NewCardButton.tsx'
+import { PanelResizeHandle } from './PanelResizeHandle.tsx'
 import { SseBridge } from './SseBridge.tsx'
+import { useCardPanelWidth } from './use-card-panel-width.ts'
+import { cx } from '../lib/cx.ts'
 import classes from './shell.module.css'
 
 /**
@@ -37,6 +40,9 @@ export function AppLayout() {
   // The deep-linked card id, published by the CardPanel route element.
   const [openCardId, setOpenCardId] = useState<string | null>(null)
   const panelOpen = openCardId !== null
+  // Draggable, persisted width for the docked detail panel (desktop only; the
+  // panel goes full-screen below the breakpoint).
+  const panelResize = useCardPanelWidth()
 
   return (
     <CardPanelSlotContext.Provider value={{ openCardId, setOpenCardId }}>
@@ -48,14 +54,15 @@ export function AppLayout() {
         {...(panelOpen
           ? {
               aside: {
-                width: SIZES.cardPanelWidth,
+                width: panelResize.width,
                 breakpoint: CARD_PANEL_FULLSCREEN_BREAKPOINT,
                 collapsed: { desktop: false, mobile: false },
               },
             }
           : {})}
         padding="md"
-        className={classes.shell}
+        // While dragging, suppress selection/cursor flicker across the whole shell.
+        className={cx(classes.shell, panelResize.resizing && classes.shellResizing)}
       >
         <SseBridge />
         <AppShell.Header>
@@ -124,6 +131,7 @@ export function AppLayout() {
         </AppShell.Main>
         {panelOpen ? (
           <AppShell.Aside className={classes.aside}>
+            <PanelResizeHandle resize={panelResize} />
             <CardPanel cardId={openCardId} />
           </AppShell.Aside>
         ) : null}
