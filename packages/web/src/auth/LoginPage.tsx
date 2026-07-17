@@ -1,9 +1,18 @@
-import { Button, Center, Paper, PasswordInput, Stack, TextInput, Title } from '@mantine/core'
+import {
+  Button,
+  Center,
+  Loader,
+  Paper,
+  PasswordInput,
+  Stack,
+  TextInput,
+  Title,
+} from '@mantine/core'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router'
+import { Navigate, useNavigate } from 'react-router'
 import { z } from 'zod'
-import { useLogin } from '../api/auth.ts'
+import { useLogin, useSetupRequired } from '../api/auth.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
@@ -17,11 +26,26 @@ type LoginFormValues = z.infer<typeof loginFormSchema>
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const setupRequired = useSetupRequired()
   const login = useLogin()
   const form = useForm<LoginFormValues>({
     resolver: standardSchemaResolver(loginFormSchema),
     defaultValues: { email: '', password: '' },
   })
+
+  // First boot: until the initial admin exists, nobody can sign in — every
+  // page (this one included) lands on /setup. Errors fall through to the
+  // form: login must stay reachable even if the probe misbehaves.
+  if (setupRequired.isPending) {
+    return (
+      <Center h="100vh" aria-label={strings.common.loading} aria-busy>
+        <Loader />
+      </Center>
+    )
+  }
+  if (setupRequired.data?.required === true) {
+    return <Navigate to="/setup" replace />
+  }
 
   return (
     <Center h="100vh">

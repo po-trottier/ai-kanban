@@ -31,11 +31,39 @@ describe('app routing', () => {
     // Arrange
     const fake = createFakeFetch({
       'GET /api/v1/auth/me': () => problemResponse(401, { title: 'Unauthenticated' }),
+      'GET /api/v1/setup': { required: false },
     })
     // Act
     renderApp({ fetchFn: fake.fetch })
     // Assert
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+  })
+
+  it('redirects everything to /setup while the database has no users', async () => {
+    // Arrange — no session AND the first-boot probe says setup is required.
+    const fake = createFakeFetch({
+      'GET /api/v1/auth/me': () => problemResponse(401, { title: 'Unauthenticated' }),
+      'GET /api/v1/setup': { required: true },
+    })
+    // Act — landing on the login page must also end at /setup.
+    renderApp({ fetchFn: fake.fetch, route: '/login' })
+    // Assert
+    expect(
+      await screen.findByRole('heading', { name: 'Create the admin account' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Sign in' })).not.toBeInTheDocument()
+  })
+
+  it('redirects /setup to the login page once any account exists', async () => {
+    // Arrange
+    const fake = createFakeFetch({ 'GET /api/v1/setup': { required: false } })
+    // Act
+    renderApp({ fetchFn: fake.fetch, route: '/setup' })
+    // Assert
+    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Create the admin account' }),
+    ).not.toBeInTheDocument()
   })
 
   it('renders the authenticated shell and board at /', async () => {
@@ -86,7 +114,10 @@ describe('app routing', () => {
   it('logs out through the user menu and returns to the login page', async () => {
     // Arrange
     const user = userEvent.setup()
-    const fake = authedRoutes({ 'POST /api/v1/auth/logout': {} })
+    const fake = authedRoutes({
+      'POST /api/v1/auth/logout': {},
+      'GET /api/v1/setup': { required: false },
+    })
     renderApp({ fetchFn: fake.fetch })
     await screen.findByText('Fix pump')
     // Act

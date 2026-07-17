@@ -14,7 +14,8 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
   `core`. A boot-time hook fails the process if any route lacks them. Responses are serialized
   through the response schema — fields not in the schema (e.g. `password_hash`) cannot leak.
 - **Auth**: session cookie (see [security.md](security.md)). All routes require auth except
-  `POST /auth/login` and the health endpoints.
+  `POST /auth/login`, the first-boot setup pair `GET|POST /setup` (hard-disabled once any
+  non-system user exists — see security.md#authentication), and the health endpoints.
 - **Authorization**: the Role column below shows the out-of-the-box default. Rows marked
   _policy_ consult the configurable permission policy, which defaults to "any authenticated
   user" ([ADR-013](decisions/ADR-013-configurable-permissions.md)); admin rows are fixed.
@@ -28,7 +29,8 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
   errors include a `issues` array from Zod. Codes: 400 validation, 401 unauthenticated,
   403 policy denial (includes `rule`) — plus `invalid-current-password` (wrong current password
   on change-password; no `rule`) and `csrf`/`password-change-required` — 404, 409 conflict
-  (stale version, stale move neighbors, attachment limit, archived card), 413 upload too large,
+  (stale version, stale move neighbors, attachment limit, archived card,
+  `setup-already-complete` on `POST /setup` once any user exists), 413 upload too large,
   415 bad MIME, 422 illegal transition when enforcement is on (includes `from`, `to`), 429 rate
   limited (with `Retry-After`), 507 `insufficient-storage` for both upload quotas (the per-user
   daily quota and the `BLOB_DIR` high-water mark — see security.md#uploads).
@@ -37,14 +39,16 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
 
 ### Auth & users
 
-| Method & path                 | Role  | Description                                                                                                                                                                                               |
-| ----------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST /auth/login              | —     | email+password → fresh session cookie (never reuses an id)                                                                                                                                                |
-| POST /auth/logout             | any   | destroy session                                                                                                                                                                                           |
-| POST /auth/change-password    | any   | `{ currentPassword, newPassword }`; revokes the user's other sessions; clears `must_change_password`                                                                                                      |
-| GET /auth/me                  | any   | current user + role + `mustChangePassword`                                                                                                                                                                |
-| GET /users                    | any   | active users (id, name, role) for pickers                                                                                                                                                                 |
-| POST /users, PATCH /users/:id | admin | manage users. Create and the PATCH `resetPassword` action return a one-time temp password (shown once, `must_change_password` set); PATCH can deactivate/change role — except the last active admin (409) |
+| Method & path                 | Role  | Description                                                                                                                                                                                                                                                                                  |
+| ----------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST /auth/login              | —     | email+password → fresh session cookie (never reuses an id)                                                                                                                                                                                                                                   |
+| GET /setup                    | —     | `{ required: boolean }` — true iff ZERO non-system users exist of any status (first-boot probe; never flips back to true)                                                                                                                                                                    |
+| POST /setup                   | —     | first boot only: `{ email, displayName, password }` creates the initial admin (password through the change-password policy) and issues a session like login; 409 `setup-already-complete` once any user exists (zero-check + insert commit in one transaction); shares the login rate bucket |
+| POST /auth/logout             | any   | destroy session                                                                                                                                                                                                                                                                              |
+| POST /auth/change-password    | any   | `{ currentPassword, newPassword }`; revokes the user's other sessions; clears `must_change_password`                                                                                                                                                                                         |
+| GET /auth/me                  | any   | current user + role + `mustChangePassword`                                                                                                                                                                                                                                                   |
+| GET /users                    | any   | active users (id, name, role) for pickers                                                                                                                                                                                                                                                    |
+| POST /users, PATCH /users/:id | admin | manage users. Create and the PATCH `resetPassword` action return a one-time temp password (shown once, `must_change_password` set); PATCH can deactivate/change role — except the last active admin (409)                                                                                    |
 
 While `must_change_password` is set, every route except change-password/logout/me returns 403.
 

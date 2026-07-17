@@ -21,6 +21,7 @@ import {
   PasswordPolicyError,
   RateLimitExceededError,
   RequestValidationError,
+  SetupAlreadyCompleteError,
   StorageQuotaError,
   UnauthenticatedError,
   UnsupportedMediaTypeError,
@@ -141,6 +142,9 @@ export function toProblem(error: unknown): ProblemResult {
   }
   if (error instanceof ArchivedError) {
     return problem(409, 'card-archived', 'Card is archived', error.message)
+  }
+  if (error instanceof SetupAlreadyCompleteError) {
+    return problem(409, 'setup-already-complete', 'Setup already complete', error.message)
   }
   if (error instanceof LastActiveAdminError) {
     return problem(409, 'last-active-admin', 'Last active admin', error.message, {

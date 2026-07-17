@@ -30,6 +30,7 @@ import { LocalBlobStore } from '../adapters/blob/local-blob-store.ts'
 import { InProcessEventBus } from '../adapters/event-bus.ts'
 import { SlackNotifier } from '../adapters/slack-notifier.ts'
 import { AuthService } from '../auth/auth-service.ts'
+import { SetupService } from '../auth/setup-service.ts'
 import { LoginBackoff } from '../auth/backoff.ts'
 import { PasswordHasher, type Argon2Params } from '../auth/password-hasher.ts'
 import { type Env } from '../env.ts'
@@ -211,6 +212,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     queries: new BoardQueryService({ uow, clock, boardId }),
     policies: new PolicyService({ ...shared, boardId }),
     auth: new AuthService({ uow, clock, hasher, backoff }),
+    setup: new SetupService({ uow, clock, ids, hasher, systemUserId }),
     users: new UserAdminService({ ...shared, hasher, systemUserId }),
     lanes: new LaneAdminService({ uow, eventBus, boardId }),
     locations: new LocationAdminService(shared),

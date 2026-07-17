@@ -30,6 +30,27 @@ function foldedExpiry(createdAtIso: string, now: Date): string {
   return new Date(Math.min(now.getTime() + SESSION_IDLE_MS, absolute)).toISOString()
 }
 
+/**
+ * Mints a fresh 256-bit session for the user — never reuses an id
+ * (anti-fixation). Login and first-boot setup issue sessions through this
+ * one code path; callers persist the returned row themselves so setup can
+ * commit it atomically with the user insert.
+ */
+export function mintSession(userId: string, now: Date): { rawSessionId: string; session: Session } {
+  const rawSessionId = randomBytes(32).toString('base64url')
+  const nowIso = now.toISOString()
+  return {
+    rawSessionId,
+    session: {
+      id: sessionHashOf(rawSessionId),
+      userId,
+      createdAt: nowIso,
+      expiresAt: foldedExpiry(nowIso, now),
+      lastSeenAt: nowIso,
+    },
+  }
+}
+
 export interface AuthServiceDeps {
   uow: UnitOfWork
   clock: Clock
@@ -108,15 +129,7 @@ export class AuthService {
     }
     backoff.reset(email)
 
-    const rawSessionId = randomBytes(32).toString('base64url')
-    const now = clock.now()
-    const session: Session = {
-      id: sessionHashOf(rawSessionId),
-      userId: credentials.user.id,
-      createdAt: now.toISOString(),
-      expiresAt: foldedExpiry(now.toISOString(), now),
-      lastSeenAt: now.toISOString(),
-    }
+    const { rawSessionId, session } = mintSession(credentials.user.id, clock.now())
     await uow.run((tx) => tx.sessions.create(session))
     return { user: credentials.user, rawSessionId }
   }

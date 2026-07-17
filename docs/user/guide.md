@@ -1,5 +1,8 @@
 # User Guide
 
+> **First boot**: when the app has no users yet, it shows a one-time setup page that creates
+> the first administrator account (afterwards everyone lands on the sign-in page as usual).
+
 ## The board
 
 The board shows every open facilities work order as a card in one of seven columns, left to

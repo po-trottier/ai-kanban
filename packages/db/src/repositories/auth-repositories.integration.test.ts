@@ -131,6 +131,20 @@ describe('SqliteUserAccountRepository', () => {
 
     expect(listed.map((user) => user.id)).toContain(inactive.id)
   })
+
+  it('countHumanUsers excludes exactly the system user and counts any status', async () => {
+    const before = await run((tx) => tx.userAccounts.countHumanUsers(base.systemUserId))
+    insertUser(db.connection)
+    insertUser(db.connection, { isActive: false })
+
+    const after = await run((tx) => tx.userAccounts.countHumanUsers(base.systemUserId))
+    const all = await run((tx) => tx.userAccounts.list())
+
+    // Deactivated rows still count (first-boot setup can never reopen)…
+    expect(after).toBe(before + 2)
+    // …and the seeded automation user is the only exclusion.
+    expect(after).toBe(all.length - 1)
+  })
 })
 
 describe('SqliteSessionRepository', () => {

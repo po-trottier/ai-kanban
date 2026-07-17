@@ -52,6 +52,14 @@ export const strings = {
     passwordChanged: 'Password changed',
   },
 
+  setup: {
+    title: 'Create the admin account',
+    intro: 'This instance has no users yet. Create the first administrator account to begin.',
+    displayName: 'Display name',
+    displayNameRequired: 'Enter a display name',
+    submitButton: 'Create admin account',
+  },
+
   board: {
     boardLabel: 'Kanban board',
     newCard: 'New card',

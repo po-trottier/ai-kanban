@@ -460,6 +460,13 @@ class InMemoryUserAccountRepository implements UserAccountRepository {
     return Promise.resolve(clone(this.state.users))
   }
 
+  countHumanUsers(excludedSystemUserId: string): Promise<number> {
+    // Any status counts — deactivated rows keep first-boot setup closed.
+    return Promise.resolve(
+      this.state.users.filter((candidate) => candidate.id !== excludedSystemUserId).length,
+    )
+  }
+
   insert(user: User, passwordHash: string): Promise<void> {
     const wanted = user.email.toLowerCase()
     if (this.state.users.some((candidate) => candidate.email.toLowerCase() === wanted)) {

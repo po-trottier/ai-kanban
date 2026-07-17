@@ -91,6 +91,23 @@ describe('InMemoryUserAccountRepository', () => {
     expect(listed.find((user) => user.id === target.id)?.isActive).toBe(false)
   })
 
+  it('countHumanUsers excludes exactly the given automation user, any status', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const all = await scenario.db.run((tx) => tx.userAccounts.list())
+    await scenario.db.run((tx) =>
+      tx.userAccounts.update({ ...scenario.users.requester, isActive: false }),
+    )
+
+    // Act
+    const count = await scenario.db.run((tx) =>
+      tx.userAccounts.countHumanUsers(scenario.users.admin.id),
+    )
+
+    // Assert — the deactivated requester still counts; only the excluded id doesn't.
+    expect(count).toBe(all.length - 1)
+  })
+
   it('setPassword replaces the hash and flag; unknown users reject NotFound', async () => {
     // Arrange
     const scenario = createScenario()

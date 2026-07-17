@@ -121,6 +121,14 @@ export class StorageQuotaError extends Error {
   }
 }
 
+/** POST /setup after any non-system user exists — first-boot setup never reopens (409). */
+export class SetupAlreadyCompleteError extends Error {
+  constructor() {
+    super('setup is already complete — a user account already exists')
+    this.name = 'SetupAlreadyCompleteError'
+  }
+}
+
 /** Demoting/deactivating the last active admin (409, named rule). */
 export class LastActiveAdminError extends Error {
   readonly rule = LAST_ACTIVE_ADMIN_RULE

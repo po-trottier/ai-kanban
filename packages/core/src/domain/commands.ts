@@ -163,6 +163,20 @@ export const createUserInputSchema = z.strictObject({
 })
 export type CreateUserInput = z.infer<typeof createUserInputSchema>
 
+/**
+ * First-boot setup input (`POST /setup`, rest-api.md#auth--users): creates
+ * the initial admin while zero non-system users exist. Email/name reuse the
+ * create-user shapes; the password only gets a transport bound here — the
+ * real policy (12–128 chars + common-password reject) is enforced by the
+ * server's password-policy module, same as change-password.
+ */
+export const setupAdminInputSchema = z.strictObject({
+  email: createUserInputSchema.shape.email,
+  displayName: createUserInputSchema.shape.displayName,
+  password: z.string().min(1).max(1024),
+})
+export type SetupAdminInput = z.infer<typeof setupAdminInputSchema>
+
 export const updateUserInputSchema = z
   .strictObject({
     displayName: z.string().trim().min(1).max(100).optional(),

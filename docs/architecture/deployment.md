@@ -30,10 +30,16 @@ docker compose
 1. Boot always runs migrations plus the idempotent **structural seed**: board, 7 lanes,
    default permissive policy, location tree, `system` user (see data-model.md#seeding). Demo
    data requires `SEED_DEMO_DATA=true` and is **refused in production mode**.
-2. Create the first admin from the host:
-   `docker compose exec app npm run cli -- users create-admin --email you@org.com`
-   — prints a one-time temp password (`must_change_password` set; first login forces a
-   change). The same command is the break-glass recovery if all admins are ever locked out.
+2. Open the app in a browser: while the database has no non-system users, every page redirects
+   to the **first-boot setup page**, which creates the first admin account (policy-checked
+   password, signed in immediately). The flow hard-disables itself once any user exists —
+   race-guarded and rate-limited; see
+   [security.md#authentication](security.md#authentication).
+
+The CLI remains as **break-glass recovery** when every admin is locked out (setup never
+reopens — deactivated users still count as existing):
+`docker compose exec app npm run cli -- users create-admin --email you@org.com`
+— prints a one-time temp password (`must_change_password` set; first login forces a change).
 
 ## Image
 

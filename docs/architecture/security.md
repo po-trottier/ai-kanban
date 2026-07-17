@@ -16,6 +16,13 @@ Slack/Anthropic calls. Every control below is enforced by code or CI, not conven
   at every login (anti-fixation); logout, password change, role change, and admin deactivation
   revoke immediately — the reason sessions beat JWTs here
   ([ADR-009](decisions/ADR-009-sessions-and-tokens.md)).
+- **First-boot setup**: `GET|POST /setup` are unauthenticated like login, and safe to be:
+  the surface hard-disables itself — `POST /setup` creates the initial admin only while ZERO
+  non-system users exist, with the zero-check and the insert committed in one transaction so
+  concurrent submissions cannot both win (the loser gets a 409). Users of any status count, so
+  deactivating everyone never reopens the flow (break-glass recovery stays the create-admin
+  CLI in deployment.md). The password goes through the same policy as change-password, and the
+  endpoint shares the login rate bucket and the CSRF content-type rule.
 - **Password lifecycle**: users change their own password (`POST /auth/change-password`,
   requires the current password, revokes other sessions); admins issue one-time temp passwords
   on create/reset; `must_change_password` restricts the session to the change-password flow

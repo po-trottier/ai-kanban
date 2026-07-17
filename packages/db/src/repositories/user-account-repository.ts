@@ -5,7 +5,7 @@ import {
   type UserAccountRepository,
   type UserCredentials,
 } from '@rivian-kanban/core'
-import { asc, eq, sql } from 'drizzle-orm'
+import { asc, eq, ne, sql } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { isUniqueViolation, toError } from '../errors.ts'
 import { users } from '../schema.ts'
@@ -76,6 +76,16 @@ export class SqliteUserAccountRepository implements UserAccountRepository {
       .orderBy(asc(users.createdAt), asc(users.id))
       .all()
     return Promise.resolve(rows)
+  }
+
+  /** COUNT excluding the automation user, any status (first-boot setup guard). */
+  countHumanUsers(excludedSystemUserId: string): Promise<number> {
+    const row = this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(ne(users.id, excludedSystemUserId))
+      .get()
+    return Promise.resolve(row?.count ?? 0)
   }
 
   insert(user: User, passwordHash: string): Promise<void> {

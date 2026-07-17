@@ -1,8 +1,8 @@
-import { type User } from '@rivian-kanban/core'
+import { type SetupAdminInput, type User } from '@rivian-kanban/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useApi } from './api-context.ts'
 import { queryKeys } from './keys.ts'
-import { loginResponseSchema, meResponseSchema } from './schemas.ts'
+import { loginResponseSchema, meResponseSchema, setupStatusResponseSchema } from './schemas.ts'
 
 export interface LoginInput {
   email: string
@@ -20,6 +20,34 @@ export function useMe() {
   return useQuery<User | null>({
     queryKey: queryKeys.me,
     queryFn: () => api.get('/auth/me', meResponseSchema),
+  })
+}
+
+/**
+ * First-boot probe (unauthenticated, like login): while true, every page —
+ * including /login — redirects to /setup; once false it never flips back.
+ */
+export function useSetupRequired() {
+  const api = useApi()
+  return useQuery({
+    queryKey: queryKeys.setup,
+    queryFn: () => api.get('/setup', setupStatusResponseSchema),
+  })
+}
+
+/** `POST /setup` — creates the first admin; the response mirrors login. */
+export function useSetupAdmin() {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: SetupAdminInput) =>
+      api.post('/setup', loginResponseSchema, { body: input }),
+    onSuccess: (user) => {
+      // The server already issued the session cookie — transition the cache
+      // like a login and drop the stale "setup required" answer.
+      queryClient.setQueryData(queryKeys.me, user)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.setup })
+    },
   })
 }
 

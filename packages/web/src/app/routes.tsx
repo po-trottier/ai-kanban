@@ -1,6 +1,7 @@
 import { type RouteObject } from 'react-router'
 import { LoginPage } from '../auth/LoginPage.tsx'
 import { RequireAuth } from '../auth/RequireAuth.tsx'
+import { SetupPage } from '../auth/SetupPage.tsx'
 import { BoardPage } from '../board/BoardPage.tsx'
 import { CardSearchPage } from '../board/CardSearchPage.tsx'
 import { CardPanel } from '../card/CardPanel.tsx'
@@ -13,6 +14,7 @@ import { AppLayout } from '../shell/AppLayout.tsx'
  */
 export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
+  { path: '/setup', element: <SetupPage /> },
   {
     element: <RequireAuth />,
     children: [

@@ -48,10 +48,14 @@ cp .env.example .env                  # set PUBLIC_BASE_URL + TRUST_PROXY_HOPS f
                                       # NODE_ENV=production and the /data storage paths — dev
                                       # values in .env cannot leak into the container
 docker compose up -d --build          # build + boot; migrations and the structural seed run at boot
-docker compose exec app npm run cli -- users create-admin --email you@org.com
-                                      # prints a one-time temp password (first admin / break-glass)
 curl http://localhost:3000/readyz     # {"status":"ok"} — the same probe the HEALTHCHECK uses
 ```
+
+Then open the app in a browser: the first boot shows the **setup page**, which creates the
+first admin account (see
+[deployment.md#bootstrap](../architecture/deployment.md#bootstrap-first-production-deployment)).
+The `docker compose exec app npm run cli -- users create-admin --email you@org.com` command
+remains as break-glass recovery if every admin is ever locked out.
 
 The SPA, REST API, MCP mount, and SSE all serve from port 3000; Prometheus metrics live on the
 internal 9464 listener that compose deliberately does not publish. Backups (Litestream sidecar)
@@ -82,10 +86,11 @@ Read [architecture/overview.md](../architecture/overview.md) first. Short versio
 
 Run `npm run dev`, log in as the seeded admin, and create a token in **Settings → Service
 tokens** (pick `read` unless the agent needs writes). Connect any MCP client (Streamable HTTP)
-to `http://localhost:3000/mcp` with that bearer token. The only CLI is the production
-first-admin bootstrap (`npm run cli -- users create-admin`, see
+to `http://localhost:3000/mcp` with that bearer token. The only CLI is the break-glass
+admin recovery (`npm run cli -- users create-admin`, see
 [deployment.md](../architecture/deployment.md#bootstrap-first-production-deployment)) — dev
-doesn't need it because the demo seed includes an admin.
+doesn't need it because the demo seed includes an admin, and a fresh production database
+creates its first admin through the browser setup page.
 
 ## Trying Slack locally (optional)
 

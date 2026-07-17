@@ -69,6 +69,9 @@ export const adminUserResponseSchema = userWithTempPasswordSchemaOf(userSchema)
 export const meResponseSchema = userSchema
 export const loginResponseSchema = userSchema
 
+/** `GET /setup` — whether the first-boot admin account still needs creating. */
+export const setupStatusResponseSchema = z.object({ required: z.boolean() })
+
 /**
  * `GET`/`PUT /policy` return the stored policy VERSION record
  * (`{ id, boardId, config, createdBy, createdAt }` — rest-api.md#admin); the

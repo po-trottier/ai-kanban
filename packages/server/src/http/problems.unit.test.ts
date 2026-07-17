@@ -16,6 +16,7 @@ import {
   InvalidCredentialsError,
   LastActiveAdminError,
   MustChangePasswordError,
+  SetupAlreadyCompleteError,
   StorageQuotaError,
   UnauthenticatedError,
   UnsupportedMediaTypeError,
@@ -147,6 +148,18 @@ describe('toProblem — server-surface errors', () => {
     expect(quota.status).toBe(507)
     expect(lastAdmin.status).toBe(409)
     expect(lastAdmin.body.rule).toBe('last-active-admin')
+  })
+
+  it('maps SetupAlreadyCompleteError to the documented 409 problem type', () => {
+    // Arrange
+    const error = new SetupAlreadyCompleteError()
+
+    // Act
+    const result = toProblem(error)
+
+    // Assert
+    expect(result.status).toBe(409)
+    expect(result.body.type).toBe('urn:rivian-kanban:problem:setup-already-complete')
   })
 
   it('preserves framework HTTP errors but sanitizes 5xx and unknowns', () => {

@@ -126,6 +126,13 @@ export interface UserAccountRepository {
   findById(id: string): Promise<UserCredentials | null>
   /** Every user, active and inactive (admin management, last-admin guard). */
   list(): Promise<User[]>
+  /**
+   * COUNT of user rows excluding the seeded automation user — ANY status:
+   * deactivated accounts still count, so the first-boot setup flow (enabled
+   * only at zero) can never reopen on a live system
+   * (docs/architecture/rest-api.md#auth--users).
+   */
+  countHumanUsers(excludedSystemUserId: string): Promise<number>
   /** Rejects a duplicate email (UNIQUE) with ConflictError. */
   insert(user: User, passwordHash: string): Promise<void>
   /** Updates profile fields (displayName/role/isActive/mustChangePassword) — never the hash. */

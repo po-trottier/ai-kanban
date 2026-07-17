@@ -13,6 +13,7 @@ import { type FastifyBaseLogger } from 'fastify'
 import { type LocalBlobStore } from './adapters/blob/local-blob-store.ts'
 import { type InProcessEventBus } from './adapters/event-bus.ts'
 import { type AuthService } from './auth/auth-service.ts'
+import { type SetupService } from './auth/setup-service.ts'
 import { type AppMetrics } from './metrics/metrics.ts'
 import { type LaneAdminService } from './lanes/lane-admin-service.ts'
 import { type LocationAdminService } from './locations/location-admin-service.ts'
@@ -81,6 +82,7 @@ interface AppServices {
   queries: BoardQueryService
   policies: PolicyService
   auth: AuthService
+  setup: SetupService
   users: UserAdminService
   lanes: LaneAdminService
   locations: LocationAdminService
