@@ -1,0 +1,24 @@
+/* Card panel styles — token-only values (ADR-016 rule 7). */
+
+.commentBody {
+  white-space: pre-wrap;
+}
+
+.dropzone {
+  border: 1px dashed var(--mantine-color-gray-4);
+  border-radius: var(--mantine-radius-md);
+  padding: var(--mantine-spacing-md);
+  text-align: center;
+}
+
+.dropzoneActive {
+  border-color: var(--mantine-color-indigo-5);
+  background-color: light-dark(var(--mantine-color-indigo-0), var(--mantine-color-dark-5));
+}
+
+.thumbnail {
+  max-width: 100%;
+  height: var(--app-thumbnail-height);
+  object-fit: cover;
+  border-radius: var(--mantine-radius-sm);
+}

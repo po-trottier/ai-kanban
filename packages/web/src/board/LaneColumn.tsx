@@ -1,0 +1,92 @@
+import { type Card, type LaneKey } from '@rivian-kanban/core'
+import { Badge, Group, Text, Title } from '@mantine/core'
+import { useMemo, useRef } from 'react'
+import { type LaneSnapshot, type PickerUser } from '../api/schemas.ts'
+import { cx } from '../lib/cx.ts'
+import { strings } from '../strings.ts'
+import { CardItem } from './CardItem.tsx'
+import { type CardMenuAction } from './CardMenu.tsx'
+import classes from './board.module.css'
+import { useLaneDnd } from './dnd.ts'
+
+export interface LaneColumnProps {
+  snapshot: LaneSnapshot
+  usersById: Map<string, PickerUser>
+  today: string
+  canCancel: boolean
+  canReopen: boolean
+  canDropFrom: (target: LaneKey) => (source: { cardId: string; laneKey: LaneKey }) => boolean
+  onOpenCard: (cardId: string) => void
+  onMenuAction: (card: Card, action: CardMenuAction) => void
+}
+
+/** One lane: header (label + WIP state) and the card list in position order. */
+export function LaneColumn({
+  snapshot,
+  usersById,
+  today,
+  canCancel,
+  canReopen,
+  canDropFrom,
+  onOpenCard,
+  onMenuAction,
+}: LaneColumnProps) {
+  const { lane, cards, wipLimitExceeded } = snapshot
+  const listRef = useRef<HTMLDivElement | null>(null)
+  // Stable identity: this is an effect dependency in useLaneDnd/useCardDnd.
+  const laneCanDrop = useMemo(() => canDropFrom(lane.key), [canDropFrom, lane.key])
+  const { isDropTarget } = useLaneDnd(listRef, lane.key, laneCanDrop)
+
+  const wipLabel =
+    lane.wipLimit === null
+      ? String(cards.length)
+      : `${String(cards.length)}/${String(lane.wipLimit)}`
+
+  return (
+    <section className={classes.lane} aria-label={lane.label}>
+      <Group className={classes.laneHeader} justify="space-between" gap="xs">
+        <Title order={3} size="sm">
+          {lane.label}
+        </Title>
+        <Badge
+          color={wipLimitExceeded ? 'red' : 'gray'}
+          variant={wipLimitExceeded ? 'filled' : 'light'}
+          size="sm"
+          aria-label={
+            wipLimitExceeded ? `${wipLabel} — ${strings.board.wipLimitExceededSuffix}` : wipLabel
+          }
+        >
+          {wipLabel}
+        </Badge>
+      </Group>
+      <div
+        ref={listRef}
+        className={cx(classes.laneCards, isDropTarget && classes.laneCardsOver)}
+        role="list"
+        aria-label={strings.board.cardListLabel(lane.label)}
+      >
+        {cards.length === 0 ? (
+          <Text size="xs" c="dimmed" ta="center" mt="sm">
+            {strings.board.emptyLane}
+          </Text>
+        ) : (
+          cards.map((card) => (
+            <div role="listitem" key={card.id}>
+              <CardItem
+                card={card}
+                laneKey={lane.key}
+                assignee={card.assigneeId === null ? undefined : usersById.get(card.assigneeId)}
+                today={today}
+                canCancel={canCancel}
+                canReopen={canReopen}
+                canDropFrom={laneCanDrop}
+                onOpen={onOpenCard}
+                onMenuAction={onMenuAction}
+              />
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  )
+}

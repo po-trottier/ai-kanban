@@ -1,2 +1,7 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+/* App-level globals — everything visual comes from Mantine tokens (ADR-016). */
+
+html,
+body,
+#root {
+  height: 100%;
+}

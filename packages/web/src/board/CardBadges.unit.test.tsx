@@ -1,0 +1,63 @@
+import { screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { makeCard } from '../test/fixtures.ts'
+import { renderWithProviders } from '../test/render.tsx'
+import { CardBadges } from './CardBadges.tsx'
+
+describe('CardBadges', () => {
+  it('always shows the priority badge', () => {
+    // Arrange
+    const card = makeCard('ready', { priority: 'P0' })
+    // Act
+    renderWithProviders(<CardBadges card={card} today="2026-07-16" />)
+    // Assert
+    expect(screen.getByText('P0')).toBeInTheDocument()
+  })
+
+  it('shows the blocked badge when the card carries the blocked flag', () => {
+    // Arrange
+    const card = makeCard('in_progress', {
+      blocked: true,
+      blockedReason: 'vendor no-show',
+      blockedAt: '2026-07-10T08:00:00.000Z',
+    })
+    // Act
+    renderWithProviders(<CardBadges card={card} today="2026-07-16" />)
+    // Assert
+    expect(screen.getByText('Blocked')).toBeInTheDocument()
+  })
+
+  it('shows a waiting badge with the reason while resume is in the future', () => {
+    // Arrange
+    const card = makeCard('waiting_parts_vendor', {
+      waitingReason: 'parts',
+      expectedResumeAt: '2026-07-20',
+    })
+    // Act
+    renderWithProviders(<CardBadges card={card} today="2026-07-16" />)
+    // Assert
+    expect(screen.getByText('Waiting: Parts')).toBeInTheDocument()
+    expect(screen.queryByText(/Overdue/)).not.toBeInTheDocument()
+  })
+
+  it('switches to overdue styling the day after the expected resume date', () => {
+    // Arrange
+    const card = makeCard('waiting_parts_vendor', {
+      waitingReason: 'vendor',
+      expectedResumeAt: '2026-07-15',
+    })
+    // Act
+    renderWithProviders(<CardBadges card={card} today="2026-07-16" />)
+    // Assert
+    expect(screen.getByText('Overdue: Vendor')).toBeInTheDocument()
+  })
+
+  it('badges cancelled cards with their resolution', () => {
+    // Arrange
+    const card = makeCard('done', { resolution: 'duplicate' })
+    // Act
+    renderWithProviders(<CardBadges card={card} today="2026-07-16" />)
+    // Assert
+    expect(screen.getByText('Duplicate')).toBeInTheDocument()
+  })
+})
