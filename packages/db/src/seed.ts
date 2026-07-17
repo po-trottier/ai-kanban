@@ -331,6 +331,8 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       priority: 'P0',
       assigneeId: demoUsers.technician.id,
       estimateMinutes: 120,
+      // In progress for ~90 minutes → a partway work burn-down bar on the card.
+      workStartedAt: new Date(nowMs - 90 * 60_000).toISOString(),
     })
     const blockedReason = 'Room occupied until the audit wraps up'
     const blockedAt = new Date(nowMs - 2 * 86_400_000).toISOString()

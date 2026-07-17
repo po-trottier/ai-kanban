@@ -26,6 +26,23 @@ test('renders the seven seeded lanes with the demo cards', async ({ page, contex
   await expect(boardCard(page, 'Quarterly HVAC filter replacement')).toBeVisible()
 })
 
+test('shows a work-progress bar on an in-progress card with an estimate', async ({
+  page,
+  context,
+}) => {
+  await signIn(context)
+  await openBoard(page)
+
+  // The seeded loading-dock card is In Progress with a work-start + an estimate.
+  // Assert the bar is present (its fill can legitimately be 0-width off-hours).
+  const card = boardCard(page, 'Repair loading-dock leveler')
+  await expect(card.getByRole('progressbar')).toBeAttached()
+  // A Ready card that never started work carries no bar.
+  await expect(
+    boardCard(page, 'Quarterly HVAC filter replacement').getByRole('progressbar'),
+  ).toHaveCount(0)
+})
+
 test('board cards always show estimate, location, tags and attachments (board payload)', async ({
   page,
   context,

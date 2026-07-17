@@ -9,9 +9,13 @@ import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
 import { CardBadges } from './CardBadges.tsx'
 import { CardMenu, type CardMenuAction } from './CardMenu.tsx'
+import { WorkProgressBar } from './WorkProgressBar.tsx'
 import { cx } from '../lib/cx.ts'
 import classes from './board.module.css'
 import { useCardDnd } from './dnd.ts'
+
+/** Lanes between Ready and Done where a card carries a live work burn-down bar. */
+const WORKING_LANES = new Set<LaneKey>(['in_progress', 'waiting_parts_vendor', 'review'])
 
 export interface CardItemProps {
   card: BoardCard
@@ -148,6 +152,14 @@ export function CardItem({
           </Tooltip>
         )}
       </Group>
+      {WORKING_LANES.has(laneKey) &&
+      card.workStartedAt !== null &&
+      card.estimateMinutes !== null ? (
+        <WorkProgressBar
+          workStartedAt={card.workStartedAt}
+          estimateMinutes={card.estimateMinutes}
+        />
+      ) : null}
       {closestEdge !== null ? (
         <DropIndicator edge={closestEdge} gap="var(--mantine-spacing-xs)" />
       ) : null}

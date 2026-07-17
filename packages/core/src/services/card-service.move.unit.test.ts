@@ -32,6 +32,44 @@ describe('CardService.move — cross-lane', () => {
     })
   })
 
+  it('stamps workStartedAt on the first In Progress entry, keeps it, and resets on reopen', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({ laneId: scenario.lanes.ready.id })
+    const tech = scenario.actors.technician
+
+    // Act — first entry into In Progress records the work start
+    const started = await scenario.cards.move(tech, card.id, {
+      toLane: 'in_progress',
+      expectedVersion: card.version,
+    })
+    // Assert
+    expect(started.workStartedAt).not.toBeNull()
+    const firstStart = started.workStartedAt
+
+    // Act — bounce to review and back a day later; the start is set ONCE
+    scenario.clock.advanceDays(1)
+    const inReview = await scenario.cards.move(tech, card.id, {
+      toLane: 'review',
+      expectedVersion: started.version,
+    })
+    const backInProgress = await scenario.cards.move(tech, card.id, {
+      toLane: 'in_progress',
+      expectedVersion: inReview.version,
+    })
+    // Assert — unchanged despite the clock moving on
+    expect(backInProgress.workStartedAt).toBe(firstStart)
+
+    // Act — finish, then reopen for a fresh cycle
+    const done = await scenario.cards.move(tech, card.id, {
+      toLane: 'done',
+      expectedVersion: backInProgress.version,
+    })
+    const reopened = await scenario.cards.reopen(tech, card.id, { expectedVersion: done.version })
+    // Assert — reopen clears the anchor so the next In Progress restarts it
+    expect(reopened.workStartedAt).toBeNull()
+  })
+
   it('positions the card between the re-read neighbors', async () => {
     // Arrange
     const scenario = createScenario()

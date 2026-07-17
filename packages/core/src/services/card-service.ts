@@ -149,6 +149,7 @@ export class CardService {
         waitingReason: null,
         expectedResumeAt: null,
         resumeAlertedAt: null,
+        workStartedAt: null,
         slackChannelId: options.slackSource?.channelId ?? null,
         slackThreadTs: options.slackSource?.threadTs ?? null,
         slackPermalink: options.slackSource?.permalink ?? null,
@@ -379,6 +380,11 @@ export class CardService {
             updated.expectedResumeAt = null
             updated.resumeAlertedAt = null
           }
+          // Stamp the work-start on the FIRST entry into In Progress — the anchor
+          // for the burn-down bar. Never overwritten on later in_progress entries.
+          if (toLane.key === 'in_progress' && card.workStartedAt === null) {
+            updated.workStartedAt = this.deps.clock.now().toISOString()
+          }
           if (toLane.key === 'done') {
             updated.resolution = 'completed'
             completed = true
@@ -505,6 +511,9 @@ export class CardService {
           position: generateKeyBetween(bottom?.position ?? null, null),
           resolution: null,
           archivedAt: null,
+          // A reopened card is a fresh work cycle — the burn-down restarts when
+          // it next enters In Progress.
+          workStartedAt: null,
           version: card.version + 1,
           updatedAt: this.deps.clock.now().toISOString(),
         }

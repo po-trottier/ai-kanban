@@ -153,6 +153,8 @@ export const cards = sqliteTable(
     expectedResumeAt: text('expected_resume_at'),
     /** Set when the overdue DM fires; cleared on lane exit (one alert per episode). */
     resumeAlertedAt: text('resume_alerted_at'),
+    /** First entry into In Progress (drives the work burn-down bar); set once. */
+    workStartedAt: text('work_started_at'),
     slackChannelId: text('slack_channel_id'),
     slackThreadTs: text('slack_thread_ts'),
     slackPermalink: text('slack_permalink'),

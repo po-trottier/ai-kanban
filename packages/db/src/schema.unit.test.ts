@@ -78,7 +78,7 @@ describe('schema contract (data-model.md)', () => {
   })
 
   it('maps the cards entity to the exact documented snake_case columns', () => {
-    // Arrange — the 26 columns of data-model.md#cards, in definition order
+    // Arrange — the columns of data-model.md#cards, in definition order
     const documented = [
       'id',
       'board_id',
@@ -99,6 +99,7 @@ describe('schema contract (data-model.md)', () => {
       'waiting_reason',
       'expected_resume_at',
       'resume_alerted_at',
+      'work_started_at',
       'slack_channel_id',
       'slack_thread_ts',
       'slack_permalink',

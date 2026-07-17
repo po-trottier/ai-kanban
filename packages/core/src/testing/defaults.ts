@@ -28,6 +28,7 @@ export function cardWith(
     waitingReason: null,
     expectedResumeAt: null,
     resumeAlertedAt: null,
+    workStartedAt: null,
     slackChannelId: null,
     slackThreadTs: null,
     slackPermalink: null,

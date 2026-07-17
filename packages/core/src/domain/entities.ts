@@ -92,6 +92,9 @@ export const cardSchema = z.strictObject({
   waitingReason: waitingReasonSchema.nullable(),
   expectedResumeAt: isoDateSchema.nullable(),
   resumeAlertedAt: isoDateTimeSchema.nullable(),
+  /** When the card FIRST entered In Progress — drives the work burn-down bar.
+   * Set once on that transition and never cleared by later moves. */
+  workStartedAt: isoDateTimeSchema.nullable(),
   slackChannelId: z.string().nullable(),
   slackThreadTs: z.string().nullable(),
   slackPermalink: z.string().nullable(),

@@ -175,6 +175,12 @@ export const strings = {
       `${String(count)} ${count === 1 ? 'attachment' : 'attachments'}`,
     tagsLabel: (tags: string) => `Tags: ${tags}`,
     resumePrefix: (date: string) => `resume ${date}`,
+    /** Work burn-down bar: business-hours elapsed since In Progress vs the estimate. */
+    workProgressLabel: (percent: number) => `Work progress: ${String(percent)}% of the estimate`,
+    workProgressTooltip: (elapsed: string, estimate: string) =>
+      `${elapsed} of ${estimate} estimated work elapsed (business hours)`,
+    workOverdueTooltip: (elapsed: string, estimate: string) =>
+      `Overdue — ${elapsed} of work against a ${estimate} estimate`,
   },
 
   search: {
