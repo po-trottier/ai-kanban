@@ -50,6 +50,7 @@ export function canMoveToLane(
 const GATE_ACTIONS: Record<keyof PolicyActionGates, PolicyAction> = {
   cancel: { type: 'card.cancel' },
   reopen: { type: 'card.reopen' },
+  archive: { type: 'card.archive' },
   reorderReady: { type: 'card.reorder', lane: 'ready' },
   deleteOthersComments: { type: 'comment.delete', authorId: OTHER_AUTHOR_ID },
   deleteOthersAttachments: { type: 'attachment.remove', uploaderId: OTHER_AUTHOR_ID },

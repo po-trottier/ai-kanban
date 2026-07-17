@@ -3,13 +3,14 @@ import { ActionIcon, Menu } from '@mantine/core'
 import { DotsIcon } from '../shell/icons.tsx'
 import { strings } from '../strings.ts'
 
-export type CardMenuAction = 'open' | 'move' | 'block' | 'unblock' | 'cancel' | 'reopen'
+export type CardMenuAction = 'open' | 'move' | 'block' | 'unblock' | 'cancel' | 'reopen' | 'archive'
 
 export interface CardMenuProps {
   card: BoardCard
   /** Policy-driven affordances (ADR-013): disabled entries stay visible. */
   canCancel: boolean
   canReopen: boolean
+  canArchive: boolean
   onAction: (action: CardMenuAction) => void
 }
 
@@ -17,7 +18,10 @@ export interface CardMenuProps {
  * The ⋯ menu: keyboard/touch path for moving (ADR-007) and the only path for
  * cancel/block/reopen (explicit actions, never drags).
  */
-export function CardMenu({ card, canCancel, canReopen, onAction }: CardMenuProps) {
+export function CardMenu({ card, canCancel, canReopen, canArchive, onAction }: CardMenuProps) {
+  // A card sitting in Done carries a resolution (completed or a cancel kind);
+  // the board query never surfaces archived cards, so a terminal board card is
+  // exactly an archivable Done card (workflow.md#archival).
   const terminal = card.resolution !== null
   return (
     // Menu.Target owns the child's onClick, so the bubble-stop that keeps a
@@ -66,14 +70,24 @@ export function CardMenu({ card, canCancel, canReopen, onAction }: CardMenuProps
             </Menu.Item>
           )}
           {terminal ? (
-            <Menu.Item
-              disabled={!canReopen}
-              onClick={() => {
-                onAction('reopen')
-              }}
-            >
-              {strings.card.reopen}
-            </Menu.Item>
+            <>
+              <Menu.Item
+                disabled={!canReopen}
+                onClick={() => {
+                  onAction('reopen')
+                }}
+              >
+                {strings.card.reopen}
+              </Menu.Item>
+              <Menu.Item
+                disabled={!canArchive}
+                onClick={() => {
+                  onAction('archive')
+                }}
+              >
+                {strings.card.archive}
+              </Menu.Item>
+            </>
           ) : (
             <Menu.Item
               color="red"

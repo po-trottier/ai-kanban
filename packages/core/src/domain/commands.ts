@@ -51,6 +51,15 @@ export const updateCardInputSchema = z.strictObject({
   locationId: z.uuid().nullable().optional(),
   /** Full-replacement semantics (docs/architecture/data-model.md#tags--card_tags). */
   tags: z.array(tagNameSchema).optional(),
+  /**
+   * In-place edits to the waiting-lane fields (docs/product/workflow.md). Only
+   * accepted by CardService.update when the card currently sits in
+   * `waiting_parts_vendor` — otherwise a clear 409 conflict. Changing
+   * `expectedResumeAt` clears `resume_alerted_at` so the hourly overdue alert
+   * re-arms (docs/architecture/data-model.md#resume_alerted_at).
+   */
+  waitingReason: waitingReasonSchema.optional(),
+  expectedResumeAt: isoDateSchema.optional(),
   expectedVersion: expectedVersionSchema,
 })
 export type UpdateCardInput = z.infer<typeof updateCardInputSchema>
@@ -88,6 +97,12 @@ export const reopenCardInputSchema = z.strictObject({
   expectedVersion: expectedVersionSchema,
 })
 export type ReopenCardInput = z.infer<typeof reopenCardInputSchema>
+
+/** Manual archive of a Done card (docs/product/workflow.md#archival). */
+export const archiveCardInputSchema = z.strictObject({
+  expectedVersion: expectedVersionSchema,
+})
+export type ArchiveCardInput = z.infer<typeof archiveCardInputSchema>
 
 export const blockCardInputSchema = z.strictObject({
   reason: z.string().trim().min(1).max(500),

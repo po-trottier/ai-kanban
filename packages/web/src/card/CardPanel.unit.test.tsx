@@ -418,6 +418,51 @@ describe('CardPanel', () => {
     expect(await screen.findByText('This card is a duplicate')).toBeInTheDocument()
   })
 
+  it('edits the waiting reason and resume date in place, PATCHing with If-Match', async () => {
+    // Arrange — a card sitting in the waiting lane with a reason + resume date.
+    const user = userEvent.setup()
+    const waiting = makeCard('waiting_parts_vendor', {
+      title: 'Awaiting part',
+      waitingReason: 'parts',
+      expectedResumeAt: '2026-08-01',
+      version: 5,
+    })
+    const fake = createFakeFetch({
+      'GET /api/v1/auth/me': fixtureAdmin,
+      'GET /api/v1/board': makeBoard({ waiting_parts_vendor: [waiting] }),
+      'GET /api/v1/policy': policyRecordOf(permissivePolicy),
+      'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/locations': [],
+      'GET /api/v1/tags': [],
+      [`GET /api/v1/cards/${waiting.id}`]: {
+        card: waiting,
+        tags: [],
+        location: null,
+        attachments: [],
+      },
+      [`GET /api/v1/cards/${waiting.id}/comments`]: [],
+      [`GET /api/v1/cards/${waiting.id}/events`]: { items: [], nextCursor: null },
+      [`PATCH /api/v1/cards/${waiting.id}`]: { ...waiting, waitingReason: 'vendor', version: 6 },
+    })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${waiting.id}` })
+    // Act — wait for the panel body (its Title field) so we don't match the
+    // lane label of the same name behind the non-modal panel.
+    await screen.findByRole('textbox', { name: /Title/ })
+    const save = screen.getByRole('button', { name: 'Save' })
+    expect(save).toBeDisabled()
+    // The banner reason is a Mantine Select (combobox); change it to Vendor.
+    await user.click(screen.getByRole('combobox', { name: 'Waiting reason' }))
+    await user.click(await screen.findByRole('option', { name: 'Vendor' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    // Assert — PATCH carried only the changed reason and the If-Match version.
+    expect(fake.lastBody('PATCH', `/api/v1/cards/${waiting.id}`)).toEqual({
+      waitingReason: 'vendor',
+      expectedResumeAt: '2026-08-01',
+    })
+    const patch = fake.calls.find((c) => c.method === 'PATCH')
+    expect(new Headers(patch?.init?.headers).get('If-Match')).toBe('"5"')
+  })
+
   it('surfaces an oversized upload (413) as a visible problem toast', async () => {
     // Arrange
     const user = userEvent.setup()

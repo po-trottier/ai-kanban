@@ -17,6 +17,8 @@ export type PolicyTransition = z.infer<typeof policyTransitionSchema>
 export const policyActionGatesSchema = z.strictObject({
   cancel: roleSchema.optional(),
   reopen: roleSchema.optional(),
+  /** Manual archive of a Done card; permissive by default (docs/product/workflow.md#archival). */
+  archive: roleSchema.optional(),
   reorderReady: roleSchema.optional(),
   deleteOthersComments: roleSchema.optional(),
   deleteOthersAttachments: roleSchema.optional(),

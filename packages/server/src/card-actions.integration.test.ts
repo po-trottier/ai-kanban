@@ -144,6 +144,128 @@ describe('POST /cards/:id/move', () => {
   })
 })
 
+async function patch(card: { id: string; version: number }, body: Record<string, unknown>) {
+  return t.request(cookie, {
+    method: 'PATCH',
+    url: `/api/v1/cards/${card.id}`,
+    headers: { 'if-match': `"${String(card.version)}"` },
+    payload: body,
+  })
+}
+
+describe('PATCH /cards/:id — editable waiting reason + resume date in place', () => {
+  it('edits the reason and date while waiting (200) and clears resume_alerted_at', async () => {
+    const card = await createCard('Waiting edit')
+    const entered = await act(card, 'move', {
+      toLane: 'waiting_parts_vendor',
+      waitingReason: 'parts',
+      expectedResumeAt: '2026-08-01',
+    })
+    expect(entered.statusCode).toBe(200)
+    const waiting = entered.json<CardBody>()
+
+    // Simulate the hourly aging job having already alerted on this episode.
+    await t.wired.deps.uow.run(async (tx) => {
+      const row = await tx.cards.findById(waiting.id)
+      if (row) await tx.cards.update({ ...row, resumeAlertedAt: '2026-07-10T09:00:00.000Z' })
+    })
+
+    const edited = await patch(waiting, {
+      waitingReason: 'vendor',
+      expectedResumeAt: '2026-09-15',
+    })
+
+    expect(edited.statusCode).toBe(200)
+    expect(edited.json<CardBody>()).toMatchObject({
+      waitingReason: 'vendor',
+      expectedResumeAt: '2026-09-15',
+    })
+    // The date change re-armed the overdue alert.
+    const fresh = await t.wired.deps.uow.read((tx) => tx.cards.findById(waiting.id))
+    expect(fresh?.resumeAlertedAt).toBeNull()
+    const event = await lastEvent(card.id)
+    expect(event).toMatchObject({
+      eventType: 'card.field_changed',
+      payload: { field: 'expectedResumeAt', to: '2026-09-15' },
+    })
+  })
+
+  it('409s editing the waiting fields when the card is not in the waiting lane', async () => {
+    const card = await createCard('Not waiting')
+
+    const response = await patch(card, { waitingReason: 'parts', expectedResumeAt: '2026-08-01' })
+
+    expect(response.statusCode).toBe(409)
+    expect(response.json<{ type: string }>().type).toBe('urn:rivian-kanban:problem:conflict')
+  })
+})
+
+describe('POST /cards/:id/archive', () => {
+  it('archives a done card: archivedAt set, event written, card leaves the board query', async () => {
+    const card = await createCard('Archive me')
+    const cancelled = await act(card, 'cancel', { resolution: 'duplicate' })
+    expect(cancelled.statusCode).toBe(200)
+    const doneCard = cancelled.json<CardBody>()
+
+    const response = await act(doneCard, 'archive')
+
+    expect(response.statusCode).toBe(200)
+    expect(response.headers.etag).toBe('"3"')
+    expect(response.json<CardBody & { archivedAt: string | null }>().archivedAt).not.toBeNull()
+    expect(await lastEvent(card.id)).toMatchObject({
+      eventType: 'card.archived',
+      actorKind: 'user',
+    })
+
+    // The archived card no longer appears in the default board snapshot.
+    const board = await t.request(cookie, { method: 'GET', url: '/api/v1/board' })
+    const allCardIds = board
+      .json<{ lanes: { cards: { id: string }[] }[] }>()
+      .lanes.flatMap((lane) => lane.cards.map((c) => c.id))
+    expect(allCardIds).not.toContain(card.id)
+
+    // …but it surfaces with include-archived.
+    const archivedList = await t.request(cookie, {
+      method: 'GET',
+      url: `/api/v1/cards?includeArchived=true&q=${encodeURIComponent('Archive me')}`,
+    })
+    const ids = archivedList.json<{ items: { id: string }[] }>().items.map((c) => c.id)
+    expect(ids).toContain(card.id)
+  })
+
+  it('409s archiving a card that is not in the done lane', async () => {
+    const card = await createCard('Still active')
+
+    const response = await act(card, 'archive')
+
+    expect(response.statusCode).toBe(409)
+    expect(response.json<{ type: string }>().type).toBe('urn:rivian-kanban:problem:conflict')
+  })
+
+  it('409s re-archiving an already-archived card (read-only except reopen)', async () => {
+    const card = await createCard('Double archive')
+    const cancelled = await act(card, 'cancel', { resolution: 'cancelled' })
+    const archived = await act(cancelled.json<CardBody>(), 'archive')
+    expect(archived.statusCode).toBe(200)
+
+    const again = await act(archived.json<CardBody>(), 'archive')
+
+    expect(again.statusCode).toBe(409)
+    expect(again.json<{ type: string }>().type).toBe('urn:rivian-kanban:problem:card-archived')
+  })
+
+  it('reopens an archived card back onto the board (clears archivedAt)', async () => {
+    const card = await createCard('Archive then reopen')
+    const cancelled = await act(card, 'cancel', { resolution: 'declined' })
+    const archived = await act(cancelled.json<CardBody>(), 'archive')
+
+    const reopened = await act(archived.json<CardBody>(), 'reopen')
+
+    expect(reopened.statusCode).toBe(200)
+    expect(reopened.json<CardBody & { archivedAt: string | null }>().archivedAt).toBeNull()
+  })
+})
+
 describe('POST /cards/:id/cancel', () => {
   it('cancels into done with the given resolution and audits card.cancelled', async () => {
     const card = await createCard('Cancel me')

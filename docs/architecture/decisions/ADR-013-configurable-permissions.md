@@ -27,6 +27,7 @@ That in turn requires a way to configure the board — an app-wide admin view.
     actionGates: {                          // each optional; absent = any authenticated user
       cancel?: Role                         // cancel any card
       reopen?: Role
+      archive?: Role                        // manually archive a Done card
       reorderReady?: Role
       deleteOthersComments?: Role
       deleteOthersAttachments?: Role

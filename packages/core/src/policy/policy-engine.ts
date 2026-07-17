@@ -22,6 +22,7 @@ export type PolicyAction =
   | { type: 'card.reorder'; lane: LaneKey }
   | { type: 'card.cancel' }
   | { type: 'card.reopen' }
+  | { type: 'card.archive' }
   | { type: 'card.block' }
   | { type: 'card.unblock' }
   | { type: 'comment.add' }
@@ -134,6 +135,9 @@ export function evaluatePolicy(
     case 'card.cancel':
       // Cancel is an explicit action, never a drag — exempt from the graph.
       return checkGate('cancel', policy.actionGates.cancel, actor.role)
+    case 'card.archive':
+      // Manual archive of a Done card — permissive by default, gate optional.
+      return checkGate('archive', policy.actionGates.archive, actor.role)
     case 'card.reopen': {
       const gate = checkGate('reopen', policy.actionGates.reopen, actor.role)
       if (!gate.allowed) return gate

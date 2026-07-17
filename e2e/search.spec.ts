@@ -51,6 +51,34 @@ test('surfaces the archived demo card only with include-archived, read-only unti
   await expect(panel.getByRole('button', { name: 'Reopen' })).toBeEnabled()
 })
 
+test('archives a Done card from the menu: it leaves the board and appears under include-archived', async ({
+  page,
+  context,
+}) => {
+  await signIn(context)
+  const title = `Archive ${randomUUID()}`
+  const card = await createCard(context.request, title)
+  await cancelCard(context.request, card, 'duplicate')
+
+  await openBoard(page)
+  await expect(laneList(page, 'Done').getByRole('group', { name: title })).toBeVisible()
+
+  // Archive from the ⋯ menu; a confirmation toast names the outcome.
+  await openCardMenu(page, title, 'Archive')
+  await expect(page.getByText('Card archived')).toBeVisible()
+
+  // It has left the board entirely (the board query excludes archived cards).
+  await expect(page.getByRole('group', { name: title, exact: true })).toBeHidden()
+
+  // It surfaces only with include-archived on the search page.
+  await page.goto('/search')
+  await search(page, title)
+  await expect(page.getByText('No cards match your search.')).toBeVisible()
+
+  await page.getByLabel('Include archived').check()
+  await expect(page.getByRole('list', { name: 'Search results' }).getByText(title)).toBeVisible()
+})
+
 test('reopens a terminal card into Ready', async ({ page, context }) => {
   await signIn(context)
   const title = `Reopen ${randomUUID()}`

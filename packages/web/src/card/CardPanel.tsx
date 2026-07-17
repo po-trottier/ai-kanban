@@ -6,14 +6,16 @@ import {
   Divider,
   Group,
   Loader,
+  Select,
   Stack,
   Tabs,
   Text,
   VisuallyHidden,
 } from '@mantine/core'
-import { useEffect, useId } from 'react'
+import { DatePickerInput } from '@mantine/dates'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { type Card } from '@rivian-kanban/core'
+import { WAITING_REASONS, type Card, type WaitingReason } from '@rivian-kanban/core'
 import { useBoard, useCardAction, useUpdateCard } from '../api/board.ts'
 import {
   useAddComment,
@@ -29,7 +31,7 @@ import { useLocations, usePolicy, useTags, useUsers } from '../api/meta.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
 import { CardBadges } from '../board/CardBadges.tsx'
 import { canPerformAction } from '../board/move-options.ts'
-import { formatDate, utcToday } from '../lib/format.ts'
+import { utcToday } from '../lib/format.ts'
 import { CloseIcon } from '../shell/icons.tsx'
 import { useCardPanelSlot } from '../shell/card-panel-slot.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
@@ -213,11 +215,15 @@ function CardPanelBody({ cardId }: { cardId: string }) {
         canReopen={canReopen}
         canUnblock={canUnblock}
         acting={cardAction.isPending}
+        savingWaiting={updateCard.isPending}
         onReopen={() => {
           cardAction.mutate({ card: detail.card, action: 'reopen' })
         }}
         onUnblock={() => {
           cardAction.mutate({ card: detail.card, action: 'unblock' })
+        }}
+        onSaveWaiting={(changes) => {
+          updateCard.mutate({ card: detail.card, changes })
         }}
       />
       {/* Priority lives in the panel header; this row carries status only. */}
@@ -324,15 +330,19 @@ function StateBanner({
   canReopen,
   canUnblock,
   acting,
+  savingWaiting,
   onReopen,
   onUnblock,
+  onSaveWaiting,
 }: {
   card: Card
   canReopen: boolean
   canUnblock: boolean
   acting: boolean
+  savingWaiting: boolean
   onReopen: () => void
   onUnblock: () => void
+  onSaveWaiting: (changes: { waitingReason: WaitingReason; expectedResumeAt: string }) => void
 }) {
   const cancelled = card.resolution !== null && card.resolution !== 'completed'
   if (card.blocked) {
@@ -377,21 +387,91 @@ function StateBanner({
     )
   }
   if (card.waitingReason !== null) {
-    const overdue = isOverdueResume(card.expectedResumeAt, utcToday())
-    const reason = strings.waiting.reasons[card.waitingReason]
-    const date =
-      card.expectedResumeAt === null
-        ? strings.common.notAvailable
-        : formatDate(card.expectedResumeAt)
-    return (
-      <Alert color={WAITING_COLOR} title={strings.detail.waitingBannerTitle}>
-        <Text size="sm">
-          {overdue
-            ? strings.detail.waitingBannerOverdue(reason, date)
-            : strings.detail.waitingBannerBody(reason, date)}
-        </Text>
-      </Alert>
-    )
+    return <WaitingBanner card={card} saving={savingWaiting} onSave={onSaveWaiting} />
   }
   return null
+}
+
+/**
+ * The Waiting on Parts / Vendor banner with an INLINE edit of the reason and
+ * expected resume date (docs/product/workflow.md) — no need to move the card
+ * out and back in to correct them. Save is enabled only once something differs
+ * from the saved values; it PATCHes through `useUpdateCard` (If-Match), and the
+ * server re-arms the overdue alert when the date changes. Archived cards never
+ * reach here (they carry no waitingReason).
+ */
+function WaitingBanner({
+  card,
+  saving,
+  onSave,
+}: {
+  card: Card
+  saving: boolean
+  onSave: (changes: { waitingReason: WaitingReason; expectedResumeAt: string }) => void
+}) {
+  const [reason, setReason] = useState<WaitingReason | null>(card.waitingReason)
+  const [resumeAt, setResumeAt] = useState<string | null>(card.expectedResumeAt)
+  const overdue = isOverdueResume(card.expectedResumeAt, utcToday())
+
+  // A fresh server state (SSE refetch, our own save, or a concurrent edit by
+  // another user / the hourly job) re-seeds each field — but only when the user
+  // has not diverged it from the last-seen server value, so an in-progress edit
+  // survives (the keepDirtyValues semantics the CardDetailsForm inline editor
+  // uses). The ref holds the previous server snapshot to test divergence.
+  const seenServer = useRef({ reason: card.waitingReason, resumeAt: card.expectedResumeAt })
+  useEffect(() => {
+    const seen = seenServer.current
+    if (card.waitingReason !== seen.reason) {
+      setReason((prev) => (prev === seen.reason ? card.waitingReason : prev))
+    }
+    if (card.expectedResumeAt !== seen.resumeAt) {
+      setResumeAt((prev) => (prev === seen.resumeAt ? card.expectedResumeAt : prev))
+    }
+    seenServer.current = { reason: card.waitingReason, resumeAt: card.expectedResumeAt }
+  }, [card.waitingReason, card.expectedResumeAt])
+
+  const dirty =
+    reason !== null &&
+    resumeAt !== null &&
+    (reason !== card.waitingReason || resumeAt !== card.expectedResumeAt)
+
+  return (
+    <Alert color={WAITING_COLOR} title={strings.detail.waitingBannerTitle}>
+      <Stack gap="sm">
+        <Text size="sm">
+          {overdue ? strings.detail.waitingOverdueNote : strings.detail.waitingEditHint}
+        </Text>
+        <Select
+          label={strings.detail.waitingReasonLabel}
+          data={WAITING_REASONS.map((value) => ({
+            value,
+            label: strings.waiting.reasons[value],
+          }))}
+          value={reason}
+          allowDeselect={false}
+          onChange={setReason}
+        />
+        <DatePickerInput
+          label={strings.detail.waitingResumeLabel}
+          value={resumeAt}
+          onChange={setResumeAt}
+        />
+        <Group justify="flex-end">
+          <Button
+            size="xs"
+            variant="white"
+            color={WAITING_COLOR}
+            disabled={!dirty || saving}
+            loading={saving}
+            onClick={() => {
+              if (reason === null || resumeAt === null) return
+              onSave({ waitingReason: reason, expectedResumeAt: resumeAt })
+            }}
+          >
+            {strings.detail.waitingSave}
+          </Button>
+        </Group>
+      </Stack>
+    </Alert>
+  )
 }

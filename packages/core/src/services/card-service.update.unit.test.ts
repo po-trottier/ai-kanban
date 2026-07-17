@@ -165,3 +165,135 @@ describe('CardService.update', () => {
     await expect(act).rejects.toBeInstanceOf(NotFoundError)
   })
 })
+
+describe('CardService.update — waiting reason + resume date (in place)', () => {
+  it('updates the waiting reason and resume date in place while in the waiting lane', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({
+      laneId: scenario.lanes.waiting_parts_vendor.id,
+      waitingReason: 'parts',
+      expectedResumeAt: '2026-07-20',
+    })
+
+    // Act
+    const updated = await scenario.cards.update(scenario.actors.technician, card.id, {
+      waitingReason: 'vendor',
+      expectedResumeAt: '2026-08-15',
+      expectedVersion: 1,
+    })
+
+    // Assert
+    expect(updated.waitingReason).toBe('vendor')
+    expect(updated.expectedResumeAt).toBe('2026-08-15')
+    expect(updated.version).toBe(2)
+    const events = scenario.db.eventsFor(card.id)
+    expect(events.map((event) => event.eventType)).toEqual([
+      'card.field_changed',
+      'card.field_changed',
+    ])
+    expect(events.at(0)?.payload).toEqual({
+      field: 'waitingReason',
+      from: 'parts',
+      to: 'vendor',
+    })
+    expect(events.at(1)?.payload).toEqual({
+      field: 'expectedResumeAt',
+      from: '2026-07-20',
+      to: '2026-08-15',
+    })
+  })
+
+  it('clears resume_alerted_at when the expected resume date changes so the overdue alert re-arms', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({
+      laneId: scenario.lanes.waiting_parts_vendor.id,
+      waitingReason: 'parts',
+      expectedResumeAt: '2026-07-01',
+      resumeAlertedAt: '2026-07-10T09:00:00.000Z',
+    })
+
+    // Act
+    const updated = await scenario.cards.update(scenario.actors.supervisor, card.id, {
+      expectedResumeAt: '2026-08-01',
+      expectedVersion: 1,
+    })
+
+    // Assert
+    expect(updated.expectedResumeAt).toBe('2026-08-01')
+    expect(updated.resumeAlertedAt).toBeNull()
+    const events = scenario.db.eventsFor(card.id)
+    expect(events).toHaveLength(1)
+    expect(events.at(0)?.payload).toEqual({
+      field: 'expectedResumeAt',
+      from: '2026-07-01',
+      to: '2026-08-01',
+    })
+  })
+
+  it('leaves resume_alerted_at intact when only the reason changes', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({
+      laneId: scenario.lanes.waiting_parts_vendor.id,
+      waitingReason: 'parts',
+      expectedResumeAt: '2026-07-01',
+      resumeAlertedAt: '2026-07-10T09:00:00.000Z',
+    })
+
+    // Act
+    const updated = await scenario.cards.update(scenario.actors.technician, card.id, {
+      waitingReason: 'access',
+      expectedVersion: 1,
+    })
+
+    // Assert
+    expect(updated.waitingReason).toBe('access')
+    expect(updated.resumeAlertedAt).toBe('2026-07-10T09:00:00.000Z')
+  })
+
+  it('rejects editing the waiting fields when the card is not in the waiting lane', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({ laneId: scenario.lanes.in_progress.id })
+
+    // Act
+    const act = scenario.cards.update(scenario.actors.technician, card.id, {
+      waitingReason: 'parts',
+      expectedResumeAt: '2026-08-01',
+      expectedVersion: 1,
+    })
+
+    // Assert
+    await expect(act).rejects.toBeInstanceOf(ConflictError)
+    await expect(act).rejects.toMatchObject({
+      message: 'waiting reason and resume date can only be edited in the waiting lane',
+    })
+    expect(scenario.db.getCard(card.id).waitingReason).toBeNull()
+    expect(scenario.db.eventsFor(card.id)).toHaveLength(0)
+  })
+
+  it('treats an unchanged waiting reason and date as a no-op', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({
+      laneId: scenario.lanes.waiting_parts_vendor.id,
+      waitingReason: 'parts',
+      expectedResumeAt: '2026-07-20',
+      resumeAlertedAt: '2026-07-10T09:00:00.000Z',
+    })
+
+    // Act
+    const updated = await scenario.cards.update(scenario.actors.technician, card.id, {
+      waitingReason: 'parts',
+      expectedResumeAt: '2026-07-20',
+      expectedVersion: 1,
+    })
+
+    // Assert
+    expect(updated.version).toBe(1)
+    expect(updated.resumeAlertedAt).toBe('2026-07-10T09:00:00.000Z')
+    expect(scenario.db.eventsFor(card.id)).toHaveLength(0)
+  })
+})

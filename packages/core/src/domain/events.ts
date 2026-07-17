@@ -33,6 +33,9 @@ export const AUDITED_CARD_FIELDS = [
   'assigneeId',
   'locationId',
   'tags',
+  /** Editable in place only while the card sits in the waiting lane. */
+  'waitingReason',
+  'expectedResumeAt',
 ] as const
 export type AuditedCardField = (typeof AUDITED_CARD_FIELDS)[number]
 

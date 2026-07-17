@@ -45,9 +45,9 @@ the board's drag-and-drop is **Pragmatic drag-and-drop**
 ## Policy-driven affordances (ADR-013)
 
 `GET /policy` is cached and consulted by pure functions in `board/move-options.ts`:
-drag `canDrop`, Move to… lane options (disabled ≠ hidden), cancel/reopen menu gating, and
-the `deleteOthersComments`/`deleteOthersAttachments` affordances in the card panel all
-derive from one evaluation path (`canPerformAction` covers all five action gates). The
+drag `canDrop`, Move to… lane options (disabled ≠ hidden), cancel/reopen/archive menu gating,
+and the `deleteOthersComments`/`deleteOthersAttachments` affordances in the card panel all
+derive from one evaluation path (`canPerformAction` covers every action gate). The
 server re-validates every action regardless.
 
 ## Drag-and-drop (ADR-007)

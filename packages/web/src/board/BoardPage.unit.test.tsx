@@ -249,6 +249,38 @@ describe('BoardPage card actions', () => {
     expect(new Headers(call?.init?.headers).get('If-Match')).toBe('"9"')
   })
 
+  it('archives a Done card from the menu (If-Match) and shows only for terminal cards', async () => {
+    // Arrange — a completed card exposes Reopen + Archive; a live one does not.
+    const user = userEvent.setup()
+    const done = makeCard('done', { title: 'Closed job', resolution: 'completed', version: 7 })
+    const live = makeCard('intake', { title: 'Open job' })
+    const fake = createFakeFetch({
+      'GET /api/v1/auth/me': fixtureAdmin,
+      'GET /api/v1/board': makeBoard({ done: [done], intake: [live] }),
+      'GET /api/v1/policy': policyRecordOf(permissivePolicy),
+      'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/locations': [],
+      'GET /api/v1/tags': [],
+      [`POST /api/v1/cards/${done.id}/archive`]: jsonResponse({
+        ...done,
+        archivedAt: '2026-07-16T00:00:00.000Z',
+      }),
+    })
+    renderApp({ fetchFn: fake.fetch })
+    // Act — the live card's menu has no Archive item.
+    await openCardMenu(user, 'Open job')
+    expect(screen.queryByRole('menuitem', { name: 'Archive' })).not.toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    // …but the Done card's menu does; clicking it archives via the API.
+    await openCardMenu(user, 'Closed job')
+    await user.click(await screen.findByRole('menuitem', { name: 'Archive' }))
+    // Assert
+    expect(fake.lastBody('POST', `/api/v1/cards/${done.id}/archive`)).toEqual({})
+    const call = fake.calls.find((c) => c.url.includes('/archive'))
+    expect(new Headers(call?.init?.headers).get('If-Match')).toBe('"7"')
+    expect(await screen.findByText('Card archived')).toBeInTheDocument()
+  })
+
   it('shows the problem+json error when the board fails to load', async () => {
     // Arrange
     const fake = createFakeFetch({

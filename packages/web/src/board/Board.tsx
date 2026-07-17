@@ -110,6 +110,7 @@ export function Board({
             today={today}
             canCancel={canPerformAction(policy, role, 'cancel')}
             canReopen={canPerformAction(policy, role, 'reopen')}
+            canArchive={canPerformAction(policy, role, 'archive')}
             canDropFrom={canDropFrom}
             onOpenCard={onOpenCard}
             onMenuAction={onMenuAction}

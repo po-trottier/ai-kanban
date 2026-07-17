@@ -117,6 +117,7 @@ export function useUpdateCard() {
 type CardAction =
   | { action: 'cancel'; body: Omit<CancelCardInput, 'expectedVersion'> }
   | { action: 'reopen' }
+  | { action: 'archive' }
   | { action: 'block'; body: Omit<BlockCardInput, 'expectedVersion'> }
   | { action: 'unblock' }
 
@@ -124,6 +125,7 @@ type CardAction =
 const ACTION_TOAST: Record<CardAction['action'], string> = {
   cancel: strings.card.cancelledToast,
   reopen: strings.card.reopenedToast,
+  archive: strings.card.archivedToast,
   block: strings.card.blockedToast,
   unblock: strings.card.unblockedToast,
 }

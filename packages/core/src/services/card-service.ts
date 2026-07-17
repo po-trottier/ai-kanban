@@ -1,5 +1,6 @@
 import { generateKeyBetween } from 'fractional-indexing'
 import {
+  archiveCardInputSchema,
   blockCardInputSchema,
   cancelCardInputSchema,
   createCardInputSchema,
@@ -236,6 +237,36 @@ export class CardService {
             resolved.map((tag) => tag.id),
           )
           fieldChanged(changeOf('tags', fromNames, toNames))
+        }
+      }
+
+      // Waiting reason + resume date are editable in place, but ONLY while the
+      // card sits in the waiting lane — reversing the v1 shortcut where the
+      // only way to change them was to move the card out and back in
+      // (docs/product/workflow.md). Editing a resume date re-arms the hourly
+      // overdue alert by clearing resume_alerted_at (data-model.md).
+      const editsWaitingFields =
+        input.waitingReason !== undefined || input.expectedResumeAt !== undefined
+      if (editsWaitingFields) {
+        const lane = await laneOfCard(tx, card)
+        if (lane.key !== 'waiting_parts_vendor') {
+          throw new ConflictError(
+            'waiting reason and resume date can only be edited in the waiting lane',
+            card,
+          )
+        }
+        if (input.waitingReason !== undefined && input.waitingReason !== card.waitingReason) {
+          next.waitingReason = input.waitingReason
+          fieldChanged(changeOf('waitingReason', card.waitingReason, input.waitingReason))
+        }
+        if (
+          input.expectedResumeAt !== undefined &&
+          input.expectedResumeAt !== card.expectedResumeAt
+        ) {
+          next.expectedResumeAt = input.expectedResumeAt
+          // Re-arm the overdue alert for the new date (data-model.md).
+          next.resumeAlertedAt = null
+          fieldChanged(changeOf('expectedResumeAt', card.expectedResumeAt, input.expectedResumeAt))
         }
       }
 
@@ -487,6 +518,50 @@ export class CardService {
       },
       (tx) => tx.cards.findById(cardId),
     )
+    publishCardHints(this.deps.eventBus, result.card, result.events)
+    return result.card
+  }
+
+  /**
+   * Manually archives a Done card (completed OR cancelled), setting
+   * `archivedAt` so it leaves the board and the default card queries
+   * (docs/product/workflow.md#archival) — the human counterpart to the nightly
+   * `archiveExpired` backstop. Reopen already clears `archivedAt`, so an
+   * archived card is fully reversible.
+   *
+   * Policy checks: `card.archive` action gate (permissive by default); the
+   * card must currently sit in `done` (409 otherwise) and must not already be
+   * archived (409, read-only); stale `expectedVersion` conflicts (409).
+   * Audit events: one `card.archived` (actorKind `user`).
+   */
+  async archive(actor: Actor, cardId: string, rawInput: unknown): Promise<Card> {
+    const input = archiveCardInputSchema.parse(rawInput)
+    const result = await this.deps.uow.run(async (tx) => {
+      const card = requireFound(await tx.cards.findById(cardId), 'card')
+      ensureNotArchived(card)
+      const lane = await laneOfCard(tx, card)
+      if (lane.key !== 'done') {
+        throw new ConflictError('only cards in the done lane can be archived', card)
+      }
+      const policy = await activePolicy(tx, card.boardId)
+      decide(evaluatePolicy(actor, { type: 'card.archive' }, policy))
+      ensureVersion(card, input.expectedVersion)
+
+      const nowIso = this.deps.clock.now().toISOString()
+      const updated: Card = {
+        ...card,
+        archivedAt: nowIso,
+        version: card.version + 1,
+        updatedAt: nowIso,
+      }
+      await tx.cards.update(updated)
+      const event = makeEvent(this.deps.ids, this.deps.clock, actor, card.id, {
+        eventType: 'card.archived',
+        payload: {},
+      })
+      await tx.events.append(event)
+      return { card: updated, events: [event] } satisfies MutationResult
+    })
     publishCardHints(this.deps.eventBus, result.card, result.events)
     return result.card
   }

@@ -200,6 +200,126 @@ describe('CardService.reopen', () => {
   })
 })
 
+describe('CardService.archive', () => {
+  it('archives a completed done card, sets archivedAt, and emits card.archived', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'completed' })
+
+    // Act
+    const archived = await scenario.cards.archive(scenario.actors.supervisor, card.id, {
+      expectedVersion: 1,
+    })
+
+    // Assert
+    expect(archived.archivedAt).toBe('2026-07-16T12:00:00.000Z')
+    expect(archived.laneId).toBe(scenario.lanes.done.id)
+    expect(archived.version).toBe(2)
+    const events = scenario.db.eventsFor(card.id)
+    expect(events).toHaveLength(1)
+    expect(events.at(0)).toMatchObject({
+      eventType: 'card.archived',
+      actorKind: 'user',
+      payload: {},
+    })
+  })
+
+  it('archives a cancelled done card too', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'cancelled' })
+
+    // Act
+    const archived = await scenario.cards.archive(scenario.actors.technician, card.id, {
+      expectedVersion: 1,
+    })
+
+    // Assert
+    expect(archived.archivedAt).not.toBeNull()
+  })
+
+  it('rejects archiving a card that is not in the done lane', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({ laneId: scenario.lanes.in_progress.id })
+
+    // Act
+    const act = scenario.cards.archive(scenario.actors.supervisor, card.id, { expectedVersion: 1 })
+
+    // Assert
+    await expect(act).rejects.toBeInstanceOf(ConflictError)
+    expect(scenario.db.getCard(card.id).archivedAt).toBeNull()
+    expect(scenario.db.eventsFor(card.id)).toHaveLength(0)
+  })
+
+  it('rejects archiving an already-archived card', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({
+      laneId: scenario.lanes.done.id,
+      resolution: 'completed',
+      archivedAt: '2026-04-01T00:00:00.000Z',
+    })
+
+    // Act
+    const act = scenario.cards.archive(scenario.actors.supervisor, card.id, { expectedVersion: 1 })
+
+    // Assert
+    await expect(act).rejects.toBeInstanceOf(ArchivedError)
+    expect(scenario.db.eventsFor(card.id)).toHaveLength(0)
+  })
+
+  it('409s a stale expectedVersion and commits nothing', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({
+      laneId: scenario.lanes.done.id,
+      resolution: 'completed',
+      version: 4,
+    })
+
+    // Act
+    const act = scenario.cards.archive(scenario.actors.supervisor, card.id, { expectedVersion: 2 })
+
+    // Assert
+    await expect(act).rejects.toBeInstanceOf(ConflictError)
+    expect(scenario.db.getCard(card.id).archivedAt).toBeNull()
+  })
+
+  it('applies the archive action gate when configured', async () => {
+    // Arrange
+    const scenario = createScenario({
+      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { archive: 'supervisor' } },
+    })
+    const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'completed' })
+
+    // Act
+    const denied = scenario.cards.archive(scenario.actors.technician, card.id, {
+      expectedVersion: 1,
+    })
+
+    // Assert
+    await expect(denied).rejects.toBeInstanceOf(PolicyDeniedError)
+    await expect(denied).rejects.toMatchObject({ rule: 'actionGates.archive' })
+    expect(scenario.db.getCard(card.id).archivedAt).toBeNull()
+  })
+
+  it('publishes a card hint after archiving', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'completed' })
+
+    // Act
+    await scenario.cards.archive(scenario.actors.supervisor, card.id, { expectedVersion: 1 })
+
+    // Assert
+    expect(scenario.eventBus.published.at(-1)).toMatchObject({
+      type: 'card.archived',
+      cardId: card.id,
+    })
+  })
+})
+
 describe('CardService.block / unblock', () => {
   it('raises the blocked flag with reason and timestamp, in place', async () => {
     // Arrange

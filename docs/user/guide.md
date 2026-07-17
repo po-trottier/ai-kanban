@@ -40,7 +40,9 @@ use the card's **⋯ → Move to…** menu to pick a column and position.
 
 - Moving into **Waiting on Parts / Vendor** always asks _why_ (parts, vendor, access, info,
   funding) and _when work should resume_. When that date passes, the assignee gets a Slack
-  nudge automatically.
+  nudge automatically. To change the reason or push the resume date out later, open the card
+  and edit them right in the yellow **Waiting** banner, then **Save** — no need to move the
+  card off the board.
 - **Cancelling** is not a drag: use **⋯ → Cancel** and pick a reason (cancelled / declined /
   duplicate). Cancelled cards show at the end of Done with a badge.
 - **Blocked** (⋯ → Block, with a reason) flags a card without moving it — the red badge tells
@@ -69,8 +71,11 @@ phone/tablet camera roll.
 
 ## Done and archived
 
-Cards in Done stay visible for 90 days, then auto-archive. Archived cards remain searchable
-and their history intact — use the "include archived" filter.
+Cards in Done stay visible until they are archived. To clear a finished card off the board
+right away, open its **⋯** menu and choose **Archive** — you'll see a "Card archived"
+confirmation. Anything you don't archive by hand auto-archives 90 days after reaching Done.
+Archived cards remain searchable and their history intact — use the "include archived" filter —
+and you can bring one back at any time with **Reopen**.
 
 ## Admin settings (admins only)
 

@@ -97,10 +97,14 @@ To keep the lane from becoming a black hole:
 - On any move **out** of the lane, both fields are cleared inside the move transaction
   (recorded in the `card.status_changed` payload, not as separate field events); re-entry
   requires fresh values. Staleness queries therefore only ever match cards currently waiting.
+- Both fields are **editable in place** while the card sits in the lane (via `PATCH /cards/:id`,
+  surfaced by the waiting banner on the card panel): correct the reason or push the expected
+  resume date out without moving the card off the board. Each change is a `card.field_changed`
+  audit event. Editing the date clears `resume_alerted_at` so the hourly overdue alert re-arms
+  for the new date and the episode is not double-fired.
 - A scheduled job sends one Slack DM per overdue episode (tracked via `resume_alerted_at`,
-  cleared on lane exit) to the assignee (if any) and to all active users with the supervisor
-  role. Pushing the resume date out is done by moving the card out and back in with fresh
-  values — which resets the episode; there is no in-place date edit in v1.
+  cleared on lane exit or on an in-place date edit) to the assignee (if any) and to all active
+  users with the supervisor role.
 - The lane has its own seeded WIP limit.
 
 ## WIP limits
@@ -131,7 +135,16 @@ history.
 
 ## Archival
 
-Done cards (completed and cancelled) auto-archive (`archived_at` set) 90 days after entering
-Done. Archived cards leave the board query but remain in the database, the audit trail, and
-MCP/REST history queries. They are read-only except reopen (see
+Done cards (completed and cancelled) can be archived (`archived_at` set) two ways:
+
+- **Manually**, from the card's ⋯ menu (`POST /cards/:id/archive`) — the primary path for a
+  team that wants to clear a finished job off the board immediately. Allowed only for a card
+  currently in Done (409 otherwise); emits a `card.archived` audit event (actor = the user).
+  A permissive-by-default `archive` policy gate can restrict it to a minimum role.
+- **Automatically**, as a backstop: the daily `doneArchival` job archives every Done card 90
+  days after it entered Done, so nothing lingers if no one archives it by hand.
+
+Archived cards leave the board query but remain in the database, the audit trail, and MCP/REST
+history queries; they still surface in Search under **Include archived**. They are read-only
+except reopen — which clears `archived_at` and returns the card to Ready (see
 [Terminal states](#terminal-states)).

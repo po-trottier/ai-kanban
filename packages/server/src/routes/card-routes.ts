@@ -194,6 +194,24 @@ export function cardRoutes(deps: AppDeps) {
     )
 
     r.post(
+      '/cards/:id/archive',
+      {
+        config: { bodyless: true },
+        schema: {
+          params: idParamsSchema,
+          headers: ifMatchHeadersSchema,
+          response: { 200: cardResponseSchema },
+        },
+      },
+      async (request, reply) => {
+        const card = await cards.archive(actorOf(request), request.params.id, {
+          expectedVersion: expectedVersionOf(request),
+        })
+        return sendCard(reply, card)
+      },
+    )
+
+    r.post(
       '/cards/:id/block',
       {
         schema: {

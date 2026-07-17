@@ -19,6 +19,7 @@ export interface CardItemProps {
   today: string
   canCancel: boolean
   canReopen: boolean
+  canArchive: boolean
   canDropFrom: (source: { cardId: string; laneKey: LaneKey }) => boolean
   onOpen: (cardId: string) => void
   onMenuAction: (card: BoardCard, action: CardMenuAction) => void
@@ -37,6 +38,7 @@ export function CardItem({
   today,
   canCancel,
   canReopen,
+  canArchive,
   canDropFrom,
   onOpen,
   onMenuAction,
@@ -68,6 +70,7 @@ export function CardItem({
           card={card}
           canCancel={canCancel}
           canReopen={canReopen}
+          canArchive={canArchive}
           onAction={(action) => {
             onMenuAction(card, action)
           }}

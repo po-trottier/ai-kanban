@@ -167,6 +167,8 @@ export const strings = {
     unblockedToast: 'Card unblocked',
     cancelledToast: 'Card cancelled — moved to Done',
     reopenedToast: 'Card reopened — moved to Ready',
+    archivedToast: 'Card archived',
+    archive: 'Archive',
     /** Always-visible board-card fields with clear placeholders (consistency). */
     noEstimate: 'No estimate',
     unassigned: 'Unassigned',
@@ -296,6 +298,12 @@ export const strings = {
       `Paused for ${reason}, expected to resume ${date}. It resumes automatically when moved out of this column.`,
     waitingBannerOverdue: (reason: string, date: string) =>
       `Paused for ${reason}. Expected to resume ${date} — now overdue. It resumes when moved out of this column.`,
+    /** Inline edit of the waiting reason + resume date while the card waits. */
+    waitingEditHint: 'Update the reason or expected resume date without moving the card.',
+    waitingReasonLabel: 'Waiting reason',
+    waitingResumeLabel: 'Expected resume date',
+    waitingSave: 'Save',
+    waitingOverdueNote: 'This card is overdue — pick a new expected resume date.',
   },
 
   estimateUnits: {
@@ -428,6 +436,7 @@ export const strings = {
     gates: {
       cancel: 'Cancel cards',
       reopen: 'Reopen cards',
+      archive: 'Archive Done cards',
       reorderReady: 'Reorder the Ready column',
       deleteOthersComments: "Delete others' comments",
       deleteOthersAttachments: "Delete others' attachments",

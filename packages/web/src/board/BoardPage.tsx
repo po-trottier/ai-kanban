@@ -145,6 +145,9 @@ export function BoardPage() {
       case 'reopen':
         cardAction.mutate({ card, action: 'reopen' })
         break
+      case 'archive':
+        cardAction.mutate({ card, action: 'archive' })
+        break
     }
   }
 
