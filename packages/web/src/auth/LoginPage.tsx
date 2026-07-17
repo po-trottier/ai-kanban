@@ -39,9 +39,14 @@ export function LoginPage() {
           }}
         >
           <Stack gap="md">
-            <Title order={1} size="h3">
-              {strings.auth.loginTitle}
-            </Title>
+            <Stack gap="xs">
+              <Title order={2} size="h4" c="dimmed">
+                {strings.appTitle}
+              </Title>
+              <Title order={1} size="h3">
+                {strings.auth.loginTitle}
+              </Title>
+            </Stack>
             {login.error !== null ? <ErrorAlert error={login.error} /> : null}
             <TextInput
               label={strings.auth.email}

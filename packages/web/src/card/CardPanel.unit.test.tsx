@@ -39,6 +39,18 @@ function panelApp(extra: Record<string, unknown> = {}): FakeFetch {
 }
 
 describe('CardPanel', () => {
+  it('titles the drawer with the card title and its priority badge', async () => {
+    // Arrange
+    const fake = panelApp()
+    // Act
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    // Assert — the dialog is named by its header: the hidden panel label,
+    // the card title, and the priority badge sitting inline beside it.
+    const dialog = await screen.findByRole('dialog', { name: /Fix pump/ })
+    expect(dialog).toHaveAccessibleName(/Card details/)
+    expect(dialog).toHaveAccessibleName(new RegExp(card.priority))
+  })
+
   it('saves edited fields with If-Match from the card version', async () => {
     // Arrange
     const user = userEvent.setup()

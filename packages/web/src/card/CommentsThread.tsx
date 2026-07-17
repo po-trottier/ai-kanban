@@ -198,23 +198,28 @@ function CommentItem({
             <Button
               size="compact-xs"
               variant="subtle"
+              // Short visible label; the accessible name stays 'Edit comment'.
+              aria-label={strings.comments.editLabel}
               onClick={() => {
                 setEditing(true)
               }}
             >
-              {strings.comments.editLabel}
+              {strings.common.edit}
             </Button>
           ) : null}
           {canDelete ? (
             <Button
               size="compact-xs"
               variant="subtle"
-              color="red"
+              // Muted, not alarming red; accessible name stays 'Delete comment'.
+              color="gray"
+              c="dimmed"
+              aria-label={strings.comments.deleteLabel}
               onClick={() => {
                 onDelete(comment.id)
               }}
             >
-              {strings.comments.deleteLabel}
+              {strings.common.delete}
             </Button>
           ) : null}
         </Group>

@@ -67,8 +67,18 @@ export const fixtureTech: User = userWith({
 })
 
 export const fixturePickerUsers: PickerUser[] = [
-  { id: fixtureAdmin.id, displayName: fixtureAdmin.displayName, role: fixtureAdmin.role },
-  { id: fixtureTech.id, displayName: fixtureTech.displayName, role: fixtureTech.role },
+  {
+    id: fixtureAdmin.id,
+    displayName: fixtureAdmin.displayName,
+    role: fixtureAdmin.role,
+    email: fixtureAdmin.email,
+  },
+  {
+    id: fixtureTech.id,
+    displayName: fixtureTech.displayName,
+    role: fixtureTech.role,
+    email: fixtureTech.email,
+  },
 ]
 
 let cardCounter = 500

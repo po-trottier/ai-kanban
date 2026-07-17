@@ -43,6 +43,15 @@ export function TokensAdmin() {
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
+          {tokens.data?.length === 0 ? (
+            <Table.Tr>
+              <Table.Td colSpan={5}>
+                <Text size="sm" c="dimmed">
+                  {strings.tokens.empty}
+                </Text>
+              </Table.Td>
+            </Table.Tr>
+          ) : null}
           {(tokens.data ?? []).map((token) => (
             <Table.Tr key={token.id}>
               <Table.Td>

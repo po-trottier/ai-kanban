@@ -7,6 +7,16 @@ import { renderWithProviders } from '../test/render.tsx'
 import { LoginPage } from './LoginPage.tsx'
 
 describe('LoginPage', () => {
+  it('carries the product branding above the sign-in heading', () => {
+    // Arrange
+    const fake = createFakeFetch({})
+    // Act
+    renderWithProviders(<LoginPage />, { fetchFn: fake.fetch })
+    // Assert
+    expect(screen.getByRole('heading', { name: 'Facilities Kanban' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+  })
+
   it('validates the email and password before submitting', async () => {
     // Arrange
     const user = userEvent.setup()

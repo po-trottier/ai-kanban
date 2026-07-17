@@ -19,7 +19,8 @@
     "workspaces": {
       "e2e": {
         "entry": [
-          "scripts/prepare.mjs"
+          "scripts/prepare.mjs",
+          "scripts/screenshots.mjs"
         ]
       }
     }

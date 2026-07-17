@@ -39,7 +39,8 @@ describe('HistoryList', () => {
         onLoadMore={noop}
       />,
     )
-    // Assert
+    // Assert — an unnumbered timeline: a plain list, not an ordered one
+    expect(screen.getByRole('list', { name: 'History' }).tagName).toBe('UL')
     const items = screen.getAllByRole('listitem')
     expect(items).toHaveLength(2)
     expect(items[0]).toHaveTextContent('Ada Admin blocked the card: parts missing')

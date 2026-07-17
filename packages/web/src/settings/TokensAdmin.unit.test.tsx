@@ -37,6 +37,15 @@ describe('TokensAdmin', () => {
     expect(screen.getAllByText('Never')).toHaveLength(2)
   })
 
+  it('shows an empty state when no tokens exist yet', async () => {
+    // Arrange
+    const fake = createFakeFetch({ 'GET /api/v1/service-tokens': [] })
+    // Act
+    renderWithProviders(<TokensAdmin />, { fetchFn: fake.fetch })
+    // Assert
+    expect(await screen.findByText('No service tokens yet')).toBeInTheDocument()
+  })
+
   it('creates a token and shows the raw rkb_ value exactly once', async () => {
     // Arrange
     const user = userEvent.setup()

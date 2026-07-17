@@ -38,6 +38,23 @@ describe('GET /users', () => {
 
     expect(response.json<{ id: string }[]>().map((row) => row.id)).not.toContain(user.id)
   })
+
+  it('includes emails for admins only (the users admin table)', async () => {
+    const admin = await t.asRole('admin')
+    const requester = await t.asRole('requester')
+
+    const adminView = await t.request(admin.cookie, { method: 'GET', url: '/api/v1/users' })
+    const requesterView = await t.request(requester.cookie, { method: 'GET', url: '/api/v1/users' })
+
+    const adminRow = adminView
+      .json<Record<string, unknown>[]>()
+      .find((row) => row.id === admin.user.id)
+    expect(adminRow?.email).toBe(admin.user.email)
+    const sameRowForRequester = requesterView
+      .json<Record<string, unknown>[]>()
+      .find((row) => row.id === admin.user.id)
+    expect(sameRowForRequester).not.toHaveProperty('email')
+  })
 })
 
 describe('POST /users', () => {

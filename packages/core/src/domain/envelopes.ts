@@ -68,8 +68,14 @@ export function boardSnapshotSchemaOf<L extends z.ZodType, C extends z.ZodType>(
   })
 }
 
-/** The `GET /users` picker roster — id, name, role picked from the user schema. */
-export const pickerUserSchema = userSchema.pick({ id: true, displayName: true, role: true })
+/**
+ * The `GET /users` picker roster — id, name, role picked from the user
+ * schema. The email is optional because the server includes it only on admin
+ * reads (the users admin table); every other role gets the email-free picker.
+ */
+export const pickerUserSchema = userSchema
+  .pick({ id: true, displayName: true, role: true, email: true })
+  .partial({ email: true })
 export type PickerUser = z.infer<typeof pickerUserSchema>
 
 /** `POST /users` / `PATCH /users/:id` — temp password present on create/reset only. */

@@ -70,27 +70,27 @@ export function CardItem({
       <Group justify="space-between" mt="xs" gap="xs">
         <CardBadges card={card} today={today} />
       </Group>
-      <Group justify="space-between" mt="xs" gap="xs">
-        <Text size="xs" c="dimmed">
-          {card.estimateMinutes === null ? '' : formatEstimate(card.estimateMinutes)}
-        </Text>
-        {assignee === undefined ? (
-          <Tooltip label={strings.card.unassigned}>
-            <Avatar size="sm" radius="xl" aria-label={strings.card.unassigned} />
-          </Tooltip>
-        ) : (
-          <Tooltip label={assignee.displayName}>
-            <Avatar
-              size="sm"
-              radius="xl"
-              color="indigo"
-              aria-label={strings.card.assigneeAvatarLabel(assignee.displayName)}
-            >
-              {initials(assignee.displayName)}
-            </Avatar>
-          </Tooltip>
-        )}
-      </Group>
+      {/* The footer renders only when it has content: an unassigned card
+          without an estimate must not reserve an empty row. */}
+      {card.estimateMinutes !== null || assignee !== undefined ? (
+        <Group justify="space-between" mt="xs" gap="xs">
+          <Text size="xs" c="dimmed">
+            {card.estimateMinutes === null ? '' : formatEstimate(card.estimateMinutes)}
+          </Text>
+          {assignee === undefined ? null : (
+            <Tooltip label={assignee.displayName}>
+              <Avatar
+                size="sm"
+                radius="xl"
+                color="indigo"
+                aria-label={strings.card.assigneeAvatarLabel(assignee.displayName)}
+              >
+                {initials(assignee.displayName)}
+              </Avatar>
+            </Tooltip>
+          )}
+        </Group>
+      ) : null}
       {closestEdge !== null ? (
         <DropIndicator edge={closestEdge} gap="var(--mantine-spacing-xs)" />
       ) : null}

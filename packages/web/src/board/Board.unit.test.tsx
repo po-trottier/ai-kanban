@@ -108,4 +108,25 @@ describe('Board', () => {
     const avatar = screen.getByLabelText('Assigned to Terry Tech')
     expect(avatar).toHaveTextContent('TT')
   })
+
+  it('renders no placeholder avatar when a card is unassigned', () => {
+    // Arrange — no assignee and no estimate: the footer row disappears too
+    const card = makeCard('ready', { assigneeId: null, estimateMinutes: null })
+    const board = makeBoard({ ready: [card] })
+    // Act
+    renderWithProviders(
+      <Board
+        board={board}
+        policy={permissivePolicy}
+        role="technician"
+        users={fixturePickerUsers}
+        today="2026-07-16"
+        onOpenCard={noop}
+        onMenuAction={noop}
+      />,
+    )
+    // Assert
+    expect(screen.queryByLabelText('Unassigned')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Assigned to/)).not.toBeInTheDocument()
+  })
 })

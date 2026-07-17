@@ -27,8 +27,17 @@ export function userRoutes(deps: AppDeps) {
   return function routes(app: FastifyInstance): void {
     const r = app.withTypeProvider<ZodTypeProvider>()
 
-    r.get('/users', { schema: { response: { 200: z.array(pickerUserSchema) } } }, async () =>
-      deps.services.users.listActive(),
+    r.get(
+      '/users',
+      { schema: { response: { 200: z.array(pickerUserSchema) } } },
+      async (request) => {
+        const users = await deps.services.users.listActive()
+        // Emails ride along for admins only (the users admin table); every
+        // other role keeps the email-free picker (slack/messages.ts relies on
+        // the roster never becoming an email oracle for non-admins).
+        if (actorOf(request).role === 'admin') return users
+        return users.map(({ id, displayName, role }) => ({ id, displayName, role }))
+      },
     )
 
     r.post(

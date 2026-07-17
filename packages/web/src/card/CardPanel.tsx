@@ -1,4 +1,14 @@
-import { Button, Drawer, Group, Loader, Stack, Tabs, Text } from '@mantine/core'
+import {
+  Badge,
+  Button,
+  Drawer,
+  Group,
+  Loader,
+  Stack,
+  Tabs,
+  Text,
+  VisuallyHidden,
+} from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { useNavigate, useParams } from 'react-router'
 import { useBoard, useCardAction, useUpdateCard } from '../api/board.ts'
@@ -19,6 +29,7 @@ import { canPerformAction } from '../board/move-options.ts'
 import { utcToday } from '../lib/format.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { strings } from '../strings.ts'
+import { EMPHASIS_FONT_WEIGHT, PRIORITY_COLORS } from '../theme.ts'
 import { AttachmentsSection } from './AttachmentsSection.tsx'
 import { CardDetailsForm } from './CardDetailsForm.tsx'
 import { CommentsThread } from './CommentsThread.tsx'
@@ -32,6 +43,10 @@ export function CardPanel() {
   const { cardId = '' } = useParams()
   const navigate = useNavigate()
   const smallViewport = useMediaQuery('(max-width: 62em)')
+  // Shares the body's query (deduplicated) so the header can carry the card
+  // title; the generic label remains as the fallback while it loads.
+  const detailQuery = useCardDetail(cardId)
+  const card = detailQuery.data?.card
 
   const close = () => {
     void navigate('/')
@@ -43,7 +58,22 @@ export function CardPanel() {
       onClose={close}
       position="right"
       size={smallViewport ? '100%' : 'lg'}
-      title={strings.detail.panelLabel}
+      title={
+        card === undefined ? (
+          strings.detail.panelLabel
+        ) : (
+          <Group gap="xs" wrap="nowrap">
+            {/* Kept for assistive tech and selectors that name the panel. */}
+            <VisuallyHidden>{strings.detail.panelLabel}</VisuallyHidden>
+            <Text fw={EMPHASIS_FONT_WEIGHT} lineClamp={1}>
+              {card.title}
+            </Text>
+            <Badge color={PRIORITY_COLORS[card.priority]} size="sm" variant="filled">
+              {strings.priorities[card.priority]}
+            </Badge>
+          </Group>
+        )
+      }
     >
       <CardPanelBody cardId={cardId} />
     </Drawer>
@@ -99,7 +129,8 @@ function CardPanelBody({ cardId }: { cardId: string }) {
 
   return (
     <Stack gap="md">
-      <CardBadges card={detail.card} today={utcToday()} />
+      {/* Priority lives in the drawer header; this row carries status only. */}
+      <CardBadges card={detail.card} today={utcToday()} showPriority={false} />
       {archived ? (
         <Group justify="space-between" gap="sm">
           <Text size="sm" c="dimmed">

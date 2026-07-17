@@ -74,7 +74,6 @@ export const strings = {
     overdueBadge: (reason: string) => `Overdue: ${reason}`,
     archivedBadge: 'Archived',
     assigneeAvatarLabel: (name: string) => `Assigned to ${name}`,
-    unassigned: 'Unassigned',
     cardJustUpdated: 'This card was just updated by someone else — the board has been refreshed.',
     moveAnnouncement: (title: string, lane: string, position: number) =>
       `Card "${title}" moved to ${lane}, position ${String(position)}`,
@@ -83,7 +82,10 @@ export const strings = {
   search: {
     pageTitle: 'Search cards',
     openButton: 'Search cards',
-    queryLabel: 'Search cards',
+    queryLabel: 'Search',
+    /** Stable accessible name for the query input (tests target it) while the
+     * visible label stays short under the identical page title. */
+    queryAriaLabel: 'Search cards',
     submit: 'Search',
     includeArchived: 'Include archived',
     resultsLabel: 'Search results',
@@ -250,6 +252,8 @@ export const strings = {
   },
 
   lanes: {
+    keyHeader: 'Column',
+    labelHeader: 'Label',
     labelLabel: 'Column label',
     wipLimitLabel: 'WIP limit',
     wipLimitNone: 'No limit',
@@ -307,6 +311,7 @@ export const strings = {
     tokenHint: 'Copy this token now — it is shown only once.',
     lastUsed: 'Last used',
     neverUsed: 'Never',
+    empty: 'No service tokens yet',
   },
 
   laneNames: {

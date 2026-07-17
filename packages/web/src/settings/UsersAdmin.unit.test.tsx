@@ -7,13 +7,14 @@ import { renderWithProviders } from '../test/render.tsx'
 import { UsersAdmin } from './UsersAdmin.tsx'
 
 describe('UsersAdmin', () => {
-  it('lists active users with their roles', async () => {
+  it('lists active users with their emails and roles', async () => {
     // Arrange
     const fake = createFakeFetch({ 'GET /api/v1/users': fixturePickerUsers })
     // Act
     renderWithProviders(<UsersAdmin />, { fetchFn: fake.fetch })
     // Assert
     expect(await screen.findByText('Ada Admin')).toBeInTheDocument()
+    expect(screen.getByText('tech@example.com')).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Role: Terry Tech' })).toHaveValue('Technician')
   })
 

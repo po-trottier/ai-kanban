@@ -28,6 +28,9 @@ export const SIZES = {
   authCardWidth: '24rem',
   skeletonLaneHeaderHeight: '1.5rem',
   skeletonCardHeight: '5rem',
+  /** Fixed lanes-admin inputs so the grid aligns regardless of label length. */
+  laneLabelInputWidth: '16rem',
+  laneWipLimitInputWidth: '6.5rem',
 } as const
 
 export const theme = createTheme({

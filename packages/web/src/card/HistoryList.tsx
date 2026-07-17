@@ -1,5 +1,5 @@
 import { type CardEvent } from '@rivian-kanban/core'
-import { Button, Stack, Text } from '@mantine/core'
+import { Button, List, Stack, Text } from '@mantine/core'
 import { formatDateTime } from '../lib/format.ts'
 import { describeActor, describeEvent, type HistoryContext } from '../lib/history.ts'
 import { strings } from '../strings.ts'
@@ -30,9 +30,10 @@ export function HistoryList({
   }
   return (
     <Stack gap="sm">
-      <Stack gap="xs" component="ol" aria-label={strings.detail.tabHistory}>
+      {/* An unnumbered stacked timeline — ordinal markers added no meaning. */}
+      <List listStyleType="none" spacing="xs" aria-label={strings.detail.tabHistory}>
         {events.map((event) => (
-          <li key={event.id}>
+          <List.Item key={event.id}>
             <Text size="sm" component="span" fw={EMPHASIS_FONT_WEIGHT}>
               {describeActor(event, context)}
             </Text>{' '}
@@ -42,9 +43,9 @@ export function HistoryList({
             <Text size="xs" c="dimmed" component="span">
               {formatDateTime(event.createdAt)}
             </Text>
-          </li>
+          </List.Item>
         ))}
-      </Stack>
+      </List>
       {hasMore ? (
         <Button variant="subtle" size="xs" loading={loadingMore} onClick={onLoadMore}>
           {strings.common.loadMore}

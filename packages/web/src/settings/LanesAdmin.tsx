@@ -1,19 +1,34 @@
-import { Button, Group, NumberInput, Stack, TextInput } from '@mantine/core'
+import { Button, NumberInput, Table, Text, TextInput } from '@mantine/core'
 import { useState } from 'react'
 import { usePatchLane } from '../api/admin.ts'
 import { useBoard } from '../api/board.ts'
 import { type LaneSnapshot } from '../api/schemas.ts'
 import { strings } from '../strings.ts'
+import { SIZES } from '../theme.ts'
 
-/** Lane labels and WIP limits (`PATCH /lanes/:id`). */
+/**
+ * Lane labels and WIP limits (`PATCH /lanes/:id`) as an aligned grid —
+ * fixed input widths keep columns consistent regardless of label length,
+ * matching the Users table's visual language.
+ */
 export function LanesAdmin() {
   const board = useBoard()
   return (
-    <Stack gap="md">
-      {(board.data?.lanes ?? []).map((snapshot) => (
-        <LaneRow key={snapshot.lane.id} snapshot={snapshot} />
-      ))}
-    </Stack>
+    <Table>
+      <Table.Thead>
+        <Table.Tr>
+          <Table.Th>{strings.lanes.keyHeader}</Table.Th>
+          <Table.Th>{strings.lanes.labelHeader}</Table.Th>
+          <Table.Th>{strings.lanes.wipLimitLabel}</Table.Th>
+          <Table.Th />
+        </Table.Tr>
+      </Table.Thead>
+      <Table.Tbody>
+        {(board.data?.lanes ?? []).map((snapshot) => (
+          <LaneRow key={snapshot.lane.id} snapshot={snapshot} />
+        ))}
+      </Table.Tbody>
+    </Table>
   )
 }
 
@@ -24,36 +39,49 @@ function LaneRow({ snapshot }: { snapshot: LaneSnapshot }) {
   const dirty = label !== snapshot.lane.label || wipLimit !== snapshot.lane.wipLimit
 
   return (
-    <Group align="flex-end" gap="sm" aria-label={strings.lanes.rowLabel(snapshot.lane.label)}>
-      <TextInput
-        label={`${strings.lanes.labelLabel} (${snapshot.lane.key})`}
-        value={label}
-        onChange={(event) => {
-          setLabel(event.currentTarget.value)
-        }}
-      />
-      <NumberInput
-        label={`${strings.lanes.wipLimitLabel} (${snapshot.lane.key})`}
-        placeholder={strings.lanes.wipLimitNone}
-        min={1}
-        value={wipLimit ?? ''}
-        onChange={(value) => {
-          setWipLimit(typeof value === 'number' ? value : null)
-        }}
-      />
-      <Button
-        size="sm"
-        disabled={!dirty || label.trim() === ''}
-        loading={patchLane.isPending}
-        onClick={() => {
-          patchLane.mutate({
-            laneId: snapshot.lane.id,
-            input: { label: label.trim(), wipLimit },
-          })
-        }}
-      >
-        {strings.common.save}
-      </Button>
-    </Group>
+    <Table.Tr aria-label={strings.lanes.rowLabel(snapshot.lane.label)}>
+      <Table.Td>
+        <Text size="sm" c="dimmed" ff="monospace">
+          {snapshot.lane.key}
+        </Text>
+      </Table.Td>
+      <Table.Td>
+        <TextInput
+          aria-label={`${strings.lanes.labelLabel} (${snapshot.lane.key})`}
+          w={SIZES.laneLabelInputWidth}
+          value={label}
+          onChange={(event) => {
+            setLabel(event.currentTarget.value)
+          }}
+        />
+      </Table.Td>
+      <Table.Td>
+        <NumberInput
+          aria-label={`${strings.lanes.wipLimitLabel} (${snapshot.lane.key})`}
+          w={SIZES.laneWipLimitInputWidth}
+          placeholder={strings.lanes.wipLimitNone}
+          min={1}
+          value={wipLimit ?? ''}
+          onChange={(value) => {
+            setWipLimit(typeof value === 'number' ? value : null)
+          }}
+        />
+      </Table.Td>
+      <Table.Td>
+        <Button
+          size="sm"
+          disabled={!dirty || label.trim() === ''}
+          loading={patchLane.isPending}
+          onClick={() => {
+            patchLane.mutate({
+              laneId: snapshot.lane.id,
+              input: { label: label.trim(), wipLimit },
+            })
+          }}
+        >
+          {strings.common.save}
+        </Button>
+      </Table.Td>
+    </Table.Tr>
   )
 }

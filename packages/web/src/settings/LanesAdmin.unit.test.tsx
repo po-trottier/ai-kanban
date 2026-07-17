@@ -7,13 +7,16 @@ import { renderWithProviders } from '../test/render.tsx'
 import { LanesAdmin } from './LanesAdmin.tsx'
 
 describe('LanesAdmin', () => {
-  it('renders one editable row per lane with label and WIP limit', async () => {
+  it('renders an aligned table with one editable row per lane', async () => {
     // Arrange
     const fake = createFakeFetch({ 'GET /api/v1/board': makeBoard({}) })
     // Act
     renderWithProviders(<LanesAdmin />, { fetchFn: fake.fetch })
-    // Assert
+    // Assert — header row plus the machine key rendered per lane
     expect(await screen.findByDisplayValue('Intake')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Label' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'WIP limit' })).toBeInTheDocument()
+    expect(screen.getByText('waiting_parts_vendor')).toBeInTheDocument()
     expect(screen.getAllByRole('textbox', { name: /Column label/ })).toHaveLength(7)
     expect(screen.getByRole('textbox', { name: 'WIP limit (in_progress)' })).toHaveValue('3')
   })

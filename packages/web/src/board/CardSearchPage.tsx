@@ -1,4 +1,5 @@
 import {
+  Badge,
   Button,
   Checkbox,
   Container,
@@ -13,6 +14,7 @@ import {
 } from '@mantine/core'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { useBoard } from '../api/board.ts'
 import { useCardSearch } from '../api/card.ts'
 import { utcToday } from '../lib/format.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
@@ -31,6 +33,11 @@ export function CardSearchPage() {
   const [q, setQ] = useState('')
   const [includeArchived, setIncludeArchived] = useState(false)
   const search = useCardSearch({ q, includeArchived })
+  // Lane labels for the per-row column chip (shared board query, cached).
+  const board = useBoard()
+  const laneLabelById = new Map(
+    (board.data?.lanes ?? []).map((snapshot) => [snapshot.lane.id, snapshot.lane.label]),
+  )
   const cards = (search.data?.pages ?? []).flatMap((page) => page.items)
   const today = utcToday()
 
@@ -50,6 +57,7 @@ export function CardSearchPage() {
           <Group align="flex-end" gap="sm">
             <TextInput
               label={strings.search.queryLabel}
+              aria-label={strings.search.queryAriaLabel}
               value={draft}
               onChange={(event) => {
                 setDraft(event.currentTarget.value)
@@ -75,25 +83,35 @@ export function CardSearchPage() {
           </Text>
         ) : (
           <Stack gap="xs" role="list" aria-label={strings.search.resultsLabel}>
-            {cards.map((card) => (
-              <div role="listitem" key={card.id}>
-                <UnstyledButton
-                  w="100%"
-                  onClick={() => {
-                    void navigate(`/cards/${card.id}`)
-                  }}
-                >
-                  <Paper withBorder p="sm" radius="md">
-                    <Group justify="space-between" gap="xs">
-                      <Text size="sm" fw={EMPHASIS_FONT_WEIGHT}>
-                        {card.title}
-                      </Text>
-                      <CardBadges card={card} today={today} />
-                    </Group>
-                  </Paper>
-                </UnstyledButton>
-              </div>
-            ))}
+            {cards.map((card) => {
+              const laneLabel = laneLabelById.get(card.laneId)
+              return (
+                <div role="listitem" key={card.id}>
+                  <UnstyledButton
+                    w="100%"
+                    onClick={() => {
+                      void navigate(`/cards/${card.id}`)
+                    }}
+                  >
+                    <Paper withBorder p="sm" radius="md">
+                      <Group justify="space-between" gap="xs">
+                        <Text size="sm" fw={EMPHASIS_FONT_WEIGHT}>
+                          {card.title}
+                        </Text>
+                        <Group gap="xs">
+                          {laneLabel === undefined ? null : (
+                            <Badge color="gray" size="sm" variant="light">
+                              {laneLabel}
+                            </Badge>
+                          )}
+                          <CardBadges card={card} today={today} />
+                        </Group>
+                      </Group>
+                    </Paper>
+                  </UnstyledButton>
+                </div>
+              )
+            })}
             {search.hasNextPage ? (
               <Button
                 variant="subtle"

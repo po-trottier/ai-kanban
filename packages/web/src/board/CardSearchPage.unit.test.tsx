@@ -75,6 +75,18 @@ describe('CardSearchPage', () => {
     expect(within(results).getByText('Archived')).toBeInTheDocument()
   })
 
+  it('shows the lane label as a context chip on each result row', async () => {
+    // Arrange
+    const match = makeCard('in_progress', { title: 'Grease door hinge' })
+    const fake = searchApp({ 'GET /api/v1/cards': { items: [match], nextCursor: null } })
+    // Act
+    renderApp({ fetchFn: fake.fetch, route: '/search' })
+    // Assert — the card's column rides along next to the status badges
+    const results = await screen.findByRole('list', { name: 'Search results' })
+    expect(within(results).getByText('Grease door hinge')).toBeInTheDocument()
+    expect(within(results).getByText('In Progress')).toBeInTheDocument()
+  })
+
   it('opens a result in the card detail panel', async () => {
     // Arrange
     const found = makeCard('ready', { title: 'Fix pump', description: 'It leaks' })

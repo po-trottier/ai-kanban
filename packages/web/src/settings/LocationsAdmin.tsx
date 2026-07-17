@@ -1,5 +1,15 @@
 import { LOCATION_KINDS, type Location, type LocationKind } from '@rivian-kanban/core'
-import { ActionIcon, Button, Group, Modal, Stack, Text, TextInput, Tree } from '@mantine/core'
+import {
+  ActionIcon,
+  Button,
+  Group,
+  Modal,
+  Stack,
+  Text,
+  TextInput,
+  Tooltip,
+  Tree,
+} from '@mantine/core'
 import { useState } from 'react'
 import { useCreateLocation, useDeleteLocation, useRenameLocation } from '../api/admin.ts'
 import { useLocations } from '../api/meta.ts'
@@ -76,7 +86,7 @@ export function LocationsAdmin() {
           renderNode={({ node, elementProps, expanded, hasChildren }) => {
             const location = byId.get(node.value)
             return (
-              <Group gap="xs" {...elementProps}>
+              <Group gap="xs" py="xs" {...elementProps}>
                 {hasChildren ? <Text size="xs">{expanded ? '▾' : '▸'}</Text> : null}
                 <Text size="sm">{node.label}</Text>
                 {location !== undefined ? (
@@ -139,41 +149,47 @@ function NodeActions({
   return (
     <Group gap="xs">
       {location.kind !== 'room' ? (
+        <Tooltip label={strings.locations.addChildLabel(location.name)}>
+          <ActionIcon
+            size="sm"
+            variant="subtle"
+            aria-label={strings.locations.addChildLabel(location.name)}
+            onClick={(event) => {
+              event.stopPropagation()
+              onAdd(location)
+            }}
+          >
+            +
+          </ActionIcon>
+        </Tooltip>
+      ) : null}
+      <Tooltip label={strings.locations.renameLabel(location.name)}>
         <ActionIcon
-          size="xs"
+          size="sm"
           variant="subtle"
-          aria-label={strings.locations.addChildLabel(location.name)}
+          aria-label={strings.locations.renameLabel(location.name)}
           onClick={(event) => {
             event.stopPropagation()
-            onAdd(location)
+            onRename(location)
           }}
         >
-          +
+          ✎
         </ActionIcon>
-      ) : null}
-      <ActionIcon
-        size="xs"
-        variant="subtle"
-        aria-label={strings.locations.renameLabel(location.name)}
-        onClick={(event) => {
-          event.stopPropagation()
-          onRename(location)
-        }}
-      >
-        ✎
-      </ActionIcon>
-      <ActionIcon
-        size="xs"
-        variant="subtle"
-        color="red"
-        aria-label={strings.locations.deleteLabel(location.name)}
-        onClick={(event) => {
-          event.stopPropagation()
-          onDelete(location)
-        }}
-      >
-        ✕
-      </ActionIcon>
+      </Tooltip>
+      <Tooltip label={strings.locations.deleteLabel(location.name)}>
+        <ActionIcon
+          size="sm"
+          variant="subtle"
+          color="red"
+          aria-label={strings.locations.deleteLabel(location.name)}
+          onClick={(event) => {
+            event.stopPropagation()
+            onDelete(location)
+          }}
+        >
+          ✕
+        </ActionIcon>
+      </Tooltip>
     </Group>
   )
 }

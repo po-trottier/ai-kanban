@@ -38,6 +38,7 @@ export function UsersAdmin() {
         <Table.Thead>
           <Table.Tr>
             <Table.Th>{strings.users.nameLabel}</Table.Th>
+            <Table.Th>{strings.users.emailLabel}</Table.Th>
             <Table.Th>{strings.users.roleLabel}</Table.Th>
             <Table.Th />
           </Table.Tr>
@@ -47,6 +48,12 @@ export function UsersAdmin() {
             <Table.Tr key={user.id}>
               <Table.Td>
                 <Text size="sm">{user.displayName}</Text>
+              </Table.Td>
+              <Table.Td>
+                {/* Present only on admin reads of GET /users. */}
+                <Text size="sm" c="dimmed">
+                  {user.email ?? strings.common.notAvailable}
+                </Text>
               </Table.Td>
               <Table.Td>
                 <Select
