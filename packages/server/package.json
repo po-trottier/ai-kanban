@@ -5,7 +5,7 @@
   "license": "Polyform-Strict-1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --clear-screen=false src/main.ts | pino-pretty",
+    "dev": "node --env-file-if-exists=../../.env --import tsx --watch src/main.ts",
     "cli": "tsx src/cli.ts",
     "build": "tsx build.ts"
   },

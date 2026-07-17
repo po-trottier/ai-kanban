@@ -147,6 +147,12 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
       '*.sid',
       '*.passwordHash',
     ],
+    // Human-readable logs in dev — as a pino transport, not a shell pipe:
+    // `… | pino-pretty` broke on machines without the root node_modules/.bin
+    // on PATH. Production and tests (NODE_ENV) keep raw JSON.
+    ...(env.NODE_ENV === 'development'
+      ? { transport: { target: 'pino-pretty', options: { colorize: true } } }
+      : {}),
   })
   // When Slack is enabled, completion notifications DM the requester
   // (docs/architecture/slack.md#notifications-outbound); otherwise they drop.
