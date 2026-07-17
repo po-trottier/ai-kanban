@@ -43,6 +43,26 @@ server for AI agents, and Slack-native ticket intake — all over one audited se
 npm ci && npm run setup && cp .env.example .env && npm run dev
 ```
 
+## License
+
+Copyright © 2026 Pierre-Olivier Trottier.
+
+Licensed under the [PolyForm Strict License 1.0.0](LICENSE) — in short:
+
+| Activity                             | Public permission     |
+| ------------------------------------ | --------------------- |
+| View the source                      | Yes                   |
+| Run the original software personally | Yes                   |
+| Noncommercial use                    | Yes                   |
+| Modify the code                      | No                    |
+| Publish modifications                | No                    |
+| Redistribute copies                  | No                    |
+| Incorporate it into another project  | No                    |
+| Commercial or business use           | No                    |
+| Obtain additional rights             | By separate agreement |
+
+The table is a summary only; the [LICENSE](LICENSE) text governs.
+
 ## Tech stack
 
 - **Language**: TypeScript end-to-end (one Zod schema source for REST, OpenAPI, MCP, and forms)
