@@ -265,28 +265,51 @@ describe('InMemoryLocationRepository admin surface', () => {
     await expect(scenario.db.run((tx) => tx.locations.findById(annex.id))).resolves.toBeNull()
   })
 
-  it('refuses deleting referenced locations and unknown ids', async () => {
+  it('recursively deletes a subtree and clears referencing cards; 404s unknown ids', async () => {
+    // BUG 2: deleting a building removes its floor/room too, and any card that
+    // referenced a removed node keeps its row with location cleared.
     // Arrange
     const scenario = createScenario()
     const building = { id: fixtureId(802), parentId: null, kind: 'building' as const, name: 'B' }
     const floor = { id: fixtureId(803), parentId: building.id, kind: 'floor' as const, name: '1' }
+    const room = { id: fixtureId(808), parentId: floor.id, kind: 'room' as const, name: '101' }
     scenario.db.seedLocation(building)
     scenario.db.seedLocation(floor)
-    scenario.seedCard({ locationId: floor.id })
+    scenario.db.seedLocation(room)
+    const located = scenario.seedCard({ locationId: room.id })
 
     // Act
-    const deleteParent = scenario.db.run((tx) => tx.locations.delete(building.id))
-    const deleteInUse = scenario.db.run((tx) => tx.locations.delete(floor.id))
+    await scenario.db.run((tx) => tx.locations.delete(building.id))
     const deleteGhost = scenario.db.run((tx) => tx.locations.delete(fixtureId(804)))
     const updateGhost = scenario.db.run((tx) =>
       tx.locations.update({ id: fixtureId(805), parentId: null, kind: 'room', name: 'ghost' }),
     )
 
     // Assert
-    await expect(deleteParent).rejects.toBeInstanceOf(ConflictError)
-    await expect(deleteInUse).rejects.toBeInstanceOf(ConflictError)
+    const remaining = await scenario.db.run((tx) => tx.locations.list())
+    expect(remaining).toEqual([])
+    // The card survives with its optional location cleared.
+    expect(scenario.db.getCard(located.id).locationId).toBeNull()
     await expect(deleteGhost).rejects.toBeInstanceOf(NotFoundError)
     await expect(updateGhost).rejects.toBeInstanceOf(NotFoundError)
+  })
+
+  it('deletes a leaf without touching its ancestors', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const building = { id: fixtureId(809), parentId: null, kind: 'building' as const, name: 'B2' }
+    const floor = { id: fixtureId(810), parentId: building.id, kind: 'floor' as const, name: '2' }
+    const room = { id: fixtureId(811), parentId: floor.id, kind: 'room' as const, name: '201' }
+    scenario.db.seedLocation(building)
+    scenario.db.seedLocation(floor)
+    scenario.db.seedLocation(room)
+
+    // Act
+    await scenario.db.run((tx) => tx.locations.delete(room.id))
+
+    // Assert
+    const remaining = await scenario.db.run((tx) => tx.locations.list())
+    expect(remaining.map((location) => location.id).sort()).toEqual([building.id, floor.id].sort())
   })
 })
 

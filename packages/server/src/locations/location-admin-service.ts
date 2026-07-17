@@ -102,8 +102,11 @@ export class LocationAdminService {
   }
 
   /**
-   * Hard delete; still-referenced locations (children, cards) are a 409
-   * ConflictError from the repository (FK backstop). Admin only.
+   * Recursive hard delete: the location and its whole subtree go together, and
+   * cards that referenced any removed node keep their row with `location_id`
+   * cleared (location is optional). Deleting a building/floor with children
+   * therefore succeeds — no 409; a missing id is the only failure (404). Admin
+   * only.
    */
   async delete(actor: Actor, locationId: string): Promise<void> {
     ensureAdmin(actor)

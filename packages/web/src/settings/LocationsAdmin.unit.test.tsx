@@ -63,13 +63,12 @@ describe('LocationsAdmin', () => {
     })
   })
 
-  it('renames and deletes locations through their node actions', async () => {
+  it('renames a location through its node action', async () => {
     // Arrange
     const user = userEvent.setup()
     const fake = createFakeFetch({
       'GET /api/v1/locations': [building],
       [`PATCH /api/v1/locations/${building.id}`]: { ...building, name: 'HQ West' },
-      [`DELETE /api/v1/locations/${building.id}`]: {},
     })
     renderWithProviders(<LocationsAdmin />, { fetchFn: fake.fetch })
     // Act
@@ -78,9 +77,28 @@ describe('LocationsAdmin', () => {
     await user.clear(nameInput)
     await user.type(nameInput, 'HQ West')
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    await user.click(await screen.findByLabelText('Delete HQ'))
     // Assert
     expect(fake.lastBody('PATCH', `/api/v1/locations/${building.id}`)).toEqual({ name: 'HQ West' })
+  })
+
+  it('confirms before deleting and warns that descendants are removed', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const fake = createFakeFetch({
+      'GET /api/v1/locations': [building, floor],
+      [`DELETE /api/v1/locations/${building.id}`]: {},
+    })
+    renderWithProviders(<LocationsAdmin />, { fetchFn: fake.fetch })
+    // Act — opening the delete affordance shows a confirm dialog, no request yet.
+    await user.click(await screen.findByLabelText('Delete HQ'))
+    const dialog = await screen.findByRole('dialog')
+    // Assert — the dialog names the target and warns about descendants.
+    expect(dialog).toHaveTextContent('Delete “HQ”?')
+    expect(dialog).toHaveTextContent(/floors and rooms/i)
+    expect(fake.calls.some((c) => c.method === 'DELETE')).toBe(false)
+    // Act — confirming issues the DELETE.
+    await user.click(screen.getByRole('button', { name: 'Delete location' }))
+    // Assert
     expect(fake.calls.some((c) => c.method === 'DELETE')).toBe(true)
   })
 })

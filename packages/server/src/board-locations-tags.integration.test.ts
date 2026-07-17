@@ -4,8 +4,9 @@ import { createTestApp, type TestApp } from './test/support.ts'
 
 /**
  * GET /board (lanes + WIP state + position-ordered cards), the locations
- * tree with admin CRUD (strict hierarchy, FK-protected deletes), and the
- * tags autocomplete list (docs/architecture/rest-api.md).
+ * tree with admin CRUD (strict hierarchy, recursive subtree deletes that
+ * clear referencing cards), and the tags autocomplete list
+ * (docs/architecture/rest-api.md).
  */
 
 let t: TestApp
@@ -144,7 +145,19 @@ describe('PATCH /lanes/:id (admin)', () => {
 })
 
 describe('GET /locations + admin CRUD', () => {
-  it('lists the seeded tree for any authenticated user', async () => {
+  it('lists the whole tree for any authenticated user', async () => {
+    // A fresh install starts with zero locations (BUG 1), so arrange the tree.
+    const building = await createLocation({ kind: 'building', name: 'List Building' })
+    const floor = await createLocation({
+      kind: 'floor',
+      name: 'List Floor',
+      parentId: building.json<LocationBody>().id,
+    })
+    await createLocation({
+      kind: 'room',
+      name: 'List Room',
+      parentId: floor.json<LocationBody>().id,
+    })
     const { cookie } = await t.asRole('requester')
 
     const response = await t.request(cookie, { method: 'GET', url: '/api/v1/locations' })
@@ -217,7 +230,9 @@ describe('GET /locations + admin CRUD', () => {
     expect(missing.statusCode).toBe(404)
   })
 
-  it('deletes leaves; children or referencing cards make it a 409', async () => {
+  it('recursively deletes a building with floors + rooms and clears referencing cards', async () => {
+    // BUG 2: deleting a building removes its whole subtree in one transaction;
+    // a card that referenced a removed room keeps its row with location cleared.
     const building = await createLocation({ kind: 'building', name: 'Delete tests' })
     const buildingId = building.json<LocationBody>().id
     const floor = await createLocation({ kind: 'floor', name: 'F1', parentId: buildingId })
@@ -225,29 +240,61 @@ describe('GET /locations + admin CRUD', () => {
     const room = await createLocation({ kind: 'room', name: 'R1', parentId: floorId })
     const roomId = room.json<LocationBody>().id
 
-    const parentDelete = await t.request(adminCookie, {
-      method: 'DELETE',
-      url: `/api/v1/locations/${buildingId}`,
-    })
-    expect(parentDelete.statusCode).toBe(409)
-
-    await t.request(adminCookie, {
+    const created = await t.request(adminCookie, {
       method: 'POST',
       url: '/api/v1/cards',
       payload: { title: 'Located card', locationId: roomId },
     })
-    const referenced = await t.request(adminCookie, {
+    const cardId = created.json<{ id: string }>().id
+
+    const parentDelete = await t.request(adminCookie, {
+      method: 'DELETE',
+      url: `/api/v1/locations/${buildingId}`,
+    })
+    expect(parentDelete.statusCode).toBe(204)
+
+    // The whole subtree is gone.
+    const listed = await t.request(adminCookie, { method: 'GET', url: '/api/v1/locations' })
+    const survivingIds = new Set(listed.json<LocationBody[]>().map((location) => location.id))
+    expect(survivingIds.has(buildingId)).toBe(false)
+    expect(survivingIds.has(floorId)).toBe(false)
+    expect(survivingIds.has(roomId)).toBe(false)
+
+    // The card survives with its optional location cleared.
+    const detail = await t.request(adminCookie, {
+      method: 'GET',
+      url: `/api/v1/cards/${cardId}`,
+    })
+    expect(detail.statusCode).toBe(200)
+    expect(detail.json<{ card: { id: string }; location: unknown }>().location).toBeNull()
+  })
+
+  it('deletes a leaf room removing only it, and 404s a missing id', async () => {
+    const building = await createLocation({ kind: 'building', name: 'Leaf tests' })
+    const buildingId = building.json<LocationBody>().id
+    const floor = await createLocation({ kind: 'floor', name: 'LF', parentId: buildingId })
+    const floorId = floor.json<LocationBody>().id
+    const room = await createLocation({ kind: 'room', name: 'LR', parentId: floorId })
+    const roomId = room.json<LocationBody>().id
+
+    const leafDelete = await t.request(adminCookie, {
       method: 'DELETE',
       url: `/api/v1/locations/${roomId}`,
     })
-    expect(referenced.statusCode).toBe(409)
-
-    const emptyFloor = await createLocation({ kind: 'floor', name: 'F2', parentId: buildingId })
-    const leafDelete = await t.request(adminCookie, {
-      method: 'DELETE',
-      url: `/api/v1/locations/${emptyFloor.json<LocationBody>().id}`,
-    })
     expect(leafDelete.statusCode).toBe(204)
+
+    // Ancestors remain.
+    const listed = await t.request(adminCookie, { method: 'GET', url: '/api/v1/locations' })
+    const survivingIds = new Set(listed.json<LocationBody[]>().map((location) => location.id))
+    expect(survivingIds.has(buildingId)).toBe(true)
+    expect(survivingIds.has(floorId)).toBe(true)
+    expect(survivingIds.has(roomId)).toBe(false)
+
+    const missing = await t.request(adminCookie, {
+      method: 'DELETE',
+      url: '/api/v1/locations/00000000-0000-7000-8000-0000000004ff',
+    })
+    expect(missing.statusCode).toBe(404)
   })
 
   it('restricts CRUD to admins (403) while reads stay open', async () => {

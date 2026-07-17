@@ -1,13 +1,36 @@
-import {
-  ConflictError,
-  NotFoundError,
-  type Location,
-  type LocationRepository,
-} from '@rivian-kanban/core'
-import { asc, eq, sql } from 'drizzle-orm'
+import { NotFoundError, type Location, type LocationRepository } from '@rivian-kanban/core'
+import { asc, eq, inArray, sql } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
-import { isForeignKeyViolation, toError } from '../errors.ts'
-import { locations } from '../schema.ts'
+import { toError } from '../errors.ts'
+import { cards, locations } from '../schema.ts'
+
+/** The subtree ids rooted at `id`, deepest-first (children before parents). */
+function collectSubtree(tx: Pick<BetterSQLite3Database, 'select'>, id: string): string[] {
+  // The location tree is at most 3 levels deep and admin-curated (tiny), so a
+  // breadth-first expansion by `parent_id` is both clear and cheap — and stays
+  // portable (no dialect-specific recursive CTE). Levels are appended in
+  // increasing depth, then reversed so deletes run children-first. A visited
+  // set dedupes ids (parity with the in-memory fake) so a malformed cyclic
+  // parent_id graph terminates instead of looping — reparenting is unsupported
+  // today, so no code path can create a cycle, but the guard is cheap.
+  const levels: string[][] = [[id]]
+  const visited = new Set<string>([id])
+  let frontier = [id]
+  while (frontier.length > 0) {
+    const children = tx
+      .select({ id: locations.id })
+      .from(locations)
+      .where(inArray(locations.parentId, frontier))
+      .all()
+      .map((row) => row.id)
+      .filter((childId) => !visited.has(childId))
+    if (children.length === 0) break
+    for (const childId of children) visited.add(childId)
+    levels.push(children)
+    frontier = children
+  }
+  return levels.reverse().flat()
+}
 
 export class SqliteLocationRepository implements LocationRepository {
   private readonly db: BetterSQLite3Database
@@ -71,18 +94,38 @@ export class SqliteLocationRepository implements LocationRepository {
   }
 
   /**
-   * Hard delete; the FK constraints (child locations, cards.location_id) are
-   * the race-free backstop — a violation maps to ConflictError (409).
+   * Recursive hard delete of the whole subtree rooted at `id` (building → its
+   * floors → their rooms) in ONE transaction. Cards pointing at any removed
+   * location have their optional `location_id` cleared — the card survives,
+   * just loses the reference. Both `cards.location_id` and
+   * `locations.parent_id` are ON DELETE NO ACTION, so with `foreign_keys = ON`
+   * we null the referencing cards first, then delete the locations
+   * children-first (deepest depth first) so no row is ever orphaned
+   * mid-transaction. Rejects with NotFoundError only when `id` does not exist.
    */
   delete(id: string): Promise<void> {
     try {
-      const result = this.db.delete(locations).where(eq(locations.id, id)).run()
-      if (result.changes === 0) return Promise.reject(new NotFoundError('location'))
+      this.db.transaction((tx) => {
+        // Root missing → NotFoundError. (A root with no children still yields
+        // [id] from the walk, so presence is checked explicitly.)
+        const exists = tx.select({ id: locations.id }).from(locations).where(eq(locations.id, id))
+        if (exists.get() === undefined) throw new NotFoundError('location')
+        const subtreeIds = collectSubtree(tx, id)
+
+        // Location is optional: any card referencing a removed node keeps the
+        // card, just loses the reference.
+        tx.update(cards)
+          .set({ locationId: null })
+          .where(inArray(cards.locationId, subtreeIds))
+          .run()
+
+        // Children-first so each parent is deleted only after its descendants.
+        for (const subtreeId of subtreeIds) {
+          tx.delete(locations).where(eq(locations.id, subtreeId)).run()
+        }
+      })
       return Promise.resolve()
     } catch (error) {
-      if (isForeignKeyViolation(error)) {
-        return Promise.reject(new ConflictError('location is still referenced'))
-      }
       return Promise.reject(toError(error))
     }
   }

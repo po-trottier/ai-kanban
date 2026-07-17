@@ -63,9 +63,11 @@ export interface StructuralSeedResult {
 
 /**
  * Board, 7 lanes (seeded WIP limits), the default permissive policy document,
- * a sample location tree, and the `system` user. Idempotent by natural keys —
- * safe to run on every boot; never overwrites existing rows (labels and WIP
- * limits stay admin-editable).
+ * and the `system` user. Idempotent by natural keys — safe to run on every
+ * boot; never overwrites existing rows (labels and WIP limits stay
+ * admin-editable). Inserts NO locations: a fresh/production database starts
+ * with an empty locations table so the first-boot setup step (and production)
+ * are never pre-populated — the sample tree is demo-only (see demoSeed).
  */
 export function structuralSeed(db: BetterSQLite3Database): StructuralSeedResult {
   return db.transaction((tx) => {
@@ -129,32 +131,6 @@ export function structuralSeed(db: BetterSQLite3Database): StructuralSeedResult 
           createdAt: now,
         })
         .run()
-    }
-
-    const anyLocation = tx.select({ id: locations.id }).from(locations).limit(1).get()
-    if (anyLocation === undefined) {
-      const building = (name: string): string => {
-        const id = ids.newId()
-        tx.insert(locations).values({ id, parentId: null, kind: 'building', name }).run()
-        return id
-      }
-      const floor = (parentId: string, name: string): string => {
-        const id = ids.newId()
-        tx.insert(locations).values({ id, parentId, kind: 'floor', name }).run()
-        return id
-      }
-      const room = (parentId: string, name: string): void => {
-        tx.insert(locations).values({ id: ids.newId(), parentId, kind: 'room', name }).run()
-      }
-      const buildingA = building('Building A')
-      const floorA1 = floor(buildingA, 'Floor 1')
-      room(floorA1, 'Room 101')
-      room(floorA1, 'Room 102')
-      const floorA2 = floor(buildingA, 'Floor 2')
-      room(floorA2, 'Room 201')
-      const buildingB = building('Building B')
-      const floorB1 = floor(buildingB, 'Floor 1')
-      room(floorB1, 'Boiler Room')
     }
 
     return { boardId: board.id, systemUserId: system.id }
@@ -241,6 +217,35 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       }),
     ) as Record<Role, User>
 
+    // Sample location tree (buildings → floors → rooms) is demo-only fixture
+    // data: production and first-boot setup start empty (BUG 1). Seeded near
+    // the top so the located demo cards below can reference a real room.
+    const building = (name: string): string => {
+      const id = ids.newId()
+      tx.insert(locations).values({ id, parentId: null, kind: 'building', name }).run()
+      return id
+    }
+    const floor = (parentId: string, name: string): string => {
+      const id = ids.newId()
+      tx.insert(locations).values({ id, parentId, kind: 'floor', name }).run()
+      return id
+    }
+    const room = (parentId: string, name: string): string => {
+      const id = ids.newId()
+      tx.insert(locations).values({ id, parentId, kind: 'room', name }).run()
+      return id
+    }
+    const buildingA = building('Building A')
+    const floorA1 = floor(buildingA, 'Floor 1')
+    // The canonical sample room every located demo card points at (`sampleRoom`).
+    const sampleRoomId = room(floorA1, 'Room 101')
+    room(floorA1, 'Room 102')
+    const floorA2 = floor(buildingA, 'Floor 2')
+    room(floorA2, 'Room 201')
+    const buildingB = building('Building B')
+    const floorB1 = floor(buildingB, 'Floor 1')
+    room(floorB1, 'Boiler Room')
+
     const tagIdsByName = new Map<string, string>()
     for (const name of ['HVAC', 'plumbing', 'electrical']) {
       const id = ids.newId()
@@ -248,7 +253,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       tagIdsByName.set(name, id)
     }
 
-    const sampleRoom = tx.select().from(locations).where(eq(locations.kind, 'room')).get()
+    const sampleRoom = tx.select().from(locations).where(eq(locations.id, sampleRoomId)).get()
 
     /** Audit-event helper: validates against the canonical schema (ADR-005). */
     const appendEvent = (raw: unknown): void => {

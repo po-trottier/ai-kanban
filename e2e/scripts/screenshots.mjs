@@ -10,36 +10,49 @@ import { chromium } from '@playwright/test'
 
 const PORT = 3333
 const BASE = `http://localhost:${PORT}`
+// A second, unseeded instance so we can capture the first-boot setup wizard
+// (which redirects away once any user exists).
+const SETUP_PORT = 3334
+const SETUP_BASE = `http://localhost:${SETUP_PORT}`
 const PASSWORD = 'rivian-visual-qa-pass'
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'screenshots')
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const dataDir = mkdtempSync(join(tmpdir(), 'rivian-shots-'))
+const setupDataDir = mkdtempSync(join(tmpdir(), 'rivian-shots-setup-'))
 
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 
-const server = spawn(process.execPath, ['--import', 'tsx', 'packages/server/src/main.ts'], {
-  cwd: join(dirname(fileURLToPath(import.meta.url)), '..', '..'),
-  env: {
-    ...process.env,
-    NODE_ENV: 'development',
-    PORT: String(PORT),
-    METRICS_PORT: '9484',
-    DATABASE_PATH: join(dataDir, 'app.sqlite'),
-    BLOB_DIR: join(dataDir, 'blobs'),
-    SNAPSHOT_DIR: join(dataDir, 'snapshots'),
-    SEED_DEMO_DATA: 'true',
-    SEED_DEMO_PASSWORD: PASSWORD,
-    SLACK_ENABLED: 'false',
-    SUMMARIZER_ENABLED: 'false',
-    LOG_LEVEL: 'error',
-  },
-  stdio: 'inherit',
-})
+/** Spawns a server on `port` with its own data dir; demo seed is optional. */
+function startServer(port, metricsPort, dir, seedDemo) {
+  return spawn(process.execPath, ['--import', 'tsx', 'packages/server/src/main.ts'], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      NODE_ENV: 'development',
+      PORT: String(port),
+      METRICS_PORT: String(metricsPort),
+      DATABASE_PATH: join(dir, 'app.sqlite'),
+      BLOB_DIR: join(dir, 'blobs'),
+      SNAPSHOT_DIR: join(dir, 'snapshots'),
+      SEED_DEMO_DATA: seedDemo ? 'true' : 'false',
+      SEED_DEMO_PASSWORD: PASSWORD,
+      SLACK_ENABLED: 'false',
+      SUMMARIZER_ENABLED: 'false',
+      LOG_LEVEL: 'error',
+    },
+    stdio: 'inherit',
+  })
+}
 
-async function waitReady() {
+const server = startServer(PORT, 9484, dataDir, true)
+// Unseeded: no users → the first-boot setup wizard is reachable.
+const setupServer = startServer(SETUP_PORT, 9485, setupDataDir, false)
+
+async function waitReady(base = BASE) {
   for (let i = 0; i < 120; i++) {
     try {
-      const res = await fetch(`${BASE}/readyz`)
+      const res = await fetch(`${base}/readyz`)
       if (res.ok) return
     } catch {
       // not up yet
@@ -132,6 +145,7 @@ try {
   await shot(page, '15-settings-tokens')
 
   await page.goto(`${BASE}/`)
+  await page.getByText('Intake').first().waitFor()
   await page.getByText(CARD_WITH_THREAD).first().click()
   await page.getByRole('tab', { name: 'Comments' }).click()
   await page.getByRole('textbox', { name: 'Add a comment' }).fill('Visual QA pass')
@@ -150,18 +164,50 @@ try {
   await shot(tpage, '18-tablet-card-panel')
   await tablet.close()
 
+  // --- First-boot setup wizard, step 2 (Add your locations) ---
+  // Captured on the unseeded instance so the wizard is reachable (it redirects
+  // away once any user exists). Create the admin (step 1), then add a
+  // building/floor/room so the redesigned tree renders in the shot.
+  await waitReady(SETUP_BASE)
+  const setup = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const setupPage = await setup.newPage()
+  await setupPage.goto(`${SETUP_BASE}/setup`)
+  await setupPage.getByRole('textbox', { name: 'Email' }).fill('admin@visual-qa.example')
+  await setupPage.getByRole('textbox', { name: 'Display name' }).fill('Visual QA Admin')
+  await setupPage.getByRole('textbox', { name: 'Password' }).fill(PASSWORD)
+  await setupPage.getByRole('button', { name: 'Create admin account' }).click()
+  await setupPage.getByRole('heading', { name: 'Add your locations' }).waitFor()
+  const addLocation = async (inputLabel, buttonLabel, value) => {
+    await setupPage.getByRole('textbox', { name: inputLabel }).fill(value)
+    await setupPage.getByRole('button', { name: buttonLabel }).click()
+    await setupPage.getByText(value).first().waitFor()
+  }
+  await addLocation('Add building', 'Add building', 'Main Plant')
+  await addLocation('Add floor', 'Add floor', 'Ground Floor')
+  await addLocation('Add room', 'Add room', 'Machine Shop')
+  await shot(setupPage, '19-setup-locations')
+  await setup.close()
+
   await browser.close()
   console.log(`done - screenshots in ${OUT}`)
 } finally {
   server.kill()
+  setupServer.kill()
   // Windows holds the SQLite file until the server exits; best-effort cleanup.
-  await new Promise((resolve) => {
-    server.once('exit', resolve)
-    setTimeout(resolve, 5000)
-  })
-  try {
-    rmSync(dataDir, { recursive: true, force: true })
-  } catch {
-    console.warn(`temp data dir left behind: ${dataDir}`)
+  await Promise.all(
+    [server, setupServer].map(
+      (child) =>
+        new Promise((resolve) => {
+          child.once('exit', resolve)
+          setTimeout(resolve, 5000)
+        }),
+    ),
+  )
+  for (const dir of [dataDir, setupDataDir]) {
+    try {
+      rmSync(dir, { recursive: true, force: true })
+    } catch {
+      console.warn(`temp data dir left behind: ${dir}`)
+    }
   }
 }

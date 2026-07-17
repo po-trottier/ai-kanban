@@ -198,8 +198,12 @@ export interface LocationRepository {
   insert(location: Location): Promise<void>
   update(location: Location): Promise<void>
   /**
-   * Hard delete. Rejects with ConflictError while rows still reference the
-   * location (child locations, cards) — the FK constraints are the backstop.
+   * Recursive hard delete: removes the whole subtree rooted at `id` (a
+   * building takes its floors and their rooms with it) in one transaction, and
+   * clears `location_id` on every card that referenced any removed node — the
+   * card survives, location being optional. Deleting a location with children
+   * therefore succeeds; it never conflicts. Rejects with NotFoundError only
+   * when `id` does not exist.
    */
   delete(id: string): Promise<void>
 }

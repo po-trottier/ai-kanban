@@ -2,11 +2,12 @@ import {
   DEFAULT_POLICY_DOCUMENT,
   type BoardPolicy,
   type Card,
+  type Location,
   type TransactionContext,
 } from '@rivian-kanban/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { eq } from 'drizzle-orm'
-import { boardPolicies, locations } from '../schema.ts'
+import { boardPolicies, cards } from '../schema.ts'
 import {
   insertUser,
   makeCard,
@@ -88,15 +89,105 @@ describe('SqliteLaneRepository', () => {
 })
 
 describe('SqliteLocationRepository', () => {
-  it('finds a seeded location and returns null for unknown ids', async () => {
-    const room = db.connection.db.select().from(locations).where(eq(locations.kind, 'room')).all()
+  /** Inserts a building → floor → room tree; returns the three ids. */
+  async function insertTree(): Promise<{ buildingId: string; floorId: string; roomId: string }> {
+    const buildingId = newId()
+    const floorId = newId()
+    const roomId = newId()
+    const rows: Location[] = [
+      { id: buildingId, parentId: null, kind: 'building', name: `B-${buildingId.slice(0, 6)}` },
+      { id: floorId, parentId: buildingId, kind: 'floor', name: `F-${floorId.slice(0, 6)}` },
+      { id: roomId, parentId: floorId, kind: 'room', name: `R-${roomId.slice(0, 6)}` },
+    ]
+    await run(async (tx) => {
+      for (const row of rows) await tx.locations.insert(row)
+    })
+    return { buildingId, floorId, roomId }
+  }
 
-    const found = await run((tx) => tx.locations.findById(room.at(0)?.id ?? ''))
+  it('finds an inserted location and returns null for unknown ids', async () => {
+    const { roomId } = await insertTree()
+
+    const found = await run((tx) => tx.locations.findById(roomId))
     const missing = await run((tx) => tx.locations.findById(newId()))
 
     expect(found?.kind).toBe('room')
     expect(found?.parentId).not.toBeNull()
     expect(missing).toBeNull()
+  })
+
+  it('deleting a building recursively removes its floors and rooms in one transaction', async () => {
+    const { buildingId, floorId, roomId } = await insertTree()
+
+    await run((tx) => tx.locations.delete(buildingId))
+
+    const remaining = await run(async (tx) => ({
+      building: await tx.locations.findById(buildingId),
+      floor: await tx.locations.findById(floorId),
+      room: await tx.locations.findById(roomId),
+    }))
+    expect(remaining).toEqual({ building: null, floor: null, room: null })
+  })
+
+  it('nulls location_id on every card referencing any location in the deleted subtree', async () => {
+    const { buildingId, floorId, roomId } = await insertTree()
+    const reporterId = insertUser(db.connection).id
+    const located = makeCard({
+      boardId: base.boardId,
+      laneId: base.lanes.review.id,
+      reporterId,
+      position: 'a1',
+      locationId: roomId,
+    })
+    const untouched = makeCard({
+      boardId: base.boardId,
+      laneId: base.lanes.review.id,
+      reporterId,
+      position: 'a2',
+      locationId: null,
+    })
+    await run(async (tx) => {
+      await tx.cards.insert(located)
+      await tx.cards.insert(untouched)
+    })
+
+    await run((tx) => tx.locations.delete(buildingId))
+
+    const locatedRow = db.connection.db.select().from(cards).where(eq(cards.id, located.id)).get()
+    const untouchedRow = db.connection.db
+      .select()
+      .from(cards)
+      .where(eq(cards.id, untouched.id))
+      .get()
+    // Location optional: the card survives, just loses the reference.
+    expect(locatedRow?.locationId).toBeNull()
+    expect(untouchedRow?.locationId).toBeNull()
+    // Both cards still exist.
+    expect(locatedRow?.id).toBe(located.id)
+    expect(untouchedRow?.id).toBe(untouched.id)
+    // The whole subtree is gone.
+    expect(await run((tx) => tx.locations.findById(floorId))).toBeNull()
+  })
+
+  it('deleting a leaf room removes only it and leaves ancestors intact', async () => {
+    const { buildingId, floorId, roomId } = await insertTree()
+
+    await run((tx) => tx.locations.delete(roomId))
+
+    const remaining = await run(async (tx) => ({
+      building: await tx.locations.findById(buildingId),
+      floor: await tx.locations.findById(floorId),
+      room: await tx.locations.findById(roomId),
+    }))
+    expect(remaining.building?.id).toBe(buildingId)
+    expect(remaining.floor?.id).toBe(floorId)
+    expect(remaining.room).toBeNull()
+  })
+
+  it('rejects deleting a missing id with NotFoundError (no children to remove)', async () => {
+    await expect(run((tx) => tx.locations.delete(newId()))).rejects.toMatchObject({
+      name: 'NotFoundError',
+    })
   })
 })
 

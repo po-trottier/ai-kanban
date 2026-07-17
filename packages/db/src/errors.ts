@@ -43,17 +43,6 @@ export function isUniqueViolation(error: unknown, qualifiedColumns: readonly str
   )
 }
 
-/**
- * True when the error (or any cause) is a driver FOREIGN KEY violation —
- * SQLite reports these without table/column detail, so callers map them by
- * statement context (e.g. location delete → "still referenced" conflict).
- */
-export function isForeignKeyViolation(error: unknown): boolean {
-  return constraintMessagesIn(error).some((message) =>
-    message.includes('FOREIGN KEY constraint failed'),
-  )
-}
-
 /** Rejection reasons must be Errors; non-Error throwables get wrapped. */
 export function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))

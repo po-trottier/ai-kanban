@@ -1,0 +1,37 @@
+/* Location tree styles — token-only values (ADR-016 rule 7). */
+
+/* A single node row: comfortable height, rounded, subtle hover highlight, and
+   a left rail (nesting guide) that visually connects children to their parent. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  border-radius: var(--mantine-radius-sm);
+  min-height: 2.5rem;
+}
+
+.row:hover {
+  background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+}
+
+/* Per-node actions fade in on hover/focus so idle rows stay calm, but stay
+   fully reachable by keyboard (focus-within) and on touch never fully hidden. */
+.actions {
+  margin-left: auto;
+  opacity: 0.35;
+  transition: opacity 150ms ease;
+}
+
+.row:hover .actions,
+.row:focus-within .actions {
+  opacity: 1;
+}
+
+/* Children column with a vertical guide rail on the left, indented from the
+   parent so building > floor > room reads at a glance. */
+.children {
+  margin-left: var(--mantine-spacing-md);
+  padding-left: var(--mantine-spacing-md);
+  border-left: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+}

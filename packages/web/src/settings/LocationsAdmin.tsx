@@ -1,6 +1,7 @@
 import { LOCATION_KINDS, type Location, type LocationKind } from '@rivian-kanban/core'
 import {
   ActionIcon,
+  Box,
   Button,
   Group,
   Modal,
@@ -8,20 +9,29 @@ import {
   Text,
   TextInput,
   Tooltip,
-  Tree,
 } from '@mantine/core'
+import { DoorClosed, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useCreateLocation, useDeleteLocation, useRenameLocation } from '../api/admin.ts'
 import { useLocations } from '../api/meta.ts'
-import { buildLocationTree } from '../lib/location-tree.ts'
+import { buildLocationTree, type LocationTreeNode } from '../lib/location-tree.ts'
 import { strings } from '../strings.ts'
+import { LocationKindIcon } from './location-kind-icon.tsx'
+import classes from './locations.module.css'
 
 type LocationModal =
   | { kind: 'none' }
   | { kind: 'add'; parent: Location | null }
   | { kind: 'rename'; location: Location }
+  | { kind: 'delete'; location: Location; hasChildren: boolean }
 
-/** Location tree CRUD: buildings → floors → rooms. */
+/**
+ * Location tree admin (buildings → floors → rooms): a clean, indented tree
+ * that reads like the physical site, with kind icons, comfortable row spacing,
+ * and per-node actions (add child / rename / delete) surfaced on hover with
+ * tooltips. Delete confirms first (recursive subtree removal), and a friendly
+ * empty state invites the first building.
+ */
 export function LocationsAdmin() {
   const locations = useLocations()
   const createLocation = useCreateLocation()
@@ -30,9 +40,7 @@ export function LocationsAdmin() {
   const [modal, setModal] = useState<LocationModal>({ kind: 'none' })
   const [name, setName] = useState('')
 
-  const all = locations.data ?? []
-  const tree = buildLocationTree(all)
-  const byId = new Map(all.map((location) => [location.id, location]))
+  const tree = buildLocationTree(locations.data ?? [])
 
   const openAdd = (parent: Location | null) => {
     setName('')
@@ -41,6 +49,9 @@ export function LocationsAdmin() {
   const openRename = (location: Location) => {
     setName(location.name)
     setModal({ kind: 'rename', location })
+  }
+  const openDelete = (location: Location, hasChildren: boolean) => {
+    setModal({ kind: 'delete', location, hasChildren })
   }
   const close = () => {
     setModal({ kind: 'none' })
@@ -65,47 +76,46 @@ export function LocationsAdmin() {
 
   return (
     <Stack gap="md">
-      <Group justify="flex-end">
-        <Button
-          size="sm"
-          onClick={() => {
+      <Group justify="space-between" align="flex-start" wrap="nowrap">
+        <Text size="sm" c="dimmed" maw="40rem">
+          {strings.locations.intro}
+        </Text>
+        {tree.length > 0 ? (
+          // The empty state carries the primary "Add building" call to action,
+          // so the header button appears only once there is a tree to add to.
+          <Button
+            size="sm"
+            leftSection={<Plus size="1rem" aria-hidden />}
+            onClick={() => {
+              openAdd(null)
+            }}
+          >
+            {strings.locations.addRoot}
+          </Button>
+        ) : null}
+      </Group>
+
+      {tree.length === 0 ? (
+        <EmptyState
+          onAdd={() => {
             openAdd(null)
           }}
-        >
-          {strings.locations.addRoot}
-        </Button>
-      </Group>
-      {tree.length === 0 ? (
-        <Text size="sm" c="dimmed">
-          {strings.locations.empty}
-        </Text>
-      ) : (
-        <Tree
-          data={tree}
-          aria-label={strings.locations.treeLabel}
-          renderNode={({ node, elementProps, expanded, hasChildren }) => {
-            const location = byId.get(node.value)
-            return (
-              <Group gap="xs" py="xs" {...elementProps}>
-                {hasChildren ? <Text size="xs">{expanded ? '▾' : '▸'}</Text> : null}
-                <Text size="sm">{node.label}</Text>
-                {location !== undefined ? (
-                  <NodeActions
-                    location={location}
-                    onAdd={openAdd}
-                    onRename={openRename}
-                    onDelete={(target) => {
-                      deleteLocation.mutate(target.id)
-                    }}
-                  />
-                ) : null}
-              </Group>
-            )
-          }}
         />
+      ) : (
+        <Box role="tree" aria-label={strings.locations.treeLabel}>
+          {tree.map((node) => (
+            <LocationNode
+              key={node.value}
+              node={node}
+              onAdd={openAdd}
+              onRename={openRename}
+              onDelete={openDelete}
+            />
+          ))}
+        </Box>
       )}
 
-      {modal.kind !== 'none' ? (
+      {modal.kind === 'add' || modal.kind === 'rename' ? (
         <Modal
           opened
           onClose={close}
@@ -114,12 +124,22 @@ export function LocationsAdmin() {
           <Stack gap="md">
             <TextInput
               label={strings.locations.nameLabel}
+              data-autofocus
               value={name}
               onChange={(event) => {
                 setName(event.currentTarget.value)
               }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  submit()
+                }
+              }}
             />
             <Group justify="flex-end">
+              <Button variant="default" onClick={close}>
+                {strings.common.cancel}
+              </Button>
               <Button
                 loading={createLocation.isPending || renameLocation.isPending}
                 disabled={name.trim() === ''}
@@ -131,67 +151,143 @@ export function LocationsAdmin() {
           </Stack>
         </Modal>
       ) : null}
+
+      {modal.kind === 'delete' ? (
+        <Modal opened onClose={close} title={strings.locations.deleteTitle}>
+          <Stack gap="md">
+            <Text size="sm" fw={600}>
+              {strings.locations.deleteConfirmBody(modal.location.name)}
+            </Text>
+            <Text size="sm" c="dimmed">
+              {modal.hasChildren
+                ? strings.locations.deleteWarnsDescendants(modal.location.name)
+                : strings.locations.deleteWarnsLeaf(modal.location.name)}
+            </Text>
+            <Group justify="flex-end">
+              <Button variant="default" onClick={close}>
+                {strings.common.cancel}
+              </Button>
+              <Button
+                color="red"
+                loading={deleteLocation.isPending}
+                onClick={() => {
+                  deleteLocation.mutate(modal.location.id, { onSuccess: close })
+                }}
+              >
+                {strings.locations.confirmDelete}
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
+      ) : null}
     </Stack>
   )
 }
 
-function NodeActions({
-  location,
+/** One node plus its indented children, connected by a left guide rail. */
+function LocationNode({
+  node,
   onAdd,
   onRename,
   onDelete,
 }: {
-  location: Location
+  node: LocationTreeNode
   onAdd: (parent: Location) => void
   onRename: (location: Location) => void
-  onDelete: (location: Location) => void
+  onDelete: (location: Location, hasChildren: boolean) => void
 }) {
+  const hasChildren = node.children.length > 0
   return (
-    <Group gap="xs">
-      {location.kind !== 'room' ? (
-        <Tooltip label={strings.locations.addChildLabel(location.name)}>
-          <ActionIcon
-            size="sm"
-            variant="subtle"
-            aria-label={strings.locations.addChildLabel(location.name)}
-            onClick={(event) => {
-              event.stopPropagation()
-              onAdd(location)
-            }}
-          >
-            +
-          </ActionIcon>
-        </Tooltip>
+    <Box role="treeitem" aria-label={node.location.name}>
+      <Group className={classes.row} gap="sm" wrap="nowrap">
+        <LocationKindIcon kind={node.location.kind} />
+        <Box>
+          <Text size="sm" fw={500}>
+            {node.location.name}
+          </Text>
+          <Text size="xs" c="dimmed">
+            {strings.locations.kinds[node.location.kind]}
+          </Text>
+        </Box>
+        <Group className={classes.actions} gap="xs" wrap="nowrap">
+          {node.location.kind !== 'room' ? (
+            <Tooltip label={addChildTooltip(node.location.kind)}>
+              <ActionIcon
+                variant="subtle"
+                aria-label={strings.locations.addChildLabel(node.location.name)}
+                onClick={() => {
+                  onAdd(node.location)
+                }}
+              >
+                <Plus size="1.1rem" aria-hidden />
+              </ActionIcon>
+            </Tooltip>
+          ) : null}
+          <Tooltip label={strings.locations.renameLabel(node.location.name)}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              aria-label={strings.locations.renameLabel(node.location.name)}
+              onClick={() => {
+                onRename(node.location)
+              }}
+            >
+              <Pencil size="1.1rem" aria-hidden />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label={strings.locations.deleteLabel(node.location.name)}>
+            <ActionIcon
+              variant="subtle"
+              color="red"
+              aria-label={strings.locations.deleteLabel(node.location.name)}
+              onClick={() => {
+                onDelete(node.location, hasChildren)
+              }}
+            >
+              <Trash2 size="1.1rem" aria-hidden />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      </Group>
+      {hasChildren ? (
+        <Box className={classes.children}>
+          {node.children.map((child) => (
+            <LocationNode
+              key={child.value}
+              node={child}
+              onAdd={onAdd}
+              onRename={onRename}
+              onDelete={onDelete}
+            />
+          ))}
+        </Box>
       ) : null}
-      <Tooltip label={strings.locations.renameLabel(location.name)}>
-        <ActionIcon
-          size="sm"
-          variant="subtle"
-          aria-label={strings.locations.renameLabel(location.name)}
-          onClick={(event) => {
-            event.stopPropagation()
-            onRename(location)
-          }}
-        >
-          ✎
-        </ActionIcon>
-      </Tooltip>
-      <Tooltip label={strings.locations.deleteLabel(location.name)}>
-        <ActionIcon
-          size="sm"
-          variant="subtle"
-          color="red"
-          aria-label={strings.locations.deleteLabel(location.name)}
-          onClick={(event) => {
-            event.stopPropagation()
-            onDelete(location)
-          }}
-        >
-          ✕
-        </ActionIcon>
-      </Tooltip>
-    </Group>
+    </Box>
   )
+}
+
+/** Friendly zero-state with an icon and a clear first action. */
+function EmptyState({ onAdd }: { onAdd: () => void }) {
+  return (
+    <Stack align="center" gap="sm" py="xl">
+      <Group gap="xs" c="dimmed">
+        <Layers size="1.75rem" aria-hidden />
+        <DoorClosed size="1.75rem" aria-hidden />
+      </Group>
+      <Text fw={600}>{strings.locations.empty}</Text>
+      <Text size="sm" c="dimmed" ta="center" maw="24rem">
+        {strings.locations.emptyHint}
+      </Text>
+      <Button size="sm" leftSection={<Plus size="1rem" aria-hidden />} onClick={onAdd}>
+        {strings.locations.addRoot}
+      </Button>
+    </Stack>
+  )
+}
+
+/** Buildings get "Add floor", floors get "Add room" (room is a leaf). */
+function addChildTooltip(parentKind: LocationKind): string {
+  return parentKind === 'building' ? strings.locations.addFloor : strings.locations.addRoom
 }
 
 /** Buildings contain floors, floors contain rooms. */

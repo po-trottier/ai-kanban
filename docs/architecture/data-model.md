@@ -212,10 +212,13 @@ Two distinct layers (see deployment.md for the production bootstrap):
 
 - **Structural seed** — runs idempotently on every boot, all environments: the board, the 7
   lanes (with the seeded WIP limits), the default permissive policy document + workflow graph,
-  the location tree, and the `system` user. The app cannot function without these.
-- **Demo seed** — only when `SEED_DEMO_DATA=true` (refused outright in production mode): demo
-  users for each role (printed credentials), sample cards in every lane including blocked,
-  overdue-waiting, cancelled, and archived examples. This is the canonical fixture dataset used
+  and the `system` user. The app cannot function without these. It inserts **no locations**: a
+  fresh install (and production) starts with an empty locations table, so the first-boot "Add
+  your locations" setup step — and production — are never pre-populated.
+- **Demo seed** — only when `SEED_DEMO_DATA=true` (refused outright in production mode): the
+  sample location tree (buildings → floors → rooms), demo users for each role (printed
+  credentials), sample cards in every lane including blocked, overdue-waiting, cancelled, and
+  archived examples (some pointing at a seeded room). This is the canonical fixture dataset used
   by dev boot, integration tests, and Playwright alike.
 
 ## Lifecycle & retention

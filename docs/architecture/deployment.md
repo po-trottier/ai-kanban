@@ -28,8 +28,10 @@ docker compose
 ## Bootstrap (first production deployment)
 
 1. Boot always runs migrations plus the idempotent **structural seed**: board, 7 lanes,
-   default permissive policy, location tree, `system` user (see data-model.md#seeding). Demo
-   data requires `SEED_DEMO_DATA=true` and is **refused in production mode**.
+   default permissive policy, `system` user (see data-model.md#seeding) — **no locations**, so
+   production starts with an empty tree and the optional locations step below begins blank. Demo
+   data (including the sample location tree) requires `SEED_DEMO_DATA=true` and is **refused in
+   production mode**.
 2. Open the app in a browser: while the database has no non-system users, every page redirects
    to the **first-boot setup page**, which creates the first admin account (policy-checked
    password, signed in immediately) and then offers an **optional locations step** — the new

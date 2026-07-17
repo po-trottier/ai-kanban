@@ -1,7 +1,17 @@
 import { LANE_KEYS, ROLES } from '@rivian-kanban/core'
 import { isNotNull, isNull, and, eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { attachments, boards, cardEvents, cards, comments, lanes, tags, users } from './schema.ts'
+import {
+  attachments,
+  boards,
+  cardEvents,
+  cards,
+  comments,
+  lanes,
+  locations,
+  tags,
+  users,
+} from './schema.ts'
 import {
   demoSeed,
   demoUserEmail,
@@ -29,7 +39,7 @@ function count(table: string): number {
 }
 
 describe('structuralSeed', () => {
-  it('creates board, lanes, policy, locations, and the system user from scratch', () => {
+  it('creates board, lanes, policy, and the system user from scratch', () => {
     const result = structuralSeed(db.connection.db)
 
     const laneRows = db.connection.db.select().from(lanes).all()
@@ -52,10 +62,23 @@ describe('structuralSeed', () => {
       ['waiting_parts_vendor', 8],
     ])
     expect(count('board_policies')).toBe(1)
-    expect(count('locations')).toBeGreaterThanOrEqual(6)
     expect(system?.displayName).toBe('Automation')
     expect(system?.passwordHash).toBe(PLACEHOLDER_PASSWORD_HASH)
     expect(result.systemUserId).toBe(system?.id)
+  })
+
+  it('inserts no locations: a fresh/production database starts empty', () => {
+    // BUG 1: the sample location tree moved to demoSeed, so first-boot setup
+    // and production both start with zero locations.
+    const fresh = openTestDb()
+
+    try {
+      structuralSeed(fresh.connection.db)
+
+      expect(fresh.connection.db.select().from(locations).all()).toEqual([])
+    } finally {
+      fresh.cleanup()
+    }
   })
 
   it('is idempotent: a second run adds no rows and preserves ids', () => {
@@ -118,6 +141,43 @@ describe('demoSeed', () => {
       ).toMatchObject({ role })
     }
     expect(laneIdsWithCards.size).toBe(LANE_KEYS.length)
+  })
+
+  it('seeds the sample location tree (buildings, floors, rooms) demo-only', () => {
+    // BUG 1: the sample tree lives in demoSeed now, not structuralSeed.
+    const rows = db.connection.db.select().from(locations).all()
+    const kinds = new Set(rows.map((location) => location.kind))
+
+    expect(rows.length).toBeGreaterThanOrEqual(6)
+    expect(kinds).toEqual(new Set(['building', 'floor', 'room']))
+    // Every non-building references an existing parent (well-formed tree).
+    const ids = new Set(rows.map((location) => location.id))
+    for (const location of rows.filter((row) => row.kind !== 'building')) {
+      expect(location.parentId).not.toBeNull()
+      expect(ids.has(location.parentId ?? '')).toBe(true)
+    }
+  })
+
+  it('located demo cards reference a real seeded room', () => {
+    // BUG 1: card locationId references must survive the tree moving into demoSeed.
+    const roomIds = new Set(
+      db.connection.db
+        .select({ id: locations.id })
+        .from(locations)
+        .where(eq(locations.kind, 'room'))
+        .all()
+        .map((row) => row.id),
+    )
+    const located = db.connection.db
+      .select()
+      .from(cards)
+      .all()
+      .filter((card) => card.locationId !== null)
+
+    expect(located.length).toBeGreaterThanOrEqual(1)
+    for (const card of located) {
+      expect(roomIds.has(card.locationId ?? '')).toBe(true)
+    }
   })
 
   it('includes the canonical special-case fixtures', () => {
@@ -192,21 +252,36 @@ describe('demoSeed', () => {
     }
   })
 
-  it('still seeds when the location tree is empty (locations are optional)', () => {
+  it('seeds its own sample tree and locates cards even after structural-only boot', () => {
+    // BUG 1: demoSeed is self-sufficient — structuralSeed leaves locations
+    // empty, and demoSeed populates the tree before creating located cards.
     const fresh = openTestDb()
 
     try {
       structuralSeed(fresh.connection.db)
-      fresh.connection.raw.exec('DELETE FROM locations')
+      expect(fresh.connection.db.select().from(locations).all()).toEqual([])
+
       const result = demoSeed(fresh.connection.db)
 
       expect(result.seeded).toBe(true)
+      const roomIds = new Set(
+        fresh.connection.db
+          .select({ id: locations.id })
+          .from(locations)
+          .where(eq(locations.kind, 'room'))
+          .all()
+          .map((row) => row.id),
+      )
+      expect(roomIds.size).toBeGreaterThanOrEqual(1)
       const located = fresh.connection.db
         .select()
         .from(cards)
         .all()
         .filter((card) => card.locationId !== null)
-      expect(located).toEqual([])
+      expect(located.length).toBeGreaterThanOrEqual(1)
+      for (const card of located) {
+        expect(roomIds.has(card.locationId ?? '')).toBe(true)
+      }
     } finally {
       fresh.cleanup()
     }

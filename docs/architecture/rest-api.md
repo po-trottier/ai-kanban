@@ -85,12 +85,12 @@ While `must_change_password` is set, every route except change-password/logout/m
 
 ### History & metadata
 
-| Method & path         | Role | Description                                                           |
-| --------------------- | ---- | --------------------------------------------------------------------- |
-| GET /cards/:id/events | any  | audit trail for a card, oldest-first; filter `type`; cursor-paginated |
-| GET /locations        | any  | tree; admin CRUD via POST/PATCH/DELETE                                |
-| GET /tags             | any  | known tags for autocomplete                                           |
-| GET /stream           | any  | SSE: `{ type, cardId, version, eventId }` invalidation hints          |
+| Method & path         | Role | Description                                                                                                                                                                                                                                                                                                                   |
+| --------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET /cards/:id/events | any  | audit trail for a card, oldest-first; filter `type`; cursor-paginated                                                                                                                                                                                                                                                         |
+| GET /locations        | any  | tree; admin CRUD via POST/PATCH/DELETE. DELETE removes the location and its whole subtree (building → floors → rooms) in one transaction and clears `location_id` on any card that referenced a removed node (location is optional — the card survives); deleting a location with children never conflicts, missing id is 404 |
+| GET /tags             | any  | known tags for autocomplete                                                                                                                                                                                                                                                                                                   |
+| GET /stream           | any  | SSE: `{ type, cardId, version, eventId }` invalidation hints                                                                                                                                                                                                                                                                  |
 
 ### Admin
 

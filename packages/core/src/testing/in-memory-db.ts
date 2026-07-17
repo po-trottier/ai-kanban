@@ -653,14 +653,31 @@ class InMemoryLocationRepository implements LocationRepository {
     return Promise.resolve()
   }
 
+  /**
+   * Recursive delete mirroring the real adapter: removes the whole subtree
+   * rooted at `id` and clears `location_id` on every card that referenced any
+   * removed node (location is optional — the card survives). NotFoundError
+   * only when `id` is absent; children never make it a conflict.
+   */
   delete(id: string): Promise<void> {
-    const index = this.state.locations.findIndex((candidate) => candidate.id === id)
-    if (index === -1) return Promise.reject(new NotFoundError('location'))
-    const referenced =
-      this.state.locations.some((candidate) => candidate.parentId === id) ||
-      this.state.cards.some((card) => card.locationId === id)
-    if (referenced) return Promise.reject(new ConflictError('location is still referenced'))
-    this.state.locations.splice(index, 1)
+    if (!this.state.locations.some((candidate) => candidate.id === id)) {
+      return Promise.reject(new NotFoundError('location'))
+    }
+    // Breadth-first collection of the subtree ids (root + all descendants).
+    const subtreeIds = new Set<string>([id])
+    let frontier = [id]
+    while (frontier.length > 0) {
+      const children = this.state.locations
+        .filter((candidate) => candidate.parentId !== null && frontier.includes(candidate.parentId))
+        .map((candidate) => candidate.id)
+        .filter((childId) => !subtreeIds.has(childId))
+      for (const childId of children) subtreeIds.add(childId)
+      frontier = children
+    }
+    for (const card of this.state.cards) {
+      if (card.locationId !== null && subtreeIds.has(card.locationId)) card.locationId = null
+    }
+    this.state.locations = this.state.locations.filter((candidate) => !subtreeIds.has(candidate.id))
     return Promise.resolve()
   }
 }

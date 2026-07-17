@@ -22,6 +22,7 @@
     "@rivian-kanban/core": "0.1.0",
     "@tanstack/react-query": "5.101.2",
     "dayjs": "1.11.21",
+    "lucide-react": "1.25.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-hook-form": "7.81.0",

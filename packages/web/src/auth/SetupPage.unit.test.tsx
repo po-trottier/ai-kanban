@@ -161,6 +161,30 @@ describe('SetupPage', () => {
     expect(await screen.findByText('HQ')).toBeInTheDocument()
   })
 
+  it('confirms before removing a location and warns descendants go too', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const building: Location = { id: uid(301), parentId: null, kind: 'building', name: 'HQ' }
+    const floor: Location = { id: uid(302), parentId: building.id, kind: 'floor', name: 'Floor 1' }
+    const fake = wizardRoutes({
+      'GET /api/v1/locations': [building, floor],
+      [`DELETE /api/v1/locations/${building.id}`]: {},
+    })
+    renderApp({ fetchFn: fake.fetch, route: '/setup' })
+    await createAdmin(user)
+    // Act — the remove affordance opens a confirm dialog; no request yet.
+    await user.click(await screen.findByLabelText('Remove HQ'))
+    const dialog = await screen.findByRole('dialog')
+    // Assert — the dialog names the target and warns about descendants.
+    expect(dialog).toHaveTextContent('Remove “HQ”?')
+    expect(dialog).toHaveTextContent(/floors and rooms/i)
+    expect(fake.calls.some((c) => c.method === 'DELETE')).toBe(false)
+    // Act — confirming issues the DELETE.
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    // Assert
+    expect(fake.calls.some((c) => c.method === 'DELETE')).toBe(true)
+  })
+
   it('lands on the board when "Continue to board" is chosen', async () => {
     // Arrange
     const user = userEvent.setup()

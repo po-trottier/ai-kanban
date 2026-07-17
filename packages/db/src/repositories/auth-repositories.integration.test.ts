@@ -308,15 +308,13 @@ describe('SqliteLocationRepository admin surface', () => {
     await expect(run((tx) => tx.locations.findById(room.id))).resolves.toBeNull()
   })
 
-  it('refuses to delete a location that still has children or cards', async () => {
+  it('recursively deletes a subtree and clears cards that referenced any removed node', async () => {
+    // BUG 2: deleting a building takes its floor with it in one transaction,
+    // and a card that referenced the floor keeps its row with location cleared.
     const building = { id: newId(), parentId: null, kind: 'building' as const, name: 'B-Wing' }
     const floor = { id: newId(), parentId: building.id, kind: 'floor' as const, name: 'F-1' }
     await run((tx) => tx.locations.insert(building))
     await run((tx) => tx.locations.insert(floor))
-
-    await expect(run((tx) => tx.locations.delete(building.id))).rejects.toBeInstanceOf(
-      ConflictError,
-    )
 
     const reporter = insertUser(db.connection)
     const card = makeCard({
@@ -327,7 +325,16 @@ describe('SqliteLocationRepository admin surface', () => {
       position: `loc-${newId()}`,
     })
     await run((tx) => tx.cards.insert(card))
-    await expect(run((tx) => tx.locations.delete(floor.id))).rejects.toBeInstanceOf(ConflictError)
+
+    await run((tx) => tx.locations.delete(building.id))
+
+    // Both locations gone; the card survives with its location cleared.
+    expect(await run((tx) => tx.locations.findById(building.id))).toBeNull()
+    expect(await run((tx) => tx.locations.findById(floor.id))).toBeNull()
+    expect(await run((tx) => tx.cards.findById(card.id))).toMatchObject({
+      id: card.id,
+      locationId: null,
+    })
   })
 
   it('update and delete reject unknown locations with NotFoundError', async () => {

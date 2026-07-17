@@ -2,6 +2,7 @@ import {
   PASSWORD_MIN_LENGTH,
   type CancelResolution,
   type LaneKey,
+  type LocationKind,
   type Priority,
   type Resolution,
   type Role,
@@ -70,9 +71,12 @@ export const strings = {
     addBuildingPlaceholder: 'Building name',
     addFloorPlaceholder: 'Floor name',
     addRoomPlaceholder: 'Room name',
-    addFloorInLabel: (name: string) => `Add floor in ${name}`,
-    addRoomInLabel: (name: string) => `Add room in ${name}`,
     removeLocationLabel: (name: string) => `Remove ${name}`,
+    removeTitle: 'Remove location',
+    removeConfirmBody: (name: string) => `Remove “${name}”?`,
+    removeWarnsDescendants: (name: string) =>
+      `Everything inside “${name}” (its floors and rooms) will be removed too.`,
+    confirmRemove: 'Remove',
     skipButton: 'Skip for now',
     continueButton: 'Continue to board',
   },
@@ -306,7 +310,12 @@ export const strings = {
   },
 
   locations: {
+    intro:
+      'Organize your site as buildings, floors, and rooms so work orders can point to where they are.',
     addRoot: 'Add building',
+    addFloor: 'Add floor',
+    addRoom: 'Add room',
+    // Kept stable — the accessible names e2e + unit tests target.
     addChildLabel: (name: string) => `Add inside ${name}`,
     renameLabel: (name: string) => `Rename ${name}`,
     deleteLabel: (name: string) => `Delete ${name}`,
@@ -315,7 +324,20 @@ export const strings = {
     addTitle: 'Add location',
     renameTitle: 'Rename location',
     empty: 'No locations yet',
+    emptyHint: 'Add your first building to start mapping out your site.',
     treeLabel: 'Location tree',
+    kinds: {
+      building: 'Building',
+      floor: 'Floor',
+      room: 'Room',
+    } satisfies Record<LocationKind, string>,
+    deleteTitle: 'Delete location',
+    deleteConfirmBody: (name: string) => `Delete “${name}”?`,
+    deleteWarnsDescendants: (name: string) =>
+      `Everything inside “${name}” (its floors and rooms) will be removed too. Cards that point here will keep their history but lose their location.`,
+    deleteWarnsLeaf: (name: string) =>
+      `Cards that point to “${name}” will keep their history but lose their location.`,
+    confirmDelete: 'Delete location',
   },
 
   tokens: {

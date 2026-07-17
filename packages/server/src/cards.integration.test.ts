@@ -35,6 +35,22 @@ async function createCard(cookie: string, payload: Record<string, unknown>): Pro
   return response.json<CardBody>()
 }
 
+/** Arranges a building → floor → room and returns the room (admin cookie). */
+async function createRoom(cookie: string): Promise<{ id: string }> {
+  const location = async (payload: Record<string, unknown>): Promise<{ id: string }> => {
+    const response = await t.request(cookie, {
+      method: 'POST',
+      url: '/api/v1/locations',
+      payload,
+    })
+    if (response.statusCode !== 201) throw new Error(`location create failed: ${response.body}`)
+    return response.json<{ id: string }>()
+  }
+  const building = await location({ kind: 'building', name: 'Cards Building' })
+  const floor = await location({ kind: 'floor', name: 'Cards Floor', parentId: building.id })
+  return location({ kind: 'room', name: 'Cards Room', parentId: floor.id })
+}
+
 async function eventsOf(cookie: string, cardId: string) {
   const response = await t.request(cookie, {
     method: 'GET',
@@ -121,12 +137,12 @@ describe('POST /cards', () => {
 describe('GET /cards/:id', () => {
   it('returns full detail with tags, location, attachments, and an ETag', async () => {
     const admin = await t.asRole('admin')
-    const locations = await t.request(admin.cookie, { method: 'GET', url: '/api/v1/locations' })
-    const room = locations.json<{ id: string; kind: string }[]>().find((l) => l.kind === 'room')
+    // A fresh install starts with zero locations (BUG 1), so arrange a room.
+    const room = await createRoom(admin.cookie)
     const card = await createCard(admin.cookie, {
       title: 'Detailed',
       tags: ['plumbing', 'urgent'],
-      locationId: room?.id,
+      locationId: room.id,
     })
 
     const response = await t.request(admin.cookie, {
@@ -144,7 +160,7 @@ describe('GET /cards/:id', () => {
     }>()
     expect(detail.card.id).toBe(card.id)
     expect(detail.tags.map((tag) => tag.name).sort()).toEqual(['plumbing', 'urgent'])
-    expect(detail.location?.id).toBe(room?.id)
+    expect(detail.location?.id).toBe(room.id)
     expect(detail.attachments).toEqual([])
   })
 
