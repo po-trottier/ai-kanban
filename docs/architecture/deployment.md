@@ -16,7 +16,24 @@ docker compose
   while on SQLite.
 - TLS terminates at the org reverse proxy in front; the proxy must disable response buffering
   for `/api/v1/stream` (SSE) — e.g. nginx `X-Accel-Buffering: no`.
+- **Client IP derivation** (per-IP rate limits depend on it): the proxy must set/overwrite
+  `X-Forwarded-For` — never append client-supplied values — and the app sets Fastify
+  `trustProxy` to the known hop count. Get this wrong and either the whole company shares one
+  rate-limit bucket or attackers spoof their way out of it.
+- The app serves two listeners: the public port (SPA + API + MCP + SSE + health) and an
+  **internal metrics port** that Compose does not publish and the proxy never routes; the org
+  Prometheus scrapes it over the internal network.
 - Slack needs no inbound route (Socket Mode is outbound).
+
+## Bootstrap (first production deployment)
+
+1. Boot always runs migrations plus the idempotent **structural seed**: board, 7 lanes,
+   default permissive policy, location tree, `system` user (see data-model.md#seeding). Demo
+   data requires `SEED_DEMO_DATA=true` and is **refused in production mode**.
+2. Create the first admin from the host:
+   `docker compose exec app npm run cli -- users create-admin --email you@org.com`
+   — prints a one-time temp password (`must_change_password` set; first login forces a
+   change). The same command is the break-glass recovery if all admins are ever locked out.
 
 ## Image
 
@@ -32,12 +49,16 @@ crash in prod.
 
 | Variable | Purpose |
 | --- | --- |
-| `PORT`, `PUBLIC_BASE_URL` | serving |
+| `NODE_ENV` | `production` disables demo seeding and dev docs UI |
+| `PORT`, `METRICS_PORT`, `PUBLIC_BASE_URL`, `TRUST_PROXY_HOPS` | serving |
 | `DATABASE_PATH`, `BLOB_DIR` | `/data/app.sqlite`, `/data/blobs` |
-| `SESSION_SECRET` | cookie signing |
-| `SLACK_ENABLED`, `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN` | Slack adapter (tokens required only when enabled) |
+| `SEED_DEMO_DATA` | demo fixtures (dev only; refused in production) |
+| `SLACK_ENABLED`, `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_TEAM_ID` | Slack adapter (all required when enabled) |
 | `SUMMARIZER_ENABLED`, `ANTHROPIC_API_KEY` | AI summarization |
 | `LOG_LEVEL` | pino |
+
+(No session secret: session ids are raw 256-bit randomness stored hashed — there is nothing to
+sign; see security.md.)
 
 Secrets are injected from the org secret store; the process refuses to boot on invalid config.
 
@@ -58,9 +79,10 @@ Secrets are injected from the org secret store; the process refuses to boot on i
 ## Observability
 
 - `GET /healthz` — process alive; `GET /readyz` — DB ping ok (Docker/Compose healthcheck).
-- `GET /metrics` — Prometheus: HTTP latency histograms per route, SSE client gauge, MCP
-  tool-call counters, croner job outcomes, and SQLite WAL-size gauge (checkpoint starvation is
-  the known failure mode to watch).
+- `GET /metrics` on the internal listener — Prometheus: HTTP latency histograms per route, SSE
+  client gauge, MCP tool-call counters, croner job outcomes, SQLite WAL-size gauge (checkpoint
+  starvation is the known failure mode to watch), and blob-directory-size / volume-free-space
+  gauges (disk-fill is the other one).
 - pino JSON logs to stdout with request ids; redaction on.
 
 ## Upgrade & rollback

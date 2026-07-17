@@ -11,7 +11,9 @@ a real workspace is configuration, not code.
 | --- | --- | --- |
 | **Message shortcut** "Create facilities ticket" (primary) | `message_action` on any message | The only Slack surface that works inside threads and carries `thread_ts`. Custom slash commands *cannot* be invoked in threads (platform limitation) — socialize this early. |
 | **@-mention** `@FacilitiesBot create ticket P1 ...` (secondary) | `app_mention` event | Zero-click in-thread creation for power users; replies in-thread with the created card link. |
-| `/facilities` (optional) | slash command | Global quick-create with a modal, outside threads only. |
+
+Two surfaces exactly match the requirement; there is deliberately no slash command (it cannot
+work in threads, and out-of-thread quick creation is the web UI's job).
 
 ## Message-shortcut flow
 
@@ -30,17 +32,46 @@ a real workspace is configuration, not code.
 
 Thread **files are not imported** in v1 (PO-ratified deferral); the permalink preserves access.
 
+## @-mention grammar
+
+Mention text must match `create ticket [P0|P1|P2] <title>` (case-insensitive). Priority
+defaults to `P2`; the remaining text becomes the title (truncated to 200 chars); the raw thread
+text becomes the description. **The summarizer never runs on this path** — there is no review
+step, and the "human always reviews AI output" invariant holds because no AI output exists
+here. Non-matching mentions get an in-thread usage hint; a mention outside a thread captures
+just that message.
+
+## Delivery semantics & abuse controls
+
+- Socket Mode redelivers unacknowledged events: listeners `ack()` immediately and the adapter
+  dedupes on Slack's event id, so redelivery cannot double-create tickets (modal
+  `view_submission` is effectively once-only anyway).
+- HTTP rate limiting does not cover Socket Mode, so the Bolt adapter enforces its own
+  throttles as the compensating control: per-Slack-user card creation (10/min) and summarizer
+  invocations (5/min per user, plus a global budget when `SUMMARIZER_ENABLED`), with a
+  friendly in-thread rejection beyond them.
+
 ## Slack app configuration
 
 - **Socket Mode** (`xapp-` app token + `xoxb-` bot token): outbound WebSocket, no inbound
-  endpoint to secure — right shape for a single-node internal tool. The HTTP receiver path is
-  retained but disabled.
+  endpoint to secure — right shape for a single-node internal tool. No HTTP receiver is wired;
+  adding one later is a deliberate configuration change with its own security review.
 - `@slack/bolt` pinned **4.7.3** — the floor version containing the request-signature
   verification patch (AIKIDO-2026-10973); v5.0.0 is days old, upgrade deliberately later.
-- Scopes: `commands`, `app_mentions:read`, `channels:history`, `groups:history`, `chat:write`,
+- Scopes: `app_mentions:read`, `channels:history`, `groups:history`, `chat:write`,
   `users:read`, `users:read.email` (maps Slack user → reporter by email).
+- The expected workspace `team_id` is pinned in config (`SLACK_TEAM_ID`); events from any other
+  workspace are rejected.
 - The bot must be invited to any channel it serves; workspace-admin approval is needed for
   installation and `users:read.email`.
+
+## Identity mapping
+
+The acting Slack user is resolved to a board user by verified email **once**, on first use;
+the binding (`users.slack_user_id`) is logged, and subsequent events match on the stored id —
+never re-resolved by email (guards against corporate email reassignment). The resolved user
+must have `is_active = 1`; deactivated users are rejected via Slack too, with the same
+friendly "ask an admin" message shown to unknown users.
 
 ## Notifications (outbound)
 

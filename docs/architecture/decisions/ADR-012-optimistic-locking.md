@@ -18,7 +18,8 @@ later would break all three consumer types at once.
   its optimistic update, refetches, and shows a non-blocking "card was just updated by someone
   else" toast.
 - **No field-level merge** (KISS): conflicts at kanban scale are rare; refetch-and-redo is the
-  honest UX. Comments are append-only and need no locking.
+  honest UX. Comments carry no version column: edits are author-only (single writer per
+  comment in practice), so last-write-wins on one's own comment is acceptable.
 
 ## Consequences
 

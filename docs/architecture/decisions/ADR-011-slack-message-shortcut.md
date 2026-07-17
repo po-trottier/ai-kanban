@@ -15,15 +15,18 @@ cannot post into the thread; `trigger_id` is short-lived and interactions must b
   threads and carries `thread_ts`. Flow: ack → loading modal → fetch `conversations.replies` →
   optional AI summary → editable draft modal → create on submit → confirm in-thread via
   `chat.postMessage({ thread_ts })`.
-- **Secondary**: `app_mention` for zero-click creation.
-- Optional `/facilities` slash command exists only for out-of-thread quick creation.
-- **Socket Mode** (no inbound endpoint) fits the single-node internal deployment; the HTTP
-  receiver path stays available but disabled.
+- **Secondary**: `app_mention` for zero-click creation (grammar in slack.md; the summarizer
+  never runs on this path — no review step exists, so no AI output is created).
+- No slash command: they cannot run in threads, and out-of-thread quick creation is the web
+  UI's job. No HTTP receiver is wired — Socket Mode only (no inbound endpoint), matching the
+  single-node internal deployment.
 - `@slack/bolt` pinned **4.7.3** — the request-signature-verification security-patch floor
   (AIKIDO-2026-10973); Bolt 5.0.0 (days old) is a deliberate later upgrade.
 
 ## Consequences
 
 Users must learn the shortcut lives in the message ⋮ menu (documented in the user guide).
-Slack-created tickets always land in Intake with AI values as drafts (PO decision) — the AI
-never injects work into the prioritized queue.
+Slack-created tickets always land in Intake (PO decision) — the AI never injects work into the
+prioritized queue. After the invoker reviews/edits the modal, values are stored as ordinary
+card fields; nothing marks them as AI-suggested — the triager sees them as the card's initial
+priority/tags.

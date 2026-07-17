@@ -58,7 +58,9 @@ open/edit/collapse; threaded comment + reply; attachment upload and download; tw
 conflict toast; audit history rendering; login/logout; admin policy toggle changing drag
 affordances live. Chromium in CI; the suite runs against the production Docker image build.
 
-## CI pipeline (GitHub Actions, gates in order)
+## CI pipeline
+
+GitHub Actions, gates in order:
 
 1. `npm ci` → typecheck → lint (`--max-warnings 0`) → prettier check → dependency-cruiser →
    knip → commitlint

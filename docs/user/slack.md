@@ -16,11 +16,10 @@ Any Slack conversation about a facilities problem can become a ticket without le
 ## By mentioning the bot
 
 In a thread, `@FacilitiesBot create ticket P1 water leak near dock 3` creates the ticket
-immediately (same thread capture) and replies with the link.
-
-## Quick create (outside threads)
-
-`/facilities` opens an empty new-ticket dialog anywhere.
+immediately and replies with the link: say `create ticket`, optionally a priority (P0/P1/P2 —
+defaults to P2), then the ticket title. The thread text becomes the description as-is (no AI
+summarization on this path — nobody would be reviewing it). If the bot can't parse the
+mention, it replies with a usage hint.
 
 ## Notifications you'll get as DMs
 

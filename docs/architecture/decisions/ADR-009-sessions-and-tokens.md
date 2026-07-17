@@ -17,11 +17,13 @@ Pilot auth is local accounts (PO decision) with OIDC/SSO later. Research suggest
 - **MCP: bearer service tokens** (admin-issued, sha256-hashed, role-scoped, revocable). The
   MCP auth spec's full OAuth resource-server behavior (RFC 9728 metadata, IdP-issued tokens)
   is adopted at the OIDC cutover, when an authorization server actually exists.
-- **OIDC-ready**: the login handler is the only component that knows about passwords. OIDC
-  replaces it (code flow → find-or-create user → same session issuance); sessions, RBAC, and
+- **OIDC-ready**: the login handler is the only component that knows about passwords —
+  password change and admin reset live in the same handler family. OIDC replaces them
+  (code flow → find-or-create user → same session issuance); sessions, the policy engine, and
   every downstream consumer are unchanged.
 
 ## Consequences
 
 A `sessions` table and periodic purge job. No JWT libraries in v1. Slack actors never get
-sessions — Bolt resolves them per-event to an `Actor` by verified email.
+sessions — Bolt resolves them per-event to an `Actor` by verified email
+(see slack.md#identity-mapping).

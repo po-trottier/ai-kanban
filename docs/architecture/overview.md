@@ -19,9 +19,9 @@
 ```
 
 Three **inbound adapters** — REST routes, MCP tool handlers, Slack Bolt listeners — are thin
-translation layers over one shared, framework-free **core** package. Business rules (transition
-matrix, RBAC, audit writes, ordering) exist exactly once, in core services; no adapter can
-bypass them. Outbound dependencies (database, blob storage, Slack client, LLM, clock, id
+translation layers over one shared, framework-free **core** package. Business rules (the
+configurable permission policy, opt-in transition rules, audit writes, ordering) exist exactly
+once, in core services; no adapter can bypass them. Outbound dependencies (database, blob storage, Slack client, LLM, clock, id
 generation, notifications, event bus) are **ports**: TypeScript interfaces owned by core, each
 with one production adapter and, where useful, an in-memory fake for unit tests.
 
@@ -61,7 +61,9 @@ the Postgres migration; the EventBus and scheduler are ports precisely so that m
 
 ## Request lifecycle (example: drag a card)
 
-1. SPA sends `POST /api/v1/cards/:id/move { toLane, prevCardId, nextCardId, expectedVersion }`.
+1. SPA sends `POST /api/v1/cards/:id/move` with header `If-Match: "<version>"` and body
+   `{ toLane, prevCardId, nextCardId }` (the route maps If-Match to the core command's
+   `expectedVersion`).
 2. Route handler validates the body against the shared Zod schema, resolves the session to an
    `Actor { userId, role, kind: 'user' }`, and calls `cardService.move(actor, cmd)`.
 3. `CardService` — in one transaction via the unit-of-work port — checks the policy engine
@@ -80,9 +82,10 @@ where.
 ## Realtime
 
 Server-Sent Events (`GET /api/v1/stream`), fed by the in-process EventBus. Events are
-lightweight invalidation hints (`{ type, cardId, version, eventId }`), not data payloads — the
-client refetches through the normal REST path, keeping one serialization/authorization code
-path. Clients auto-reconnect (native `EventSource`) and refetch the board on reconnect.
+lightweight invalidation hints, not data payloads — the client refetches through the normal
+REST path, keeping one serialization/authorization code path (the full hint catalog is in
+[ADR-008](decisions/ADR-008-sse-realtime.md)). Clients auto-reconnect (native `EventSource`)
+and refetch the board on reconnect.
 WebSockets were rejected for v1: nothing here needs client→server push, and SSE degrades and
 proxies more simply ([ADR-008](decisions/ADR-008-sse-realtime.md)).
 
@@ -90,9 +93,10 @@ proxies more simply ([ADR-008](decisions/ADR-008-sse-realtime.md)).
 
 | Job | Schedule | Action |
 | --- | --- | --- |
-| Waiting aging alerts | hourly | Slack-DM assignee + supervisor when `expected_resume_at` has passed |
+| Waiting aging alerts | hourly | Slack-DM assignee + active supervisors once per overdue episode (`resume_alerted_at`) |
 | Done archival | daily | set `archived_at` on cards Done > 90 days |
 | Position rebalance | daily | rewrite fractional keys in lanes where key length exceeds threshold |
+| Session purge | daily | delete sessions past `expires_at` / the absolute cap |
 | SQLite snapshot | nightly | `VACUUM INTO` a dated snapshot next to Litestream's continuous stream |
 
 All jobs are idempotent and restart-safe: they derive work from persisted state, never from

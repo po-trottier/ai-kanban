@@ -4,15 +4,16 @@
 
 ## Context
 
-Three consumer surfaces (REST, MCP, Slack) must behave identically: same rules, same RBAC, same
-audit trail. Storage, blob store, LLM, Slack client, clock, ids, notifications, and event bus
+Three consumer surfaces (REST, MCP, Slack) must behave identically: same rules, same permission
+policy, same audit trail. Storage, blob store, LLM, Slack client, clock, ids, notifications, and event bus
 must all be swappable (SQLite→Postgres, disk→S3, none→SMTP, local→OIDC).
 
 ## Decision
 
 Ports-and-adapters:
 
-- `packages/core` holds entities, Zod schemas, the policy module (RBAC + transition matrix),
+- `packages/core` holds entities, Zod schemas, the policy engine (configurable permissions +
+  opt-in transition rules — see ADR-013),
   services (CardService, CommentService, AuditService, BoardQueryService, AttachmentService),
   and **ports** (interfaces): CardRepository, CommentRepository, UserRepository, UnitOfWork,
   EventBus, Clock, IdGenerator, BlobStorePort, SummarizerPort, SlackClientPort, NotifierPort.

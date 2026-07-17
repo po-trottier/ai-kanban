@@ -18,8 +18,22 @@ enum — so renames need no migration and the audit trail stays queryable.
 | 7 | `done` | Done | Terminal: verified, fully documented, permanent history. |
 
 **Cancelled is a terminal status, not a lane.** Cancelling is an explicit card action (never a
-drag target) that sets `resolution` to `cancelled`, `declined`, or `duplicate`. Cancelled cards
-render at the end of Done with a badge and are excluded from throughput metrics.
+drag target). See [Terminal states](#terminal-states) for the exact semantics.
+
+## Terminal states
+
+- **Cancel** (any non-terminal card): moves the card to the `done` lane at the **bottom**, sets
+  `resolution` to `cancelled | declined | duplicate`, bumps `version`, and emits a single
+  `card.cancelled` event (no `card.status_changed`). Cancelled cards render with a badge and
+  are excluded from throughput metrics. No requester notification is sent on cancellation.
+- **Completion**: any non-cancel entry into the `done` lane sets `resolution = 'completed'`
+  (system-set — clients never write `completed`) and notifies the requester by Slack DM,
+  regardless of which lane the card came from.
+- **Reopen** (any card in `done`, including cancelled and archived): clears `resolution` and
+  `archived_at`, emits `card.reopened`, and places the card at the **bottom** of Ready.
+- **Archival**: applies to every card in `done` (completed or cancelled) 90 days after entering
+  it. Archived cards are **read-only except reopen**; any other mutation returns
+  `409` (`card-archived`).
 
 ## Movement policy: permissive by default
 
@@ -74,17 +88,23 @@ work (parts on order, vendor lead time) with its own WIP limit and aging alerts;
 To keep the lane from becoming a black hole:
 
 - Entry requires `waiting_reason` ∈ `parts | vendor | access | info | funding` and
-  `expected_resume_at` (date).
-- A scheduled job alerts (Slack DM to assignee + supervisor) when `expected_resume_at` passes
-  without the card moving.
-- The lane has its own WIP limit.
+  `expected_resume_at` (a date, `YYYY-MM-DD`; a card counts as overdue starting the following
+  UTC day).
+- On any move **out** of the lane, both fields are cleared inside the move transaction
+  (recorded in the `card.status_changed` payload, not as separate field events); re-entry
+  requires fresh values. Staleness queries therefore only ever match cards currently waiting.
+- A scheduled job sends one Slack DM per overdue episode (tracked via `resume_alerted_at`,
+  cleared on lane exit or when the date changes) to the assignee (if any) and to all active
+  users with the supervisor role.
+- The lane has its own seeded WIP limit.
 
 ## WIP limits
 
-Each lane has an optional numeric WIP limit (seeded: In Progress and Review get limits; others
-null). Limits are **soft** in v1: exceeding one highlights the lane header, it does not reject
-the move. The service layer records limit-exceeded state on the move's audit event so agents can
-report on it.
+Each lane has an optional numeric WIP limit (seeded: In Progress, Waiting on Parts / Vendor,
+and Review get limits; others null). Limits are **soft** in v1: exceeding one highlights the
+lane header, it does not reject the move. When a move pushes the destination lane over its
+limit, the `card.status_changed` event carries `wipLimitExceeded: true` so agents can report on
+it (within-lane reorders never change lane counts and never carry it).
 
 ## Ordering
 
@@ -100,10 +120,13 @@ history.
 - `priority` ∈ `P0 | P1 | P2` (P0 = drop everything). Priority is set at triage and is
   independent of order — order is the operational sequence, priority is the severity signal.
   The UI badges P0 cards; agents may flag order/priority mismatches.
-- `estimate_minutes` — integer minutes, rendered as hours/days in the UI. Optional until the
-  card reaches Ready; the approval step nags for it.
+- `estimate_minutes` — integer minutes, rendered in the UI as hours/days with 1 day = 8 working
+  hours (90 → "1.5h", 960 → "2d"). Optional until the card reaches Ready; the approval step
+  nags for it.
 
 ## Archival
 
-Done cards auto-archive (`archived_at` set) 90 days after entering Done. Archived cards leave
-the board query but remain in the database, the audit trail, and MCP/REST history queries.
+Done cards (completed and cancelled) auto-archive (`archived_at` set) 90 days after entering
+Done. Archived cards leave the board query but remain in the database, the audit trail, and
+MCP/REST history queries. They are read-only except reopen (see
+[Terminal states](#terminal-states)).

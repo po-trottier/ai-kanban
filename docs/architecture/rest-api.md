@@ -6,8 +6,10 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
 
 ## Conventions
 
-- **Versioning**: additive-only evolution within `/api/v1`; breaking changes require `/api/v2`
-  (three consumer types — SPA, MCP agents, Slack flows — depend on this contract).
+- **Versioning**: the SPA is the sole REST consumer today (MCP and Slack call core services
+  in-process), and it ships in lockstep with the server from this repo — so contract changes
+  deploy together. The `/api/v1` prefix is kept because it is cheap; formal additive-only
+  discipline and `/api/v2` promotion start when the first external REST consumer appears.
 - **Validation**: every route declares Zod schemas for params/query/body/response, imported from
   `core`. A boot-time hook fails the process if any route lacks them. Responses are serialized
   through the response schema — fields not in the schema (e.g. `password_hash`) cannot leak.
@@ -18,35 +20,39 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
   user" ([ADR-013](decisions/ADR-013-configurable-permissions.md)); admin rows are fixed.
 - **Optimistic locking**: mutating card routes require `If-Match: "<version>"`; stale versions
   get `409 Conflict` with the current resource in the body.
-- **Pagination**: cursor-based (`?cursor=&limit=`), keyset on `(created_at, id)`. Responses:
-  `{ items, nextCursor | null }`. No offset pagination anywhere.
+- **Pagination**: cursor-based (`?cursor=&limit=`), keyset on `(created_at, id)`. The cursor is
+  an opaque base64url token — clients never parse it. Default `limit` 50, max 200 (400 above).
+  Responses: `{ items, nextCursor | null }`. Order: `GET /cards` newest-first;
+  `GET /cards/:id/events` and comments oldest-first. No offset pagination anywhere.
 - **Errors**: RFC 9457 problem+json: `{ type, title, status, detail, ...extras }`. Validation
   errors include a `issues` array from Zod. Codes: 400 validation, 401 unauthenticated,
-  403 policy denial (includes `rule`), 404, 409 conflict (lock or duplicate), 413 upload too
-  large, 415 bad MIME, 422 illegal transition (includes `from`, `to`), 429 rate limited.
-- **Idempotency**: `POST /cards` accepts an optional `Idempotency-Key` header (uniqueness
-  enforced for 24 h) so Slack retries cannot double-create tickets.
+  403 policy denial (includes `rule`), 404, 409 conflict (stale version, stale move neighbors,
+  attachment limit, archived card), 413 upload too large, 415 bad MIME, 422 illegal transition
+  when enforcement is on (includes `from`, `to`), 429 rate limited (with `Retry-After`).
 
 ## Endpoints
 
 ### Auth & users
 | Method & path | Role | Description |
 | --- | --- | --- |
-| POST /auth/login | — | email+password → session cookie |
+| POST /auth/login | — | email+password → fresh session cookie (never reuses an id) |
 | POST /auth/logout | any | destroy session |
-| GET /auth/me | any | current user + role |
+| POST /auth/change-password | any | `{ currentPassword, newPassword }`; revokes the user's other sessions; clears `must_change_password` |
+| GET /auth/me | any | current user + role + `mustChangePassword` |
 | GET /users | any | active users (id, name, role) for pickers |
-| POST /users, PATCH /users/:id | admin | manage users (create sets temp password; PATCH can deactivate/change role) |
+| POST /users, PATCH /users/:id | admin | manage users. Create and the PATCH `resetPassword` action return a one-time temp password (shown once, `must_change_password` set); PATCH can deactivate/change role — except the last active admin (409) |
+
+While `must_change_password` is set, every route except change-password/logout/me returns 403.
 
 ### Board & cards
 | Method & path | Role | Description |
 | --- | --- | --- |
 | GET /board | any | lanes (with WIP state) + non-archived card summaries in position order |
-| GET /cards | any | filterable list: `lane, assignee, reporter, priority, tag, blocked, q (title search), includeArchived`; cursor-paginated |
-| POST /cards | any | create → lands in `intake` (origin `manual`); server assigns position at top of lane |
+| GET /cards | any | filterable list: `lane, assignee, reporter, priority, tag, blocked, waitingReason, overdueResume, q (title+description substring), includeArchived`; cursor-paginated |
+| POST /cards | any | body: `title` (required), `description` ('' default), `priority` (default `P2`), `assigneeId?`, `locationId?`, `tags?`, `estimateMinutes?`. Lands in `intake` at the top, origin `manual`, reporter = acting user. Slack and MCP creation share this schema |
 | GET /cards/:id | any | full detail: card + tags + location + attachment metadata |
-| PATCH /cards/:id | any (policy) | field edits (title, description, priority, estimate, assignee, location, tags); If-Match required; one audit event per changed field |
-| POST /cards/:id/move | any (policy) | `{ toLane, prevCardId, nextCardId, waitingReason?, expectedResumeAt? }`; If-Match required; waiting-lane fields always required on entry |
+| PATCH /cards/:id | any (policy) | field edits (title, description, priority, estimate, assignee, location, tags as full-replacement array); If-Match required; one audit event per changed field |
+| POST /cards/:id/move | any (policy) | `{ toLane (lane key, always required — equal to the current lane for reorders), prevCardId, nextCardId, waitingReason?, expectedResumeAt? }`; If-Match required; waiting-lane fields required on entry. Neighbors that no longer exist in the target lane (or an exhausted uniqueness retry) → 409 with the current card |
 | POST /cards/:id/cancel | any (policy) | `{ resolution }` |
 | POST /cards/:id/reopen | any (policy) | done → ready |
 | POST /cards/:id/block / unblock | any (policy) | `{ reason }` on block |
@@ -62,15 +68,14 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
 ### Attachments
 | Method & path | Role | Description |
 | --- | --- | --- |
-| POST /cards/:id/attachments | any (policy) | multipart; ≤ 25 MB/file, ≤ 10 files/card; MIME sniffed server-side (images + PDF only) |
+| POST /cards/:id/attachments | any (policy) | multipart, exactly one file per request in a part named `file`; ≤ 25 MB/file, ≤ 10 active files/card (soft-deleted don't count; 11th → 409 `attachment-limit`, enforced in the insert transaction); MIME sniffed server-side (images + PDF only) |
 | GET /attachments/:id | any | download; `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` |
 | DELETE /attachments/:id | uploader (policy for others) | soft delete + blob removal |
 
 ### History & metadata
 | Method & path | Role | Description |
 | --- | --- | --- |
-| GET /cards/:id/events | any | audit trail for a card; filter `type`; cursor-paginated |
-| GET /events | any | board-wide event query (`type`, `since`); feeds AI/reporting |
+| GET /cards/:id/events | any | audit trail for a card, oldest-first; filter `type`; cursor-paginated |
 | GET /locations | any | tree; admin CRUD via POST/PATCH/DELETE |
 | GET /tags | any | known tags for autocomplete |
 | GET /stream | any | SSE: `{ type, cardId, version, eventId }` invalidation hints |
@@ -83,6 +88,11 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
 | PUT /policy | admin | apply a new policy version (append-only history) |
 | POST /service-tokens, GET /service-tokens, DELETE /service-tokens/:id | admin | MCP credentials; raw token returned once on create |
 
-### Operational (not under /api/v1, no auth)
-`GET /healthz` (process up), `GET /readyz` (DB ping), `GET /metrics` (Prometheus; bound to
-localhost/internal network only).
+### Operational (not under /api/v1)
+`GET /healthz` (process up) and `GET /readyz` (DB ping) — unauthenticated, for the Docker
+healthcheck. `GET /version` — unauthenticated `{ version, gitSha, builtAt }` (no sensitive
+data). `GET /metrics` (Prometheus) is served on a **separate internal listener port** that
+Compose does not publish and the reverse proxy never routes (see deployment.md).
+
+`/api/v1/openapi.json` and the docs UI require an authenticated session like every other
+`/api/v1` route ("always available" means in all environments, not anonymous).

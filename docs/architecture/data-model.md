@@ -25,12 +25,17 @@ sessions >── users        service_tokens (MCP)
 | --- | --- | --- |
 | id | TEXT PK | UUIDv7 |
 | email | TEXT UNIQUE NOT NULL | lowercased |
-| display_name | TEXT NOT NULL | |
+| display_name | TEXT NOT NULL | ≤ 100 chars |
 | role | TEXT NOT NULL | `requester \| technician \| supervisor \| admin` |
 | password_hash | TEXT NOT NULL | argon2id |
-| slack_user_id | TEXT NULL | resolved lazily by email when Slack is enabled |
-| is_active | INTEGER NOT NULL | soft-disable; inactive users cannot log in but remain referenced |
+| must_change_password | INTEGER NOT NULL DEFAULT 0 | set on create/admin-reset; while set, the session may only call change-password |
+| slack_user_id | TEXT NULL | bound on first Slack use (matched by email once, then matched by id — never re-resolved) |
+| is_active | INTEGER NOT NULL | soft-disable; inactive users cannot log in (web or Slack) but remain referenced |
 | created_at | TEXT NOT NULL | ISO-8601 UTC |
+
+The structural seed includes a `system` user (display "Automation", no password, cannot log
+in) used as the reporter for MCP-created cards when no reporter is specified. The last active
+admin can never be demoted or deactivated (enforced invariant; see security.md).
 
 ### boards
 Single seeded row in v1; cards reference it so multi-board is additive later.
@@ -43,7 +48,7 @@ Seeded rows — stable `key`, editable `label` (see [workflow.md](../product/wor
 | id | TEXT PK | |
 | board_id | TEXT FK | |
 | key | TEXT NOT NULL | machine key, UNIQUE(board_id, key) |
-| label | TEXT NOT NULL | display, admin-editable |
+| label | TEXT NOT NULL | display, admin-editable, ≤ 50 chars |
 | position | INTEGER NOT NULL | board order |
 | wip_limit | INTEGER NULL | soft limit |
 
@@ -58,7 +63,7 @@ free (see [ADR-013](decisions/ADR-013-configurable-permissions.md)).
 | --- | --- | --- |
 | id | TEXT PK | UUIDv7 |
 | board_id | TEXT FK NOT NULL | |
-| config | TEXT NOT NULL | Zod-validated JSON: `{ transitionEnforcement: boolean, transitions: [{from, to, minRole?}], actionGates: {...} }` |
+| config | TEXT NOT NULL | Zod-validated JSON; full schema in [ADR-013](decisions/ADR-013-configurable-permissions.md) |
 | created_by | TEXT FK NOT NULL | admin who applied it |
 | created_at | TEXT NOT NULL | |
 
@@ -73,19 +78,20 @@ Seeded with the permissive default (`transitionEnforcement: false`, no gates) pl
 | lane_id | TEXT FK NOT NULL | current status |
 | position | TEXT NOT NULL | fractional key; UNIQUE(lane_id, position) |
 | title | TEXT NOT NULL | ≤ 200 chars |
-| description | TEXT NOT NULL DEFAULT '' | markdown |
+| description | TEXT NOT NULL DEFAULT '' | markdown, ≤ 20,000 chars |
 | priority | TEXT NOT NULL | `P0 \| P1 \| P2` |
 | estimate_minutes | INTEGER NULL | |
 | reporter_id | TEXT FK NOT NULL | |
 | assignee_id | TEXT FK NULL | |
 | location_id | TEXT FK NULL | optional (PO decision) |
-| origin | TEXT NOT NULL | `manual \| slack \| import \| pm` |
-| resolution | TEXT NULL | terminal only: `completed \| cancelled \| declined \| duplicate` |
+| origin | TEXT NOT NULL | `manual \| slack \| mcp \| import \| pm` |
+| resolution | TEXT NULL | terminal only. `completed` is system-set on non-cancel entry into done; `cancelled \| declined \| duplicate` only via the cancel action; cleared by reopen |
 | blocked | INTEGER NOT NULL DEFAULT 0 | flag, any lane |
-| blocked_reason | TEXT NULL | required when blocked=1 |
+| blocked_reason | TEXT NULL | required when blocked=1, ≤ 500 chars |
 | blocked_at | TEXT NULL | |
-| waiting_reason | TEXT NULL | required in waiting lane: `parts \| vendor \| access \| info \| funding` |
-| expected_resume_at | TEXT NULL | required in waiting lane |
+| waiting_reason | TEXT NULL | required in waiting lane: `parts \| vendor \| access \| info \| funding`; cleared on lane exit |
+| expected_resume_at | TEXT NULL | required in waiting lane; date-only `YYYY-MM-DD` (overdue = the following UTC day onward); cleared on lane exit |
+| resume_alerted_at | TEXT NULL | set when the overdue DM fires; cleared on lane exit or date change (one alert per episode) |
 | slack_channel_id / slack_thread_ts / slack_permalink | TEXT NULL | source metadata for origin=slack |
 | version | INTEGER NOT NULL DEFAULT 1 | optimistic lock ([ADR-012](decisions/ADR-012-optimistic-locking.md)) |
 | created_at / updated_at | TEXT NOT NULL | |
@@ -95,7 +101,8 @@ Indexes: `(lane_id, position)`, `(board_id, archived_at)`, `(assignee_id)`, `(re
 
 ### tags / card_tags
 `tags(id, name UNIQUE COLLATE NOCASE)`; `card_tags(card_id, tag_id, PK(card_id, tag_id))`.
-Free-form, created on first use, normalized for per-tag queries.
+Free-form (≤ 50 chars, trimmed, case preserved, matched case-insensitively), created on first
+use, normalized for per-tag queries. Card updates send tags as a full-replacement array.
 
 ### comments
 | column | type | notes |
@@ -104,7 +111,7 @@ Free-form, created on first use, normalized for per-tag queries.
 | card_id | TEXT FK NOT NULL | |
 | parent_comment_id | TEXT FK NULL | one level of nesting: replies to a reply attach to the same parent |
 | author_id | TEXT FK NOT NULL | |
-| body | TEXT NOT NULL | markdown |
+| body | TEXT NOT NULL | markdown, ≤ 10,000 chars |
 | created_at / updated_at | TEXT NOT NULL | |
 | deleted_at | TEXT NULL | soft delete keeps thread shape; body rendered as “deleted” |
 
@@ -130,16 +137,17 @@ delete of source rows plus a `card.pii_deleted` tombstone event).
 | payload | TEXT NOT NULL | JSON, shape per event type |
 | created_at | TEXT NOT NULL | |
 
-Indexes: `(card_id, created_at)`, `(event_type, created_at)`.
+Index: `(card_id, created_at)` — per-card history is the only event query surface in v1; a
+board-wide event index arrives with its first consumer.
 
 Event types (distinct so status history is never polluted by reorder noise):
 
 | event_type | payload |
 | --- | --- |
 | card.created | `{ snapshot }` |
-| card.status_changed | `{ fromLane, toLane }` |
-| card.reordered | `{ lane, beforeCardId, afterCardId }` |
-| card.field_changed | `{ field, from, to }` (one event per field) |
+| card.status_changed | `{ fromLane, toLane, wipLimitExceeded?, clearedWaiting? }` |
+| card.reordered | `{ lane, prevCardId, nextCardId }` |
+| card.field_changed | `{ field, from, to }` (one event per field; for tags: `{ field: 'tags', from: string[], to: string[] }`) |
 | card.blocked / card.unblocked | `{ reason? }` |
 | card.cancelled | `{ resolution, fromLane }` |
 | card.reopened | `{ toLane }` |
@@ -150,12 +158,19 @@ Event types (distinct so status history is never polluted by reorder noise):
 
 ### sessions
 Server-side web sessions ([ADR-009](decisions/ADR-009-sessions-and-tokens.md)):
-`id (random 256-bit, stored hashed), user_id FK, created_at, expires_at, last_seen_at`.
-Cookie holds the raw id; lookup is by hash. Sliding expiry, absolute cap 30 days.
+`id (random 256-bit, stored sha256-hashed), user_id FK, created_at, expires_at, last_seen_at`.
+Cookie holds the raw id; lookup is by hash. Sliding expiry (`last_seen_at` bumped at most once
+per 5 minutes), absolute cap 30 days. A fresh id is issued at every login; password change,
+role change, and deactivation revoke the user's other sessions.
 
 ### service_tokens
-MCP/automation credentials: `id, name, token_hash (sha256), role, created_by FK, created_at,
-last_used_at, revoked_at NULL`. Admin-managed; the raw token is shown once at creation.
+MCP/automation credentials: `id, name, token_hash (sha256), role, scope ('read' |
+'read_write'), created_by FK, created_at, last_used_at, revoked_at NULL`. Admin-managed; the
+raw token (`rkb_` + 32 random bytes base64url, 256-bit CSPRNG — the prefix makes leaked tokens
+fingerprintable by secret scanners) is shown once at creation. Tokens never expire; revocation
+(`revoked_at`) is the only lifecycle end, and rows are never deleted so audit `actor_id`
+resolution survives. The `scope` is an always-on identity rule (like comment authorship):
+`read` tokens cannot call any mutating tool regardless of policy configuration.
 
 ## Ordering keys
 
@@ -171,6 +186,18 @@ neighbors. A daily job rebalances lanes whose keys exceed 100 chars.
 Field-mutating commands carry `expectedVersion`; REST maps it to `If-Match`/ETag. Mismatch =
 `409 Conflict` + current state. Moves also carry it (drag on a stale card must not silently
 override a concurrent edit). ([ADR-012](decisions/ADR-012-optimistic-locking.md))
+
+## Seeding
+
+Two distinct layers (see deployment.md for the production bootstrap):
+
+- **Structural seed** — runs idempotently on every boot, all environments: the board, the 7
+  lanes (with the seeded WIP limits), the default permissive policy document + workflow graph,
+  the location tree, and the `system` user. The app cannot function without these.
+- **Demo seed** — only when `SEED_DEMO_DATA=true` (refused outright in production mode): demo
+  users for each role (printed credentials), sample cards in every lane including blocked,
+  overdue-waiting, cancelled, and archived examples. This is the canonical fixture dataset used
+  by dev boot, integration tests, and Playwright alike.
 
 ## Lifecycle & retention
 

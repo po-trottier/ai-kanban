@@ -12,6 +12,7 @@
 ```bash
 git clone <repo> && cd rivian-kanban
 npm ci
+npm run setup             # rebuilds native modules (install scripts are disabled repo-wide) + git hooks
 cp .env.example .env      # defaults are enough for local dev; Slack/AI flags default off
 npm run dev               # backend :3000 (API+MCP+SSE) + Vite dev server :5173, seeded DB
 ```
@@ -50,12 +51,12 @@ Read [architecture/overview.md](../architecture/overview.md) first. Short versio
 
 ## Trying the MCP server locally
 
-```bash
-npm run dev
-# create a service token as the seeded admin (or via the admin UI):
-npm run cli -- tokens create --name local-agent --role technician
-# connect any MCP client (Streamable HTTP) to http://localhost:3000/mcp with the printed bearer token
-```
+Run `npm run dev`, log in as the seeded admin, and create a token in **Settings → Service
+tokens** (pick `read` unless the agent needs writes). Connect any MCP client (Streamable HTTP)
+to `http://localhost:3000/mcp` with that bearer token. The only CLI is the production
+first-admin bootstrap (`npm run cli -- users create-admin`, see
+[deployment.md](../architecture/deployment.md#bootstrap-first-production-deployment)) — dev
+doesn't need it because the demo seed includes an admin.
 
 ## Trying Slack locally (optional)
 

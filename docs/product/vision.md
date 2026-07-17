@@ -15,8 +15,10 @@ advice, and follow-up nudges.
    is recorded in an append-only audit trail, regardless of whether a human (web/Slack) or an AI
    agent (MCP) made the change.
 3. **AI-ready by construction** — the MCP server is a first-class consumer of the same service
-   layer as the REST API, so anything a human can do or see, an agent can too (subject to the
-   same permissions).
+   layer as the REST API. Anything a human can see, an agent can see; agents write through
+   task-shaped tools covering creation, edits, moves, and comments — terminal actions
+   (cancel/reopen) are deliberately human-only in v1 (see
+   [mcp.md](../architecture/mcp.md)).
 4. **Slack-native intake** — a ticket can be created from any Slack thread via a message
    shortcut or bot @-mention, with optional AI summarization of the thread into a draft ticket
    that the invoker reviews before creation.
@@ -47,8 +49,9 @@ advice, and follow-up nudges.
 - **Supervisor** — owns the queue. Triages Intake, approves work, sets priority and order,
   verifies completed work (Review → Done), cancels.
 - **Admin** — manages users, locations, lane labels, MCP service tokens, and configuration.
-- **AI agent** — connects via MCP with a role-scoped service token. Reads everything its role
-  allows; writes (comments, triage suggestions) are audited like any other actor.
+- **AI agent** — connects via MCP with a service token (`read` or `read_write` scope). Sees the
+  full board like any authenticated actor; writes (comments, triage suggestions) are audited
+  like any other actor and subject to the same configurable policy gates.
 
 ## v1 scope decisions (product-owner record, 2026-07-16)
 
@@ -65,7 +68,7 @@ advice, and follow-up nudges.
 | Attachments | Images + PDF, 25 MB/file, 10 files/card, local blob volume behind a port |
 | Location | Optional per card, from a seeded building/floor/room tree |
 | Review → Done | Requester auto-notified with reopen path; supervisor gate available via policy, off by default |
-| Slack-created tickets | Always land in Intake; AI-suggested priority/tags attached as drafts for the triager |
+| Slack-created tickets | Always land in Intake; the invoker reviews/edits AI-suggested values in the modal, after which they are stored as ordinary card fields |
 | Done-card archival | Auto-archive off the board after 90 days; retained and queryable |
 
 ## Non-functional requirements

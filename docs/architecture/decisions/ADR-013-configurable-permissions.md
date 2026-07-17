@@ -14,10 +14,30 @@ That in turn requires a way to configure the board — an app-wide admin view.
 - **Default policy: permissive.** Any authenticated user can create, edit, move, reorder,
   block, cancel, reopen, and attach — on any card, into any lane.
 - **Policy as data, not code.** The policy engine in `core` evaluates a Zod-validated policy
-  document: `{ transitionEnforcement, transitions[{from,to,minRole?}], actionGates }`.
-  The seeded document has enforcement off and carries the researched 7-lane workflow graph
-  ready to activate. Stored as append-only versions in `board_policies` — configuration changes
-  have history and authorship like everything else.
+  document (this is the canonical schema):
+
+  ```ts
+  {
+    transitionEnforcement: boolean          // false in the seed
+    transitions: Array<{                    // the workflow graph, active only when enforcement is on;
+      from: LaneKey                         // lanes referenced by key; PUT /policy may submit any
+      to: LaneKey                           // valid graph — the seeded 11 edges are data, not fixed
+      minRole?: Role                        // approval (waiting_approval→ready) and close (review→done)
+    }>                                      // gates are expressed as minRole here, not as actionGates
+    actionGates: {                          // each optional; absent = any authenticated user
+      cancel?: Role                         // cancel any card
+      reopen?: Role
+      reorderReady?: Role
+      deleteOthersComments?: Role
+      deleteOthersAttachments?: Role
+    }
+  }
+  ```
+
+  `Role` is `requester | technician | supervisor | admin` (ordered). The seeded document has
+  enforcement off, no action gates, and the researched 7-lane graph ready to activate. Stored
+  as append-only versions in `board_policies` — configuration changes have history and
+  authorship like everything else.
 - **The admin surface is the ONLY thing role-restricted by default.** The app-wide settings
   view and its APIs (users, lanes, permission policy, locations, service tokens) require the
   `admin` role, always — it cannot be opened up, because it is where permissions themselves are
@@ -36,6 +56,7 @@ That in turn requires a way to configure the board — an app-wide admin view.
 ## Consequences
 
 The policy engine is one evaluation path for all three adapters, whether permissive or
-tightened — no dual code paths. `GET /policy` lets the SPA and MCP agents render/reason about
-current affordances. The transition matrix in workflow.md documents the *seeded graph*, not
-default behavior. Tests must cover both postures (default-permissive and enforcement-on).
+tightened — no dual code paths. `GET /policy` lets the SPA render current affordances (MCP
+agents simply receive policy denials as tool errors). The transition matrix in workflow.md
+documents the *seeded graph*, not default behavior. Tests must cover both postures
+(default-permissive and enforcement-on).
