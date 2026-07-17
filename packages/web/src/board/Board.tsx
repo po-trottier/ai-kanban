@@ -1,6 +1,7 @@
 import { type BoardCard, type LaneKey, type PolicyDocument, type Role } from '@rivian-kanban/core'
-import { Center, Stack, Text, Title } from '@mantine/core'
+import { Anchor, Center, Stack, Text, Title } from '@mantine/core'
 import { useCallback, useMemo, useRef } from 'react'
+import { Link } from 'react-router'
 import { type BoardResponse, type PickerUser } from '../api/schemas.ts'
 import { NewCardButton } from '../shell/NewCardButton.tsx'
 import { strings } from '../strings.ts'
@@ -15,6 +16,8 @@ export interface BoardProps {
   board: BoardResponse
   /** Whether the header live-filter is narrowing the board (ITEM 1). */
   filtering?: boolean
+  /** The active filter query, forwarded to /search from the no-matches state. */
+  filterQuery?: string
   policy: PolicyDocument
   role: Role
   users: PickerUser[]
@@ -27,6 +30,7 @@ export interface BoardProps {
 export function Board({
   board,
   filtering = false,
+  filterQuery = '',
   policy,
   role,
   users,
@@ -47,11 +51,16 @@ export function Board({
     [policy, role],
   )
 
+  const noCards = board.lanes.every((snapshot) => snapshot.cards.length === 0)
   // A brand-new team sees a blank grid otherwise; nudge them to the New card
-  // button rather than seven "No cards" columns with no call to action. When
-  // the header filter simply matched nothing, the lanes stay visible with their
-  // empty hints instead — the CTA would be wrong (there IS work, just hidden).
-  const boardEmpty = !filtering && board.lanes.every((snapshot) => snapshot.cards.length === 0)
+  // button rather than seven "No cards" columns with no call to action.
+  const boardEmpty = !filtering && noCards
+  // The header filter matched nothing anywhere: rather than seven "No matching
+  // cards" columns, surface a single message with the ONE place archived and
+  // closed cards live — the /search page, carrying the current query. This is
+  // the subtle affordance that keeps global/archived search reachable now that
+  // the permanent "Search cards" header button is gone (ITEM A).
+  const filterNoMatches = filtering && noCards
 
   return (
     <div
@@ -71,6 +80,24 @@ export function Board({
               {strings.board.emptyBoardHint}
             </Text>
             <NewCardButton />
+          </Stack>
+        </Center>
+      ) : filterNoMatches ? (
+        <Center className={classes.emptyBoard}>
+          <Stack align="center" gap="sm">
+            <Title order={2} size="h4" fw={EMPHASIS_FONT_WEIGHT}>
+              {strings.board.filterNoMatchesTitle}
+            </Title>
+            <Text size="sm" c="dimmed" ta="center" maw="26rem">
+              {strings.board.filterNoMatchesHint}
+            </Text>
+            <Anchor
+              component={Link}
+              to={filterQuery === '' ? '/search' : `/search?q=${encodeURIComponent(filterQuery)}`}
+              size="sm"
+            >
+              {strings.search.searchAllArchived}
+            </Anchor>
           </Stack>
         </Center>
       ) : (

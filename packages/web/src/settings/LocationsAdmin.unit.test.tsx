@@ -2,9 +2,10 @@ import { type Location } from '@rivian-kanban/core'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { createFakeFetch } from '../test/fake-fetch.ts'
+import { createFakeFetch, problemResponse } from '../test/fake-fetch.ts'
 import { uid } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
+import { strings } from '../strings.ts'
 import { LocationsAdmin } from './LocationsAdmin.tsx'
 
 const building: Location = { id: uid(91), parentId: null, kind: 'building', name: 'HQ' }
@@ -79,6 +80,47 @@ describe('LocationsAdmin', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
     // Assert
     expect(fake.lastBody('PATCH', `/api/v1/locations/${building.id}`)).toEqual({ name: 'HQ West' })
+  })
+
+  it('shows a friendly inline error when the server rejects a duplicate sibling name on create', async () => {
+    // Arrange — the server returns a 409 conflict for the duplicate name.
+    const user = userEvent.setup()
+    const fake = createFakeFetch({
+      'GET /api/v1/locations': [building],
+      'POST /api/v1/locations': () =>
+        problemResponse(409, { type: 'urn:rivian-kanban:problem:conflict', title: 'Conflict' }),
+    })
+    renderWithProviders(<LocationsAdmin />, { fetchFn: fake.fetch })
+    // Act — add a floor whose name collides with an existing sibling.
+    await user.click(await screen.findByLabelText('Add inside HQ'))
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Floor 2')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    // Assert — the error shows inline beside the field, and the modal stays open.
+    expect(await screen.findByText(strings.locations.duplicateName)).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    // Typing again retracts the stale error.
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), 'x')
+    expect(screen.queryByText(strings.locations.duplicateName)).not.toBeInTheDocument()
+  })
+
+  it('shows a friendly inline error when the server rejects a duplicate sibling name on rename', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const fake = createFakeFetch({
+      'GET /api/v1/locations': [building, floor],
+      [`PATCH /api/v1/locations/${floor.id}`]: () =>
+        problemResponse(409, { type: 'urn:rivian-kanban:problem:conflict', title: 'Conflict' }),
+    })
+    renderWithProviders(<LocationsAdmin />, { fetchFn: fake.fetch })
+    // Act — rename the floor onto a name that collides with a sibling.
+    await user.click(await screen.findByLabelText('Rename Floor 2'))
+    const nameInput = screen.getByRole('textbox', { name: 'Name' })
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Taken')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    // Assert
+    expect(await screen.findByText(strings.locations.duplicateName)).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   it('confirms before deleting and warns that descendants are removed', async () => {

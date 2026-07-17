@@ -1,4 +1,6 @@
-import { Badge, Button, Group, Popover, Stack, Text } from '@mantine/core'
+import { ActionIcon, Badge, Group, Modal, Stack, Text, Tooltip } from '@mantine/core'
+import { HelpCircle } from 'lucide-react'
+import { useState } from 'react'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
 import {
@@ -12,17 +14,35 @@ import {
 /**
  * A compact, plain-language key to the board's colored badges — a first-time
  * facilities user should never have to guess what P0/P1/P2 or BLOCKED mean.
- * Lives in the header as a help popover (dismissible by clicking away).
+ * The trigger is a small help icon in the header cluster; the guide opens as a
+ * centered modal so its rows never clip at the viewport edge (the old bottom-
+ * end popover pushed them off-screen).
  */
 export function BoardLegend() {
+  const [opened, setOpened] = useState(false)
   return (
-    <Popover position="bottom-end" withArrow shadow="md" width={340}>
-      <Popover.Target>
-        <Button variant="subtle" color="gray" size="sm" aria-label={strings.board.legendButton}>
-          {strings.board.legendButton}
-        </Button>
-      </Popover.Target>
-      <Popover.Dropdown>
+    <>
+      <Tooltip label={strings.board.legendButton}>
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          size="lg"
+          aria-label={strings.board.legendButton}
+          onClick={() => {
+            setOpened(true)
+          }}
+        >
+          <HelpCircle size="1.25rem" aria-hidden />
+        </ActionIcon>
+      </Tooltip>
+      <Modal
+        opened={opened}
+        onClose={() => {
+          setOpened(false)
+        }}
+        title={strings.board.legendTitle}
+        centered
+      >
         <Stack gap="sm">
           <Text size="sm" fw={EMPHASIS_FONT_WEIGHT}>
             {strings.board.legendPriorities}
@@ -75,8 +95,8 @@ export function BoardLegend() {
             text={strings.board.legendArchived}
           />
         </Stack>
-      </Popover.Dropdown>
-    </Popover>
+      </Modal>
+    </>
   )
 }
 
@@ -97,7 +117,15 @@ function LegendRow({
 }) {
   return (
     <Group gap="xs" wrap="nowrap" align="flex-start">
-      <Badge color={color} size="sm" variant={variant ?? (filled ? 'filled' : 'light')}>
+      {/* The badge sizes to its own content and never shrinks, so every status
+          word stays whole (a fixed-width column clipped the longer ones to
+          BLOCK…, PAR…, CANCELL…). */}
+      <Badge
+        color={color}
+        size="sm"
+        variant={variant ?? (filled ? 'filled' : 'light')}
+        style={{ flexShrink: 0 }}
+      >
         {label}
       </Badge>
       <Text size="xs">{text}</Text>

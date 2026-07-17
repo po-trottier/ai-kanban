@@ -110,6 +110,33 @@ describe('Board', () => {
     expect(screen.getByRole('button', { name: 'New card' })).toBeInTheDocument()
   })
 
+  it('offers an archived-search link when the filter matches nothing (carrying the query)', () => {
+    // Arrange — filtering is active but no lane has a match: the board shows a
+    // single no-matches message with the subtle link to full /search, so
+    // archived/closed cards stay reachable without a permanent header button.
+    const board = makeBoard({})
+    // Act
+    renderWithProviders(
+      <Board
+        board={board}
+        filtering
+        filterQuery="boiler"
+        policy={permissivePolicy}
+        role="technician"
+        users={fixturePickerUsers}
+        today="2026-07-16"
+        onOpenCard={noop}
+        onMenuAction={noop}
+      />,
+    )
+    // Assert — the message shows and the link forwards the current query to
+    // /search (not the first-run "New card" CTA, which would be wrong here).
+    expect(screen.getByText('No cards match your filter')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'New card' })).not.toBeInTheDocument()
+    const link = screen.getByRole('link', { name: 'Search all cards, including archived' })
+    expect(link).toHaveAttribute('href', '/search?q=boiler')
+  })
+
   it('shows the assignee avatar with initials', () => {
     // Arrange
     const card = makeCard('ready', { assigneeId: fixtureTech.id })

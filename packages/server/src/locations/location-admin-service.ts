@@ -1,4 +1,5 @@
 import {
+  ConflictError,
   createLocationInputSchema,
   ensureAdmin,
   NotFoundError,
@@ -7,6 +8,7 @@ import {
   type EventBus,
   type IdGenerator,
   type Location,
+  type TransactionContext,
   type UnitOfWork,
 } from '@rivian-kanban/core'
 import { RequestValidationError } from '../errors.ts'
@@ -79,6 +81,7 @@ export class LocationAdminService {
           )
         }
       }
+      await ensureUniqueSiblingName(tx, input.parentId, input.name, null)
       await tx.locations.insert(location)
       return location
     })
@@ -93,6 +96,7 @@ export class LocationAdminService {
     const updated = await this.deps.uow.run(async (tx) => {
       const found = await tx.locations.findById(locationId)
       if (found === null) throw new NotFoundError('location')
+      await ensureUniqueSiblingName(tx, found.parentId, input.name, found.id)
       const next: Location = { ...found, name: input.name }
       await tx.locations.update(next)
       return next
@@ -112,5 +116,33 @@ export class LocationAdminService {
     ensureAdmin(actor)
     await this.deps.uow.run((tx) => tx.locations.delete(locationId))
     this.deps.eventBus.publish({ type: 'location.updated' })
+  }
+}
+
+/**
+ * Rejects a name that collides (case-insensitively) with an existing sibling —
+ * a location sharing the same `parentId`. Two different buildings may each hold
+ * a "Floor 1", but one building may not hold two. The check reads the flat tree
+ * and filters in memory: at facilities scale (buildings/floors/rooms) the list
+ * is tiny, so a service-level guard is sufficient and no DB UNIQUE index is
+ * added — the tree table has no such constraint. `selfId` is the row being
+ * renamed, excluded so renaming a location to its own current name is a no-op.
+ */
+async function ensureUniqueSiblingName(
+  tx: TransactionContext,
+  parentId: string | null,
+  name: string,
+  selfId: string | null,
+): Promise<void> {
+  const normalized = name.trim().toLowerCase()
+  const all = await tx.locations.list()
+  const clash = all.some(
+    (location) =>
+      location.id !== selfId &&
+      location.parentId === parentId &&
+      location.name.trim().toLowerCase() === normalized,
+  )
+  if (clash) {
+    throw new ConflictError(`a location named “${name}” already exists here`)
   }
 }

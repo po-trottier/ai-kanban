@@ -277,6 +277,58 @@ describe('GET /locations + admin CRUD', () => {
     expect(missing.statusCode).toBe(404)
   })
 
+  it('rejects a duplicate sibling name (case-insensitive) on create, allowing it under a different parent', async () => {
+    // Two buildings so we can prove the check is scoped to siblings, not global.
+    const buildingA = await createLocation({ kind: 'building', name: 'Dup Building A' })
+    const buildingB = await createLocation({ kind: 'building', name: 'Dup Building B' })
+    const parentA = buildingA.json<LocationBody>().id
+    const parentB = buildingB.json<LocationBody>().id
+
+    const first = await createLocation({ kind: 'floor', name: 'Level 1', parentId: parentA })
+    expect(first.statusCode).toBe(201)
+
+    // Same name, same parent, differing only in case → rejected as a conflict.
+    const dupSameCase = await createLocation({ kind: 'floor', name: 'Level 1', parentId: parentA })
+    const dupOtherCase = await createLocation({ kind: 'floor', name: 'level 1', parentId: parentA })
+    expect(dupSameCase.statusCode).toBe(409)
+    expect(dupSameCase.json<{ type: string }>().type).toBe('urn:rivian-kanban:problem:conflict')
+    expect(dupOtherCase.statusCode).toBe(409)
+
+    // The same name under a DIFFERENT parent is allowed.
+    const differentParent = await createLocation({
+      kind: 'floor',
+      name: 'Level 1',
+      parentId: parentB,
+    })
+    expect(differentParent.statusCode).toBe(201)
+  })
+
+  it('rejects renaming a location onto an existing sibling name (case-insensitive)', async () => {
+    const building = await createLocation({ kind: 'building', name: 'Rename Conflict Building' })
+    const parent = building.json<LocationBody>().id
+    await createLocation({ kind: 'floor', name: 'Alpha', parentId: parent })
+    const beta = await createLocation({ kind: 'floor', name: 'Beta', parentId: parent })
+    const betaId = beta.json<LocationBody>().id
+
+    // Rename Beta → "alpha" (differs only in case from its sibling) → conflict.
+    const collision = await t.request(adminCookie, {
+      method: 'PATCH',
+      url: `/api/v1/locations/${betaId}`,
+      payload: { name: 'alpha' },
+    })
+    expect(collision.statusCode).toBe(409)
+    expect(collision.json<{ type: string }>().type).toBe('urn:rivian-kanban:problem:conflict')
+
+    // Renaming a location to its own current name is a no-op, not a self-conflict.
+    const noop = await t.request(adminCookie, {
+      method: 'PATCH',
+      url: `/api/v1/locations/${betaId}`,
+      payload: { name: 'Beta' },
+    })
+    expect(noop.statusCode).toBe(200)
+    expect(noop.json<LocationBody>().name).toBe('Beta')
+  })
+
   it('recursively deletes a building with floors + rooms and clears referencing cards', async () => {
     // BUG 2: deleting a building removes its whole subtree in one transaction;
     // a card that referenced a removed room keeps its row with location cleared.

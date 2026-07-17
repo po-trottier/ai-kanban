@@ -82,7 +82,7 @@ export function MoveCardModal({
   const waitingComplete = !entersWaiting || (waitingReason !== null && resumeAt !== null)
 
   return (
-    <Modal opened onClose={onClose} title={strings.move.modalTitle}>
+    <Modal opened onClose={onClose} title={strings.move.modalTitle} centered>
       <Stack gap="md">
         <Select
           label={strings.move.laneLabel}

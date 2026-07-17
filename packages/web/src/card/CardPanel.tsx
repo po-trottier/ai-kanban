@@ -91,12 +91,16 @@ export function CardPanel({ cardId }: { cardId: string }) {
   // confirm), Escape must dismiss only THAT dialog. Mantine closes it on its
   // own bubble-phase window listener, so we register in the CAPTURE phase —
   // which always runs first, before Mantine can synchronously flush the modal
-  // away — and bail while any Mantine Modal is still mounted. This keeps the
-  // whole card open when a user hits Escape to back out of a confirm dialog.
+  // away — and bail while any Mantine Modal is OPEN. We probe `.mantine-Modal-
+  // content` (the dialog box, rendered only while open) rather than `-root`:
+  // Mantine keeps a closed modal's root wrapper mounted (e.g. the header badge-
+  // legend modal), so a `-root` probe would wrongly conclude a modal is open
+  // and swallow every Escape. This keeps the whole card open when a user hits
+  // Escape to back out of a confirm dialog, while still closing on a bare Escape.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
-      if (document.querySelector('.mantine-Modal-root') !== null) return
+      if (document.querySelector('.mantine-Modal-content') !== null) return
       void navigate('/')
     }
     window.addEventListener('keydown', onKey, true)

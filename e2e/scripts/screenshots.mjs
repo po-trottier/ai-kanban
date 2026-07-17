@@ -97,6 +97,15 @@ try {
   await login(page, 'admin@demo.rivian-kanban.local')
   await shot(page, '02-board')
 
+  // ITEM A: the finalized header — logo + wordmark left, centered live-search,
+  // and the right cluster (New card, badge-legend help icon, settings gear,
+  // avatar). Cropped to the header band for the reviewer.
+  await page.screenshot({
+    path: join(OUT, '02a-header.png'),
+    clip: { x: 0, y: 0, width: 1440, height: 56 },
+  })
+  console.log('captured 02a-header')
+
   // ITEM 1: the header logo + always-visible filter, and a filtered board.
   await page.getByRole('textbox', { name: 'Filter the board' }).fill('HVAC')
   await page.getByText('Quarterly HVAC filter replacement').first().waitFor()
@@ -135,7 +144,16 @@ try {
   await page.keyboard.press('Escape')
   await page.keyboard.press('Escape')
 
-  await page.getByRole('link', { name: 'Search cards' }).click()
+  // ITEM B: the badge-legend help icon in the header opens a centered modal.
+  await page.getByRole('button', { name: 'What do the badges mean?' }).click()
+  await page.getByRole('dialog').getByText('Badge guide').waitFor()
+  await shot(page, '08c-badge-legend-modal')
+  await page.keyboard.press('Escape')
+
+  // ITEM A: archived/global search is no longer a permanent header button —
+  // reach the /search page by URL (its affordance also lives in the board-
+  // filter no-results state).
+  await page.goto(`${BASE}/search`)
   await page.getByRole('textbox', { name: 'Search' }).fill('door')
   // Submit so the shot shows actual filtered results, not the idle page.
   await page.getByRole('button', { name: 'Search', exact: true }).click()
@@ -196,7 +214,18 @@ try {
   await addLocation('Add building', 'Add building', 'Main Plant')
   await addLocation('Add floor', 'Add floor', 'Ground Floor')
   await addLocation('Add room', 'Add room', 'Machine Shop')
+  // ITEM C: full-width name inputs + the per-row rename (Pencil) affordance.
   await shot(setupPage, '19-setup-locations')
+
+  // ITEM C: a duplicate SIBLING name is rejected with a friendly inline error.
+  // "Ground Floor" already sits under "Main Plant", so re-adding it collides.
+  await setupPage.getByRole('textbox', { name: 'Add floor' }).fill('Ground Floor')
+  await setupPage.getByRole('button', { name: 'Add floor' }).click()
+  await setupPage
+    .getByText('Another location here already has this name. Pick a different name.')
+    .first()
+    .waitFor()
+  await shot(setupPage, '19b-setup-locations-duplicate')
   await setup.close()
 
   await browser.close()

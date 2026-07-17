@@ -14,7 +14,7 @@ interface RevealOnceModalProps {
  */
 export function RevealOnceModal({ title, hint, secret, onClose }: RevealOnceModalProps) {
   return (
-    <Modal opened onClose={onClose} title={title}>
+    <Modal opened onClose={onClose} title={title} centered>
       <Stack gap="md">
         <Code block>{secret}</Code>
         <Text size="sm" c="dimmed">

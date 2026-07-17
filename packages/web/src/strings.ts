@@ -85,6 +85,13 @@ export const strings = {
     addBuildingPlaceholder: 'Building name',
     addFloorPlaceholder: 'Floor name',
     addRoomPlaceholder: 'Room name',
+    /** Inline rename affordance on a setup location row. */
+    renameLocationLabel: (name: string) => `Rename ${name}`,
+    renameNameLabel: (name: string) => `New name for ${name}`,
+    saveRename: 'Save',
+    cancelRename: 'Cancel',
+    /** Inline error when a sibling already uses this name (server 409). */
+    duplicateName: 'Another location here already has this name. Pick a different name.',
     removeLocationLabel: (name: string) => `Remove ${name}`,
     removeTitle: 'Remove location',
     removeConfirmBody: (name: string) => `Remove “${name}”?`,
@@ -101,6 +108,10 @@ export const strings = {
     emptyLane: 'No cards',
     /** Per-lane hint when the header filter hides every card in a lane. */
     filterEmptyLane: 'No matching cards',
+    /** Board-level message when the header filter matches nothing anywhere. */
+    filterNoMatchesTitle: 'No cards match your filter',
+    filterNoMatchesHint:
+      'This filters the loaded board only. Archived and closed cards live in full search.',
     /** Subtle per-lane match count shown under the header filter. */
     filterMatchCount: (count: number) => `${String(count)} ${count === 1 ? 'match' : 'matches'}`,
     wipLimitExceededSuffix: 'WIP limit exceeded',
@@ -169,7 +180,10 @@ export const strings = {
 
   search: {
     pageTitle: 'Search cards',
-    openButton: 'Search cards',
+    /** Subtle link from the board-filter no-results state to the full /search
+     * page (archived + description-scoped), carrying the current query. Not a
+     * permanent header button — the live filter is the primary affordance. */
+    searchAllArchived: 'Search all cards, including archived',
     queryLabel: 'Search',
     /** Stable accessible name for the query input (tests target it) while the
      * visible label stays short under the identical page title. */
@@ -435,6 +449,8 @@ export const strings = {
     deleteLabel: (name: string) => `Delete ${name}`,
     nameLabel: 'Name',
     nameRequired: 'Enter a name',
+    /** Inline error when a sibling already uses this name (server 409). */
+    duplicateName: 'Another location here already has this name. Pick a different name.',
     addTitle: 'Add location',
     renameTitle: 'Rename location',
     empty: 'No locations yet',

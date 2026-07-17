@@ -14,6 +14,7 @@ import { DoorClosed, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useCreateLocation, useDeleteLocation, useRenameLocation } from '../api/admin.ts'
 import { useLocations } from '../api/meta.ts'
+import { isConflictError } from '../api/problem.ts'
 import { buildLocationTree, type LocationTreeNode } from '../lib/location-tree.ts'
 import { strings } from '../strings.ts'
 import { LocationKindIcon } from './location-kind-icon.tsx'
@@ -44,10 +45,15 @@ export function LocationsAdmin() {
 
   const openAdd = (parent: Location | null) => {
     setName('')
+    // Clear any lingering 409 from a prior add/rename so the field opens clean.
+    createLocation.reset()
+    renameLocation.reset()
     setModal({ kind: 'add', parent })
   }
   const openRename = (location: Location) => {
     setName(location.name)
+    createLocation.reset()
+    renameLocation.reset()
     setModal({ kind: 'rename', location })
   }
   const openDelete = (location: Location, hasChildren: boolean) => {
@@ -55,6 +61,18 @@ export function LocationsAdmin() {
   }
   const close = () => {
     setModal({ kind: 'none' })
+  }
+
+  // The active mutation for the open modal — its 409 surfaces as the inline
+  // duplicate-name error beside the field (the toast is suppressed for 409).
+  const nameMutation = modal.kind === 'rename' ? renameLocation : createLocation
+  const nameError = isConflictError(nameMutation.error) ? strings.locations.duplicateName : null
+
+  const setNameAndClearError = (next: string) => {
+    setName(next)
+    // A fresh keystroke retracts a stale duplicate-name error so the user sees
+    // it clear the moment they start fixing the collision.
+    if (nameMutation.error !== null) nameMutation.reset()
   }
 
   const submit = () => {
@@ -120,14 +138,17 @@ export function LocationsAdmin() {
           opened
           onClose={close}
           title={modal.kind === 'add' ? strings.locations.addTitle : strings.locations.renameTitle}
+          centered
         >
           <Stack gap="md">
             <TextInput
               label={strings.locations.nameLabel}
               data-autofocus
+              w="100%"
               value={name}
+              error={nameError}
               onChange={(event) => {
-                setName(event.currentTarget.value)
+                setNameAndClearError(event.currentTarget.value)
               }}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
@@ -153,7 +174,7 @@ export function LocationsAdmin() {
       ) : null}
 
       {modal.kind === 'delete' ? (
-        <Modal opened onClose={close} title={strings.locations.deleteTitle}>
+        <Modal opened onClose={close} title={strings.locations.deleteTitle} centered>
           <Stack gap="md">
             <Text size="sm" fw={600}>
               {strings.locations.deleteConfirmBody(modal.location.name)}

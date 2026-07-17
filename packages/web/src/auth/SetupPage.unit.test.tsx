@@ -161,6 +161,54 @@ describe('SetupPage', () => {
     expect(await screen.findByText('HQ')).toBeInTheDocument()
   })
 
+  it('renames a location inline in the setup step', async () => {
+    // Arrange — one building the admin will rename in place (no modal; the label
+    // swaps for a field, mirroring the Settings tree but staying in the wizard).
+    const user = userEvent.setup()
+    const building: Location = { id: uid(310), parentId: null, kind: 'building', name: 'HQ' }
+    let locations: Location[] = [building]
+    const fake = wizardRoutes({
+      'GET /api/v1/locations': () => locations,
+      [`PATCH /api/v1/locations/${building.id}`]: () => {
+        const renamed = { ...building, name: 'HQ West' }
+        locations = [renamed]
+        return renamed
+      },
+    })
+    renderApp({ fetchFn: fake.fetch, route: '/setup' })
+    await createAdmin(user)
+    // Act — open the inline editor, change the name, and save.
+    await user.click(await screen.findByLabelText('Rename HQ'))
+    const input = await screen.findByRole('textbox', { name: 'New name for HQ' })
+    await user.clear(input)
+    await user.type(input, 'HQ West')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    // Assert — the PATCH carried the new name and the row now reads it.
+    expect(fake.lastBody('PATCH', `/api/v1/locations/${building.id}`)).toEqual({ name: 'HQ West' })
+    expect(await screen.findByText('HQ West')).toBeInTheDocument()
+  })
+
+  it('shows a friendly inline error when adding a duplicate sibling name in setup', async () => {
+    // Arrange — the server rejects the duplicate name with a 409 conflict.
+    const user = userEvent.setup()
+    const fake = wizardRoutes({
+      'GET /api/v1/locations': [],
+      'POST /api/v1/locations': () =>
+        problemResponse(409, { type: 'urn:rivian-kanban:problem:conflict', title: 'Conflict' }),
+    })
+    renderApp({ fetchFn: fake.fetch, route: '/setup' })
+    await createAdmin(user)
+    // Act — try to add a building whose name already exists among siblings.
+    await user.type(await screen.findByRole('textbox', { name: 'Add building' }), 'HQ')
+    await user.click(screen.getByRole('button', { name: 'Add building' }))
+    // Assert — the error shows inline beside the field (not just a toast).
+    expect(
+      await screen.findByText(
+        'Another location here already has this name. Pick a different name.',
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('confirms before removing a location and warns descendants go too', async () => {
     // Arrange
     const user = userEvent.setup()

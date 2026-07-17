@@ -13,6 +13,7 @@ import { strings } from '../strings.ts'
 import { useApi } from './api-context.ts'
 import { queryKeys } from './keys.ts'
 import { notifyError } from './notify.ts'
+import { isConflictError } from './problem.ts'
 import {
   adminUserResponseSchema,
   createdServiceTokenSchema,
@@ -84,6 +85,14 @@ export function usePutPolicy() {
   })
 }
 
+// A duplicate sibling name (409) is a friendly, recoverable form error the
+// caller shows INLINE beside the name field — a red toast would double up and
+// read as a system failure. Every other error still toasts.
+function notifyUnlessConflict(error: unknown): void {
+  if (isConflictError(error)) return
+  notifyError(error)
+}
+
 export function useCreateLocation() {
   const api = useApi()
   const queryClient = useQueryClient()
@@ -93,7 +102,7 @@ export function useCreateLocation() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.locations })
     },
-    onError: notifyError,
+    onError: notifyUnlessConflict,
   })
 }
 
@@ -106,7 +115,7 @@ export function useRenameLocation() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.locations })
     },
-    onError: notifyError,
+    onError: notifyUnlessConflict,
   })
 }
 

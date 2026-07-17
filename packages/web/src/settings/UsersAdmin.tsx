@@ -111,6 +111,7 @@ export function UsersAdmin() {
             setCreateOpen(false)
           }}
           title={strings.users.createTitle}
+          centered
         >
           <Stack gap="md">
             <TextInput
@@ -165,6 +166,7 @@ export function UsersAdmin() {
             setDeactivating(null)
           }}
           title={strings.users.deactivateConfirmTitle}
+          centered
         >
           <Stack gap="md">
             <Text size="sm">{strings.users.deactivateConfirmBody(deactivating.name)}</Text>

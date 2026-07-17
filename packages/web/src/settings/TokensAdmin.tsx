@@ -103,6 +103,7 @@ export function TokensAdmin() {
             setCreateOpen(false)
           }}
           title={strings.tokens.createTitle}
+          centered
         >
           <Stack gap="md">
             <TextInput

@@ -22,7 +22,7 @@ export function WaitingLaneModal({ onSubmit, onClose }: WaitingLaneModalProps) {
   const resumeError = touched && resumeAt === null ? strings.waiting.resumeRequired : null
 
   return (
-    <Modal opened onClose={onClose} title={strings.waiting.modalTitle}>
+    <Modal opened onClose={onClose} title={strings.waiting.modalTitle} centered>
       <Stack gap="md">
         <Text size="sm" c="dimmed">
           {strings.waiting.intro}

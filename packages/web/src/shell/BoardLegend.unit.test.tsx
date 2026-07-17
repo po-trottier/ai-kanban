@@ -6,8 +6,25 @@ import { strings } from '../strings.ts'
 import { BoardLegend } from './BoardLegend.tsx'
 
 /** The legend teaches non-technical users the board's colored badges, so every
- * board state must appear with a badge matching what the board renders. */
+ * board state must appear with a badge matching what the board renders. Its
+ * trigger is a compact help icon; the guide itself is a centered dialog so its
+ * rows never clip at the viewport edge. */
 describe('BoardLegend', () => {
+  it('opens from a labelled help icon and lands in a dialog', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    renderWithProviders(<BoardLegend />)
+    // Closed: the guide is not shown as a dialog yet (a closed Mantine Modal
+    // keeps only its inert root wrapper — no dialog role).
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // Act — the trigger is an icon button with an accessible name, not a text
+    // button; opening it surfaces the guide as a dialog (Modal), not a popover.
+    await user.click(screen.getByRole('button', { name: strings.board.legendButton }))
+    // Assert
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText(strings.board.legendTitle)).toBeInTheDocument()
+  })
+
   it('explains every board state, including Overdue', async () => {
     // Arrange
     const user = userEvent.setup()

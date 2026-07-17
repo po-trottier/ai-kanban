@@ -162,6 +162,7 @@ export function BoardPage() {
       <Board
         board={filtered.board}
         filtering={filtered.active}
+        filterQuery={searchQuery}
         policy={policyQuery.data}
         role={me.role}
         users={usersQuery.data}

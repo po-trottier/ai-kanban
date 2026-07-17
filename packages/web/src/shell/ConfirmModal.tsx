@@ -27,7 +27,7 @@ export function ConfirmModal({
   onClose,
 }: ConfirmModalProps) {
   return (
-    <Modal opened onClose={onClose} title={title}>
+    <Modal opened onClose={onClose} title={title} centered>
       <Stack gap="md">
         <Text size="sm">{body}</Text>
         <Group justify="flex-end" gap="sm">

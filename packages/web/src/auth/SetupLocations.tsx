@@ -11,10 +11,11 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core'
-import { Plus, Trash2 } from 'lucide-react'
+import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
-import { useCreateLocation, useDeleteLocation } from '../api/admin.ts'
+import { useCreateLocation, useDeleteLocation, useRenameLocation } from '../api/admin.ts'
 import { useLocations } from '../api/meta.ts'
+import { isConflictError } from '../api/problem.ts'
 import { buildLocationTree, type LocationTreeNode } from '../lib/location-tree.ts'
 import { LocationKindIcon } from '../settings/location-kind-icon.tsx'
 import classes from '../settings/locations.module.css'
@@ -90,6 +91,7 @@ export function SetupLocations({ onDone }: { onDone: () => void }) {
             setRemoving(null)
           }}
           title={strings.setup.removeTitle}
+          centered
         >
           <Stack gap="md">
             <Text size="sm" fw={600}>
@@ -170,7 +172,12 @@ function BuildingNode({
   )
 }
 
-/** A single location line with its icon, kind, and remove control. */
+/**
+ * A single location line with its icon, kind, and per-row actions (rename +
+ * remove). Rename is an INLINE affordance: the label swaps in place for a
+ * full-width TextInput with Save/Cancel, mirroring the Settings tree's rename
+ * (same `useRenameLocation` mutation) but without leaving the wizard.
+ */
 function LocationRow({
   location,
   hasChildren,
@@ -180,6 +187,90 @@ function LocationRow({
   hasChildren: boolean
   onRemove: (location: Location, hasChildren: boolean) => void
 }) {
+  const renameLocation = useRenameLocation()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(location.name)
+  const nameError = isConflictError(renameLocation.error) ? strings.setup.duplicateName : null
+
+  const startEditing = () => {
+    setDraft(location.name)
+    renameLocation.reset()
+    setEditing(true)
+  }
+  const cancelEditing = () => {
+    renameLocation.reset()
+    setEditing(false)
+  }
+  const submit = () => {
+    const trimmed = draft.trim()
+    if (trimmed === '') return
+    // No-op rename (unchanged name) just closes the editor — never a request.
+    if (trimmed === location.name) {
+      setEditing(false)
+      return
+    }
+    renameLocation.mutate(
+      { locationId: location.id, name: trimmed },
+      {
+        onSuccess: () => {
+          setEditing(false)
+        },
+      },
+    )
+  }
+
+  if (editing) {
+    return (
+      <Group className={classes.row} gap="xs" wrap="nowrap">
+        <LocationKindIcon kind={location.kind} />
+        <TextInput
+          aria-label={strings.setup.renameNameLabel(location.name)}
+          data-autofocus
+          w="100%"
+          value={draft}
+          error={nameError}
+          onChange={(event) => {
+            setDraft(event.currentTarget.value)
+            if (renameLocation.error !== null) renameLocation.reset()
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              submit()
+            } else if (event.key === 'Escape') {
+              event.preventDefault()
+              cancelEditing()
+            }
+          }}
+        />
+        <Group gap="xs" wrap="nowrap">
+          <Tooltip label={strings.setup.saveRename}>
+            <ActionIcon
+              variant="subtle"
+              color="green"
+              aria-label={strings.setup.saveRename}
+              loading={renameLocation.isPending}
+              disabled={draft.trim() === ''}
+              onClick={submit}
+            >
+              <Check size="1.1rem" aria-hidden />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label={strings.setup.cancelRename}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              aria-label={strings.setup.cancelRename}
+              onClick={cancelEditing}
+            >
+              <X size="1.1rem" aria-hidden />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      </Group>
+    )
+  }
+
   return (
     <Group className={classes.row} gap="sm" wrap="nowrap">
       <LocationKindIcon kind={location.kind} />
@@ -187,6 +278,16 @@ function LocationRow({
         {location.name}
       </Text>
       <Group className={classes.actions} gap="xs" wrap="nowrap">
+        <Tooltip label={strings.setup.renameLocationLabel(location.name)}>
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            aria-label={strings.setup.renameLocationLabel(location.name)}
+            onClick={startEditing}
+          >
+            <Pencil size="1.1rem" aria-hidden />
+          </ActionIcon>
+        </Tooltip>
         <Tooltip label={strings.setup.removeLocationLabel(location.name)}>
           <ActionIcon
             variant="subtle"
@@ -236,6 +337,7 @@ function AddChild({
 }) {
   const createLocation = useCreateLocation()
   const [name, setName] = useState('')
+  const nameError = isConflictError(createLocation.error) ? strings.setup.duplicateName : null
 
   const submit = () => {
     const trimmed = name.trim()
@@ -251,13 +353,18 @@ function AddChild({
   }
 
   return (
-    <Group gap="xs" align="flex-end" py="xs">
+    // The name field grows to fill the row (ITEM C): a wide, obvious target
+    // instead of a cramped box, with the add button pinned to its right.
+    <Group gap="xs" align="flex-start" py="xs" wrap="nowrap">
       <TextInput
         aria-label={label}
         placeholder={placeholder}
+        flex={1}
         value={name}
+        error={nameError}
         onChange={(event) => {
           setName(event.currentTarget.value)
+          if (createLocation.error !== null) createLocation.reset()
         }}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {

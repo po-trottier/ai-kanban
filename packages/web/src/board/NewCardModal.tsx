@@ -34,7 +34,7 @@ export function NewCardModal({
   })
 
   return (
-    <Modal opened onClose={onClose} title={strings.newCard.modalTitle} size="lg">
+    <Modal opened onClose={onClose} title={strings.newCard.modalTitle} size="lg" centered>
       <form
         noValidate
         onSubmit={(event) => {

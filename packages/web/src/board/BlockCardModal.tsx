@@ -14,7 +14,7 @@ export function BlockCardModal({ onSubmit, onClose }: BlockCardModalProps) {
   const error = touched && reason.trim() === '' ? strings.blockAction.reasonRequired : null
 
   return (
-    <Modal opened onClose={onClose} title={strings.blockAction.modalTitle}>
+    <Modal opened onClose={onClose} title={strings.blockAction.modalTitle} centered>
       <Stack gap="md">
         <Textarea
           label={strings.blockAction.reasonLabel}

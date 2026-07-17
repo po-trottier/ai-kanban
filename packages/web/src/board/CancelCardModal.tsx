@@ -13,7 +13,7 @@ export function CancelCardModal({ onSubmit, onClose }: CancelCardModalProps) {
   const [resolution, setResolution] = useState<CancelResolution>('cancelled')
 
   return (
-    <Modal opened onClose={onClose} title={strings.cancelAction.modalTitle}>
+    <Modal opened onClose={onClose} title={strings.cancelAction.modalTitle} centered>
       <Stack gap="md">
         <Select
           label={strings.cancelAction.resolutionLabel}

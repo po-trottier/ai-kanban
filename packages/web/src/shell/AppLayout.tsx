@@ -1,13 +1,4 @@
-import {
-  ActionIcon,
-  AppShell,
-  Avatar,
-  Button,
-  Group,
-  Menu,
-  Title,
-  UnstyledButton,
-} from '@mantine/core'
+import { ActionIcon, AppShell, Avatar, Group, Menu, Title, UnstyledButton } from '@mantine/core'
 import { useState } from 'react'
 import { Link, Outlet, useMatch, useNavigate } from 'react-router'
 import { useLogout } from '../api/auth.ts'
@@ -81,11 +72,14 @@ export function AppLayout() {
             </UnstyledButton>
             <div className={classes.headerSearch}>{onBoardRoute ? <HeaderSearch /> : null}</div>
             <Group gap="sm">
-              <BoardLegend />
-              <Button component={Link} to="/search" variant="subtle" color="gray" size="sm">
-                {strings.search.openButton}
-              </Button>
+              {/* Right cluster (ITEM A), left→right: New card, the badge-legend
+                  help icon, the admin-only settings gear, then the avatar menu.
+                  The centered live-search (above) and this help icon replace the
+                  former "Search cards" and "What do the badges mean?" text
+                  buttons; global/archived search stays reachable via /search
+                  from the header-filter empty state. */}
               <NewCardButton />
+              <BoardLegend />
               {me.role === 'admin' ? (
                 <ActionIcon
                   component={Link}
