@@ -113,18 +113,20 @@ function SetupAccountForm({ onCreated }: { onCreated: () => void }) {
           {strings.setup.intro}
         </Text>
         {setup.error !== null ? <ErrorAlert error={setup.error} /> : null}
+        {/* Name before email — consistent with the settings add-user form and
+            the users table (Name, Email, Role). */}
+        <TextInput
+          label={strings.setup.displayName}
+          autoComplete="name"
+          error={form.formState.errors.displayName?.message}
+          {...form.register('displayName')}
+        />
         <TextInput
           label={strings.auth.email}
           type="email"
           autoComplete="email"
           error={form.formState.errors.email?.message}
           {...form.register('email')}
-        />
-        <TextInput
-          label={strings.setup.displayName}
-          autoComplete="name"
-          error={form.formState.errors.displayName?.message}
-          {...form.register('displayName')}
         />
         <PasswordInput
           label={strings.auth.password}
