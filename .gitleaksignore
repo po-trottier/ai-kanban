@@ -1,0 +1,7 @@
+# False positives: base64url pagination-cursor test fixtures (they encode
+# {"createdAt":...,"id":...} JSON, so they start with "eyJ" and pattern-match
+# the generic-api-key rule). Known vectors, not secrets — see
+# packages/core/src/domain/cursor.unit.test.ts.
+0cee0fd2e7e1d675a3e42f61ec709e632449f59e:packages/core/src/domain/cursor.unit.test.ts:generic-api-key:16
+0cee0fd2e7e1d675a3e42f61ec709e632449f59e:packages/core/src/domain/cursor.unit.test.ts:generic-api-key:19
+0cee0fd2e7e1d675a3e42f61ec709e632449f59e:packages/core/src/domain/cursor.unit.test.ts:generic-api-key:21

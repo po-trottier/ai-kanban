@@ -1,0 +1,10 @@
+# OSV-Scanner per-directory config (applies to package-lock.json in this directory).
+
+[[IgnoredVulns]]
+id = "GHSA-67mh-4wv8-2f99"
+reason = """esbuild 0.18.20 dev-server CORS issue (Medium, CVSS 5.3). Only reachable via
+esbuild's serve mode, which is never invoked here: the vulnerable copy is a transitive dev
+dependency of drizzle-kit's deprecated @esbuild-kit/esm-loader chain, used purely as a CLI
+config bundler. drizzle-kit itself already ships esbuild 0.25.x. Tracked follow-up (cleanup
+task, 2026-07-16): replace this ignore with an npm override pinning the @esbuild-kit chain to
+esbuild >=0.25, or drop it when drizzle-kit removes the legacy loader."""
