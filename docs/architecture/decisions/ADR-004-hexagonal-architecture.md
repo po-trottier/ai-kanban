@@ -1,6 +1,7 @@
 # ADR-004: Hexagonal architecture — one framework-free core, three thin inbound adapters
 
-**Status**: accepted (2026-07-16)
+**Status**: accepted (2026-07-16); service roster amended by
+[ADR-015](ADR-015-core-service-roster.md)
 
 ## Context
 

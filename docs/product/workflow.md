@@ -31,6 +31,10 @@ drag target). See [Terminal states](#terminal-states) for the exact semantics.
   regardless of which lane the card came from.
 - **Reopen** (any card in `done`, including cancelled and archived): clears `resolution` and
   `archived_at`, emits `card.reopened`, and places the card at the **bottom** of Ready.
+  Dragging a non-archived card out of `done` is reopen semantics too: it consults the same
+  `reopen` action gate and clears `resolution`, but honors the drag's target lane/position and
+  is recorded as an ordinary `card.status_changed` event. Archived cards can only be reopened
+  through the explicit action.
 - **Archival**: applies to every card in `done` (completed or cancelled) 90 days after entering
   it. Archived cards are **read-only except reopen**; any other mutation returns
   `409` (`card-archived`).
@@ -94,8 +98,9 @@ To keep the lane from becoming a black hole:
   (recorded in the `card.status_changed` payload, not as separate field events); re-entry
   requires fresh values. Staleness queries therefore only ever match cards currently waiting.
 - A scheduled job sends one Slack DM per overdue episode (tracked via `resume_alerted_at`,
-  cleared on lane exit or when the date changes) to the assignee (if any) and to all active
-  users with the supervisor role.
+  cleared on lane exit) to the assignee (if any) and to all active users with the supervisor
+  role. Pushing the resume date out is done by moving the card out and back in with fresh
+  values — which resets the episode; there is no in-place date edit in v1.
 - The lane has its own seeded WIP limit.
 
 ## WIP limits

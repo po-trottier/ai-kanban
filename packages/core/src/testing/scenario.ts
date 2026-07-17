@@ -1,0 +1,214 @@
+import { generateKeyBetween } from 'fractional-indexing'
+import { LANE_KEYS, type LaneKey, type Role } from '../domain/constants.ts'
+import { type Actor, type Card, type Lane, type User } from '../domain/entities.ts'
+import { DEFAULT_POLICY_DOCUMENT, type PolicyDocument } from '../domain/policy.ts'
+import { AttachmentService } from '../services/attachment-service.ts'
+import { BoardQueryService } from '../services/board-query-service.ts'
+import { CardService } from '../services/card-service.ts'
+import { CommentService } from '../services/comment-service.ts'
+import { PolicyService } from '../services/policy-service.ts'
+import {
+  CapturingEventBus,
+  CapturingNotifier,
+  FixedClock,
+  InMemoryBlobStore,
+  SequentialIdGenerator,
+} from './fakes.ts'
+import { InMemoryDb } from './in-memory-db.ts'
+
+/**
+ * One fully-wired test world: fakes + services + the structural seed (board,
+ * 7 lanes, users of every role, the active policy version). Every test file
+ * creates fresh instances — no shared mutable fixtures (docs/dev/testing.md).
+ */
+
+/** Stable fixture ids, disjoint from SequentialIdGenerator's `00000000-…` range. */
+export function fixtureId(n: number): string {
+  return `10000000-0000-7000-8000-${n.toString(16).padStart(12, '0')}`
+}
+
+export const SCENARIO_BOARD_ID = fixtureId(1)
+
+export interface ScenarioOptions {
+  policy?: PolicyDocument
+  /**
+   * Leave `board_policies` empty to exercise missing-structural-seed behavior:
+   * every policy consultation fails with NotFoundError (no silent fallback).
+   */
+  omitPolicyRecord?: boolean
+  wipLimits?: Partial<Record<LaneKey, number>>
+  nowIso?: string
+}
+
+export interface Scenario {
+  db: InMemoryDb
+  clock: FixedClock
+  ids: SequentialIdGenerator
+  eventBus: CapturingEventBus
+  notifier: CapturingNotifier
+  blobStore: InMemoryBlobStore
+  boardId: string
+  lanes: Record<LaneKey, Lane>
+  users: Record<Role, User>
+  systemUser: User
+  actors: Record<Role, Actor> & {
+    system: Actor
+    mcpRead: Actor
+    mcpReadWrite: Actor
+    /** A Slack-surface actor resolved to the technician board user. */
+    slack: Actor
+  }
+  cards: CardService
+  comments: CommentService
+  attachments: AttachmentService
+  queries: BoardQueryService
+  policies: PolicyService
+  /** Seeds a card directly into committed state, auto-positioned in its lane. */
+  seedCard(overrides?: Partial<Card>): Card
+}
+
+export function createScenario(options: ScenarioOptions = {}): Scenario {
+  const db = new InMemoryDb()
+  const clock = new FixedClock(options.nowIso ?? '2026-07-16T12:00:00.000Z')
+  const ids = new SequentialIdGenerator()
+  const eventBus = new CapturingEventBus()
+  const notifier = new CapturingNotifier()
+  const blobStore = new InMemoryBlobStore()
+  const boardId = SCENARIO_BOARD_ID
+  const nowIso = clock.now().toISOString()
+
+  const wipLimits = new Map(Object.entries(options.wipLimits ?? {}))
+  const lanes = Object.fromEntries(
+    LANE_KEYS.map((key, index) => {
+      const lane: Lane = {
+        id: fixtureId(10 + index),
+        boardId,
+        key,
+        label: key,
+        position: index,
+        wipLimit: wipLimits.get(key) ?? null,
+      }
+      db.seedLane(lane)
+      return [key, lane] as const
+    }),
+  ) as Record<LaneKey, Lane>
+
+  const roleList: Role[] = ['requester', 'technician', 'supervisor', 'admin']
+  const users = Object.fromEntries(
+    roleList.map((role, index) => {
+      const user: User = {
+        id: fixtureId(20 + index),
+        email: `${role}@example.com`,
+        displayName: role,
+        role,
+        mustChangePassword: false,
+        slackUserId: null,
+        isActive: true,
+        createdAt: nowIso,
+      }
+      db.seedUser(user)
+      return [role, user] as const
+    }),
+  ) as Record<Role, User>
+  const systemUser: User = {
+    id: fixtureId(29),
+    email: 'system@example.com',
+    displayName: 'Automation',
+    role: 'admin',
+    mustChangePassword: false,
+    slackUserId: null,
+    isActive: true,
+    createdAt: nowIso,
+  }
+  db.seedUser(systemUser)
+
+  if (options.omitPolicyRecord !== true) {
+    db.seedPolicy({
+      id: fixtureId(30),
+      boardId,
+      config: options.policy ?? DEFAULT_POLICY_DOCUMENT,
+      createdBy: users.admin.id,
+      createdAt: nowIso,
+    })
+  }
+
+  const actorOf = (user: User): Actor => ({ kind: 'user', id: user.id, role: user.role })
+  const actors: Scenario['actors'] = {
+    requester: actorOf(users.requester),
+    technician: actorOf(users.technician),
+    supervisor: actorOf(users.supervisor),
+    admin: actorOf(users.admin),
+    system: { kind: 'system', id: systemUser.id, role: 'admin' },
+    mcpRead: { kind: 'mcp', id: fixtureId(40), role: 'technician', scope: 'read' },
+    mcpReadWrite: { kind: 'mcp', id: fixtureId(41), role: 'technician', scope: 'read_write' },
+    slack: { kind: 'slack', id: users.technician.id, role: 'technician' },
+  }
+
+  const shared = { uow: db, clock, ids, eventBus }
+  const cards = new CardService({ ...shared, notifier, boardId })
+  const comments = new CommentService(shared)
+  const attachments = new AttachmentService({ ...shared, blobStore })
+  const queries = new BoardQueryService({ uow: db, clock, boardId })
+  const policies = new PolicyService({ ...shared, boardId })
+
+  let seedCounter = 100
+  const lastPositionByLane = new Map<string, string>()
+  const seedCard = (overrides: Partial<Card> = {}): Card => {
+    seedCounter += 1
+    const laneId = overrides.laneId ?? lanes.intake.id
+    const position =
+      overrides.position ?? generateKeyBetween(lastPositionByLane.get(laneId) ?? null, null)
+    lastPositionByLane.set(laneId, position)
+    const card: Card = {
+      id: fixtureId(seedCounter),
+      boardId,
+      laneId,
+      position,
+      title: `Card ${seedCounter.toString()}`,
+      description: '',
+      priority: 'P2',
+      estimateMinutes: null,
+      reporterId: users.requester.id,
+      assigneeId: null,
+      locationId: null,
+      origin: 'manual',
+      resolution: null,
+      blocked: false,
+      blockedReason: null,
+      blockedAt: null,
+      waitingReason: null,
+      expectedResumeAt: null,
+      resumeAlertedAt: null,
+      slackChannelId: null,
+      slackThreadTs: null,
+      slackPermalink: null,
+      version: 1,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      archivedAt: null,
+      ...overrides,
+    }
+    db.seedCard(card)
+    return card
+  }
+
+  return {
+    db,
+    clock,
+    ids,
+    eventBus,
+    notifier,
+    blobStore,
+    boardId,
+    lanes,
+    users,
+    systemUser,
+    actors,
+    cards,
+    comments,
+    attachments,
+    queries,
+    policies,
+    seedCard,
+  }
+}

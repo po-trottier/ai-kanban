@@ -30,7 +30,19 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['packages/*/src/**'],
-      exclude: ['**/*.test.*', '**/test/**', '**/migrations/**'],
+      // Excluded: tests, migrations, assets, and pure entry points (re-export
+      // barrels and process mains — no logic, wired by the composition root).
+      exclude: [
+        '**/*.test.*',
+        '**/test/**',
+        '**/migrations/**',
+        '**/*.css',
+        '**/src/index.ts',
+        '**/src/testing/index.ts',
+        '**/src/main.ts',
+        '**/src/main.tsx',
+        '**/src/cli.ts',
+      ],
       thresholds: {
         'packages/core/**': { lines: 90, functions: 90, statements: 90, branches: 85 },
         'packages/db/**': { lines: 90, functions: 90, statements: 90, branches: 85 },

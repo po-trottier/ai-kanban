@@ -17,9 +17,21 @@ module.exports = {
       comment:
         'packages/core owns the domain and its ports; it may depend only on pure algorithm libraries (zod, fractional-indexing, uuidv7) — never on other packages, frameworks, or node builtins.',
       severity: 'error',
-      from: { path: '^packages/core/src' },
+      from: { path: '^packages/core/src', pathNot: '\\.unit\\.test\\.ts$' },
       to: {
         pathNot: '^(packages/core/src|node_modules/(zod|fractional-indexing|uuidv7)([/]|$))',
+        dependencyTypesNot: ['type-only'],
+      },
+    },
+    {
+      name: 'core-unit-tests-almost-pure',
+      comment:
+        'Core unit tests (colocated under src/ per docs/dev/testing.md) may additionally import the test runner — nothing else.',
+      severity: 'error',
+      from: { path: '^packages/core/src/.*\\.unit\\.test\\.ts$' },
+      to: {
+        pathNot:
+          '^(packages/core/src|node_modules/(zod|fractional-indexing|uuidv7|vitest|@vitest)([/]|$))',
         dependencyTypesNot: ['type-only'],
       },
     },
