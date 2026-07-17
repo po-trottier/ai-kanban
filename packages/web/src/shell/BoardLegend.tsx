@@ -3,6 +3,7 @@ import { HelpCircle } from 'lucide-react'
 import { useState } from 'react'
 import { strings } from '../strings.ts'
 import {
+  ARCHIVED_COLOR,
   BLOCKED_COLOR,
   CANCELLED_COLOR,
   EMPHASIS_FONT_WEIGHT,
@@ -97,7 +98,7 @@ export function BoardLegend() {
             text={strings.board.legendCancelled}
           />
           <LegendRow
-            color={CANCELLED_COLOR}
+            color={ARCHIVED_COLOR}
             variant="outline"
             label={strings.card.archivedBadge}
             text={strings.board.legendArchived}

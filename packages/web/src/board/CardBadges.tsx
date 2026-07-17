@@ -2,6 +2,7 @@ import { isOverdueResume, type BoardCard, type Card } from '@rivian-kanban/core'
 import { Badge, Group, Tooltip } from '@mantine/core'
 import { strings } from '../strings.ts'
 import {
+  ARCHIVED_COLOR,
   BLOCKED_COLOR,
   CANCELLED_COLOR,
   OVERDUE_COLOR,
@@ -78,7 +79,7 @@ export function CardBadges({
         </Badge>
       ) : null}
       {card.archivedAt !== null ? (
-        <Badge color={CANCELLED_COLOR} size="sm" variant="outline">
+        <Badge color={ARCHIVED_COLOR} size="sm" variant="outline">
           {strings.card.archivedBadge}
         </Badge>
       ) : null}

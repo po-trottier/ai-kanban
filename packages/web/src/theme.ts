@@ -85,14 +85,21 @@ export const cssVariablesResolver: CSSVariablesResolver = (resolved) => ({
   dark: {},
 })
 
-/** Severity color roles (theme color names, not literals — token rule 4). */
+/**
+ * Severity/status color roles (theme color names, not literals — token rule 4).
+ * Every state has a DISTINCT hue so no two badges read as the same color:
+ * priorities red/orange/gray, then blocked=grape, waiting=yellow, overdue=pink,
+ * cancelled=dark, archived=gray (the lone outline badge). The former shared
+ * reds (P0 / blocked / overdue) and grays (P2 / cancelled) are gone.
+ */
 export const PRIORITY_COLORS: Record<Priority, MantineColor> = {
   P0: 'red',
   P1: 'orange',
   P2: 'gray',
 }
 
-export const BLOCKED_COLOR: MantineColor = 'red'
+export const BLOCKED_COLOR: MantineColor = 'grape'
 export const WAITING_COLOR: MantineColor = 'yellow'
-export const OVERDUE_COLOR: MantineColor = 'red'
-export const CANCELLED_COLOR: MantineColor = 'gray'
+export const OVERDUE_COLOR: MantineColor = 'pink'
+export const CANCELLED_COLOR: MantineColor = 'dark'
+export const ARCHIVED_COLOR: MantineColor = 'gray'
