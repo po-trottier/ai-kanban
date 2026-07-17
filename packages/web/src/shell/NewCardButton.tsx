@@ -1,4 +1,5 @@
 import { Button } from '@mantine/core'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useCreateCard } from '../api/board.ts'
 import { useLocations, useTags, useUsers } from '../api/meta.ts'
@@ -17,6 +18,7 @@ export function NewCardButton() {
     <>
       <Button
         size="sm"
+        leftSection={<Plus size={16} aria-hidden />}
         onClick={() => {
           setOpen(true)
         }}
