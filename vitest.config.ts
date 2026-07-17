@@ -42,6 +42,8 @@ export default defineConfig({
         '**/src/main.ts',
         '**/src/main.tsx',
         '**/src/cli.ts',
+        '**/src/migrate-cli.ts',
+        '**/src/seed-cli.ts',
       ],
       thresholds: {
         'packages/core/**': { lines: 90, functions: 90, statements: 90, branches: 85 },

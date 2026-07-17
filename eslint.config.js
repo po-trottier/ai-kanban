@@ -73,7 +73,11 @@ export default tseslint.config(
 
   // CLI entrypoints may write to the console
   {
-    files: ['packages/server/src/cli.ts', 'packages/db/src/seed-cli.ts'],
+    files: [
+      'packages/server/src/cli.ts',
+      'packages/db/src/seed-cli.ts',
+      'packages/db/src/migrate-cli.ts',
+    ],
     rules: { 'no-console': 'off' },
   },
 
