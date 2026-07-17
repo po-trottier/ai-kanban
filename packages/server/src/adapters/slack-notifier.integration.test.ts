@@ -1,4 +1,6 @@
+import { pino } from 'pino'
 import { afterEach, describe, expect, it } from 'vitest'
+import { runWaitingAgingAlerts } from '../jobs/waiting-aging-alerts.ts'
 import { startSlackFixture, type SlackFixture } from '../test/slack.ts'
 import { createTestApp, type TestApp } from '../test/support.ts'
 
@@ -133,5 +135,82 @@ describe('SlackNotifier (review→done completion DMs)', () => {
 
     expect(response.statusCode).toBe(200)
     expect(slack.callsTo('chat.postMessage')).toHaveLength(0)
+  })
+})
+
+describe('SlackNotifier (waiting-lane overdue DMs via the aging job)', () => {
+  /** Runs the real hourly job with the WIRED notifier (fixture Web API). */
+  async function runAgingJob(): Promise<{ alerted: number }> {
+    return runWaitingAgingAlerts({
+      uow: t.wired.deps.uow,
+      clock: t.wired.deps.clock,
+      notifier: t.wired.notifier,
+      logger: pino({ level: 'silent' }),
+      boardId: t.wired.boardId,
+    })
+  }
+
+  async function moveToWaiting(cookie: string, card: CardBody): Promise<CardBody> {
+    const response = await t.request(cookie, {
+      method: 'POST',
+      url: `/api/v1/cards/${card.id}/move`,
+      headers: { 'if-match': `"${String(card.version)}"` },
+      payload: {
+        toLane: 'waiting_parts_vendor',
+        waitingReason: 'parts',
+        // Long past — the real SystemClock sees the card as overdue.
+        expectedResumeAt: '2020-01-01',
+      },
+    })
+    if (response.statusCode !== 200) throw new Error(`move failed: ${response.body}`)
+    return response.json<CardBody>()
+  }
+
+  it('DMs the assignee and the supervisor, one message each', async () => {
+    await bootWithSlack()
+    const supervisor = await t.asRole('supervisor')
+    const technician = await t.createUser('technician', { slackUserId: 'U0TECH' })
+    slack.setUserEmail('U0SUPERVISOR', supervisor.user.email)
+    slack.setUserEmail('U0TECH', technician.user.email)
+    const created = await t.request(supervisor.cookie, {
+      method: 'POST',
+      url: '/api/v1/cards',
+      payload: { title: 'Overdue compressor part', assigneeId: technician.user.id },
+    })
+    const card = await moveToWaiting(supervisor.cookie, created.json<CardBody>())
+
+    const summary = await runAgingJob()
+
+    expect(summary.alerted).toBe(1)
+    const dms = slack.callsTo('chat.postMessage')
+    expect(dms.map((dm) => dm.channel).sort()).toEqual(['U0SUPERVISOR', 'U0TECH'])
+    for (const dm of dms) {
+      expect(String(dm.text)).toContain('Overdue compressor part')
+      expect(String(dm.text)).toContain('2020-01-01')
+      expect(String(dm.text)).toContain(`/cards/${card.id}`)
+    }
+  })
+
+  it('skips unmatched recipients without losing the others — and never re-fires', async () => {
+    await bootWithSlack()
+    const supervisor = await t.asRole('supervisor')
+    // The supervisor has no Slack directory entry; the technician does.
+    const technician = await t.createUser('technician', { slackUserId: 'U0TECH' })
+    slack.setUserEmail('U0TECH', technician.user.email)
+    const created = await t.request(supervisor.cookie, {
+      method: 'POST',
+      url: '/api/v1/cards',
+      payload: { title: 'Half-matched recipients', assigneeId: technician.user.id },
+    })
+    await moveToWaiting(supervisor.cookie, created.json<CardBody>())
+
+    const first = await runAgingJob()
+    const second = await runAgingJob()
+
+    expect(first.alerted).toBe(1)
+    expect(second.alerted).toBe(0)
+    const dms = slack.callsTo('chat.postMessage')
+    expect(dms).toHaveLength(1)
+    expect(dms[0]?.channel).toBe('U0TECH')
   })
 })

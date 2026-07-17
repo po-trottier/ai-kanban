@@ -21,8 +21,12 @@ export interface DbConnection {
  * synchronous, SQLite is single-writer, and the unit-of-work's manual
  * BEGIN/COMMIT discipline assumes no other connection shares the file from
  * this process.
+ *
+ * `migrationsFolder` defaults to this package's checked-in ./migrations; the
+ * production bundle passes MIGRATIONS_DIR explicitly because esbuild
+ * relocates this module away from the source tree (deployment.md#image).
  */
-export function openDatabase(databasePath: string): DbConnection {
+export function openDatabase(databasePath: string, migrationsFolder?: string): DbConnection {
   mkdirSync(dirname(databasePath), { recursive: true })
   const raw = new Database(databasePath)
   raw.pragma('journal_mode = WAL')
@@ -30,7 +34,9 @@ export function openDatabase(databasePath: string): DbConnection {
   raw.pragma('busy_timeout = 5000')
   raw.pragma('foreign_keys = ON')
   const db = drizzle({ client: raw })
-  migrate(db, { migrationsFolder: fileURLToPath(new URL('../migrations', import.meta.url)) })
+  migrate(db, {
+    migrationsFolder: migrationsFolder ?? fileURLToPath(new URL('../migrations', import.meta.url)),
+  })
   return {
     db,
     raw,

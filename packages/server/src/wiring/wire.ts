@@ -11,7 +11,9 @@ import {
   SystemClock,
   Uuidv7IdGenerator,
   type Card,
+  type IdGenerator,
   type NotifierPort,
+  type User,
 } from '@rivian-kanban/core'
 import {
   demoSeed,
@@ -33,6 +35,8 @@ import { LoginBackoff } from '../auth/backoff.ts'
 import { PasswordHasher, type Argon2Params } from '../auth/password-hasher.ts'
 import { type Env } from '../env.ts'
 import { LaneAdminService } from '../lanes/lane-admin-service.ts'
+import { AppMetrics } from '../metrics/metrics.ts'
+import { createMetricCollectors } from './metric-collectors.ts'
 import { LocationAdminService } from '../locations/location-admin-service.ts'
 import { ServiceTokenService } from '../tokens/service-token-service.ts'
 import { UserAdminService } from '../users/user-admin-service.ts'
@@ -45,9 +49,13 @@ import { type AppConfig, type AppDeps } from '../types.ts'
  * adapters into services → hand `AppDeps` to `buildApp`.
  */
 
-/** The default notifier: completion DMs are dropped unless Slack is enabled. */
+/** The default notifier: all DMs are dropped unless Slack is enabled. */
 class NoopNotifier implements NotifierPort {
   cardCompleted(_card: Card): Promise<void> {
+    return Promise.resolve()
+  }
+
+  waitingOverdue(_card: Card, _recipients: User[]): Promise<void> {
     return Promise.resolve()
   }
 }
@@ -76,6 +84,10 @@ export interface WiredApp {
   hasher: PasswordHasher
   systemUserId: string
   boardId: string
+  /** The wired NotifierPort — the scheduled-jobs wiring DMs through it. */
+  notifier: NotifierPort
+  /** The production id generator — the scheduled-jobs wiring mints audit ids with it. */
+  ids: IdGenerator
   /**
    * One-time demo credentials, present only when this boot replaced the db
    * package's placeholder hashes (SEED_DEMO_DATA, non-production). Printed
@@ -107,7 +119,9 @@ function defaultSpaRoot(): string | null {
 }
 
 export async function wireApp(env: Env, options: WireOptions = {}): Promise<WiredApp> {
-  const connection = openDatabase(env.DATABASE_PATH)
+  // MIGRATIONS_DIR is only set where the source tree is not present (the
+  // bundled image); dev/test boots resolve packages/db's own migrations.
+  const connection = openDatabase(env.DATABASE_PATH, env.MIGRATIONS_DIR)
   const { boardId, systemUserId } = structuralSeed(connection.db)
 
   const uow = new SqliteUnitOfWork(connection)
@@ -149,6 +163,11 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
       : new NoopNotifier()
   const hasher = new PasswordHasher(options.hasherParams)
   const backoff = new LoginBackoff(clock)
+  // One registry per wired app (never prom-client's global): production has
+  // one, and every integration-test boot owns an isolated metric set.
+  const metrics = new AppMetrics(
+    createMetricCollectors({ databasePath: env.DATABASE_PATH, blobDir: env.BLOB_DIR }),
+  )
 
   const demoCredentials: DemoCredential[] = []
   if (env.SEED_DEMO_DATA && env.NODE_ENV !== 'production') {
@@ -189,7 +208,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     trustProxyHops: env.TRUST_PROXY_HOPS,
     logLevel: options.logLevel ?? env.LOG_LEVEL,
     version: { version: env.APP_VERSION, gitSha: env.GIT_SHA, builtAt: env.BUILT_AT },
-    spaRoot: options.spaRoot !== undefined ? options.spaRoot : defaultSpaRoot(),
+    spaRoot: options.spaRoot !== undefined ? options.spaRoot : (env.SPA_DIR ?? defaultSpaRoot()),
     rateLimits: { ...DEFAULT_RATE_LIMITS, ...options.rateLimits },
     sse: { ...DEFAULT_SSE, ...options.sse },
     uploads: { ...DEFAULT_UPLOADS, ...options.uploads },
@@ -197,11 +216,13 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
   }
 
   return {
-    deps: { config, logger, uow, clock, eventBus, blobStore, services, systemUserId },
+    deps: { config, logger, uow, clock, eventBus, blobStore, metrics, services, systemUserId },
     connection,
     hasher,
     systemUserId,
     boardId,
+    notifier,
+    ids,
     demoCredentials,
   }
 }

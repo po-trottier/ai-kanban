@@ -155,13 +155,20 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
     { capabilities: { tools: {} } },
   )
 
-  /** Domain errors become problem-shaped tool errors; unknowns are sanitized. */
+  /**
+   * Domain errors become problem-shaped tool errors; unknowns are sanitized.
+   * Every invocation lands in the per-tool outcome counter
+   * (deployment.md#observability) — denials and failures count as errors.
+   */
   const guarded =
-    <Args extends unknown[]>(run: (...args: Args) => Promise<CallToolResult>) =>
+    <Args extends unknown[]>(tool: string, run: (...args: Args) => Promise<CallToolResult>) =>
     async (...args: Args): Promise<CallToolResult> => {
       try {
-        return await run(...args)
+        const result = await run(...args)
+        deps.metrics.mcpToolCalled(tool, 'success')
+        return result
       } catch (error) {
+        deps.metrics.mcpToolCalled(tool, 'error')
         const { status, body } = toProblem(error)
         if (status >= 500) log.error({ err: error }, 'mcp tool failed')
         return { isError: true, content: [{ type: 'text', text: JSON.stringify(body, null, 2) }] }
@@ -174,12 +181,36 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
    * Core's policy engine independently re-denies read-scope writes.
    */
   const mutating = <Args extends unknown[]>(
+    tool: string,
     run: (...args: Args) => Promise<CallToolResult>,
   ): ((...args: Args) => Promise<CallToolResult>) =>
-    guarded(async (...args: Args) => {
+    guarded(tool, async (...args: Args) => {
       ensureWriteScope(actor)
       return run(...args)
     })
+
+  /**
+   * Registration helpers binding the tool name ONCE for both the SDK
+   * registration and the outcome-counter wrapper — a rename or copy-paste can
+   * never silently mislabel `mcp_tool_calls_total`. Typed as registerTool
+   * itself, so call sites keep the SDK's schema↔handler generic checking.
+   */
+  const registerVia =
+    (wrap: typeof guarded): McpServer['registerTool'] =>
+    (name, config, handler) =>
+      // The casts bridge the SDK's conditional ToolCallback type through the
+      // uniform wrapper, which passes arguments and results through untouched;
+      // the registerVia signature keeps every call site fully checked.
+      server.registerTool(
+        name,
+        config,
+        wrap(
+          name,
+          handler as unknown as (...args: unknown[]) => Promise<CallToolResult>,
+        ) as typeof handler,
+      )
+  const readTool = registerVia(guarded)
+  const writeTool = registerVia(mutating)
 
   /** Resolves `reporterEmail` to a user id, else the seeded system user. */
   const resolveReporterId = async (reporterEmail: string | undefined): Promise<string> => {
@@ -189,7 +220,7 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
     return account.user.id
   }
 
-  server.registerTool(
+  readTool(
     'get_board_snapshot',
     {
       description:
@@ -198,17 +229,17 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
         'get_card / list_cards). Archived cards are excluded.',
       outputSchema: snapshotOutputSchema,
     },
-    guarded(async () => {
+    async () => {
       const snapshot = await queries.boardSnapshot()
       return jsonResult({
         lanes: snapshot.lanes.map(({ lane, cards: laneCards, wipLimitExceeded }) =>
           laneSummaryOf(lane, laneCards, wipLimitExceeded),
         ),
       })
-    }),
+    },
   )
 
-  server.registerTool(
+  readTool(
     'list_cards',
     {
       description:
@@ -218,7 +249,7 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       inputSchema: listCardsToolSchema,
       outputSchema: pageOf(cardSchema),
     },
-    guarded(async (args: z.output<typeof listCardsToolSchema>) => {
+    async (args: z.output<typeof listCardsToolSchema>) => {
       const { cursor, limit, ...filter } = args
       return jsonResult(
         await queries.listCards(filter, {
@@ -226,10 +257,10 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
           ...(cursor !== undefined ? { cursor } : {}),
         }),
       )
-    }),
+    },
   )
 
-  server.registerTool(
+  readTool(
     'get_card',
     {
       description:
@@ -238,17 +269,17 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       inputSchema: getCardToolSchema,
       outputSchema: cardDetailOutputSchema,
     },
-    guarded(async (args: z.output<typeof getCardToolSchema>) => {
+    async (args: z.output<typeof getCardToolSchema>) => {
       const [detail, thread, latestEvents] = await Promise.all([
         queries.cardDetail(args.cardId),
         comments.listForCard(args.cardId),
         queries.latestEvents(args.cardId, LATEST_EVENTS_TAKE),
       ])
       return jsonResult({ ...detail, comments: thread, latestEvents })
-    }),
+    },
   )
 
-  server.registerTool(
+  readTool(
     'get_card_history',
     {
       description:
@@ -257,13 +288,13 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       inputSchema: cardHistoryToolSchema,
       outputSchema: pageOf(cardEventSchema),
     },
-    guarded(async (args: z.output<typeof cardHistoryToolSchema>) => {
+    async (args: z.output<typeof cardHistoryToolSchema>) => {
       const { cardId, ...request } = args
       return jsonResult(await queries.cardHistory(cardId, request))
-    }),
+    },
   )
 
-  server.registerTool(
+  readTool(
     'list_stale_cards',
     {
       description:
@@ -273,12 +304,11 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       inputSchema: staleCardsInputSchema,
       outputSchema: staleCardsOutputSchema,
     },
-    guarded(async (args: z.output<typeof staleCardsInputSchema>) =>
+    async (args: z.output<typeof staleCardsInputSchema>) =>
       jsonResult({ items: await queries.staleCards(args) }),
-    ),
   )
 
-  server.registerTool(
+  writeTool(
     'create_card',
     {
       description:
@@ -288,14 +318,14 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       inputSchema: createCardToolSchema,
       outputSchema: cardSchema,
     },
-    mutating(async (args: z.output<typeof createCardToolSchema>) => {
+    async (args: z.output<typeof createCardToolSchema>) => {
       const { reporterEmail, ...input } = args
       const reporterId = await resolveReporterId(reporterEmail)
       return jsonResult(await cards.create(actor, input, { reporterId }))
-    }),
+    },
   )
 
-  server.registerTool(
+  writeTool(
     'update_card',
     {
       description:
@@ -305,13 +335,13 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       inputSchema: updateCardToolSchema,
       outputSchema: cardSchema,
     },
-    mutating(async (args) => {
+    async (args) => {
       const { cardId, ...input } = args
       return jsonResult(await cards.update(actor, cardId, input))
-    }),
+    },
   )
 
-  server.registerTool(
+  writeTool(
     'move_card',
     {
       description:
@@ -323,13 +353,13 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       inputSchema: moveCardToolSchema,
       outputSchema: cardSchema,
     },
-    mutating(async (args) => {
+    async (args) => {
       const { cardId, ...input } = args
       return jsonResult(await cards.move(actor, cardId, input))
-    }),
+    },
   )
 
-  server.registerTool(
+  writeTool(
     'comment_on_card',
     {
       description:
@@ -338,10 +368,10 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       inputSchema: commentToolSchema,
       outputSchema: commentSchema,
     },
-    mutating(async (args) => {
+    async (args) => {
       const { cardId, ...input } = args
       return jsonResult(await comments.add(actor, cardId, input, { authorId: deps.systemUserId }))
-    }),
+    },
   )
 
   return server

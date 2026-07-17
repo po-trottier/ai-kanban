@@ -2,7 +2,7 @@ import { type Card, type NotifierPort, type UnitOfWork, type User } from '@rivia
 import { type WebClient } from '@slack/web-api'
 import { type AdapterLogger } from '../types.ts'
 import { bindSlackIdentity } from '../slack/identity.ts'
-import { completedMessage } from '../slack/messages.ts'
+import { completedMessage, waitingOverdueMessage } from '../slack/messages.ts'
 
 /**
  * The first NotifierPort adapter (docs/architecture/slack.md#notifications-outbound):
@@ -54,6 +54,41 @@ export class SlackNotifier implements NotifierPort {
         { cardId: card.id, reason: error instanceof Error ? error.name : 'unknown' },
         'completion DM failed; skipping',
       )
+    }
+  }
+
+  /**
+   * Waiting-lane overdue alert (workflow.md#waiting-on-parts--vendor-discipline):
+   * one DM per resolved recipient. Per-recipient failures are logged and
+   * skipped — the hourly job already marked the episode as alerted, and one
+   * unmatched supervisor must not cost the others their DM.
+   */
+  async waitingOverdue(card: Card, recipients: User[]): Promise<void> {
+    for (const recipient of recipients) {
+      try {
+        const slackUserId = recipient.slackUserId ?? (await this.lookupAndBind(recipient))
+        if (slackUserId === null) {
+          this.deps.logger.info(
+            { cardId: card.id, userId: recipient.id },
+            'overdue DM skipped: no Slack match for recipient',
+          )
+          continue
+        }
+        await this.deps.client.chat.postMessage({
+          channel: slackUserId,
+          text: waitingOverdueMessage(this.deps.publicBaseUrl, card),
+        })
+      } catch (error) {
+        // Log-and-skip, never throw: alerts are best-effort (NotifierPort).
+        this.deps.logger.warn(
+          {
+            cardId: card.id,
+            userId: recipient.id,
+            reason: error instanceof Error ? error.name : 'unknown',
+          },
+          'overdue DM failed; skipping recipient',
+        )
+      }
     }
   }
 

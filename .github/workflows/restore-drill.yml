@@ -1,0 +1,68 @@
+# Scheduled restore drill (docs/architecture/deployment.md#database-operations,
+# testing.md CI step 7): backups that are never restored don't exist. Weekly:
+# boot the production image, seed it, snapshot via the same VACUUM INTO the
+# nightly job runs, restore that snapshot into a FRESH container (boot runs
+# migrations), and require /readyz plus the seeded data to survive the trip.
+# Actions SHA-pinned, matching ci.yml.
+name: Restore drill
+
+on:
+  schedule:
+    - cron: '30 5 * * 1' # Mondays 05:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  restore-drill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - name: Build the runtime image
+        run: docker build -t rivian-kanban .
+
+      - name: Boot, seed, and snapshot via VACUUM INTO
+        run: |
+          mkdir -p drill/source drill/restore
+          chmod 777 drill/source drill/restore
+          docker run -d --name source -v "$PWD/drill/source:/data" rivian-kanban
+          for i in $(seq 1 30); do
+            docker exec source node -e "fetch('http://127.0.0.1:3000/readyz').then((r)=>process.exit(r.ok?0:1),()=>process.exit(1))" && break
+            sleep 1
+          done
+          docker exec source node -e "fetch('http://127.0.0.1:3000/readyz').then((r)=>process.exit(r.ok?0:1),()=>process.exit(1))"
+          # Structural seed ran at boot; add a marker row the restore must carry.
+          docker exec source npm run cli -- users create-admin --email drill@example.com
+          # The exact mechanism the nightly sqliteSnapshot job uses.
+          docker exec source node -e "
+            require('fs').mkdirSync('/data/snapshots', { recursive: true });
+            const db = require('better-sqlite3')(process.env.DATABASE_PATH);
+            db.pragma('busy_timeout = 5000'); // an in-flight hourly job must not flake the drill
+            db.exec(\"VACUUM INTO '/data/snapshots/drill.sqlite'\");
+            db.close();
+          "
+          docker rm -f source
+
+      - name: Restore the snapshot into a fresh container (migrations + /readyz)
+        run: |
+          cp drill/source/snapshots/drill.sqlite drill/restore/app.sqlite
+          # cp on the runner creates the file as uid 1001 mode 0644; the container's
+          # node user (uid 1000) must WRITE it — the boot switches the vacuumed copy
+          # back to WAL mode and runs migration bookkeeping.
+          chmod 666 drill/restore/app.sqlite
+          docker run -d --name restored -v "$PWD/drill/restore:/data" rivian-kanban
+          for i in $(seq 1 30); do
+            docker exec restored node -e "fetch('http://127.0.0.1:3000/readyz').then((r)=>process.exit(r.ok?0:1),()=>process.exit(1))" && break
+            sleep 1
+          done
+          docker exec restored node -e "fetch('http://127.0.0.1:3000/readyz').then((r)=>process.exit(r.ok?0:1),()=>process.exit(1))"
+          # The marker row created before the snapshot must have survived.
+          docker exec restored node -e "
+            const db = require('better-sqlite3')(process.env.DATABASE_PATH);
+            const row = db.prepare('SELECT email FROM users WHERE email = ?').get('drill@example.com');
+            db.close();
+            if (!row) { console.error('restored snapshot is missing the seeded admin'); process.exit(1); }
+            console.log('restore drill ok:', row.email);
+          "
+          docker rm -f restored

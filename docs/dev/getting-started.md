@@ -37,6 +37,32 @@ harness does for deterministic logins (refused in production, like `SEED_DEMO_DA
 | `npm run db:migrate` / `db:seed` / `db:studio` | drizzle-kit migrate / reseed dev DB / data browser             |
 | `npm run build`                                | compile all packages + SPA bundle                              |
 
+## Docker quickstart
+
+The production topology is one compose stack (see
+[architecture/deployment.md](../architecture/deployment.md) — THE deployment spec):
+
+```bash
+cp .env.example .env                  # set PUBLIC_BASE_URL + TRUST_PROXY_HOPS for your proxy,
+                                      # plus any Slack/summarizer secrets. Compose itself pins
+                                      # NODE_ENV=production and the /data storage paths — dev
+                                      # values in .env cannot leak into the container
+docker compose up -d --build          # build + boot; migrations and the structural seed run at boot
+docker compose exec app npm run cli -- users create-admin --email you@org.com
+                                      # prints a one-time temp password (first admin / break-glass)
+curl http://localhost:3000/readyz     # {"status":"ok"} — the same probe the HEALTHCHECK uses
+```
+
+The SPA, REST API, MCP mount, and SSE all serve from port 3000; Prometheus metrics live on the
+internal 9464 listener that compose deliberately does not publish. Backups (Litestream sidecar)
+are opt-in via `docker compose --profile backup up -d` once `litestream.yml` has real S3
+values. To run the integration suite inside the production image exactly like CI:
+
+```bash
+docker build --target test -t rivian-kanban-test .
+docker run --rm rivian-kanban-test
+```
+
 ## Repository map
 
 Read [architecture/overview.md](../architecture/overview.md) first. Short version:

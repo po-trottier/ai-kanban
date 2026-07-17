@@ -51,7 +51,10 @@ crash in prod.
 | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NODE_ENV`                                                                                                   | `production` disables demo seeding and dev docs UI                                                                                                                |
 | `PORT`, `METRICS_PORT`, `PUBLIC_BASE_URL`, `TRUST_PROXY_HOPS`                                                | serving                                                                                                                                                           |
+| `METRICS_HOST`                                                                                               | metrics bind address: `127.0.0.1` by default; the image sets `0.0.0.0` so the org Prometheus can scrape over the internal network (the port is never published)   |
 | `DATABASE_PATH`, `BLOB_DIR`                                                                                  | `/data/app.sqlite`, `/data/blobs`                                                                                                                                 |
+| `SNAPSHOT_DIR`                                                                                               | nightly `VACUUM INTO` snapshots (`/data/snapshots`); the newest 7 are retained                                                                                    |
+| `MIGRATIONS_DIR`, `SPA_DIR`                                                                                  | image-only path pins (`/app/dist/migrations`, `/app/web`) — the esbuild bundle is relocated from the source tree; leave unset in dev                              |
 | `SEED_DEMO_DATA`                                                                                             | demo fixtures (dev only; refused in production)                                                                                                                   |
 | `SEED_DEMO_PASSWORD`                                                                                         | fixed demo-user password for deterministic dev/e2e logins (unset = random one-time passwords printed at first boot; refused in production)                        |
 | `SLACK_ENABLED`, `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_TEAM_ID`                                       | Slack adapter (all required when enabled)                                                                                                                         |
@@ -63,6 +66,12 @@ sign; see security.md.)
 
 Secrets are injected from the org secret store; the process refuses to boot on invalid config.
 
+`docker-compose.yml` re-pins `NODE_ENV=production` and the `/data` + `/app` path pins in its
+`environment:` block (which overrides `env_file`), so a dev-oriented `.env` copied from
+`.env.example` can never repoint the container off its volume or out of production mode. The
+`.env` file carries operator configuration only: `PUBLIC_BASE_URL`, `TRUST_PROXY_HOPS`, and
+the Slack/summarizer secrets.
+
 ## Database operations
 
 - SQLite in WAL mode (`journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout` set,
@@ -71,11 +80,16 @@ Secrets are injected from the org secret store; the process refuses to boot on i
   forward-only and committed to the repo.
 - **Never copy a live SQLite database file** — a naive file copy of a WAL database silently
   corrupts. Backups are:
-  1. **Litestream** continuous WAL streaming to S3-compatible storage (RPO ~seconds), and
-  2. nightly `VACUUM INTO` snapshots (self-contained files, safe to copy), and
+  1. **Litestream** continuous WAL streaming to S3-compatible storage (RPO ~seconds) — the
+     compose `backup` profile, opt-in until S3 credentials exist (`litestream.yml`), and
+  2. nightly `VACUUM INTO` snapshots (self-contained files, safe to copy) under
+     `SNAPSHOT_DIR`, dated `app-YYYY-MM-DD.sqlite`, newest 7 retained, and
   3. the blob directory synced in the same backup job.
-- **Restore drill**: a scheduled CI job restores the latest snapshot, runs migrations against
-  it, and boots the app read-only — backups that are never restored don't exist.
+- **Restore drill**: the scheduled `restore-drill` workflow boots the image, snapshots via the
+  same `VACUUM INTO`, restores the snapshot into a fresh container (boot runs migrations), and
+  requires `/readyz` plus the seeded data to survive — backups that are never restored don't
+  exist. The equivalent operator command for a Litestream restore is documented at the top of
+  `docker-compose.yml`.
 
 ## Observability
 
@@ -91,6 +105,12 @@ Secrets are injected from the org secret store; the process refuses to boot on i
 Deploys are `docker compose pull && up -d` (brief downtime is acceptable — PO decision).
 Because migrations are forward-only, rollback = restore snapshot + previous image tag.
 Application releases are tagged; the image embeds the git SHA at `/version` and in logs.
+
+Note for operators: single-node Docker never restarts an unhealthy-but-running container —
+the `HEALTHCHECK` feeds `docker compose ps` and monitoring visibility only. A wedged process
+that still answers nothing on `/readyz` needs an operator (`docker compose restart app`);
+`restart: unless-stopped` only covers exits and crashes (acceptable per the brief-downtime
+decision above).
 
 ## Postgres migration (when HA or multi-instance is needed)
 

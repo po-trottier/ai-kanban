@@ -1,0 +1,77 @@
+# Single-node deployment (docs/architecture/deployment.md): one app container
+# (the ONLY writer to the SQLite database — never scale beyond 1 replica), one
+# opt-in Litestream sidecar, one named volume. TLS + client-IP handling live
+# at the org reverse proxy in front (X-Forwarded-For + TRUST_PROXY_HOPS).
+#
+# Bootstrap (first deployment):
+#   cp .env.example .env   # then set PUBLIC_BASE_URL + TRUST_PROXY_HOPS for the org proxy,
+#                          # plus any Slack/summarizer secrets (.env is optional for a bare boot)
+#   docker compose up -d --build
+#   docker compose exec app npm run cli -- users create-admin --email you@org.com
+#
+# Backups become continuous once S3 credentials exist (litestream.yml + .env):
+#   docker compose --profile backup up -d
+#
+# Restore drill (deployment.md#database-operations — a backup that was never
+# restored does not exist). Restore the latest Litestream generation into a
+# scratch file on the data volume, then verify it boots in a throwaway app
+# container pointed at the restored copy:
+#   docker compose --profile backup run --rm litestream \
+#     restore -config /etc/litestream.yml -o /data/restore-drill.sqlite /data/app.sqlite
+#   docker compose run --rm --no-deps -e DATABASE_PATH=/data/restore-drill.sqlite \
+#     --entrypoint sh app -c 'node dist/main.js & for i in $(seq 1 30); do \
+#       node -e "fetch(\"http://127.0.0.1:3000/readyz\").then((r)=>process.exit(r.ok?0:1),()=>process.exit(1))" && exit 0; sleep 1; done; exit 1'
+# (The nightly VACUUM INTO snapshots under /data/snapshots restore the same
+# way: copy the snapshot over DATABASE_PATH of a fresh volume and boot. The
+# scheduled restore-drill CI workflow exercises exactly that path weekly.)
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+        GIT_SHA: ${GIT_SHA:-dev}
+        BUILT_AT: ${BUILT_AT:-dev}
+    image: rivian-kanban:latest
+    restart: unless-stopped
+    env_file:
+      # Operator configuration only: secrets, PUBLIC_BASE_URL, TRUST_PROXY_HOPS,
+      # Slack/summarizer settings. Optional so the header's bare bootstrap works.
+      - path: .env
+        required: false
+    environment:
+      # Non-negotiable image facts, re-pinned at the compose level because
+      # `environment` overrides `env_file`: a dev-oriented .env (NODE_ENV=
+      # development, ./data storage paths) must never repoint the container
+      # off the named volume or out of production mode.
+      NODE_ENV: production
+      DATABASE_PATH: /data/app.sqlite
+      BLOB_DIR: /data/blobs
+      SNAPSHOT_DIR: /data/snapshots
+      MIGRATIONS_DIR: /app/dist/migrations
+      SPA_DIR: /app/web
+    ports:
+      # Public listener only. METRICS_PORT (9464) is deliberately NOT
+      # published: the org Prometheus scrapes it over the internal network.
+      - '3000:3000'
+    volumes:
+      - data:/data
+
+  litestream:
+    image: litestream/litestream:0.3.13
+    # Opt-in until S3 credentials exist: docker compose --profile backup up -d
+    profiles: ['backup']
+    restart: unless-stopped
+    command: replicate -config /etc/litestream.yml
+    environment:
+      LITESTREAM_ACCESS_KEY_ID: ${LITESTREAM_ACCESS_KEY_ID:-}
+      LITESTREAM_SECRET_ACCESS_KEY: ${LITESTREAM_SECRET_ACCESS_KEY:-}
+    volumes:
+      - data:/data
+      - ./litestream.yml:/etc/litestream.yml:ro
+    depends_on:
+      - app
+
+volumes:
+  data:

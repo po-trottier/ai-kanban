@@ -47,13 +47,44 @@ jobs:
       - name: Unit + integration tests with coverage gates
         run: npm run test -- --coverage
 
-  # The docker-integration job (integration suite inside the production image) arrives with
-  # the Dockerfile (deployment task) — jobs are added with the artifacts they exercise so CI
-  # is green at every commit. For the same reason the e2e job below runs against the
-  # dev-mode source for now; once the image exists it gets rewired to run against the
-  # production image build (testing.md CI step 5), which needs an explicit credential
-  # strategy because SEED_DEMO_PASSWORD is (deliberately) refused in production mode.
+  # testing.md CI step 4: build the production image and run the FULL integration suite
+  # inside it — catches native-module drift (better-sqlite3/argon2 prebuilds differ between
+  # Windows dev and Linux prod). The suite runs via `docker run` of the test stage (not
+  # during `docker build`): a cached RUN layer would silently skip the tests, and a run
+  # streams output + exit codes reliably. The runtime image then gets a smoke boot:
+  # /healthz, /readyz, /version, and the break-glass CLI.
+  docker-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - name: Build the test stage (production build + dev deps)
+        run: docker build --target test -t rivian-kanban-test .
+      - name: Run the integration suite inside the image
+        run: docker run --rm rivian-kanban-test
+      - name: Build the runtime image (reuses the build-stage cache)
+        run: |
+          docker build -t rivian-kanban \
+            --build-arg APP_VERSION="${GITHUB_REF_NAME}" \
+            --build-arg GIT_SHA="${GITHUB_SHA}" \
+            --build-arg BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" .
+      - name: Smoke-boot the runtime image
+        run: |
+          docker run -d --name app -p 3000:3000 -v rk-smoke-data:/data rivian-kanban
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:3000/readyz >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://localhost:3000/healthz
+          curl -fsS http://localhost:3000/readyz
+          curl -fsS http://localhost:3000/version | grep -F "${GITHUB_SHA}"
+          # Structural seed ran at boot; the break-glass CLI works in-image.
+          docker exec app npm run cli -- users create-admin --email ci-smoke@example.com
+          docker rm -f app
+          docker volume rm rk-smoke-data
 
+  # The e2e job stays on dev-mode source: rewiring it onto the production image needs an
+  # explicit credential strategy because SEED_DEMO_PASSWORD is (deliberately) refused in
+  # production mode. The docker-integration job above is the image gate in the meantime.
   e2e:
     runs-on: ubuntu-latest
     steps:

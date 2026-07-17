@@ -51,6 +51,18 @@ module.exports = {
       to: { path: '^packages/db' },
     },
     {
+      name: 'jobs-are-pure-over-ports',
+      comment:
+        'Scheduled jobs are pure functions over injected core ports (docs/architecture/overview.md#scheduled-jobs-croner-in-process); croner, the db, the filesystem, and metrics live in the wiring that composes them.',
+      severity: 'error',
+      from: { path: '^packages/server/src/jobs/' },
+      to: {
+        pathNot:
+          '^(packages/core/src|packages/server/src/jobs/|node_modules/fractional-indexing([/]|$))',
+        dependencyTypesNot: ['type-only'],
+      },
+    },
+    {
       name: 'adapters-do-not-cross',
       comment: 'REST, MCP, and Slack adapters are peers; they must not import each other.',
       severity: 'error',
@@ -91,6 +103,7 @@ module.exports = {
           '/migrations/',
           '^packages/[^/]+/src/index\\.ts$',
           '^packages/server/src/(main|cli)\\.ts$',
+          '^packages/server/build\\.ts$',
           '^packages/db/src/(seed-cli|migrate-cli)\\.ts$',
           '^packages/web/src/main\\.tsx$',
           '^packages/web/src/test/setup\\.ts$',

@@ -36,6 +36,8 @@ export default defineConfig({
     env: {
       NODE_ENV: 'development',
       PORT: String(SERVER_PORT),
+      // Per-checkout like PORT: parallel worktrees must not fight over 9464.
+      METRICS_PORT: String(SERVER_PORT + 1000),
       DATABASE_PATH: join(DATA_DIR, 'app.sqlite'),
       BLOB_DIR: join(DATA_DIR, 'blobs'),
       E2E_DATA_DIR: DATA_DIR,

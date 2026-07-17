@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/main.ts | pino-pretty",
-    "cli": "tsx src/cli.ts"
+    "cli": "tsx src/cli.ts",
+    "build": "tsx build.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.15",
@@ -27,11 +28,14 @@
     "@slack/web-api": "7.19.0",
     "ai": "7.0.30",
     "argon2": "0.44.0",
+    "croner": "10.0.1",
     "fastify": "5.10.0",
     "fastify-sse-v2": "4.2.2",
     "fastify-type-provider-zod": "7.0.0",
     "file-type": "22.0.1",
+    "fractional-indexing": "4.0.0",
     "pino": "10.3.1",
+    "prom-client": "15.1.3",
     "zod": "4.4.3"
   },
   "devDependencies": {

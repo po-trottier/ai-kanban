@@ -1,5 +1,5 @@
 import { type Priority } from '../domain/constants.ts'
-import { type Card } from '../domain/entities.ts'
+import { type Card, type User } from '../domain/entities.ts'
 import { type SseHint } from '../domain/sse.ts'
 
 /**
@@ -57,10 +57,20 @@ export interface SummarizerPort {
 /**
  * User-facing notifications. Completion notifies the card's requester
  * (docs/product/workflow.md#terminal-states); cancellation deliberately
- * notifies no one. Notifications are best-effort: services call this after
+ * notifies no one. Notifications are best-effort: callers invoke this after
  * the mutation has committed and swallow rejections — an adapter failure
  * (e.g. Slack outage) must never surface a committed command as failed.
  */
 export interface NotifierPort {
   cardCompleted(card: Card): Promise<void>
+  /**
+   * Waiting-lane aging alert (docs/product/workflow.md#waiting-on-parts--vendor-discipline):
+   * the card is past its `expectedResumeAt`. `recipients` are the resolved
+   * users to DM — the assignee (if any) plus every active supervisor, deduped
+   * by the caller (the hourly job). Fired at most once per overdue episode:
+   * the job marks `resumeAlertedAt` in the same transaction that claims the
+   * card, so this is best-effort like `cardCompleted` — a delivery failure
+   * never re-fires the episode.
+   */
+  waitingOverdue(card: Card, recipients: User[]): Promise<void>
 }

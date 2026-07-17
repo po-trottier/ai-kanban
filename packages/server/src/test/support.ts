@@ -1,7 +1,8 @@
+import { randomUUID } from 'node:crypto'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Uuidv7IdGenerator, type Role, type User } from '@rivian-kanban/core'
+import { Uuidv7IdGenerator, type Card, type Role, type User } from '@rivian-kanban/core'
 import {
   type FastifyInstance,
   type InjectOptions,
@@ -160,6 +161,44 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
     login,
     asRole,
     request,
+  }
+}
+
+/**
+ * A complete raw Card row for direct-insert arrangement (fixtures that bypass
+ * the service layer on purpose). Neutral defaults — P2, manual, unblocked, no
+ * slack metadata, version 1, now timestamps — with the fields a test actually
+ * cares about supplied as overrides.
+ */
+export function rawCard(
+  overrides: Partial<Card> & { boardId: string; laneId: string; reporterId: string },
+): Card {
+  const now = new Date().toISOString()
+  return {
+    id: randomUUID(),
+    position: 'a0',
+    title: 'raw fixture card',
+    description: '',
+    priority: 'P2',
+    estimateMinutes: null,
+    assigneeId: null,
+    locationId: null,
+    origin: 'manual',
+    resolution: null,
+    blocked: false,
+    blockedReason: null,
+    blockedAt: null,
+    waitingReason: null,
+    expectedResumeAt: null,
+    resumeAlertedAt: null,
+    slackChannelId: null,
+    slackThreadTs: null,
+    slackPermalink: null,
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+    archivedAt: null,
+    ...overrides,
   }
 }
 

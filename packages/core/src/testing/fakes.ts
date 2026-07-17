@@ -1,4 +1,4 @@
-import { type Card } from '../domain/entities.ts'
+import { type Card, type User } from '../domain/entities.ts'
 import { type SseHint } from '../domain/sse.ts'
 import {
   type BlobStorePort,
@@ -49,15 +49,22 @@ export class CapturingEventBus implements EventBus {
   }
 }
 
-/** Captures completion notifications (requester Slack DMs) for assertion. */
+/** Captures notifications (completion + waiting-overdue DMs) for assertion. */
 export class CapturingNotifier implements NotifierPort {
   readonly completedCards: Card[] = []
-  /** Fault injection: when set, cardCompleted rejects (Slack-outage simulation). */
+  readonly overdueAlerts: { card: Card; recipients: User[] }[] = []
+  /** Fault injection: when set, both methods reject (Slack-outage simulation). */
   failWith: Error | null = null
 
   cardCompleted(card: Card): Promise<void> {
     if (this.failWith !== null) return Promise.reject(this.failWith)
     this.completedCards.push(card)
+    return Promise.resolve()
+  }
+
+  waitingOverdue(card: Card, recipients: User[]): Promise<void> {
+    if (this.failWith !== null) return Promise.reject(this.failWith)
+    this.overdueAlerts.push({ card, recipients })
     return Promise.resolve()
   }
 }

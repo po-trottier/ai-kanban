@@ -13,6 +13,7 @@ import { type FastifyBaseLogger } from 'fastify'
 import { type LocalBlobStore } from './adapters/blob/local-blob-store.ts'
 import { type InProcessEventBus } from './adapters/event-bus.ts'
 import { type AuthService } from './auth/auth-service.ts'
+import { type AppMetrics } from './metrics/metrics.ts'
 import { type LaneAdminService } from './lanes/lane-admin-service.ts'
 import { type LocationAdminService } from './locations/location-admin-service.ts'
 import { type ServiceTokenService } from './tokens/service-token-service.ts'
@@ -98,6 +99,12 @@ export interface AppDeps {
   clock: Clock
   eventBus: InProcessEventBus
   blobStore: LocalBlobStore
+  /**
+   * The process metrics registry (deployment.md#observability). Always
+   * wired — the main app's onResponse hook, the SSE bookkeeping, and the MCP
+   * mount record into it; only main.ts starts the internal /metrics listener.
+   */
+  metrics: AppMetrics
   services: AppServices
   /**
    * The seeded `system` user — the resolved reporter/author for MCP writes

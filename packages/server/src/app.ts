@@ -50,6 +50,19 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerSchemaGuard(app)
   registerErrorHandling(app, deps)
 
+  // Latency per TEMPLATED route (deployment.md#observability): routeOptions
+  // gives the pattern, so ids never explode label cardinality; unrouted 404
+  // noise is folded into one label.
+  app.addHook('onResponse', (request, reply, done) => {
+    deps.metrics.observeHttpRequest(
+      request.method,
+      request.routeOptions.url ?? 'unmatched',
+      reply.statusCode,
+      reply.elapsedTime / 1000,
+    )
+    done()
+  })
+
   // No cookie signing: the session id is already unforgeable randomness
   // stored hashed (ADR-009). Must precede the session hook (cookie parsing).
   await app.register(cookie)

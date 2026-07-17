@@ -57,7 +57,10 @@ the source of truth**; unit tests prove micro-logic, they never substitute for t
 Real drag-and-drop across lanes and within a lane; keyboard "Move to…" flow; card panel
 open/edit/collapse; threaded comment + reply; attachment upload and download; two-context 409
 conflict toast; audit history rendering; login/logout; admin policy toggle changing drag
-affordances live. Chromium in CI; the suite runs against the production Docker image build.
+affordances live. Chromium in CI; the suite runs against dev-mode source (deterministic
+logins need `SEED_DEMO_PASSWORD`, which production mode deliberately refuses — e2e against
+the production image is deferred until an image credential strategy exists; the
+docker-integration CI job is the production-image gate in the meantime).
 
 Each run resets its temp data dir (`e2e/scripts/prepare.mjs`) before booting the server. The
 dir deliberately survives the run — the server still holds the SQLite file when any teardown
@@ -74,9 +77,14 @@ GitHub Actions, gates in order:
 4. **Build the production Linux Docker image and run the full integration suite inside it**
    (catches native-module drift: better-sqlite3/argon2 prebuilds differ between Windows dev
    and Linux prod)
-5. Playwright e2e against the image
+5. Playwright e2e (dev-mode source: deterministic logins require `SEED_DEMO_PASSWORD`, which
+   production mode refuses — step 4 is the production-image gate until an image credential
+   strategy exists)
 6. Security: `npm audit --omit=dev --audit-level=high`, OSV-Scanner, gitleaks
-7. (scheduled) Litestream snapshot **restore drill**: restore latest backup, run migrations,
-   boot read-only
+7. (scheduled, weekly) snapshot **restore drill**: boot the production image, snapshot via
+   the same `VACUUM INTO` the nightly job runs, restore that snapshot into a fresh container
+   (boot runs migrations), and require `/readyz` plus the seeded data to survive the trip.
+   The Litestream restore path is the operator command documented atop `docker-compose.yml`
+   (see deployment.md#database-operations)
 
 All actions SHA-pinned. A red step blocks merge; there are no manual overrides.

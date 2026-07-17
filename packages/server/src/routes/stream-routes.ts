@@ -41,6 +41,7 @@ export function streamRoutes(deps: AppDeps) {
       const close = (): void => {
         if (closed) return
         closed = true
+        deps.metrics.sseStreamClosed()
         clearInterval(keepalive)
         unsubscribe()
         // sseContext exists only once the first sse() write happened — a
@@ -78,6 +79,9 @@ export function streamRoutes(deps: AppDeps) {
       const existing = streamsByUser.get(user.id) ?? []
       existing.push(handle)
       streamsByUser.set(user.id, existing)
+      // Every registered handle passes through close() exactly once (the
+      // `closed` guard), so the gauge cannot drift.
+      deps.metrics.sseStreamOpened()
       while ((streamsByUser.get(user.id) ?? []).length > deps.config.sse.maxStreamsPerUser) {
         const oldest = (streamsByUser.get(user.id) ?? [])[0]
         if (oldest === undefined) break

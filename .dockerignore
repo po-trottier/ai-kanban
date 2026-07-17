@@ -1,0 +1,27 @@
+# Build context hygiene: the image builds from manifests + sources only.
+node_modules
+**/node_modules
+**/dist
+**/coverage
+data
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+blobs
+
+# The e2e workspace: npm ci needs its manifest, nothing else runs in-image.
+e2e/*
+!e2e/package.json
+
+.git
+.github
+docs
+*.md
+.env
+.env.*
+!.env.example
+.idea
+.vscode
+Dockerfile
+docker-compose.yml
+litestream.yml

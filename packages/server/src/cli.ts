@@ -27,7 +27,7 @@ if (email?.includes('@') !== true) usage()
 const force = args.includes('--force')
 
 const env = parseEnv()
-const connection = openDatabase(env.DATABASE_PATH)
+const connection = openDatabase(env.DATABASE_PATH, env.MIGRATIONS_DIR)
 try {
   const { systemUserId } = structuralSeed(connection.db)
   const result = await createAdminUser(

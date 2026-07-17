@@ -1,0 +1,9 @@
+{
+  "name": "rivian-kanban-runtime",
+  "private": true,
+  "description": "Lockfile-pinned runtime node_modules for the production image: exactly the two native externals the server bundle keeps (Dockerfile). Versions must match the workspace manifests (packages/db, packages/server) — the image build fails on drift.",
+  "dependencies": {
+    "argon2": "0.44.0",
+    "better-sqlite3": "12.11.1"
+  }
+}

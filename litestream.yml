@@ -1,0 +1,20 @@
+# Litestream sidecar configuration (docs/architecture/deployment.md
+# #database-operations): continuous WAL streaming to S3-compatible storage
+# (RPO ~seconds). Replace the placeholders with the org bucket before
+# enabling the `backup` compose profile; credentials come from the secret
+# store via LITESTREAM_ACCESS_KEY_ID / LITESTREAM_SECRET_ACCESS_KEY in .env.
+#
+# The blob directory (/data/blobs) and the nightly VACUUM INTO snapshots
+# (/data/snapshots) are synced by the same backup job at the storage layer —
+# Litestream only replicates the SQLite database itself.
+dbs:
+  - path: /data/app.sqlite
+    replicas:
+      - type: s3
+        bucket: REPLACE_ME_BUCKET
+        path: rivian-kanban/app.sqlite
+        endpoint: REPLACE_ME_ENDPOINT # e.g. https://s3.us-west-2.amazonaws.com or the org MinIO
+        region: REPLACE_ME_REGION
+        # Sensible defaults; tune retention with the org backup policy.
+        retention: 168h
+        sync-interval: 1s

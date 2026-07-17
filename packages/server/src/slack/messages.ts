@@ -42,3 +42,16 @@ export function completedMessage(
 ): string {
   return `Your facilities ticket "${escapeSlackText(card.title)}" is done: ${cardUrl(publicBaseUrl, card.id)}`
 }
+
+/** The waiting-lane overdue DM (docs/product/workflow.md#waiting-on-parts--vendor-discipline). */
+export function waitingOverdueMessage(
+  publicBaseUrl: string,
+  card: { id: string; title: string; expectedResumeAt: string | null },
+): string {
+  const since =
+    card.expectedResumeAt === null ? '' : ` (expected to resume ${card.expectedResumeAt})`
+  return (
+    `Waiting ticket "${escapeSlackText(card.title)}" is past its expected resume date${since}: ` +
+    `${cardUrl(publicBaseUrl, card.id)} — move it back to In Progress, or out and back in with a fresh date.`
+  )
+}

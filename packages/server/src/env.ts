@@ -11,13 +11,32 @@ const envSchema = z
     /** `production` disables demo seeding and the dev docs UI. */
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-    /** Internal Prometheus listener (wired by the metrics task). */
+    /** Internal Prometheus listener — Compose never publishes it. */
     METRICS_PORT: z.coerce.number().int().min(1).max(65535).default(9464),
+    /**
+     * Bind address for the metrics listener: loopback by default; the
+     * container image sets 0.0.0.0 so the org Prometheus can scrape over the
+     * internal Docker network (the port still is not published).
+     */
+    METRICS_HOST: z.string().min(1).default('127.0.0.1'),
     PUBLIC_BASE_URL: z.url().default('http://localhost:3000'),
     /** Known reverse-proxy hop count — client-IP rate limits depend on it. */
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
     DATABASE_PATH: z.string().min(1).default('./data/app.sqlite'),
     BLOB_DIR: z.string().min(1).default('./data/blobs'),
+    /** Nightly `VACUUM INTO` snapshots land here (deployment.md#database-operations). */
+    SNAPSHOT_DIR: z.string().min(1).default('./data/snapshots'),
+    /**
+     * Drizzle migrations directory override. Unset in dev (packages/db
+     * resolves its own ./migrations); the production bundle cannot — esbuild
+     * relocates the code, so the image pins /app/dist/migrations explicitly.
+     */
+    MIGRATIONS_DIR: z.string().min(1).optional(),
+    /**
+     * Built SPA directory override. Unset in dev (packages/web/dist is found
+     * relative to the source tree); the image pins /app/web explicitly.
+     */
+    SPA_DIR: z.string().min(1).optional(),
     /** Demo fixtures — additionally gated to non-production at boot. */
     SEED_DEMO_DATA: z.stringbool().default(false),
     /**
