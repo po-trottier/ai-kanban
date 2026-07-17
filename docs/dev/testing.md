@@ -17,7 +17,7 @@ the source of truth**; unit tests prove micro-logic, they never substitute for t
 
 | Rule | Enforcer |
 | --- | --- |
-| **AAA pattern** in every unit test: Arrange / Act / Assert separated by blank lines, one behavior per test | `@vitest/eslint-plugin`: `padding-around-*` (structural proxy), `max-expects`, `expect-expect`, `valid-title`; semantics covered in review — this is the one rule with an honest tooling gap |
+| **AAA pattern** in every unit test: explicit `// Arrange`, `// Act`, `// Assert` comments marking the three sections, in order, in every test body; one behavior per test | custom local ESLint rule `local/require-aaa-comments` on `*.unit.test.ts` (presence + order are machine-checked) plus `@vitest/eslint-plugin` `max-expects`, `expect-expect`, `valid-title` |
 | **No mocking in integration/e2e** — no `vi.mock`, `vi.fn`, `vi.spyOn`, `vi.stubGlobal`, `vi.useFakeTimers`, no mock libraries | ESLint flat-config override on `**/*.integration.test.ts` and `e2e/**`: `no-restricted-properties` + `no-restricted-imports` |
 | External services are faked only as **real local HTTP servers** serving recorded fixture responses (Slack Web API, Anthropic) — our code runs unmodified | integration harness provides them; the lint rule above blocks the lazy alternative |
 | Unit-test doubles are **hand-written fakes implementing core ports** (e.g. `InMemoryCardRepository`), never mocking-library constructs | same lint rules applied repo-wide for `vi.mock`/`vi.spyOn`; fakes live in `packages/core/test/fakes/` |
