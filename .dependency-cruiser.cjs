@@ -101,6 +101,8 @@ module.exports = {
   ],
   options: {
     doNotFollow: { path: 'node_modules' },
+    // Built artifacts (the e2e webServer builds packages/web/dist) are not source.
+    exclude: { path: '(^|/)(dist|coverage)/' },
     tsPreCompilationDeps: true,
     tsConfig: { fileName: 'tsconfig.base.json' },
     enhancedResolveOptions: {

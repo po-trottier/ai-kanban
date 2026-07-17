@@ -75,6 +75,7 @@ export function CommentsThread({
               {replyTo === comment.id ? (
                 <Composer
                   label={strings.comments.replyComposerLabel}
+                  submitLabel={strings.comments.postReplyButton}
                   onSubmit={(body, onPosted) => {
                     onAdd(body, comment.id, () => {
                       onPosted()
@@ -90,6 +91,7 @@ export function CommentsThread({
       {readOnly ? null : (
         <Composer
           label={strings.comments.composerLabel}
+          submitLabel={strings.comments.postButton}
           onSubmit={(body, onPosted) => {
             onAdd(body, null, onPosted)
           }}
@@ -223,9 +225,13 @@ function CommentItem({
 
 function Composer({
   label,
+  submitLabel,
   onSubmit,
 }: {
   label: string
+  /** Distinct per composer ('Comment' vs 'Post reply') so the two submit
+   * buttons are never ambiguous to assistive tech or role-based tests. */
+  submitLabel: string
   onSubmit: (body: string, onPosted: () => void) => void
 }) {
   const [body, setBody] = useState('')
@@ -252,7 +258,7 @@ function Composer({
             })
           }}
         >
-          {strings.comments.postButton}
+          {submitLabel}
         </Button>
       </Group>
     </Stack>

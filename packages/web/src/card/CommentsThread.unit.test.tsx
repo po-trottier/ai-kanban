@@ -169,8 +169,8 @@ describe('CommentsThread', () => {
     await user.click(screen.getByRole('button', { name: 'Comment' }))
     await user.click(screen.getByRole('button', { name: 'Reply' }))
     await user.type(screen.getByRole('textbox', { name: 'Reply' }), 'A reply')
-    // The reply composer renders before the bottom composer in the thread.
-    await user.click(nth(screen.getAllByRole('button', { name: 'Comment' }), 0))
+    // The reply composer's submit has its own accessible name — no ambiguity.
+    await user.click(screen.getByRole('button', { name: 'Post reply' }))
     // Assert
     expect(added).toEqual([
       { body: 'Top level note', parentCommentId: null },

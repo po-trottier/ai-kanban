@@ -10,6 +10,7 @@ import {
   makeBoard,
   makeCard,
   permissivePolicy,
+  policyRecordOf,
 } from '../test/fixtures.ts'
 import { renderApp } from '../test/render.tsx'
 
@@ -18,7 +19,7 @@ function authedRoutes(overrides: Record<string, unknown> = {}): FakeFetch {
   return createFakeFetch({
     'GET /api/v1/auth/me': fixtureAdmin,
     'GET /api/v1/board': makeBoard({ ready: [card] }),
-    'GET /api/v1/policy': permissivePolicy,
+    'GET /api/v1/policy': policyRecordOf(permissivePolicy),
     'GET /api/v1/users': fixturePickerUsers,
     'GET /api/v1/locations': [],
     'GET /api/v1/tags': [],

@@ -72,6 +72,39 @@ describe('parseEnv', () => {
     expect(act).toThrow(/SLACK_TEAM_ID is required/)
   })
 
+  it('accepts SEED_DEMO_PASSWORD outside production within the password bounds', () => {
+    // Arrange
+    const source = { NODE_ENV: 'development', SEED_DEMO_PASSWORD: 'demo-password-123' }
+
+    // Act
+    const env = parseEnv(source)
+
+    // Assert
+    expect(env.SEED_DEMO_PASSWORD).toBe('demo-password-123')
+  })
+
+  it('rejects a SEED_DEMO_PASSWORD shorter than the 12-character policy minimum', () => {
+    // Arrange
+    const source = { SEED_DEMO_PASSWORD: 'too-short' }
+
+    // Act
+    const act = () => parseEnv(source)
+
+    // Assert
+    expect(act).toThrow(/SEED_DEMO_PASSWORD/)
+  })
+
+  it('refuses SEED_DEMO_PASSWORD in production mode', () => {
+    // Arrange
+    const source = { NODE_ENV: 'production', SEED_DEMO_PASSWORD: 'demo-password-123' }
+
+    // Act
+    const act = () => parseEnv(source)
+
+    // Assert
+    expect(act).toThrow(/SEED_DEMO_PASSWORD is refused in production mode/)
+  })
+
   it('requires ANTHROPIC_API_KEY when the summarizer is enabled', () => {
     // Arrange
     const source = { SUMMARIZER_ENABLED: 'true' }

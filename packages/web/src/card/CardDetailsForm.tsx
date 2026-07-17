@@ -56,6 +56,12 @@ export function CardDetailsForm({
     defaultValues: valuesOf(detail),
   })
 
+  // formState is a subscription Proxy: dirtyFields must be read during
+  // render or its per-field tracking is skipped, and the submit handler then
+  // sees a stale map (observed live: edit title, then priority — priority
+  // silently dropped from the PATCH). Reading it here subscribes it.
+  const { dirtyFields } = form.formState
+
   // A fresh server state (SSE refetch, save) updates the non-dirty fields;
   // keepDirtyValues preserves whatever the user is typing mid-edit.
   useEffect(() => {
@@ -69,7 +75,7 @@ export function CardDetailsForm({
       noValidate
       onSubmit={(event) => {
         void form.handleSubmit((values) => {
-          onSave(pickDirty(values, form.formState.dirtyFields))
+          onSave(pickDirty(values, dirtyFields))
         })(event)
       }}
     >

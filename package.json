@@ -9,6 +9,15 @@
     "packages/*",
     "e2e"
   ],
+  "knip": {
+    "workspaces": {
+      "e2e": {
+        "entry": [
+          "scripts/prepare.mjs"
+        ]
+      }
+    }
+  },
   "scripts": {
     "setup": "npm rebuild --ignore-scripts=false --foreground-scripts better-sqlite3 argon2 && lefthook install",
     "dev": "concurrently -k -n server,web -c blue,green \"npm run dev -w @rivian-kanban/server\" \"npm run dev -w @rivian-kanban/web\"",

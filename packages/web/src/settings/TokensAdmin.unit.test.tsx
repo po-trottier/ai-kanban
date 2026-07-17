@@ -43,8 +43,8 @@ describe('TokensAdmin', () => {
     const fake = createFakeFetch({
       'GET /api/v1/service-tokens': [],
       'POST /api/v1/service-tokens': {
-        token: 'rkb_live_abc123',
-        serviceToken: activeToken,
+        token: activeToken,
+        rawToken: 'rkb_live_abc123',
       },
     })
     renderWithProviders(<TokensAdmin />, { fetchFn: fake.fetch })

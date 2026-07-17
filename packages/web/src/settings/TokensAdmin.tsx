@@ -139,7 +139,7 @@ export function TokensAdmin() {
                     onSuccess: (created) => {
                       setCreateOpen(false)
                       setDraft({ name: '', role: 'technician', scope: 'read' })
-                      setRawToken(created.token)
+                      setRawToken(created.rawToken)
                     },
                   })
                 }}

@@ -172,6 +172,7 @@ export const strings = {
     composerLabel: 'Add a comment',
     composerPlaceholder: 'Write a comment…',
     postButton: 'Comment',
+    postReplyButton: 'Post reply',
     replyComposerLabel: 'Reply',
     deletedPlaceholder: '(deleted)',
     empty: 'No comments yet',

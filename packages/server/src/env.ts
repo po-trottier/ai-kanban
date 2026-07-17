@@ -20,6 +20,13 @@ const envSchema = z
     BLOB_DIR: z.string().min(1).default('./data/blobs'),
     /** Demo fixtures — additionally gated to non-production at boot. */
     SEED_DEMO_DATA: z.stringbool().default(false),
+    /**
+     * Fixed password for the seeded demo users (deterministic logins for
+     * local dev and Playwright). Same policy bounds as real passwords;
+     * refused outright in production mode — a known password must never
+     * reach a production boot.
+     */
+    SEED_DEMO_PASSWORD: z.string().min(12).max(128).optional(),
     SLACK_ENABLED: z.stringbool().default(false),
     SLACK_BOT_TOKEN: z.string().min(1).optional(),
     SLACK_APP_TOKEN: z.string().min(1).optional(),
@@ -50,6 +57,14 @@ const envSchema = z
           })
         }
       }
+    }
+    if (env.NODE_ENV === 'production' && env.SEED_DEMO_PASSWORD !== undefined) {
+      ctx.issues.push({
+        code: 'custom',
+        message: 'SEED_DEMO_PASSWORD is refused in production mode',
+        path: ['SEED_DEMO_PASSWORD'],
+        input: env,
+      })
     }
     if (env.SUMMARIZER_ENABLED && env.ANTHROPIC_API_KEY === undefined) {
       ctx.issues.push({

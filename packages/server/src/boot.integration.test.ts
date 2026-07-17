@@ -66,6 +66,50 @@ describe('demo seed boot (SEED_DEMO_DATA)', () => {
   })
 })
 
+describe('deterministic demo credentials (SEED_DEMO_PASSWORD)', () => {
+  it('mints the fixed password for every demo role and it can log in', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rivian-kanban-fixed-'))
+    const env = parseEnv({
+      NODE_ENV: 'development',
+      DATABASE_PATH: join(dir, 'fixed.sqlite'),
+      BLOB_DIR: join(dir, 'blobs'),
+      SEED_DEMO_DATA: 'true',
+      SEED_DEMO_PASSWORD: 'fixed-demo-password',
+    })
+    const wired = await wireApp(env, {
+      hasherParams: TEST_ARGON2,
+      logLevel: 'silent',
+      spaRoot: null,
+    })
+    const app = await buildApp(wired.deps)
+    try {
+      expect(wired.demoCredentials).toHaveLength(4)
+      expect(wired.demoCredentials.every((c) => c.password === 'fixed-demo-password')).toBe(true)
+
+      const login = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        headers: { 'content-type': 'application/json' },
+        payload: { email: 'admin@demo.rivian-kanban.local', password: 'fixed-demo-password' },
+      })
+      expect(login.statusCode).toBe(200)
+    } finally {
+      await app.close()
+      wired.connection.close()
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('refuses to boot in production mode when SEED_DEMO_PASSWORD is set', () => {
+    expect(() =>
+      parseEnv({
+        NODE_ENV: 'production',
+        SEED_DEMO_PASSWORD: 'fixed-demo-password',
+      }),
+    ).toThrow(/SEED_DEMO_PASSWORD is refused in production mode/)
+  })
+})
+
 describe('production gate on demo data', () => {
   it('skips the demo seed in production mode even when SEED_DEMO_DATA=true', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'rivian-kanban-prod-'))

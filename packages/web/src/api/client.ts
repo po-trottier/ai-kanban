@@ -55,6 +55,11 @@ export class ApiClient {
   private async send(method: string, path: string, options: RequestOptions): Promise<Response> {
     const headers: Record<string, string> = {}
     const init: RequestInit = { method, headers, credentials: 'same-origin' }
+    // CSRF layer 2 (docs/architecture/security.md): mutations must declare a
+    // JSON content type or carry X-Requested-With. Bodyless mutations
+    // (logout, deletes) and multipart uploads have no JSON body, so every
+    // non-GET request carries the header — HTML forms cannot produce it.
+    if (method !== 'GET') headers['X-Requested-With'] = 'rivian-kanban'
     if (options.ifMatch !== undefined) headers['If-Match'] = `"${String(options.ifMatch)}"`
     if (options.formData !== undefined) {
       init.body = options.formData

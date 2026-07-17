@@ -12,6 +12,7 @@ import {
   makeComment,
   makeStatusChangedEvent,
   permissivePolicy,
+  policyRecordOf,
   uid,
 } from '../test/fixtures.ts'
 import { renderApp } from '../test/render.tsx'
@@ -22,7 +23,7 @@ function panelApp(extra: Record<string, unknown> = {}): FakeFetch {
   return createFakeFetch({
     'GET /api/v1/auth/me': fixtureAdmin,
     'GET /api/v1/board': makeBoard({ ready: [card] }),
-    'GET /api/v1/policy': permissivePolicy,
+    'GET /api/v1/policy': policyRecordOf(permissivePolicy),
     'GET /api/v1/users': fixturePickerUsers,
     'GET /api/v1/locations': [],
     'GET /api/v1/tags': [{ id: uid(110), name: 'plumbing' }],
@@ -98,6 +99,33 @@ describe('CardPanel', () => {
     expect(fake.calls.some((c) => c.method === 'DELETE')).toBe(true)
   })
 
+  it('renders the placeholder for a soft-deleted comment served with a blanked body', async () => {
+    // Arrange — the REST contract blanks deleted bodies (rest-api.md#comments).
+    const user = userEvent.setup()
+    const deleted = makeComment({
+      id: uid(113),
+      cardId: card.id,
+      body: '',
+      deletedAt: '2026-07-02T10:00:00.000Z',
+    })
+    const reply = makeComment({
+      id: uid(114),
+      cardId: card.id,
+      parentCommentId: deleted.id,
+      body: 'Reply kept for context',
+    })
+    const fake = panelApp({
+      [`GET /api/v1/cards/${card.id}/comments`]: [deleted, reply],
+    })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    await screen.findByRole('textbox', { name: /Title/ })
+    // Act
+    await user.click(screen.getByRole('tab', { name: 'Comments' }))
+    // Assert
+    expect(await screen.findByText('(deleted)')).toBeInTheDocument()
+    expect(screen.getByText('Reply kept for context')).toBeInTheDocument()
+  })
+
   it('renders history lines and loads more pages by cursor', async () => {
     // Arrange
     const user = userEvent.setup()
@@ -137,7 +165,7 @@ describe('CardPanel', () => {
     const fake = createFakeFetch({
       'GET /api/v1/auth/me': fixtureAdmin,
       'GET /api/v1/board': makeBoard({}),
-      'GET /api/v1/policy': permissivePolicy,
+      'GET /api/v1/policy': policyRecordOf(permissivePolicy),
       'GET /api/v1/users': fixturePickerUsers,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
@@ -197,10 +225,10 @@ describe('CardPanel', () => {
     }
     const fake = panelApp({
       'GET /api/v1/auth/me': fixtureTech,
-      'GET /api/v1/policy': {
+      'GET /api/v1/policy': policyRecordOf({
         ...permissivePolicy,
         actionGates: { deleteOthersAttachments: 'admin' as const },
-      },
+      }),
       [`GET /api/v1/cards/${card.id}`]: {
         card: coreCard(card),
         tags: [],

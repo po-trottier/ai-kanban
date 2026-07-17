@@ -50,6 +50,19 @@ describe('ApiClient', () => {
     expect(fake.lastBody('POST', '/api/v1/cards/c1/move')).toEqual({ toLane: 'ready' })
   })
 
+  it('marks bodyless mutations with X-Requested-With (CSRF layer 2)', async () => {
+    // Arrange
+    const fake = createFakeFetch({
+      'DELETE /api/v1/comments/c1': new Response(null, { status: 204 }),
+    })
+    const client = new ApiClient(fake.fetch)
+    // Act
+    await client.deleteVoid('/comments/c1')
+    // Assert
+    const call = fake.calls[0]
+    expect(new Headers(call?.init?.headers).get('X-Requested-With')).toBe('rivian-kanban')
+  })
+
   it('throws an ApiError carrying the problem+json document on non-2xx', async () => {
     // Arrange
     const fake = createFakeFetch({

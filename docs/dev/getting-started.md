@@ -19,7 +19,10 @@ npm run dev               # backend :3000 (API+MCP+SSE) + Vite dev server :5173,
 
 First boot creates `data/app.sqlite`, runs migrations, and seeds the demo dataset (board,
 lanes, demo users for each role, sample cards). Demo logins are printed to the console —
-`admin@example.com` etc., password `changeme` (dev seed only; never seeded in production mode).
+`admin@demo.rivian-kanban.local` etc., each with a one-time random password minted at that
+first boot (dev seed only; never seeded in production mode). Set `SEED_DEMO_PASSWORD` in
+`.env` before the first boot for a fixed password instead — that is what the Playwright e2e
+harness does for deterministic logins (refused in production, like `SEED_DEMO_DATA`).
 
 ## Commands (root)
 

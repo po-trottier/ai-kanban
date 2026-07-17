@@ -123,7 +123,9 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
       const email = demoUserEmail(role)
       const credentials = await uow.run((tx) => tx.userAccounts.findByEmail(email))
       if (credentials !== null && credentials.passwordHash === PLACEHOLDER_PASSWORD_HASH) {
-        const password = randomBytes(12).toString('base64url')
+        // SEED_DEMO_PASSWORD (dev/e2e determinism; env refuses it in
+        // production) fixes the minted value; otherwise one-time random.
+        const password = env.SEED_DEMO_PASSWORD ?? randomBytes(12).toString('base64url')
         const passwordHash = await hasher.hash(password)
         await uow.run((tx) => tx.userAccounts.setPassword(credentials.user.id, passwordHash, false))
         demoCredentials.push({ email, password })

@@ -57,8 +57,13 @@ export const cardEventsPageSchema = pageSchemaOf(cardEventSchema)
 /** `GET /cards` — the filterable list (`q`, `includeArchived`, …), newest-first. */
 export const cardsPageSchema = pageSchemaOf(cardSchema)
 
-export const commentsResponseSchema = z.array(commentSchema)
-export const commentResponseSchema = commentSchema
+/**
+ * Comment responses widen the core `body: min(1)`: soft-deleted comments are
+ * serialized with a blanked body (rest-api.md#comments — deleted content
+ * never leaves the server), and the UI renders the placeholder instead.
+ */
+export const commentResponseSchema = z.object({ ...commentSchema.shape, body: z.string() })
+export const commentsResponseSchema = z.array(commentResponseSchema)
 export const attachmentUploadResponseSchema = attachmentSchema
 
 /** `GET /users` — active users (id, name, role) for pickers. */
@@ -79,7 +84,14 @@ export const adminUserResponseSchema = z.object({
 export const meResponseSchema = userSchema
 export const loginResponseSchema = userSchema
 
-export const policyResponseSchema = policyDocumentSchema
+/**
+ * `GET`/`PUT /policy` return the stored policy VERSION record
+ * (`{ id, boardId, config, createdBy, createdAt }` — rest-api.md#admin); the
+ * app consumes only the document, so the envelope is unwrapped right here.
+ */
+export const policyResponseSchema = z
+  .looseObject({ config: policyDocumentSchema })
+  .transform((record) => record.config)
 
 export const locationsResponseSchema = z.array(locationSchema)
 export const locationSingleResponseSchema = locationSchema
@@ -90,8 +102,8 @@ const serviceTokenViewSchema = serviceTokenSchema.omit({ tokenHash: true })
 export type ServiceTokenView = z.infer<typeof serviceTokenViewSchema>
 export const serviceTokensResponseSchema = z.array(serviceTokenViewSchema)
 
-/** `POST /service-tokens` — the raw `rkb_…` token is returned exactly once. */
+/** `POST /service-tokens` — the raw `rkb_…` credential is returned exactly once. */
 export const createdServiceTokenSchema = z.object({
-  token: z.string(),
-  serviceToken: serviceTokenViewSchema,
+  token: serviceTokenViewSchema,
+  rawToken: z.string(),
 })

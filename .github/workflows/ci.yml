@@ -48,8 +48,31 @@ jobs:
         run: npm run test -- --coverage
 
   # The docker-integration job (integration suite inside the production image) arrives with
-  # the Dockerfile (deployment task); the e2e job arrives with the Playwright suite (e2e task)
-  # — jobs are added with the artifacts they exercise so CI is green at every commit.
+  # the Dockerfile (deployment task) — jobs are added with the artifacts they exercise so CI
+  # is green at every commit. For the same reason the e2e job below runs against the
+  # dev-mode source for now; once the image exists it gets rewired to run against the
+  # production image build (testing.md CI step 5), which needs an explicit credential
+  # strategy because SEED_DEMO_PASSWORD is (deliberately) refused in production mode.
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run setup
+      - run: npx playwright install --with-deps chromium
+      # The playwright config builds the SPA and boots the real server itself.
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 7
 
   security:
     runs-on: ubuntu-latest

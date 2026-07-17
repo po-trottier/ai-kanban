@@ -37,8 +37,9 @@ the source of truth**; unit tests prove micro-logic, they never substitute for t
   boot, integration tests, and Playwright alike, so every layer exercises the same shapes.
 - Recorded Slack/Anthropic JSON fixtures live in `packages/server/test/fixtures/` and are
   checked in; they are real captured payload shapes, trimmed and anonymized.
-- E2E never seeds through the UI; it calls the seed module directly, then interacts only
-  through the browser.
+- E2E never arranges state through the UI: boot-time seeding uses the seed module
+  (`SEED_DEMO_DATA`); per-test arrangement may use the real REST API; the behavior under test
+  and all assertions go through the browser.
 
 ## What integration tests must cover (definition of done per feature)
 
@@ -57,6 +58,10 @@ Real drag-and-drop across lanes and within a lane; keyboard "Move to…" flow; c
 open/edit/collapse; threaded comment + reply; attachment upload and download; two-context 409
 conflict toast; audit history rendering; login/logout; admin policy toggle changing drag
 affordances live. Chromium in CI; the suite runs against the production Docker image build.
+
+Each run resets its temp data dir (`e2e/scripts/prepare.mjs`) before booting the server. The
+dir deliberately survives the run — the server still holds the SQLite file when any teardown
+hook could fire on Windows — and the next run's reset owns the cleanup.
 
 ## CI pipeline
 

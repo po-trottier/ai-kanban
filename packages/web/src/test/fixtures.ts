@@ -140,6 +140,20 @@ export function makeBoard(cardsByLane: Partial<Record<LaneKey, BoardCard[]>>): B
 
 export const permissivePolicy: PolicyDocument = DEFAULT_POLICY_DOCUMENT
 
+/**
+ * The `GET`/`PUT /policy` response envelope: the server returns the stored
+ * policy VERSION record, not the bare document (rest-api.md#admin).
+ */
+export function policyRecordOf(config: PolicyDocument): Record<string, unknown> {
+  return {
+    id: uid(9090),
+    boardId: FIXTURE_BOARD_ID,
+    config,
+    createdBy: fixtureAdmin.id,
+    createdAt: '2026-07-01T09:00:00.000Z',
+  }
+}
+
 export const enforcedPolicy: PolicyDocument = {
   ...DEFAULT_POLICY_DOCUMENT,
   transitionEnforcement: true,
