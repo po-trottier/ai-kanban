@@ -429,6 +429,11 @@ class InMemoryUserAccountRepository implements UserAccountRepository {
     return Promise.resolve(user ? this.credentialsOf(user) : null)
   }
 
+  findBySlackUserId(slackUserId: string): Promise<UserCredentials | null> {
+    const user = this.state.users.find((candidate) => candidate.slackUserId === slackUserId)
+    return Promise.resolve(user ? this.credentialsOf(user) : null)
+  }
+
   findById(id: string): Promise<UserCredentials | null> {
     const user = this.state.users.find((candidate) => candidate.id === id)
     return Promise.resolve(user ? this.credentialsOf(user) : null)

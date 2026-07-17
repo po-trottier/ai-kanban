@@ -66,6 +66,18 @@ describe('SqliteUserAccountRepository', () => {
     await expect(run((tx) => tx.userAccounts.findById(newId()))).resolves.toBeNull()
   })
 
+  it('finds by the stored Slack binding exactly; unbound ids resolve null', async () => {
+    const user = insertUser(db.connection, { slackUserId: 'U0SLACK1' })
+
+    const bound = await run((tx) => tx.userAccounts.findBySlackUserId('U0SLACK1'))
+
+    expect(bound?.user).toEqual(user)
+    expect(bound?.passwordHash).toBeTruthy()
+    // Exact match only — Slack ids are opaque case-sensitive tokens.
+    await expect(run((tx) => tx.userAccounts.findBySlackUserId('u0slack1'))).resolves.toBeNull()
+    await expect(run((tx) => tx.userAccounts.findBySlackUserId('U0GHOST'))).resolves.toBeNull()
+  })
+
   it('inserts with a hash and rejects a duplicate email with ConflictError', async () => {
     const user = insertUser(db.connection, { email: 'unique@example.com' })
 

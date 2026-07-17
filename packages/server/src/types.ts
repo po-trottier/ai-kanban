@@ -8,6 +8,7 @@ import {
   type UnitOfWork,
   type User,
 } from '@rivian-kanban/core'
+import { type FastifyBaseLogger } from 'fastify'
 import { type LocalBlobStore } from './adapters/blob/local-blob-store.ts'
 import { type InProcessEventBus } from './adapters/event-bus.ts'
 import { type AuthService } from './auth/auth-service.ts'
@@ -22,6 +23,17 @@ import { type UserAdminService } from './users/user-admin-service.ts'
  * Tunables default to the documented budgets; tests inject different values
  * through the same constructor path (configuration, not mocking).
  */
+
+/**
+ * The logging surface adapters receive (pino-compatible; Fastify's app.log
+ * and standalone pino instances both satisfy it). Injected so tests run
+ * silent and adapters never construct their own transports.
+ */
+export interface AdapterLogger {
+  info(obj: object, msg?: string): void
+  warn(obj: object, msg?: string): void
+  error(obj: object, msg?: string): void
+}
 
 interface RateLimitBudget {
   max: number
@@ -73,6 +85,12 @@ interface AppServices {
 
 export interface AppDeps {
   config: AppConfig
+  /**
+   * The single pino root for the whole process, created by the composition
+   * root: Fastify (`loggerInstance`), the Slack adapter, and the notifier all
+   * log through it — one root, one set of bindings.
+   */
+  logger: FastifyBaseLogger
   uow: UnitOfWork
   clock: Clock
   eventBus: InProcessEventBus

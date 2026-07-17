@@ -1,3 +1,4 @@
+import { type Priority } from '../domain/constants.ts'
 import { type Card } from '../domain/entities.ts'
 import { type SseHint } from '../domain/sse.ts'
 
@@ -32,14 +33,25 @@ export interface BlobStorePort {
   delete(key: string): Promise<void>
 }
 
-/** LLM summarization (Anthropic adapter in the server package). */
-export interface SummarizerPort {
-  summarize(text: string): Promise<string>
+/**
+ * Structured ticket draft produced by the summarizer — always reviewed by a
+ * human in the Slack modal before a card exists (docs/architecture/slack.md).
+ */
+export interface SummaryDraft {
+  title: string
+  description: string
+  suggestedPriority: Priority
+  tags: string[]
 }
 
-/** Thin Slack Web API surface for outbound messages (Bolt adapter implements). */
-export interface SlackClientPort {
-  sendDirectMessage(slackUserId: string, text: string): Promise<void>
+/**
+ * LLM summarization (provider-agnostic adapter in the server package,
+ * ADR-017). Returns null on any failure — provider error, malformed output,
+ * timeout — so callers fall back to the raw thread text; summarization must
+ * never block ticket creation.
+ */
+export interface SummarizerPort {
+  summarize(threadText: string): Promise<SummaryDraft | null>
 }
 
 /**

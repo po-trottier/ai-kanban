@@ -17,7 +17,9 @@ Ports-and-adapters:
   opt-in transition rules — see ADR-013),
   services (CardService, CommentService, AuditService, BoardQueryService, AttachmentService),
   and **ports** (interfaces): CardRepository, CommentRepository, UserRepository, UnitOfWork,
-  EventBus, Clock, IdGenerator, BlobStorePort, SummarizerPort, SlackClientPort, NotifierPort.
+  EventBus, Clock, IdGenerator, BlobStorePort, SummarizerPort, NotifierPort. (Outbound Slack
+  needs no dedicated port beyond NotifierPort: the SlackNotifier adapter consumes the Slack
+  SDK directly — the DM flow is lookup-and-bind plus post, not a reusable client surface.)
   Core imports no framework or IO library — enforced by dependency-cruiser.
 - Inbound adapters (REST routes, MCP tool handlers, Bolt listeners) translate protocol ↔
   service calls and construct an `Actor`; they contain no business logic. "Thin" is reviewable:

@@ -22,8 +22,12 @@ import {
   SqliteUnitOfWork,
   type DbConnection,
 } from '@rivian-kanban/db'
+import { WebClient } from '@slack/web-api'
+import { type FastifyBaseLogger } from 'fastify'
+import { pino } from 'pino'
 import { LocalBlobStore } from '../adapters/blob/local-blob-store.ts'
 import { InProcessEventBus } from '../adapters/event-bus.ts'
+import { SlackNotifier } from '../adapters/slack-notifier.ts'
 import { AuthService } from '../auth/auth-service.ts'
 import { LoginBackoff } from '../auth/backoff.ts'
 import { PasswordHasher, type Argon2Params } from '../auth/password-hasher.ts'
@@ -41,7 +45,7 @@ import { type AppConfig, type AppDeps } from '../types.ts'
  * adapters into services → hand `AppDeps` to `buildApp`.
  */
 
-/** Slack notifier lands with the Slack adapter task; completion DMs are dropped until then. */
+/** The default notifier: completion DMs are dropped unless Slack is enabled. */
 class NoopNotifier implements NotifierPort {
   cardCompleted(_card: Card): Promise<void> {
     return Promise.resolve()
@@ -57,6 +61,8 @@ export interface WireOptions {
   maxEventLoopDelayMs?: number
   logLevel?: string
   spaRoot?: string | null
+  /** Slack Web API origin override (local fixture servers in tests). */
+  slackApiUrl?: string
 }
 
 interface DemoCredential {
@@ -108,7 +114,38 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
   const ids = new Uuidv7IdGenerator()
   const eventBus = new InProcessEventBus()
   const blobStore = new LocalBlobStore(env.BLOB_DIR)
-  const notifier = new NoopNotifier()
+  // The single pino root for the process — Fastify, the Slack adapter, and
+  // the notifier all share it. Typed as the base logger: pino's own Logger
+  // type would narrow the FastifyInstance generics and break every plugin
+  // signature.
+  const logger: FastifyBaseLogger = pino({
+    level: options.logLevel ?? env.LOG_LEVEL,
+    // Secrets never reach the logs (docs/architecture/security.md#secrets--configuration).
+    redact: [
+      'req.headers.authorization',
+      'req.headers.cookie',
+      'res.headers["set-cookie"]',
+      '*.password',
+      '*.currentPassword',
+      '*.newPassword',
+      '*.tempPassword',
+      '*.rawToken',
+      '*.passwordHash',
+    ],
+  })
+  // When Slack is enabled, completion notifications DM the requester
+  // (docs/architecture/slack.md#notifications-outbound); otherwise they drop.
+  const notifier: NotifierPort =
+    env.SLACK_ENABLED && env.SLACK_BOT_TOKEN !== undefined
+      ? new SlackNotifier({
+          client: new WebClient(env.SLACK_BOT_TOKEN, {
+            ...(options.slackApiUrl !== undefined ? { slackApiUrl: options.slackApiUrl } : {}),
+          }),
+          uow,
+          logger,
+          publicBaseUrl: env.PUBLIC_BASE_URL,
+        })
+      : new NoopNotifier()
   const hasher = new PasswordHasher(options.hasherParams)
   const backoff = new LoginBackoff(clock)
 
@@ -157,7 +194,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
   }
 
   return {
-    deps: { config, uow, clock, eventBus, blobStore, services },
+    deps: { config, logger, uow, clock, eventBus, blobStore, services },
     connection,
     hasher,
     systemUserId,
