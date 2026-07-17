@@ -15,17 +15,17 @@ ORM, MCP SDK, Slack SDK, backup tooling).
 
 ## Findings (verified against primary sources, July 2026)
 
-| Candidate | Disqualifier |
-| --- | --- |
-| Focalboard | Unmaintained — repo states it; open call for maintainers since 2024 |
-| Planka | Postgres-only (fails SQLite-now); fair-code license (non-OSI); flat comments; no field audit |
-| Kanboard | Maintenance mode; JSON-RPC-only PHP; UI would be replaced wholesale anyway |
-| Vikunja | No custom fields (open request); flat comments; audit logging paywalled |
-| Plane | Audit logs and Slack behind commercial editions; heavy infra (PG+Redis+RabbitMQ+MinIO) |
-| WeKan | Meteor + MongoDB — fails DB-portability outright |
-| Taiga | Postgres-only, scrum-suite heavy, Django/Angular |
+| Candidate  | Disqualifier                                                                                 |
+| ---------- | -------------------------------------------------------------------------------------------- |
+| Focalboard | Unmaintained — repo states it; open call for maintainers since 2024                          |
+| Planka     | Postgres-only (fails SQLite-now); fair-code license (non-OSI); flat comments; no field audit |
+| Kanboard   | Maintenance mode; JSON-RPC-only PHP; UI would be replaced wholesale anyway                   |
+| Vikunja    | No custom fields (open request); flat comments; audit logging paywalled                      |
+| Plane      | Audit logs and Slack behind commercial editions; heavy infra (PG+Redis+RabbitMQ+MinIO)       |
+| WeKan      | Meteor + MongoDB — fails DB-portability outright                                             |
+| Taiga      | Postgres-only, scrum-suite heavy, Django/Angular                                             |
 
-No candidate provides *any* of the four hard requirements; each provides exactly the commodity
+No candidate provides _any_ of the four hard requirements; each provides exactly the commodity
 parts (board CRUD, drag UI) that libraries make cheap. Adopting one still means building all
 four hard features inside a foreign codebase plus a permanent fork burden.
 

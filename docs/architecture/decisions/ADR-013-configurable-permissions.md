@@ -5,8 +5,8 @@
 ## Context
 
 The original design enforced a role hierarchy on transitions (technician moves work, supervisor
-approves/closes). The product owner rejected hierarchy-by-default: *"By default everyone can
-move anywhere. You can support the feature but we should not enforce hierarchy by default."*
+approves/closes). The product owner rejected hierarchy-by-default: _"By default everyone can
+move anywhere. You can support the feature but we should not enforce hierarchy by default."_
 That in turn requires a way to configure the board — an app-wide admin view.
 
 ## Decision
@@ -38,6 +38,7 @@ That in turn requires a way to configure the board — an app-wide admin view.
   enforcement off, no action gates, and the researched 7-lane graph ready to activate. Stored
   as append-only versions in `board_policies` — configuration changes have history and
   authorship like everything else.
+
 - **The admin surface is the ONLY thing role-restricted by default.** The app-wide settings
   view and its APIs (users, lanes, permission policy, locations, service tokens) require the
   `admin` role, always — it cannot be opened up, because it is where permissions themselves are
@@ -51,12 +52,12 @@ That in turn requires a way to configure the board — an app-wide admin view.
   policy editor (enforcement toggle, per-transition gates, action gates), location tree,
   service tokens.
 - Roles (`requester < technician < supervisor < admin`) remain as assignable levels that gates
-  *may* reference; they impose nothing until a gate is enabled.
+  _may_ reference; they impose nothing until a gate is enabled.
 
 ## Consequences
 
 The policy engine is one evaluation path for all three adapters, whether permissive or
 tightened — no dual code paths. `GET /policy` lets the SPA render current affordances (MCP
 agents simply receive policy denials as tool errors). The transition matrix in workflow.md
-documents the *seeded graph*, not default behavior. Tests must cover both postures
+documents the _seeded graph_, not default behavior. Tests must cover both postures
 (default-permissive and enforcement-on).

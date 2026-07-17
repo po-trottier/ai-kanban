@@ -24,7 +24,7 @@ mention, it replies with a usage hint.
 ## Notifications you'll get as DMs
 
 - When a card you reported is verified and closed (with a link if it needs reopening).
-- When a card assigned to you in *Waiting on Parts / Vendor* passes its expected-resume date.
+- When a card assigned to you in _Waiting on Parts / Vendor_ passes its expected-resume date.
 
 ## Notes
 

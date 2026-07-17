@@ -14,7 +14,7 @@ with Vitest inconsistent, and should the backend adopt Vite for symmetry?
 - Vitest peer-depends on Vite and uses it internally (config/plugins, module resolution,
   TS transforms via Vite's Module Runner). Using Vitest in a project not otherwise built with
   Vite is first-class and maintainer-endorsed (vitest-dev/vitest#3362).
-- Running a server *through* Vite is not the 2026 path: `vite-node` is legacy by its own README
+- Running a server _through_ Vite is not the 2026 path: `vite-node` is legacy by its own README
   ("finished its mission"); Vite's Environment API server builds are RC and aimed at framework
   authors, not applications.
 - Vitest's own 4.1 guidance for server-side code is the opposite of "add Vite": disable the

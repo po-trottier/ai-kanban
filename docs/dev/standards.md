@@ -7,30 +7,30 @@ convenience only, CI is the gate.
 
 ## Language & compiler
 
-| Rule | Enforcer |
-| --- | --- |
-| TypeScript strict, plus `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride` | `tsc --noEmit` in CI |
-| TypeScript pinned 6.0.3 monorepo-wide (ADR-002) | exact pin + lockfile |
-| No `any`, no non-null assertions, no `@ts-ignore`/`@ts-expect-error` without description | typescript-eslint `strict-type-checked` + `ban-ts-comment` |
-| ESLint 10 flat config, `--max-warnings 0` — warnings are errors | CI lint step |
-| Exact-pinned dependencies (`save-exact`), `npm ci` in CI | `.npmrc` + CI |
+| Rule                                                                                                   | Enforcer                                                   |
+| ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| TypeScript strict, plus `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride` | `tsc --noEmit` in CI                                       |
+| TypeScript pinned 6.0.3 monorepo-wide (ADR-002)                                                        | exact pin + lockfile                                       |
+| No `any`, no non-null assertions, no `@ts-ignore`/`@ts-expect-error` without description               | typescript-eslint `strict-type-checked` + `ban-ts-comment` |
+| ESLint 10 flat config, `--max-warnings 0` — warnings are errors                                        | CI lint step                                               |
+| Exact-pinned dependencies (`save-exact`), `npm ci` in CI                                               | `.npmrc` + CI                                              |
 
 ## Architecture (SOLID made mechanical)
 
 The useful parts of SOLID here are dependency direction and interface ownership; they are
 enforced structurally, not aspirationally.
 
-| Rule | Enforcer |
-| --- | --- |
-| `core` imports no other package and no framework/IO library (DIP: core owns the ports) | dependency-cruiser |
-| Only `packages/db` may import `drizzle-orm` / `better-sqlite3` (no hard SQLite dependency) | dependency-cruiser |
-| Only the blob adapter may use `node:fs` for blob paths | dependency-cruiser |
-| Adapters (REST routes, MCP tools, Slack listeners) may import core services but never repositories or each other | dependency-cruiser |
-| No circular dependencies anywhere | dependency-cruiser `no-circular` |
-| No dead code, unused exports, or unused dependencies | knip (fails CI) |
-| Every REST route declares Zod request+response schemas | boot-time `onRoute` hook throws → any integration test catches it |
-| All config/secrets via env, validated at boot | Zod env schema; process refuses to start |
-| Raw SQL banned outside `packages/db` | eslint `no-restricted-imports` / dependency-cruiser |
+| Rule                                                                                                             | Enforcer                                                          |
+| ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `core` imports no other package and no framework/IO library (DIP: core owns the ports)                           | dependency-cruiser                                                |
+| Only `packages/db` may import `drizzle-orm` / `better-sqlite3` (no hard SQLite dependency)                       | dependency-cruiser                                                |
+| Only the blob adapter may use `node:fs` for blob paths                                                           | dependency-cruiser                                                |
+| Adapters (REST routes, MCP tools, Slack listeners) may import core services but never repositories or each other | dependency-cruiser                                                |
+| No circular dependencies anywhere                                                                                | dependency-cruiser `no-circular`                                  |
+| No dead code, unused exports, or unused dependencies                                                             | knip (fails CI)                                                   |
+| Every REST route declares Zod request+response schemas                                                           | boot-time `onRoute` hook throws → any integration test catches it |
+| All config/secrets via env, validated at boot                                                                    | Zod env schema; process refuses to start                          |
+| Raw SQL banned outside `packages/db`                                                                             | eslint `no-restricted-imports` / dependency-cruiser               |
 
 **DRY** is served by the single-schema rule: a shape defined once in `core` (Zod) drives REST
 validation, OpenAPI, MCP inputSchema, and frontend forms. Duplicating a schema shape instead of
@@ -41,12 +41,12 @@ nothing uses, and new dependencies require an ADR note if they overlap an existi
 
 ## Naming & style
 
-| Rule | Enforcer |
-| --- | --- |
-| Prettier formatting, single quotes, no semicolons debate — config is the law | prettier --check in CI |
-| eslint-plugin-security recommended rules on backend packages | ESLint |
-| No `console.*` outside the CLI entrypoints — pino only | ESLint `no-console` |
-| Conventional Commits (`type(scope): subject`) | commitlint in CI on PR titles/commits |
+| Rule                                                                         | Enforcer                              |
+| ---------------------------------------------------------------------------- | ------------------------------------- |
+| Prettier formatting, single quotes, no semicolons debate — config is the law | prettier --check in CI                |
+| eslint-plugin-security recommended rules on backend packages                 | ESLint                                |
+| No `console.*` outside the CLI entrypoints — pino only                       | ESLint `no-console`                   |
+| Conventional Commits (`type(scope): subject`)                                | commitlint in CI on PR titles/commits |
 
 ## Git & review
 

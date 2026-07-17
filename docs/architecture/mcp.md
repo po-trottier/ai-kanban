@@ -44,19 +44,20 @@ tokens) arrives with the OIDC/SSO cutover; service tokens remain for headless au
 Input/output schemas are the same Zod schemas the REST API uses, exposed as JSON Schema. All
 listing tools accept the same filters and cursors as REST.
 
-| Tool | Maps to | Notes |
-| --- | --- | --- |
-| `get_board_snapshot` | BoardQueryService | lanes with card counts, WIP status, blocked counts, oldest-card ages — the "state of the shop" call |
-| `list_cards` | card list | same filters as `GET /cards`: lane, assignee, reporter, priority, tag, blocked, waitingReason, overdueResume, q (title+description substring), includeArchived |
-| `get_card` | card detail | includes tags, location, attachment metadata, latest events, full comment thread |
-| `get_card_history` | events | audit trail, oldest-first, filterable by event type |
-| `list_stale_cards` | BoardQueryService | cards past `expected_resume_at`, in review > `reviewDays` (default 7), or blocked > `blockedDays` (default 3) — the follow-up feed; defaults stated in the tool description |
-| `create_card` | CardService.create | same schema as `POST /cards`; lands in intake, origin `mcp`; optional `reporterEmail` resolves the reporter, otherwise the seeded `system` user |
-| `update_card` | CardService.update | requires `expectedVersion` like REST |
-| `move_card` | CardService.move | same configurable permission policy as REST |
-| `comment_on_card` | CommentService | supports `parentCommentId` replies |
+| Tool                 | Maps to            | Notes                                                                                                                                                                       |
+| -------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_board_snapshot` | BoardQueryService  | lanes with card counts, WIP status, blocked counts, oldest-card ages — the "state of the shop" call                                                                         |
+| `list_cards`         | card list          | same filters as `GET /cards`: lane, assignee, reporter, priority, tag, blocked, waitingReason, overdueResume, q (title+description substring), includeArchived              |
+| `get_card`           | card detail        | includes tags, location, attachment metadata, latest events, full comment thread                                                                                            |
+| `get_card_history`   | events             | audit trail, oldest-first, filterable by event type                                                                                                                         |
+| `list_stale_cards`   | BoardQueryService  | cards past `expected_resume_at`, in review > `reviewDays` (default 7), or blocked > `blockedDays` (default 3) — the follow-up feed; defaults stated in the tool description |
+| `create_card`        | CardService.create | same schema as `POST /cards`; lands in intake, origin `mcp`; optional `reporterEmail` resolves the reporter, otherwise the seeded `system` user                             |
+| `update_card`        | CardService.update | requires `expectedVersion` like REST                                                                                                                                        |
+| `move_card`          | CardService.move   | same configurable permission policy as REST                                                                                                                                 |
+| `comment_on_card`    | CommentService     | supports `parentCommentId` replies                                                                                                                                          |
 
 Design rules:
+
 - Tools are **task-shaped, not table-shaped**: `list_stale_cards` exists because "what needs
   follow-up" is the agent's job; agents should not need to reimplement staleness math.
 - Every tool result includes ISO timestamps and ids so agents can chain calls.

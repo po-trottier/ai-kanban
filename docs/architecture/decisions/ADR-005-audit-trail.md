@@ -11,7 +11,7 @@ exist from the first commit.
 ## Decision
 
 - One `card_events` table, append-only (no UPDATE/DELETE ever; PII removal adds a tombstone
-  event and hard-deletes the *source* rows, not events).
+  event and hard-deletes the _source_ rows, not events).
 - Services write the event **inside the same unit-of-work transaction** as the mutation — a
   mutation without its event cannot be observed, even across a crash.
 - Distinct event types per concern (`card.status_changed` vs `card.reordered` vs

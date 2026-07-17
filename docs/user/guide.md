@@ -32,8 +32,8 @@ the comment thread, and the full history.
 Drag cards between columns and up/down within a column. Alternatively — keyboard or touch —
 use the card's **⋯ → Move to…** menu to pick a column and position.
 
-- Moving into **Waiting on Parts / Vendor** always asks *why* (parts, vendor, access, info,
-  funding) and *when work should resume*. When that date passes, the assignee gets a Slack
+- Moving into **Waiting on Parts / Vendor** always asks _why_ (parts, vendor, access, info,
+  funding) and _when work should resume_. When that date passes, the assignee gets a Slack
   nudge automatically.
 - **Cancelling** is not a drag: use **⋯ → Cancel** and pick a reason (cancelled / declined /
   duplicate). Cancelled cards show at the end of Done with a badge.

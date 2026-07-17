@@ -16,7 +16,7 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
 - **Auth**: session cookie (see [security.md](security.md)). All routes require auth except
   `POST /auth/login` and the health endpoints.
 - **Authorization**: the Role column below shows the out-of-the-box default. Rows marked
-  *policy* consult the configurable permission policy, which defaults to "any authenticated
+  _policy_ consult the configurable permission policy, which defaults to "any authenticated
   user" ([ADR-013](decisions/ADR-013-configurable-permissions.md)); admin rows are fixed.
 - **Optimistic locking**: mutating card routes require `If-Match: "<version>"`; stale versions
   get `409 Conflict` with the current resource in the body.
@@ -33,62 +33,69 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
 ## Endpoints
 
 ### Auth & users
-| Method & path | Role | Description |
-| --- | --- | --- |
-| POST /auth/login | — | email+password → fresh session cookie (never reuses an id) |
-| POST /auth/logout | any | destroy session |
-| POST /auth/change-password | any | `{ currentPassword, newPassword }`; revokes the user's other sessions; clears `must_change_password` |
-| GET /auth/me | any | current user + role + `mustChangePassword` |
-| GET /users | any | active users (id, name, role) for pickers |
+
+| Method & path                 | Role  | Description                                                                                                                                                                                               |
+| ----------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST /auth/login              | —     | email+password → fresh session cookie (never reuses an id)                                                                                                                                                |
+| POST /auth/logout             | any   | destroy session                                                                                                                                                                                           |
+| POST /auth/change-password    | any   | `{ currentPassword, newPassword }`; revokes the user's other sessions; clears `must_change_password`                                                                                                      |
+| GET /auth/me                  | any   | current user + role + `mustChangePassword`                                                                                                                                                                |
+| GET /users                    | any   | active users (id, name, role) for pickers                                                                                                                                                                 |
 | POST /users, PATCH /users/:id | admin | manage users. Create and the PATCH `resetPassword` action return a one-time temp password (shown once, `must_change_password` set); PATCH can deactivate/change role — except the last active admin (409) |
 
 While `must_change_password` is set, every route except change-password/logout/me returns 403.
 
 ### Board & cards
-| Method & path | Role | Description |
-| --- | --- | --- |
-| GET /board | any | lanes (with WIP state) + non-archived card summaries in position order |
-| GET /cards | any | filterable list: `lane, assignee, reporter, priority, tag, blocked, waitingReason, overdueResume, q (title+description substring), includeArchived`; cursor-paginated |
-| POST /cards | any | body: `title` (required), `description` ('' default), `priority` (default `P2`), `assigneeId?`, `locationId?`, `tags?`, `estimateMinutes?`. Lands in `intake` at the top, origin `manual`, reporter = acting user. Slack and MCP creation share this schema |
-| GET /cards/:id | any | full detail: card + tags + location + attachment metadata |
-| PATCH /cards/:id | any (policy) | field edits (title, description, priority, estimate, assignee, location, tags as full-replacement array); If-Match required; one audit event per changed field |
-| POST /cards/:id/move | any (policy) | `{ toLane (lane key, always required — equal to the current lane for reorders), prevCardId, nextCardId, waitingReason?, expectedResumeAt? }`; If-Match required; waiting-lane fields required on entry. Neighbors that no longer exist in the target lane (or an exhausted uniqueness retry) → 409 with the current card |
-| POST /cards/:id/cancel | any (policy) | `{ resolution }` |
-| POST /cards/:id/reopen | any (policy) | done → ready |
-| POST /cards/:id/block / unblock | any (policy) | `{ reason }` on block |
+
+| Method & path                   | Role         | Description                                                                                                                                                                                                                                                                                                              |
+| ------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET /board                      | any          | lanes (with WIP state) + non-archived card summaries in position order                                                                                                                                                                                                                                                   |
+| GET /cards                      | any          | filterable list: `lane, assignee, reporter, priority, tag, blocked, waitingReason, overdueResume, q (title+description substring), includeArchived`; cursor-paginated                                                                                                                                                    |
+| POST /cards                     | any          | body: `title` (required), `description` ('' default), `priority` (default `P2`), `assigneeId?`, `locationId?`, `tags?`, `estimateMinutes?`. Lands in `intake` at the top, origin `manual`, reporter = acting user. Slack and MCP creation share this schema                                                              |
+| GET /cards/:id                  | any          | full detail: card + tags + location + attachment metadata                                                                                                                                                                                                                                                                |
+| PATCH /cards/:id                | any (policy) | field edits (title, description, priority, estimate, assignee, location, tags as full-replacement array); If-Match required; one audit event per changed field                                                                                                                                                           |
+| POST /cards/:id/move            | any (policy) | `{ toLane (lane key, always required — equal to the current lane for reorders), prevCardId, nextCardId, waitingReason?, expectedResumeAt? }`; If-Match required; waiting-lane fields required on entry. Neighbors that no longer exist in the target lane (or an exhausted uniqueness retry) → 409 with the current card |
+| POST /cards/:id/cancel          | any (policy) | `{ resolution }`                                                                                                                                                                                                                                                                                                         |
+| POST /cards/:id/reopen          | any (policy) | done → ready                                                                                                                                                                                                                                                                                                             |
+| POST /cards/:id/block / unblock | any (policy) | `{ reason }` on block                                                                                                                                                                                                                                                                                                    |
 
 ### Comments
-| Method & path | Role | Description |
-| --- | --- | --- |
-| GET /cards/:id/comments | any | full thread, oldest-first |
-| POST /cards/:id/comments | any | `{ body, parentCommentId? }` |
-| PATCH /comments/:id | author | edit own comment |
-| DELETE /comments/:id | author (policy for others) | soft delete |
+
+| Method & path            | Role                       | Description                  |
+| ------------------------ | -------------------------- | ---------------------------- |
+| GET /cards/:id/comments  | any                        | full thread, oldest-first    |
+| POST /cards/:id/comments | any                        | `{ body, parentCommentId? }` |
+| PATCH /comments/:id      | author                     | edit own comment             |
+| DELETE /comments/:id     | author (policy for others) | soft delete                  |
 
 ### Attachments
-| Method & path | Role | Description |
-| --- | --- | --- |
-| POST /cards/:id/attachments | any (policy) | multipart, exactly one file per request in a part named `file`; ≤ 25 MB/file, ≤ 10 active files/card (soft-deleted don't count; 11th → 409 `attachment-limit`, enforced in the insert transaction); MIME sniffed server-side (images + PDF only) |
-| GET /attachments/:id | any | download; `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` |
-| DELETE /attachments/:id | uploader (policy for others) | soft delete + blob removal |
+
+| Method & path               | Role                         | Description                                                                                                                                                                                                                                      |
+| --------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST /cards/:id/attachments | any (policy)                 | multipart, exactly one file per request in a part named `file`; ≤ 25 MB/file, ≤ 10 active files/card (soft-deleted don't count; 11th → 409 `attachment-limit`, enforced in the insert transaction); MIME sniffed server-side (images + PDF only) |
+| GET /attachments/:id        | any                          | download; `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`                                                                                                                                                                   |
+| DELETE /attachments/:id     | uploader (policy for others) | soft delete + blob removal                                                                                                                                                                                                                       |
 
 ### History & metadata
-| Method & path | Role | Description |
-| --- | --- | --- |
-| GET /cards/:id/events | any | audit trail for a card, oldest-first; filter `type`; cursor-paginated |
-| GET /locations | any | tree; admin CRUD via POST/PATCH/DELETE |
-| GET /tags | any | known tags for autocomplete |
-| GET /stream | any | SSE: `{ type, cardId, version, eventId }` invalidation hints |
+
+| Method & path         | Role | Description                                                           |
+| --------------------- | ---- | --------------------------------------------------------------------- |
+| GET /cards/:id/events | any  | audit trail for a card, oldest-first; filter `type`; cursor-paginated |
+| GET /locations        | any  | tree; admin CRUD via POST/PATCH/DELETE                                |
+| GET /tags             | any  | known tags for autocomplete                                           |
+| GET /stream           | any  | SSE: `{ type, cardId, version, eventId }` invalidation hints          |
 
 ### Admin
-| Method & path | Role | Description |
-| --- | --- | --- |
-| PATCH /lanes/:id | admin | edit label / WIP limit |
-| GET /policy | any | active permission policy (drives UI affordances) |
-| PUT /policy | admin | apply a new policy version (append-only history) |
+
+| Method & path                                                         | Role  | Description                                        |
+| --------------------------------------------------------------------- | ----- | -------------------------------------------------- |
+| PATCH /lanes/:id                                                      | admin | edit label / WIP limit                             |
+| GET /policy                                                           | any   | active permission policy (drives UI affordances)   |
+| PUT /policy                                                           | admin | apply a new policy version (append-only history)   |
 | POST /service-tokens, GET /service-tokens, DELETE /service-tokens/:id | admin | MCP credentials; raw token returned once on create |
 
 ### Operational (not under /api/v1)
+
 `GET /healthz` (process up) and `GET /readyz` (DB ping) — unauthenticated, for the Docker
 healthcheck. `GET /version` — unauthenticated `{ version, gitSha, builtAt }` (no sensitive
 data). `GET /metrics` (Prometheus) is served on a **separate internal listener port** that

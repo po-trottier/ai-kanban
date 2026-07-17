@@ -70,23 +70,24 @@ What is security-relevant here:
   `Content-Type: application/json` (checked before body parsing; missing header rejected) or,
   for multipart uploads and bodyless POSTs (logout, reopen, block/unblock), a custom
   `X-Requested-With` header. DELETEs additionally trigger CORS preflight by method. HTML forms
-  can produce none of these. Note: SameSite is same-*site*, not same-origin — a compromised
+  can produce none of these. Note: SameSite is same-_site_, not same-origin — a compromised
   sibling subdomain bypasses Lax, which is why the header/content-type layer is mandatory, not
   belt-and-braces.
 - Rate limiting (429 + `Retry-After`; initial budgets, tuned later):
 
-  | Bucket | Limit | Keyed on |
-  | --- | --- | --- |
-  | Global | 300/min | IP |
-  | Login | 5/min | IP (plus per-account backoff above) |
-  | Uploads | 20/min | user |
-  | MCP | 120/min | token id |
-  | SSE | 5 concurrent streams (oldest dropped) | user |
+  | Bucket  | Limit                                 | Keyed on                            |
+  | ------- | ------------------------------------- | ----------------------------------- |
+  | Global  | 300/min                               | IP                                  |
+  | Login   | 5/min                                 | IP (plus per-account backoff above) |
+  | Uploads | 20/min                                | user                                |
+  | MCP     | 120/min                               | token id                            |
+  | SSE     | 5 concurrent streams (oldest dropped) | user                                |
 
   Per-IP limits assume correct client-IP derivation behind the TLS proxy — see the
   trust-proxy requirement in [deployment.md](deployment.md). Slack traffic arrives over
   Socket Mode and never hits these buckets; the Bolt adapter enforces its own throttles
   ([slack.md](slack.md#delivery-semantics--abuse-controls)).
+
 - `@fastify/under-pressure` sheds load (503) under event-loop distress instead of collapsing.
 
 ## Uploads
@@ -119,7 +120,7 @@ audit event. Sessions and service tokens record last use. `/metrics` (Prometheus
 an internal-only listener; health endpoints expose no data.
 
 **Tamper-evidence boundary, stated honestly**: the audit trail is append-only against every
-application actor (web, MCP, Slack — no code path updates or deletes events). It is *not*
+application actor (web, MCP, Slack — no code path updates or deletes events). It is _not_
 tamper-proof against host or volume compromise; SQLite has no grants. The compensating control
 is Litestream's continuous off-host replication — already-shipped WAL history cannot be
 rewritten retroactively. Event hash-chaining is a noted Postgres-era hardening option.

@@ -28,17 +28,17 @@ advice, and follow-up nudges.
 
 ## Non-goals (v1)
 
-| Deferred | Why | Door left open by |
-| --- | --- | --- |
-| Preventive/recurring maintenance schedules | Large scope step toward a full CMMS | `origin` field reserves `pm`; in-process scheduler exists |
-| Asset registry (equipment tags, per-asset history) | Scope step-change | optional `location_id` dimension already normalized |
-| Multiple boards | Single facilities team | cards already reference `board_id` |
-| Corporate SSO (OIDC) | Pilot uses local accounts | auth behind a port; session design unchanged by OIDC |
-| High availability / multi-instance | Single-node is fine for the pilot scale | EventBus/scheduler/DB behind ports; Postgres migration is the trigger |
-| i18n | Internal English-speaking team | UI strings centralized; lane labels are seeded data |
-| CSV import of incumbent work orders | No incumbent system identified | `origin` field reserves `import` |
-| Email notifications | Slack DMs cover the pilot | NotifierPort; SMTP is a second adapter |
-| Slack thread file import | Enlarges data-handling surface | stored Slack permalink preserves access |
+| Deferred                                           | Why                                     | Door left open by                                                     |
+| -------------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------- |
+| Preventive/recurring maintenance schedules         | Large scope step toward a full CMMS     | `origin` field reserves `pm`; in-process scheduler exists             |
+| Asset registry (equipment tags, per-asset history) | Scope step-change                       | optional `location_id` dimension already normalized                   |
+| Multiple boards                                    | Single facilities team                  | cards already reference `board_id`                                    |
+| Corporate SSO (OIDC)                               | Pilot uses local accounts               | auth behind a port; session design unchanged by OIDC                  |
+| High availability / multi-instance                 | Single-node is fine for the pilot scale | EventBus/scheduler/DB behind ports; Postgres migration is the trigger |
+| i18n                                               | Internal English-speaking team          | UI strings centralized; lane labels are seeded data                   |
+| CSV import of incumbent work orders                | No incumbent system identified          | `origin` field reserves `import`                                      |
+| Email notifications                                | Slack DMs cover the pilot               | NotifierPort; SMTP is a second adapter                                |
+| Slack thread file import                           | Enlarges data-handling surface          | stored Slack permalink preserves access                               |
 
 ## Personas
 
@@ -55,21 +55,21 @@ advice, and follow-up nudges.
 
 ## v1 scope decisions (product-owner record, 2026-07-16)
 
-| Decision | Choice |
-| --- | --- |
-| Authentication | Local accounts (email + password), OIDC-ready design |
-| Approval policy | The seeded workflow graph routes **all** work through Waiting for Approval (no Intake → Ready shortcut when transition enforcement is enabled) |
-| Permissions | **Permissive by default** — any authenticated user can move/edit any card; transition enforcement and role gates are opt-in, admin-configurable policy ([ADR-013](../architecture/decisions/ADR-013-configurable-permissions.md)) |
-| Admin view | App-wide settings UI: users, lane labels/WIP limits, permission policy, locations, service tokens |
-| Board shape | 7 lanes (see [workflow.md](workflow.md)), single board |
-| Slack integration | Fully implemented and contract-tested in CI without a live workspace; credentials connected later |
-| AI thread summarization | Implemented, enabled per-deployment by config flag (`claude-haiku-4-5`); invoker always reviews the draft in a modal |
-| Deployment | Single-node Docker Compose; SQLite (WAL) + Litestream backups |
-| Attachments | Images + PDF, 25 MB/file, 10 files/card, local blob volume behind a port |
-| Location | Optional per card, from a seeded building/floor/room tree |
-| Review → Done | Requester auto-notified with reopen path; supervisor gate available via policy, off by default |
-| Slack-created tickets | Always land in Intake; the invoker reviews/edits AI-suggested values in the modal, after which they are stored as ordinary card fields |
-| Done-card archival | Auto-archive off the board after 90 days; retained and queryable |
+| Decision                | Choice                                                                                                                                                                                                                            |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authentication          | Local accounts (email + password), OIDC-ready design                                                                                                                                                                              |
+| Approval policy         | The seeded workflow graph routes **all** work through Waiting for Approval (no Intake → Ready shortcut when transition enforcement is enabled)                                                                                    |
+| Permissions             | **Permissive by default** — any authenticated user can move/edit any card; transition enforcement and role gates are opt-in, admin-configurable policy ([ADR-013](../architecture/decisions/ADR-013-configurable-permissions.md)) |
+| Admin view              | App-wide settings UI: users, lane labels/WIP limits, permission policy, locations, service tokens                                                                                                                                 |
+| Board shape             | 7 lanes (see [workflow.md](workflow.md)), single board                                                                                                                                                                            |
+| Slack integration       | Fully implemented and contract-tested in CI without a live workspace; credentials connected later                                                                                                                                 |
+| AI thread summarization | Implemented, enabled per-deployment by config flag (`claude-haiku-4-5`); invoker always reviews the draft in a modal                                                                                                              |
+| Deployment              | Single-node Docker Compose; SQLite (WAL) + Litestream backups                                                                                                                                                                     |
+| Attachments             | Images + PDF, 25 MB/file, 10 files/card, local blob volume behind a port                                                                                                                                                          |
+| Location                | Optional per card, from a seeded building/floor/room tree                                                                                                                                                                         |
+| Review → Done           | Requester auto-notified with reopen path; supervisor gate available via policy, off by default                                                                                                                                    |
+| Slack-created tickets   | Always land in Intake; the invoker reviews/edits AI-suggested values in the modal, after which they are stored as ordinary card fields                                                                                            |
+| Done-card archival      | Auto-archive off the board after 90 days; retained and queryable                                                                                                                                                                  |
 
 ## Non-functional requirements
 

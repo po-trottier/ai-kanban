@@ -7,15 +7,15 @@ enum — so renames need no migration and the audit trail stays queryable.
 
 ## Lanes (in board order)
 
-| # | Key | Default label | Meaning |
-| --- | --- | --- | --- |
-| 1 | `intake` | Intake | Freshly reported work awaiting human triage: validate, dedupe, classify, set priority, set location. |
-| 2 | `waiting_approval` | Waiting for Approval | Triaged work gated on sign-off. The seeded workflow graph routes **every** card through here — there is no Intake → Ready shortcut when enforcement is on. |
-| 3 | `ready` | Ready | Approved, prioritized queue. Vertical order is the execution order: top = address first. |
-| 4 | `in_progress` | In Progress | Technician or vendor actively performing the work. WIP-limited. |
-| 5 | `waiting_parts_vendor` | Waiting on Parts / Vendor | Paused on a structural external dependency. Entry **requires** a waiting reason and an expected-resume date. |
-| 6 | `review` | Review | Physical work done; awaiting verification and close-out documentation. |
-| 7 | `done` | Done | Terminal: verified, fully documented, permanent history. |
+| #   | Key                    | Default label             | Meaning                                                                                                                                                    |
+| --- | ---------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `intake`               | Intake                    | Freshly reported work awaiting human triage: validate, dedupe, classify, set priority, set location.                                                       |
+| 2   | `waiting_approval`     | Waiting for Approval      | Triaged work gated on sign-off. The seeded workflow graph routes **every** card through here — there is no Intake → Ready shortcut when enforcement is on. |
+| 3   | `ready`                | Ready                     | Approved, prioritized queue. Vertical order is the execution order: top = address first.                                                                   |
+| 4   | `in_progress`          | In Progress               | Technician or vendor actively performing the work. WIP-limited.                                                                                            |
+| 5   | `waiting_parts_vendor` | Waiting on Parts / Vendor | Paused on a structural external dependency. Entry **requires** a waiting reason and an expected-resume date.                                               |
+| 6   | `review`               | Review                    | Physical work done; awaiting verification and close-out documentation.                                                                                     |
+| 7   | `done`                 | Done                      | Terminal: verified, fully documented, permanent history.                                                                                                   |
 
 **Cancelled is a terminal status, not a lane.** Cancelling is an explicit card action (never a
 drag target). See [Terminal states](#terminal-states) for the exact semantics.
@@ -39,7 +39,7 @@ drag target). See [Terminal states](#terminal-states) for the exact semantics.
 
 **By default, any authenticated user can move any card to any lane and reorder freely** — the
 team is trusted to follow the process socially (product-owner decision, 2026-07-16). Hierarchy
-is *supported, not imposed*: an admin can turn on **transition enforcement** in the app-wide
+is _supported, not imposed_: an admin can turn on **transition enforcement** in the app-wide
 settings view, which activates the seeded workflow graph below and (optionally) per-transition
 role gates. See [ADR-013](../architecture/decisions/ADR-013-configurable-permissions.md).
 
@@ -52,19 +52,19 @@ hierarchy:
 
 ## Seeded workflow graph (active when transition enforcement is on)
 
-| From | To | Suggested role gate | Notes |
-| --- | --- | --- | --- |
-| intake | waiting_approval | — | Triage complete |
-| waiting_approval | ready | supervisor | Approval |
-| waiting_approval | intake | — | Send back for more triage |
-| ready | in_progress | — | Work starts |
-| in_progress | ready | — | Deprioritized / handed back |
-| in_progress | waiting_parts_vendor | — | |
-| waiting_parts_vendor | in_progress | — | Dependency resolved |
-| in_progress | review | — | Work physically complete |
-| review | done | supervisor | Verification + close-out; requester notified |
-| review | in_progress | — | Failed verification / rework |
-| done | ready | supervisor | Reopen |
+| From                 | To                   | Suggested role gate | Notes                                        |
+| -------------------- | -------------------- | ------------------- | -------------------------------------------- |
+| intake               | waiting_approval     | —                   | Triage complete                              |
+| waiting_approval     | ready                | supervisor          | Approval                                     |
+| waiting_approval     | intake               | —                   | Send back for more triage                    |
+| ready                | in_progress          | —                   | Work starts                                  |
+| in_progress          | ready                | —                   | Deprioritized / handed back                  |
+| in_progress          | waiting_parts_vendor | —                   |                                              |
+| waiting_parts_vendor | in_progress          | —                   | Dependency resolved                          |
+| in_progress          | review               | —                   | Work physically complete                     |
+| review               | done                 | supervisor          | Verification + close-out; requester notified |
+| review               | in_progress          | —                   | Failed verification / rework                 |
+| done                 | ready                | supervisor          | Reopen                                       |
 
 Role gates are per-transition and individually configurable; the "suggested" column is what the
 seeded graph proposes when an admin flips enforcement on, not a default restriction. With
@@ -79,9 +79,9 @@ card can carry a blocked flag: `blocked` + free-text reason + timestamp. The car
 lane, counts against that lane's WIP, and renders with a prominent badge. Block/unblock are
 audit events, so time-blocked is queryable per card and per lane.
 
-Distinction from `waiting_parts_vendor`: the lane models a *normal, expected* stage of facilities
+Distinction from `waiting_parts_vendor`: the lane models a _normal, expected_ stage of facilities
 work (parts on order, vendor lead time) with its own WIP limit and aging alerts; the flag models
-*exceptions* anywhere.
+_exceptions_ anywhere.
 
 ## Waiting on Parts / Vendor discipline
 

@@ -6,28 +6,28 @@ the source of truth**; unit tests prove micro-logic, they never substitute for t
 
 ## Test taxonomy
 
-| Layer | Files | Runs against | Speed budget |
-| --- | --- | --- | --- |
-| Unit | `*.unit.test.ts` (Vitest, threads pool) | core services with **hand-written in-memory port fakes** | ms |
-| Integration | `*.integration.test.ts` (Vitest, forks pool) | the **real Fastify app** via `app.inject()` + a **real temp SQLite file** per test file with real migrations; real Bolt app via TestReceiver; external HTTP (Slack/Anthropic) served by **local fixture HTTP servers** | < 1 s each |
-| MCP e2e | integration layer | MCP SDK's own client ↔ the real server in-process | < 1 s each |
-| E2E | `e2e/**` (Playwright) | real backend + real built frontend + real browser; seeded fixture data | seconds |
+| Layer       | Files                                        | Runs against                                                                                                                                                                                                           | Speed budget |
+| ----------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Unit        | `*.unit.test.ts` (Vitest, threads pool)      | core services with **hand-written in-memory port fakes**                                                                                                                                                               | ms           |
+| Integration | `*.integration.test.ts` (Vitest, forks pool) | the **real Fastify app** via `app.inject()` + a **real temp SQLite file** per test file with real migrations; real Bolt app via TestReceiver; external HTTP (Slack/Anthropic) served by **local fixture HTTP servers** | < 1 s each   |
+| MCP e2e     | integration layer                            | MCP SDK's own client ↔ the real server in-process                                                                                                                                                                      | < 1 s each   |
+| E2E         | `e2e/**` (Playwright)                        | real backend + real built frontend + real browser; seeded fixture data                                                                                                                                                 | seconds      |
 
 ## The rules (each with its enforcer)
 
-| Rule | Enforcer |
-| --- | --- |
+| Rule                                                                                                                                                                      | Enforcer                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **AAA pattern** in every unit test: explicit `// Arrange`, `// Act`, `// Assert` comments marking the three sections, in order, in every test body; one behavior per test | custom local ESLint rule `local/require-aaa-comments` on `*.unit.test.ts` (presence + order are machine-checked) plus `@vitest/eslint-plugin` `max-expects`, `expect-expect`, `valid-title` |
-| **No mocking in integration/e2e** — no `vi.mock`, `vi.fn`, `vi.spyOn`, `vi.stubGlobal`, `vi.useFakeTimers`, no mock libraries | ESLint flat-config override on `**/*.integration.test.ts` and `e2e/**`: `no-restricted-properties` + `no-restricted-imports` |
-| External services are faked only as **real local HTTP servers** serving recorded fixture responses (Slack Web API, Anthropic) — our code runs unmodified | integration harness provides them; the lint rule above blocks the lazy alternative |
-| Unit-test doubles are **hand-written fakes implementing core ports** (e.g. `InMemoryCardRepository`), never mocking-library constructs | same lint rules applied repo-wide for `vi.mock`/`vi.spyOn`; fakes live in `packages/core/test/fakes/` |
-| Time and randomness are **ports** (`Clock`, `IdGenerator`) — tests inject fixed values instead of faking globals | design + `vi.useFakeTimers` ban |
-| Every test file owns its data: fresh DB file (integration) or fresh fake instances (unit); no shared mutable fixtures, no test-order dependence | forks-pool per-file isolation + `createTestApp()` per test |
-| No focused/skipped/conditional tests in CI | `@vitest/eslint-plugin`: `no-focused-tests`, `no-disabled-tests`, `no-conditional-expect`, `no-conditional-tests` |
-| Playwright: no `waitForTimeout`, web-first assertions only | eslint-plugin-playwright |
-| Frontend component tests query by role/label (a11y-first) | eslint-plugin-testing-library |
-| Coverage gates (lines/branches): core & server 90/85, web 80/75 — ratchet up, never down | `@vitest/coverage-v8` thresholds in config; CI fails below |
-| Both policy postures tested: default-permissive and enforcement-on | required fixture matrix in integration suites (reviewed; policy tests named `policy.*.integration.test.ts`) |
+| **No mocking in integration/e2e** — no `vi.mock`, `vi.fn`, `vi.spyOn`, `vi.stubGlobal`, `vi.useFakeTimers`, no mock libraries                                             | ESLint flat-config override on `**/*.integration.test.ts` and `e2e/**`: `no-restricted-properties` + `no-restricted-imports`                                                                |
+| External services are faked only as **real local HTTP servers** serving recorded fixture responses (Slack Web API, Anthropic) — our code runs unmodified                  | integration harness provides them; the lint rule above blocks the lazy alternative                                                                                                          |
+| Unit-test doubles are **hand-written fakes implementing core ports** (e.g. `InMemoryCardRepository`), never mocking-library constructs                                    | same lint rules applied repo-wide for `vi.mock`/`vi.spyOn`; fakes live in `packages/core/test/fakes/`                                                                                       |
+| Time and randomness are **ports** (`Clock`, `IdGenerator`) — tests inject fixed values instead of faking globals                                                          | design + `vi.useFakeTimers` ban                                                                                                                                                             |
+| Every test file owns its data: fresh DB file (integration) or fresh fake instances (unit); no shared mutable fixtures, no test-order dependence                           | forks-pool per-file isolation + `createTestApp()` per test                                                                                                                                  |
+| No focused/skipped/conditional tests in CI                                                                                                                                | `@vitest/eslint-plugin`: `no-focused-tests`, `no-disabled-tests`, `no-conditional-expect`, `no-conditional-tests`                                                                           |
+| Playwright: no `waitForTimeout`, web-first assertions only                                                                                                                | eslint-plugin-playwright                                                                                                                                                                    |
+| Frontend component tests query by role/label (a11y-first)                                                                                                                 | eslint-plugin-testing-library                                                                                                                                                               |
+| Coverage gates (lines/branches): core & server 90/85, web 80/75 — ratchet up, never down                                                                                  | `@vitest/coverage-v8` thresholds in config; CI fails below                                                                                                                                  |
+| Both policy postures tested: default-permissive and enforcement-on                                                                                                        | required fixture matrix in integration suites (reviewed; policy tests named `policy.*.integration.test.ts`)                                                                                 |
 
 ## Fixtures
 

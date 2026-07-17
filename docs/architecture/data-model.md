@@ -21,142 +21,155 @@ sessions >── users        service_tokens (MCP)
 ## Tables
 
 ### users
-| column | type | notes |
-| --- | --- | --- |
-| id | TEXT PK | UUIDv7 |
-| email | TEXT UNIQUE NOT NULL | lowercased |
-| display_name | TEXT NOT NULL | ≤ 100 chars |
-| role | TEXT NOT NULL | `requester \| technician \| supervisor \| admin` |
-| password_hash | TEXT NOT NULL | argon2id |
-| must_change_password | INTEGER NOT NULL DEFAULT 0 | set on create/admin-reset; while set, the session may only call change-password |
-| slack_user_id | TEXT NULL | bound on first Slack use (matched by email once, then matched by id — never re-resolved) |
-| is_active | INTEGER NOT NULL | soft-disable; inactive users cannot log in (web or Slack) but remain referenced |
-| created_at | TEXT NOT NULL | ISO-8601 UTC |
+
+| column               | type                       | notes                                                                                    |
+| -------------------- | -------------------------- | ---------------------------------------------------------------------------------------- |
+| id                   | TEXT PK                    | UUIDv7                                                                                   |
+| email                | TEXT UNIQUE NOT NULL       | lowercased                                                                               |
+| display_name         | TEXT NOT NULL              | ≤ 100 chars                                                                              |
+| role                 | TEXT NOT NULL              | `requester \| technician \| supervisor \| admin`                                         |
+| password_hash        | TEXT NOT NULL              | argon2id                                                                                 |
+| must_change_password | INTEGER NOT NULL DEFAULT 0 | set on create/admin-reset; while set, the session may only call change-password          |
+| slack_user_id        | TEXT NULL                  | bound on first Slack use (matched by email once, then matched by id — never re-resolved) |
+| is_active            | INTEGER NOT NULL           | soft-disable; inactive users cannot log in (web or Slack) but remain referenced          |
+| created_at           | TEXT NOT NULL              | ISO-8601 UTC                                                                             |
 
 The structural seed includes a `system` user (display "Automation", no password, cannot log
 in) used as the reporter for MCP-created cards when no reporter is specified. The last active
 admin can never be demoted or deactivated (enforced invariant; see security.md).
 
 ### boards
+
 Single seeded row in v1; cards reference it so multi-board is additive later.
 `id, name, created_at`.
 
 ### lanes
+
 Seeded rows — stable `key`, editable `label` (see [workflow.md](../product/workflow.md)).
-| column | type | notes |
-| --- | --- | --- |
-| id | TEXT PK | |
-| board_id | TEXT FK | |
-| key | TEXT NOT NULL | machine key, UNIQUE(board_id, key) |
-| label | TEXT NOT NULL | display, admin-editable, ≤ 50 chars |
-| position | INTEGER NOT NULL | board order |
-| wip_limit | INTEGER NULL | soft limit |
+
+| column    | type             | notes                               |
+| --------- | ---------------- | ----------------------------------- |
+| id        | TEXT PK          |                                     |
+| board_id  | TEXT FK          |                                     |
+| key       | TEXT NOT NULL    | machine key, UNIQUE(board_id, key)  |
+| label     | TEXT NOT NULL    | display, admin-editable, ≤ 50 chars |
+| position  | INTEGER NOT NULL | board order                         |
+| wip_limit | INTEGER NULL     | soft limit                          |
 
 ### locations
+
 Optional tree: `id, parent_id NULL FK, kind ('building'|'floor'|'room'), name`. Seeded,
 admin-editable.
 
 ### board_policies
+
 Permission policy as data, **append-only versions** — newest row per board wins, history is
 free (see [ADR-013](decisions/ADR-013-configurable-permissions.md)).
-| column | type | notes |
-| --- | --- | --- |
-| id | TEXT PK | UUIDv7 |
-| board_id | TEXT FK NOT NULL | |
-| config | TEXT NOT NULL | Zod-validated JSON; full schema in [ADR-013](decisions/ADR-013-configurable-permissions.md) |
-| created_by | TEXT FK NOT NULL | admin who applied it |
-| created_at | TEXT NOT NULL | |
+
+| column     | type             | notes                                                                                       |
+| ---------- | ---------------- | ------------------------------------------------------------------------------------------- |
+| id         | TEXT PK          | UUIDv7                                                                                      |
+| board_id   | TEXT FK NOT NULL |                                                                                             |
+| config     | TEXT NOT NULL    | Zod-validated JSON; full schema in [ADR-013](decisions/ADR-013-configurable-permissions.md) |
+| created_by | TEXT FK NOT NULL | admin who applied it                                                                        |
+| created_at | TEXT NOT NULL    |                                                                                             |
 
 Seeded with the permissive default (`transitionEnforcement: false`, no gates) plus the
 7-lane workflow graph ready to activate. Index: `(board_id, created_at)`.
 
 ### cards
-| column | type | notes |
-| --- | --- | --- |
-| id | TEXT PK | UUIDv7 |
-| board_id | TEXT FK NOT NULL | |
-| lane_id | TEXT FK NOT NULL | current status |
-| position | TEXT NOT NULL | fractional key; UNIQUE(lane_id, position) |
-| title | TEXT NOT NULL | ≤ 200 chars |
-| description | TEXT NOT NULL DEFAULT '' | markdown, ≤ 20,000 chars |
-| priority | TEXT NOT NULL | `P0 \| P1 \| P2` |
-| estimate_minutes | INTEGER NULL | |
-| reporter_id | TEXT FK NOT NULL | |
-| assignee_id | TEXT FK NULL | |
-| location_id | TEXT FK NULL | optional (PO decision) |
-| origin | TEXT NOT NULL | `manual \| slack \| mcp \| import \| pm` |
-| resolution | TEXT NULL | terminal only. `completed` is system-set on non-cancel entry into done; `cancelled \| declined \| duplicate` only via the cancel action; cleared by reopen |
-| blocked | INTEGER NOT NULL DEFAULT 0 | flag, any lane |
-| blocked_reason | TEXT NULL | required when blocked=1, ≤ 500 chars |
-| blocked_at | TEXT NULL | |
-| waiting_reason | TEXT NULL | required in waiting lane: `parts \| vendor \| access \| info \| funding`; cleared on lane exit |
-| expected_resume_at | TEXT NULL | required in waiting lane; date-only `YYYY-MM-DD` (overdue = the following UTC day onward); cleared on lane exit |
-| resume_alerted_at | TEXT NULL | set when the overdue DM fires; cleared on lane exit or date change (one alert per episode) |
-| slack_channel_id / slack_thread_ts / slack_permalink | TEXT NULL | source metadata for origin=slack |
-| version | INTEGER NOT NULL DEFAULT 1 | optimistic lock ([ADR-012](decisions/ADR-012-optimistic-locking.md)) |
-| created_at / updated_at | TEXT NOT NULL | |
-| archived_at | TEXT NULL | set by archival job |
+
+| column                                               | type                       | notes                                                                                                                                                      |
+| ---------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                                                   | TEXT PK                    | UUIDv7                                                                                                                                                     |
+| board_id                                             | TEXT FK NOT NULL           |                                                                                                                                                            |
+| lane_id                                              | TEXT FK NOT NULL           | current status                                                                                                                                             |
+| position                                             | TEXT NOT NULL              | fractional key; UNIQUE(lane_id, position)                                                                                                                  |
+| title                                                | TEXT NOT NULL              | ≤ 200 chars                                                                                                                                                |
+| description                                          | TEXT NOT NULL DEFAULT ''   | markdown, ≤ 20,000 chars                                                                                                                                   |
+| priority                                             | TEXT NOT NULL              | `P0 \| P1 \| P2`                                                                                                                                           |
+| estimate_minutes                                     | INTEGER NULL               |                                                                                                                                                            |
+| reporter_id                                          | TEXT FK NOT NULL           |                                                                                                                                                            |
+| assignee_id                                          | TEXT FK NULL               |                                                                                                                                                            |
+| location_id                                          | TEXT FK NULL               | optional (PO decision)                                                                                                                                     |
+| origin                                               | TEXT NOT NULL              | `manual \| slack \| mcp \| import \| pm`                                                                                                                   |
+| resolution                                           | TEXT NULL                  | terminal only. `completed` is system-set on non-cancel entry into done; `cancelled \| declined \| duplicate` only via the cancel action; cleared by reopen |
+| blocked                                              | INTEGER NOT NULL DEFAULT 0 | flag, any lane                                                                                                                                             |
+| blocked_reason                                       | TEXT NULL                  | required when blocked=1, ≤ 500 chars                                                                                                                       |
+| blocked_at                                           | TEXT NULL                  |                                                                                                                                                            |
+| waiting_reason                                       | TEXT NULL                  | required in waiting lane: `parts \| vendor \| access \| info \| funding`; cleared on lane exit                                                             |
+| expected_resume_at                                   | TEXT NULL                  | required in waiting lane; date-only `YYYY-MM-DD` (overdue = the following UTC day onward); cleared on lane exit                                            |
+| resume_alerted_at                                    | TEXT NULL                  | set when the overdue DM fires; cleared on lane exit or date change (one alert per episode)                                                                 |
+| slack_channel_id / slack_thread_ts / slack_permalink | TEXT NULL                  | source metadata for origin=slack                                                                                                                           |
+| version                                              | INTEGER NOT NULL DEFAULT 1 | optimistic lock ([ADR-012](decisions/ADR-012-optimistic-locking.md))                                                                                       |
+| created_at / updated_at                              | TEXT NOT NULL              |                                                                                                                                                            |
+| archived_at                                          | TEXT NULL                  | set by archival job                                                                                                                                        |
 
 Indexes: `(lane_id, position)`, `(board_id, archived_at)`, `(assignee_id)`, `(reporter_id)`.
 
 ### tags / card_tags
+
 `tags(id, name UNIQUE COLLATE NOCASE)`; `card_tags(card_id, tag_id, PK(card_id, tag_id))`.
 Free-form (≤ 50 chars, trimmed, case preserved, matched case-insensitively), created on first
 use, normalized for per-tag queries. Card updates send tags as a full-replacement array.
 
 ### comments
-| column | type | notes |
-| --- | --- | --- |
-| id | TEXT PK | |
-| card_id | TEXT FK NOT NULL | |
-| parent_comment_id | TEXT FK NULL | one level of nesting: replies to a reply attach to the same parent |
-| author_id | TEXT FK NOT NULL | |
-| body | TEXT NOT NULL | markdown, ≤ 10,000 chars |
-| created_at / updated_at | TEXT NOT NULL | |
-| deleted_at | TEXT NULL | soft delete keeps thread shape; body rendered as “deleted” |
+
+| column                  | type             | notes                                                              |
+| ----------------------- | ---------------- | ------------------------------------------------------------------ |
+| id                      | TEXT PK          |                                                                    |
+| card_id                 | TEXT FK NOT NULL |                                                                    |
+| parent_comment_id       | TEXT FK NULL     | one level of nesting: replies to a reply attach to the same parent |
+| author_id               | TEXT FK NOT NULL |                                                                    |
+| body                    | TEXT NOT NULL    | markdown, ≤ 10,000 chars                                           |
+| created_at / updated_at | TEXT NOT NULL    |                                                                    |
+| deleted_at              | TEXT NULL        | soft delete keeps thread shape; body rendered as “deleted”         |
 
 Index: `(card_id, created_at)`.
 
 ### attachments
+
 `id, card_id FK, filename (original, display only), mime, bytes, sha256, storage_key
 (random UUID — the blob's name on disk/S3), uploaded_by FK, created_at, deleted_at NULL`.
 Binaries live behind the BlobStorePort, never in the database. Index: `(card_id)`.
 
 ### card_events — the audit trail
+
 Append-only. Written **in the same transaction** as the mutation it records
 ([ADR-005](decisions/ADR-005-audit-trail.md)). Never updated or deleted (PII removal is a hard
 delete of source rows plus a `card.pii_deleted` tombstone event).
 
-| column | type | notes |
-| --- | --- | --- |
-| id | TEXT PK | UUIDv7 (time-ordered) |
-| card_id | TEXT FK NOT NULL | |
-| actor_id | TEXT NULL | user id or service-token id; NULL for `system` |
-| actor_kind | TEXT NOT NULL | `user \| mcp \| slack \| system` |
-| event_type | TEXT NOT NULL | see below |
-| payload | TEXT NOT NULL | JSON, shape per event type |
-| created_at | TEXT NOT NULL | |
+| column     | type             | notes                                          |
+| ---------- | ---------------- | ---------------------------------------------- |
+| id         | TEXT PK          | UUIDv7 (time-ordered)                          |
+| card_id    | TEXT FK NOT NULL |                                                |
+| actor_id   | TEXT NULL        | user id or service-token id; NULL for `system` |
+| actor_kind | TEXT NOT NULL    | `user \| mcp \| slack \| system`               |
+| event_type | TEXT NOT NULL    | see below                                      |
+| payload    | TEXT NOT NULL    | JSON, shape per event type                     |
+| created_at | TEXT NOT NULL    |                                                |
 
 Index: `(card_id, created_at)` — per-card history is the only event query surface in v1; a
 board-wide event index arrives with its first consumer.
 
 Event types (distinct so status history is never polluted by reorder noise):
 
-| event_type | payload |
-| --- | --- |
-| card.created | `{ snapshot }` |
-| card.status_changed | `{ fromLane, toLane, wipLimitExceeded?, clearedWaiting? }` |
-| card.reordered | `{ lane, prevCardId, nextCardId }` |
-| card.field_changed | `{ field, from, to }` (one event per field; for tags: `{ field: 'tags', from: string[], to: string[] }`) |
-| card.blocked / card.unblocked | `{ reason? }` |
-| card.cancelled | `{ resolution, fromLane }` |
-| card.reopened | `{ toLane }` |
-| card.archived | `{}` |
-| comment.added / comment.edited / comment.deleted | `{ commentId, parentCommentId? }` |
-| attachment.added / attachment.removed | `{ attachmentId, filename }` |
-| card.pii_deleted | `{ scope }` tombstone |
+| event_type                                       | payload                                                                                                  |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| card.created                                     | `{ snapshot }`                                                                                           |
+| card.status_changed                              | `{ fromLane, toLane, wipLimitExceeded?, clearedWaiting? }`                                               |
+| card.reordered                                   | `{ lane, prevCardId, nextCardId }`                                                                       |
+| card.field_changed                               | `{ field, from, to }` (one event per field; for tags: `{ field: 'tags', from: string[], to: string[] }`) |
+| card.blocked / card.unblocked                    | `{ reason? }`                                                                                            |
+| card.cancelled                                   | `{ resolution, fromLane }`                                                                               |
+| card.reopened                                    | `{ toLane }`                                                                                             |
+| card.archived                                    | `{}`                                                                                                     |
+| comment.added / comment.edited / comment.deleted | `{ commentId, parentCommentId? }`                                                                        |
+| attachment.added / attachment.removed            | `{ attachmentId, filename }`                                                                             |
+| card.pii_deleted                                 | `{ scope }` tombstone                                                                                    |
 
 ### sessions
+
 Server-side web sessions ([ADR-009](decisions/ADR-009-sessions-and-tokens.md)):
 `id (random 256-bit, stored sha256-hashed), user_id FK, created_at, expires_at, last_seen_at`.
 Cookie holds the raw id; lookup is by hash. Sliding expiry (`last_seen_at` bumped at most once
@@ -164,6 +177,7 @@ per 5 minutes), absolute cap 30 days. A fresh id is issued at every login; passw
 role change, and deactivation revoke the user's other sessions.
 
 ### service_tokens
+
 MCP/automation credentials: `id, name, token_hash (sha256), role, scope ('read' |
 'read_write'), created_by FK, created_at, last_used_at, revoked_at NULL`. Admin-managed; the
 raw token (`rkb_` + 32 random bytes base64url, 256-bit CSPRNG — the prefix makes leaked tokens

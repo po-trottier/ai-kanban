@@ -23,16 +23,16 @@ lanes, demo users for each role, sample cards). Demo logins are printed to the c
 
 ## Commands (root)
 
-| Command | What |
-| --- | --- |
-| `npm run dev` | run backend + frontend in watch mode against `data/app.sqlite` |
-| `npm test` | unit + integration suites |
-| `npm run test:unit` / `test:integration` | one layer |
-| `npm run test:e2e` | Playwright (builds web, boots server on a temp DB) |
-| `npm run lint` / `lint:fix` | ESLint + prettier |
-| `npm run check` | everything CI runs, locally, in order |
-| `npm run db:migrate` / `db:seed` / `db:studio` | drizzle-kit migrate / reseed dev DB / data browser |
-| `npm run build` | compile all packages + SPA bundle |
+| Command                                        | What                                                           |
+| ---------------------------------------------- | -------------------------------------------------------------- |
+| `npm run dev`                                  | run backend + frontend in watch mode against `data/app.sqlite` |
+| `npm test`                                     | unit + integration suites                                      |
+| `npm run test:unit` / `test:integration`       | one layer                                                      |
+| `npm run test:e2e`                             | Playwright (builds web, boots server on a temp DB)             |
+| `npm run lint` / `lint:fix`                    | ESLint + prettier                                              |
+| `npm run check`                                | everything CI runs, locally, in order                          |
+| `npm run db:migrate` / `db:seed` / `db:studio` | drizzle-kit migrate / reseed dev DB / data browser             |
+| `npm run build`                                | compile all packages + SPA bundle                              |
 
 ## Repository map
 

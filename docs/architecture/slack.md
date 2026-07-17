@@ -7,10 +7,10 @@ a real workspace is configuration, not code.
 
 ## Surfaces
 
-| Surface | Trigger | Why |
-| --- | --- | --- |
-| **Message shortcut** "Create facilities ticket" (primary) | `message_action` on any message | The only Slack surface that works inside threads and carries `thread_ts`. Custom slash commands *cannot* be invoked in threads (platform limitation) — socialize this early. |
-| **@-mention** `@FacilitiesBot create ticket P1 ...` (secondary) | `app_mention` event | Zero-click in-thread creation for power users; replies in-thread with the created card link. |
+| Surface                                                         | Trigger                         | Why                                                                                                                                                                          |
+| --------------------------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Message shortcut** "Create facilities ticket" (primary)       | `message_action` on any message | The only Slack surface that works inside threads and carries `thread_ts`. Custom slash commands _cannot_ be invoked in threads (platform limitation) — socialize this early. |
+| **@-mention** `@FacilitiesBot create ticket P1 ...` (secondary) | `app_mention` event             | Zero-click in-thread creation for power users; replies in-thread with the created card link.                                                                                 |
 
 Two surfaces exactly match the requirement; there is deliberately no slash command (it cannot
 work in threads, and out-of-thread quick creation is the web UI's job).
