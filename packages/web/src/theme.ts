@@ -1,5 +1,7 @@
 import {
   createTheme,
+  MultiSelect,
+  Select,
   type CSSVariablesResolver,
   type MantineColor,
   type MantineThemeOther,
@@ -48,6 +50,12 @@ export const theme = createTheme({
   // Mantine 9 defaults, pinned explicitly as the screenshot-audit baseline.
   defaultRadius: 'md',
   headings: { fontWeight: String(EMPHASIS_FONT_WEIGHT) },
+  // Every option dropdown shows the selected row's checkmark on the RIGHT of the
+  // label, not the left — one place so all comboboxes read the same.
+  components: {
+    Select: Select.extend({ defaultProps: { checkIconPosition: 'right' } }),
+    MultiSelect: MultiSelect.extend({ defaultProps: { checkIconPosition: 'right' } }),
+  },
   other,
 })
 
