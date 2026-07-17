@@ -50,19 +50,29 @@ describe('LoginPage', () => {
     })
   })
 
-  it('renders the problem+json title when the server rejects the login', async () => {
+  it('maps a 401 to a friendly message instead of the raw problem title', async () => {
     // Arrange
     const user = userEvent.setup()
     const fake = createFakeFetch({
       ...setupComplete,
-      'POST /api/v1/auth/login': () => problemResponse(401, { title: 'Invalid email or password' }),
+      'POST /api/v1/auth/login': () => problemResponse(401, { title: 'Unauthorized' }),
     })
     renderWithProviders(<LoginPage />, { fetchFn: fake.fetch })
     // Act
     await user.type(await screen.findByRole('textbox', { name: 'Email' }), 'admin@example.com')
     await user.type(screen.getByLabelText('Password'), 'wrong-password')
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    // Assert — the machine-y "Unauthorized" is replaced with plain guidance.
+    expect(await screen.findByText('That email or password is not correct.')).toBeInTheDocument()
+    expect(screen.queryByText('Unauthorized')).not.toBeInTheDocument()
+  })
+
+  it('offers a self-service help path for a forgotten password', async () => {
+    // Arrange — the setup probe must resolve so the form (not the loader) renders.
+    const fake = createFakeFetch({ ...setupComplete })
+    // Act
+    renderWithProviders(<LoginPage />, { fetchFn: fake.fetch })
     // Assert
-    expect(await screen.findByText('Invalid email or password')).toBeInTheDocument()
+    expect(await screen.findByText(/Ask an admin to reset it/)).toBeInTheDocument()
   })
 })

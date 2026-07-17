@@ -38,22 +38,51 @@ export function cardDetailSchemaOf<
  * The hottest read in the system fans out to every connected client on every
  * mutation, so its body must not carry the unbounded done-lane backlog's
  * descriptions.
+ *
+ * It DOES carry three lean, render-only extras the board card always shows
+ * (never the full related objects — the detail panel fetches those): the
+ * tag names, the count of active attachments, and the card's location label
+ * (`null` when unset). These come from joins the db does per lane, not from
+ * the card row.
  */
-export const boardCardSchema = cardSchema.omit({
-  description: true,
-  slackChannelId: true,
-  slackThreadTs: true,
-  slackPermalink: true,
-  resumeAlertedAt: true,
-})
+export const boardCardSchema = cardSchema
+  .omit({
+    description: true,
+    slackChannelId: true,
+    slackThreadTs: true,
+    slackPermalink: true,
+    resumeAlertedAt: true,
+  })
+  .extend({
+    tags: z.array(z.string()),
+    attachmentCount: z.number().int().nonnegative(),
+    /** Human location label (leaf room name), null when the card has no location. */
+    locationLabel: z.string().nullable(),
+  })
 export type BoardCard = z.infer<typeof boardCardSchema>
 
-/** Stripping wrapper: projects a full row down to the declared summary roster. */
+/** The join-sourced extras a board summary carries beyond the card row. */
+export interface BoardCardExtras {
+  tags: string[]
+  attachmentCount: number
+  locationLabel: string | null
+}
+
+/** Stripping wrapper: projects a full row + extras down to the summary roster. */
 const boardCardStripSchema = z.object(boardCardSchema.shape)
 
-/** Projects a full Card to its board summary — the pick roster IS boardCardSchema. */
-export function boardCardOf(card: Card): BoardCard {
-  return boardCardStripSchema.parse(card)
+/**
+ * Projects a full Card plus its join-sourced extras to the board summary.
+ * Extras default to empty (no tags/attachments/location) so fixtures and
+ * callers that only have the card row stay valid.
+ */
+export function boardCardOf(card: Card, extras?: Partial<BoardCardExtras>): BoardCard {
+  return boardCardStripSchema.parse({
+    ...card,
+    tags: extras?.tags ?? [],
+    attachmentCount: extras?.attachmentCount ?? 0,
+    locationLabel: extras?.locationLabel ?? null,
+  })
 }
 
 /** The `GET /board` envelope — the Zod form of core's `BoardSnapshot`. */

@@ -66,7 +66,7 @@ describe('CardSearchPage', () => {
         ),
     })
     renderApp({ fetchFn: fake.fetch, route: '/search' })
-    await screen.findByText('No matching cards')
+    await screen.findByText(/Type part of a card title/)
     // Act
     await user.click(screen.getByRole('checkbox', { name: 'Include archived' }))
     // Assert — the archived card is listed with its badge

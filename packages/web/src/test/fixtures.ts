@@ -2,6 +2,7 @@ import {
   boardCardOf,
   DEFAULT_POLICY_DOCUMENT,
   LANE_KEYS,
+  type BoardCardExtras,
   type Card,
   type CardEvent,
   type Comment,
@@ -97,14 +98,32 @@ export function makeCard(laneKey: LaneKey, overrides: Partial<Card> = {}): Card 
   })
 }
 
+/**
+ * Per-card board-summary extras (tag names, active-attachment count, location
+ * label) — the db resolves these with joins; fixtures set them explicitly so
+ * unit tests can assert the always-visible card fields. Keyed by the card
+ * OBJECT (a WeakMap), not its id, so there is no module-level string map to
+ * accumulate or bleed across tests: each fixture card carries its own extras
+ * and they are garbage-collected with the card.
+ */
+const fixtureExtras = new WeakMap<Card, Partial<BoardCardExtras>>()
+
+/** Attaches board-summary extras to a fixture card, read back by `makeBoard`. */
+export function withCardExtras(card: Card, extras: Partial<BoardCardExtras>): Card {
+  fixtureExtras.set(card, extras)
+  return card
+}
+
 export function makeBoard(cardsByLane: Partial<Record<LaneKey, Card[]>>): BoardResponse {
   return {
     lanes: fixtureLanes.map((lane) => {
       const cards = cardsByLane[lane.key] ?? []
       return {
         lane,
-        // The board carries card SUMMARIES (strict schema) — project like the server.
-        cards: cards.map(boardCardOf),
+        // The board carries card SUMMARIES (strict schema) — project like the
+        // server. The join-sourced extras (tags/attachmentCount/location) are
+        // supplied per-card via `withCardExtras`, else default to empty.
+        cards: cards.map((card) => boardCardOf(card, fixtureExtras.get(card))),
         wipLimitExceeded: lane.wipLimit !== null && cards.length > lane.wipLimit,
       }
     }),

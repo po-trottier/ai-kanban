@@ -6,6 +6,7 @@ import {
   makeBoard,
   makeCard,
   permissivePolicy,
+  withCardExtras,
 } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import { Board } from './Board.tsx'
@@ -68,6 +69,28 @@ describe('Board', () => {
   })
 
   it('shows the empty-lane hint and a plain count for unlimited lanes', () => {
+    // Arrange — one card keeps the board from collapsing to its empty state,
+    // so the six other lanes still render their per-lane "No cards" hint.
+    const board = makeBoard({ ready: [makeCard('ready')] })
+    // Act
+    renderWithProviders(
+      <Board
+        board={board}
+        policy={permissivePolicy}
+        role="technician"
+        users={fixturePickerUsers}
+        today="2026-07-16"
+        onOpenCard={noop}
+        onMenuAction={noop}
+      />,
+    )
+    // Assert
+    expect(screen.getAllByText('No cards')).toHaveLength(6)
+    const intake = screen.getByRole('region', { name: 'Intake' })
+    expect(within(intake).getByLabelText('0')).toBeInTheDocument()
+  })
+
+  it('shows a first-run call to action when the whole board is empty', () => {
     // Arrange
     const board = makeBoard({})
     // Act
@@ -83,9 +106,8 @@ describe('Board', () => {
       />,
     )
     // Assert
-    expect(screen.getAllByText('No cards')).toHaveLength(7)
-    const intake = screen.getByRole('region', { name: 'Intake' })
-    expect(within(intake).getByLabelText('0')).toBeInTheDocument()
+    expect(screen.getByText('No work orders yet')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New card' })).toBeInTheDocument()
   })
 
   it('shows the assignee avatar with initials', () => {
@@ -109,9 +131,10 @@ describe('Board', () => {
     expect(avatar).toHaveTextContent('TT')
   })
 
-  it('renders no placeholder avatar when a card is unassigned', () => {
-    // Arrange — no assignee and no estimate: the footer row disappears too
-    const card = makeCard('ready', { assigneeId: null, estimateMinutes: null })
+  it('always renders estimate, assignee, and location placeholders when unset', () => {
+    // Arrange — a bare card: no assignee, estimate, or location. Every card
+    // must read the same, so the placeholders always appear (consistency).
+    const card = makeCard('ready', { assigneeId: null, estimateMinutes: null, locationId: null })
     const board = makeBoard({ ready: [card] })
     // Act
     renderWithProviders(
@@ -126,7 +149,41 @@ describe('Board', () => {
       />,
     )
     // Assert
-    expect(screen.queryByLabelText('Unassigned')).not.toBeInTheDocument()
+    expect(screen.getByText('Unassigned')).toBeInTheDocument()
+    expect(screen.getByText('No estimate')).toBeInTheDocument()
+    expect(screen.getByText('No location')).toBeInTheDocument()
+    // The attachment indicator always renders too — a zero reads as "no files",
+    // not a missing feature (every card reads the same).
+    expect(screen.getByLabelText('0 attachments')).toBeInTheDocument()
+    // The real avatar is only rendered for an actual assignee.
     expect(screen.queryByLabelText(/Assigned to/)).not.toBeInTheDocument()
+  })
+
+  it('renders tags, a location, and an attachment indicator from the board summary', () => {
+    // Arrange — the board payload carries the join-sourced extras the card shows.
+    const card = withCardExtras(makeCard('ready', { estimateMinutes: 480 }), {
+      tags: ['HVAC', 'urgent'],
+      attachmentCount: 2,
+      locationLabel: 'Room 101',
+    })
+    const board = makeBoard({ ready: [card] })
+    // Act
+    renderWithProviders(
+      <Board
+        board={board}
+        policy={permissivePolicy}
+        role="technician"
+        users={fixturePickerUsers}
+        today="2026-07-16"
+        onOpenCard={noop}
+        onMenuAction={noop}
+      />,
+    )
+    // Assert
+    expect(screen.getByText('HVAC')).toBeInTheDocument()
+    expect(screen.getByText('urgent')).toBeInTheDocument()
+    expect(screen.getByText('Room 101')).toBeInTheDocument()
+    expect(screen.getByText('1d')).toBeInTheDocument()
+    expect(screen.getByLabelText('2 attachments')).toBeInTheDocument()
   })
 })

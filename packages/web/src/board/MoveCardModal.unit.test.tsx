@@ -117,6 +117,35 @@ describe('MoveCardModal', () => {
     expect(closed).toBe(1)
   })
 
+  it('marks the waiting reason and resume date as required when entering Waiting', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const moving = makeCard('in_progress', { title: 'Swap motor' })
+    const board = makeBoard({ in_progress: [moving] })
+    renderWithProviders(
+      <MoveCardModal
+        card={moving}
+        currentLane="in_progress"
+        board={board}
+        policy={permissivePolicy}
+        role="technician"
+        onSubmit={() => undefined}
+        onClose={() => undefined}
+      />,
+    )
+    // Act — choose the Waiting lane so the inline fields appear.
+    await user.click(screen.getByRole('combobox', { name: 'Column' }))
+    await user.click(screen.getByRole('option', { name: 'Waiting on Parts / Vendor' }))
+    // Assert — Move is off until both required fields are filled.
+    expect(screen.getByRole('button', { name: 'Move' })).toBeDisabled()
+    // Act — pick a reason but leave the date empty; the date error surfaces.
+    await user.click(screen.getByRole('combobox', { name: /Waiting reason/ }))
+    await user.click(screen.getByRole('option', { name: 'Parts' }))
+    // Assert — the empty resume date now shows its required message at the
+    // field (not just the greyed-out Move button).
+    expect(screen.getByText('Pick the expected resume date')).toBeInTheDocument()
+  })
+
   it('offers every lane in the permissive default', async () => {
     // Arrange
     const user = userEvent.setup()

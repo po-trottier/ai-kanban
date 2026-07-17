@@ -15,3 +15,9 @@
 .main > * {
   min-height: 0;
 }
+
+/* The docked card panel: no padding (the panel owns its own), full height so
+   its body can scroll independently of the board (Main) beside it. */
+.aside {
+  padding: 0;
+}

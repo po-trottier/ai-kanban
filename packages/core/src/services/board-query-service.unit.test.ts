@@ -47,6 +47,63 @@ describe('BoardQueryService.boardSnapshot', () => {
     expect(snapshot.lanes.at(6)?.cards).toHaveLength(0)
   })
 
+  it('carries tag names, active-attachment count, and location label on each summary card', async () => {
+    // Arrange — a card with two tags, a location, and two attachments (one
+    // soft-deleted), plus a bare card in the same lane.
+    const scenario = createScenario()
+    const location = {
+      id: fixtureId(700),
+      parentId: null,
+      kind: 'building' as const,
+      name: 'Depot',
+    }
+    scenario.db.seedLocation(location)
+    const tagA = { id: fixtureId(701), name: 'HVAC' }
+    const tagB = { id: fixtureId(702), name: 'urgent' }
+    scenario.db.seedTag(tagA)
+    scenario.db.seedTag(tagB)
+    const rich = scenario.seedCard({ laneId: scenario.lanes.ready.id, locationId: location.id })
+    scenario.seedCard({ laneId: scenario.lanes.ready.id })
+    scenario.db.seedCardTag(rich.id, tagA.id)
+    scenario.db.seedCardTag(rich.id, tagB.id)
+    scenario.db.seedAttachment({
+      id: fixtureId(703),
+      cardId: rich.id,
+      filename: 'live.pdf',
+      mime: 'application/pdf',
+      bytes: 10,
+      sha256: 'a'.repeat(64),
+      storageKey: fixtureId(704),
+      uploadedBy: scenario.users.technician.id,
+      createdAt: '2026-07-01T00:00:00.000Z',
+      deletedAt: null,
+    })
+    scenario.db.seedAttachment({
+      id: fixtureId(705),
+      cardId: rich.id,
+      filename: 'gone.pdf',
+      mime: 'application/pdf',
+      bytes: 10,
+      sha256: 'b'.repeat(64),
+      storageKey: fixtureId(706),
+      uploadedBy: scenario.users.technician.id,
+      createdAt: '2026-07-01T00:00:00.000Z',
+      deletedAt: '2026-07-02T00:00:00.000Z',
+    })
+
+    // Act
+    const snapshot = await scenario.queries.boardSnapshot()
+
+    // Assert
+    const ready = snapshot.lanes.find((entry) => entry.lane.key === 'ready')
+    const richSummary = ready?.cards.find((card) => card.id === rich.id)
+    const bareSummary = ready?.cards.find((card) => card.id !== rich.id)
+    expect(richSummary?.tags.toSorted()).toEqual(['HVAC', 'urgent'])
+    expect(richSummary?.attachmentCount).toBe(1)
+    expect(richSummary?.locationLabel).toBe('Depot')
+    expect(bareSummary).toMatchObject({ tags: [], attachmentCount: 0, locationLabel: null })
+  })
+
   it('flags lanes over their WIP limit', async () => {
     // Arrange
     const scenario = createScenario({ wipLimits: { in_progress: 1 } })

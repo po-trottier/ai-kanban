@@ -3,6 +3,7 @@ import { Button, Group, Paper, Stack, Text, Textarea } from '@mantine/core'
 import { useState } from 'react'
 import { buildCommentThread } from '../lib/comments.ts'
 import { formatDateTime } from '../lib/format.ts'
+import { ConfirmModal } from '../shell/ConfirmModal.tsx'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
 import classes from './card.module.css'
@@ -34,9 +35,25 @@ export function CommentsThread({
 }: CommentsThreadProps) {
   const thread = buildCommentThread(comments)
   const [replyTo, setReplyTo] = useState<string | null>(null)
+  // Deleting a comment is irreversible to the author, so confirm first.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   return (
     <Stack gap="md">
+      {confirmDeleteId !== null ? (
+        <ConfirmModal
+          title={strings.comments.deleteConfirmTitle}
+          body={strings.comments.deleteConfirmBody}
+          confirmLabel={strings.comments.deleteConfirm}
+          onConfirm={() => {
+            onDelete(confirmDeleteId)
+            setConfirmDeleteId(null)
+          }}
+          onClose={() => {
+            setConfirmDeleteId(null)
+          }}
+        />
+      ) : null}
       {thread.length === 0 ? (
         <Text size="sm" c="dimmed">
           {strings.comments.empty}
@@ -51,7 +68,7 @@ export function CommentsThread({
               canDeleteOthers={canDeleteOthers}
               readOnly={readOnly}
               onEdit={onEdit}
-              onDelete={onDelete}
+              onDelete={setConfirmDeleteId}
               onReply={() => {
                 setReplyTo(comment.id)
               }}
@@ -66,7 +83,7 @@ export function CommentsThread({
                   canDeleteOthers={canDeleteOthers}
                   readOnly={readOnly}
                   onEdit={onEdit}
-                  onDelete={onDelete}
+                  onDelete={setConfirmDeleteId}
                   onReply={() => {
                     setReplyTo(comment.id)
                   }}

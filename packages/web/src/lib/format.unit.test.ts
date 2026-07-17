@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { formatEstimate, initials } from './format.ts'
+import {
+  estimateToMinutes,
+  estimateToParts,
+  formatDate,
+  formatEstimate,
+  initials,
+  isEstimateUnit,
+} from './format.ts'
 
 describe('formatEstimate', () => {
   it('renders sub-hour estimates in minutes', () => {
@@ -36,6 +43,90 @@ describe('formatEstimate', () => {
     const result = formatEstimate(minutes)
     // Assert
     expect(result).toBe('1.5d')
+  })
+})
+
+describe('estimateToParts', () => {
+  it('splits whole working days into the days unit (960 → 2 days)', () => {
+    // Arrange
+    const minutes = 960
+    // Act
+    const parts = estimateToParts(minutes)
+    // Assert
+    expect(parts).toEqual({ value: 2, unit: 'days' })
+  })
+
+  it('splits whole hours into the hours unit (120 → 2 hours)', () => {
+    // Arrange
+    const minutes = 120
+    // Act
+    const parts = estimateToParts(minutes)
+    // Assert
+    expect(parts).toEqual({ value: 2, unit: 'hours' })
+  })
+
+  it('keeps a non-hour amount in minutes (45 → 45 minutes)', () => {
+    // Arrange
+    const minutes = 45
+    // Act
+    const parts = estimateToParts(minutes)
+    // Assert
+    expect(parts).toEqual({ value: 45, unit: 'minutes' })
+  })
+})
+
+describe('estimateToMinutes', () => {
+  it('converts days to minutes at 8 working hours per day (1.5d → 720)', () => {
+    // Arrange
+    const value = 1.5
+    // Act
+    const minutes = estimateToMinutes(value, 'days')
+    // Assert
+    expect(minutes).toBe(720)
+  })
+
+  it('converts hours to whole minutes (1.5h → 90)', () => {
+    // Arrange
+    const value = 1.5
+    // Act
+    const minutes = estimateToMinutes(value, 'hours')
+    // Assert
+    expect(minutes).toBe(90)
+  })
+
+  it('round-trips through estimateToParts for every unit boundary', () => {
+    // Arrange
+    const samples = [45, 90, 120, 720, 960]
+    // Act
+    const roundTripped = samples.map((minutes) => {
+      const { value, unit } = estimateToParts(minutes)
+      return estimateToMinutes(value, unit)
+    })
+    // Assert
+    expect(roundTripped).toEqual(samples)
+  })
+})
+
+describe('isEstimateUnit', () => {
+  it('accepts a known unit and rejects an unknown one', () => {
+    // Arrange
+    const known = 'days'
+    const unknown = 'weeks'
+    // Act
+    const results = [isEstimateUnit(known), isEstimateUnit(unknown)]
+    // Assert
+    expect(results).toEqual([true, false])
+  })
+})
+
+describe('formatDate', () => {
+  it('renders a short month-and-day resume cue', () => {
+    // Arrange
+    const iso = '2026-07-20'
+    // Act
+    const result = formatDate(iso)
+    // Assert
+    expect(result).toBe('Jul 20')
   })
 })
 

@@ -34,7 +34,7 @@ test('surfaces the archived demo card only with include-archived, read-only unti
   await page.goto('/search')
 
   await search(page, 'fire extinguisher')
-  await expect(page.getByText('No matching cards')).toBeVisible()
+  await expect(page.getByText('No cards match your search.')).toBeVisible()
 
   await page.getByLabel('Include archived').check()
   const result = page

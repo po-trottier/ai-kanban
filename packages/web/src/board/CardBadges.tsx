@@ -1,5 +1,5 @@
-import { isOverdueResume, type BoardCard } from '@rivian-kanban/core'
-import { Badge, Group } from '@mantine/core'
+import { isOverdueResume, type BoardCard, type Card } from '@rivian-kanban/core'
+import { Badge, Group, Tooltip } from '@mantine/core'
 import { strings } from '../strings.ts'
 import {
   BLOCKED_COLOR,
@@ -8,6 +8,22 @@ import {
   PRIORITY_COLORS,
   WAITING_COLOR,
 } from '../theme.ts'
+
+/**
+ * The status fields the badge row reads — the intersection of `BoardCard`
+ * (board) and the full `Card` (search results, panel), so both satisfy it
+ * without a widening cast.
+ */
+export type CardBadgeFields = Pick<
+  BoardCard & Card,
+  | 'priority'
+  | 'blocked'
+  | 'blockedReason'
+  | 'waitingReason'
+  | 'expectedResumeAt'
+  | 'resolution'
+  | 'archivedAt'
+>
 
 /**
  * Priority, blocked, waiting (with overdue styling), and terminal badges.
@@ -20,7 +36,7 @@ export function CardBadges({
   today,
   showPriority = true,
 }: {
-  card: BoardCard
+  card: CardBadgeFields
   today: string
   showPriority?: boolean
 }) {
@@ -37,9 +53,17 @@ export function CardBadges({
         </Badge>
       ) : null}
       {card.blocked ? (
-        <Badge color={BLOCKED_COLOR} size="sm" variant="light">
-          {strings.card.blockedBadge}
-        </Badge>
+        // The reason is the most useful context; surface it on hover so a
+        // technician scanning the board never has to open the card for it.
+        <Tooltip
+          label={card.blockedReason ?? strings.detail.blockedBannerNoReason}
+          disabled={card.blockedReason === null}
+          multiline
+        >
+          <Badge color={BLOCKED_COLOR} size="sm" variant="light">
+            {strings.card.blockedBadge}
+          </Badge>
+        </Tooltip>
       ) : null}
       {card.waitingReason !== null ? (
         <Badge color={overdue ? OVERDUE_COLOR : WAITING_COLOR} size="sm" variant="light">

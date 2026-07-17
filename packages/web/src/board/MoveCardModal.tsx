@@ -1,7 +1,15 @@
-import { type BoardCard, type LaneKey, type PolicyDocument, type Role } from '@rivian-kanban/core'
-import { Button, Group, Modal, Select, Stack } from '@mantine/core'
+import {
+  WAITING_REASONS,
+  type BoardCard,
+  type LaneKey,
+  type PolicyDocument,
+  type Role,
+  type WaitingReason,
+} from '@rivian-kanban/core'
+import { Button, Group, Modal, Select, Stack, Text } from '@mantine/core'
+import { DatePickerInput } from '@mantine/dates'
 import { useState } from 'react'
-import { type MoveIntent } from '../api/board-cache.ts'
+import { isWaitingLane, type MoveIntent } from '../api/board-cache.ts'
 import { type BoardResponse } from '../api/schemas.ts'
 import { strings } from '../strings.ts'
 import { canMoveToLane, isSamePosition, positionChoices } from './move-options.ts'
@@ -13,8 +21,14 @@ export interface MoveSelection {
   position: number
 }
 
+/** Narrows the Select's `string | null` to a WaitingReason (or null). */
+function asWaitingReason(value: string | null): WaitingReason | null {
+  return WAITING_REASONS.find((reason) => reason === value) ?? null
+}
+
 export interface MoveCardModalProps {
-  card: BoardCard
+  // Only the id is read (neighbor math); a board summary or full card fits.
+  card: Pick<BoardCard, 'id'>
   currentLane: LaneKey
   board: BoardResponse
   policy: PolicyDocument
@@ -39,6 +53,13 @@ export function MoveCardModal({
 }: MoveCardModalProps) {
   const [laneKey, setLaneKey] = useState<LaneKey>(currentLane)
   const [positionValue, setPositionValue] = useState('first')
+  // Waiting-lane data collected inline (always-on data rule): the requirement
+  // is visible at the point of choice, not after a confusing second modal.
+  const [waitingReason, setWaitingReason] = useState<WaitingReason | null>(null)
+  const [resumeAt, setResumeAt] = useState<string | null>(null)
+  // Once the user has engaged the waiting fields, surface a per-field required
+  // message so the two mandatory fields are obvious, not just the greyed Move.
+  const [waitingTouched, setWaitingTouched] = useState(false)
 
   const laneOptions = board.lanes.map((snapshot) => ({
     value: snapshot.lane.key,
@@ -54,6 +75,9 @@ export function MoveCardModal({
   const selected = choices.find((choice) => choice.value === positionValue) ?? choices[0]
   // The preselected current lane can itself be disallowed (e.g. reorderReady).
   const laneAllowed = canMoveToLane(policy, role, currentLane, laneKey)
+  // Entering the waiting lane (not a within-lane reorder) requires both fields.
+  const entersWaiting = isWaitingLane(laneKey) && !isWaitingLane(currentLane)
+  const waitingComplete = !entersWaiting || (waitingReason !== null && resumeAt !== null)
 
   return (
     <Modal opened onClose={onClose} title={strings.move.modalTitle}>
@@ -80,17 +104,57 @@ export function MoveCardModal({
             if (value !== null) setPositionValue(value)
           }}
         />
+        {entersWaiting ? (
+          <Stack gap="md">
+            <Text size="sm" c="dimmed">
+              {strings.waiting.intro}
+            </Text>
+            <Select
+              label={strings.waiting.reasonLabel}
+              withAsterisk
+              error={
+                waitingTouched && waitingReason === null
+                  ? strings.waiting.reasonRequired
+                  : undefined
+              }
+              data={WAITING_REASONS.map((value) => ({
+                value,
+                label: strings.waiting.reasons[value],
+              }))}
+              value={waitingReason}
+              onChange={(value) => {
+                setWaitingTouched(true)
+                setWaitingReason(asWaitingReason(value))
+              }}
+            />
+            <DatePickerInput
+              label={strings.waiting.resumeLabel}
+              withAsterisk
+              error={
+                waitingTouched && resumeAt === null ? strings.waiting.resumeRequired : undefined
+              }
+              value={resumeAt}
+              onChange={(value) => {
+                setWaitingTouched(true)
+                setResumeAt(value)
+              }}
+            />
+          </Stack>
+        ) : null}
         <Group justify="flex-end" gap="sm">
           <Button variant="default" onClick={onClose}>
             {strings.common.cancel}
           </Button>
           <Button
-            disabled={!laneAllowed}
+            disabled={!laneAllowed || !waitingComplete}
             onClick={() => {
               const intent: MoveIntent = {
                 toLane: laneKey,
                 prevCardId: selected.prevCardId,
                 nextCardId: selected.nextCardId,
+                ...(entersWaiting && waitingReason !== null && resumeAt !== null
+                  ? { waitingReason, expectedResumeAt: resumeAt }
+                  : {}),
               }
               // Submitting the current position would write a spurious reorder.
               if (isSamePosition(board, card.id, intent)) {

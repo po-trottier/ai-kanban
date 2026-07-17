@@ -28,6 +28,9 @@ export function DescriptionEditor({ value, disabled = false, onChange }: Descrip
           setMode(next === 'preview' ? 'preview' : 'write')
         }}
       />
+      <Text size="xs" c="dimmed">
+        {strings.detail.descriptionHelp}
+      </Text>
       {mode === 'write' ? (
         <Textarea
           aria-labelledby={labelId}

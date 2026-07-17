@@ -71,7 +71,9 @@ describe('PolicyEditorForm', () => {
         onSave={(document) => saved.push(document)}
       />,
     )
-    // Act
+    // Act — the transition gates are inert (and disabled) until enforcement is
+    // on, so an admin enables it first, then sets the role gate.
+    await user.click(screen.getByRole('switch', { name: /Enforce workflow transitions/ }))
     await user.click(
       screen.getByRole('combobox', { name: 'Minimum role: Intake to Waiting for Approval' }),
     )
@@ -97,7 +99,8 @@ describe('PolicyEditorForm', () => {
         onSave={(document) => saved.push(document)}
       />,
     )
-    // Act
+    // Act — action gates are disabled until enforcement is on; enable it first.
+    await user.click(screen.getByRole('switch', { name: /Enforce workflow transitions/ }))
     await user.click(screen.getByRole('combobox', { name: 'Cancel cards' }))
     await user.click(screen.getByRole('option', { name: 'Supervisor' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))

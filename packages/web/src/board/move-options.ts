@@ -78,7 +78,8 @@ export interface PositionChoice {
  * move API wants (ADR-006: the server computes the position key).
  */
 export function positionChoices(
-  laneCards: BoardCard[],
+  // Only id + title are read, so both a board summary and a full card fit.
+  laneCards: Pick<BoardCard, 'id' | 'title'>[],
   movingCardId: string,
   labels: { first: string; after: (title: string) => string },
 ): [PositionChoice, ...PositionChoice[]] {

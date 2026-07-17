@@ -1,10 +1,12 @@
 import {
+  Alert,
   Button,
   Center,
   Loader,
   Paper,
   PasswordInput,
   Stack,
+  Text,
   TextInput,
   Title,
 } from '@mantine/core'
@@ -13,6 +15,7 @@ import { useForm } from 'react-hook-form'
 import { Navigate, useNavigate } from 'react-router'
 import { z } from 'zod'
 import { useLogin, useSetupRequired } from '../api/auth.ts'
+import { isUnauthorizedError } from '../api/problem.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
@@ -71,7 +74,15 @@ export function LoginPage() {
                 {strings.auth.loginTitle}
               </Title>
             </Stack>
-            {login.error !== null ? <ErrorAlert error={login.error} /> : null}
+            {login.error !== null ? (
+              // A bad login is an expected, specific case: show friendly copy
+              // rather than echoing the raw problem+json title ("Unauthorized").
+              isUnauthorizedError(login.error) ? (
+                <Alert color="red">{strings.auth.loginFailed}</Alert>
+              ) : (
+                <ErrorAlert error={login.error} />
+              )
+            ) : null}
             <TextInput
               label={strings.auth.email}
               type="email"
@@ -88,6 +99,9 @@ export function LoginPage() {
             <Button type="submit" loading={login.isPending}>
               {strings.auth.loginButton}
             </Button>
+            <Text size="sm" c="dimmed">
+              {strings.auth.forgotHelp}
+            </Text>
           </Stack>
         </form>
       </Paper>

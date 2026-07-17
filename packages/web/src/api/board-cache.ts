@@ -73,7 +73,10 @@ function insertBetweenNeighbors(
 }
 
 /** Where a card currently sits on the board (lane key lookup by lane id). */
-export function laneKeyOfCard(board: BoardResponse, card: BoardCard): LaneKey | null {
+export function laneKeyOfCard(
+  board: BoardResponse,
+  card: Pick<BoardCard, 'laneId'>,
+): LaneKey | null {
   const lane = board.lanes.find((snapshot) => snapshot.lane.id === card.laneId)
   return lane?.lane.key ?? null
 }

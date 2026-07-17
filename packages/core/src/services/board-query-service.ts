@@ -102,13 +102,14 @@ export class BoardQueryService {
       const lanes = await tx.lanes.listByBoard(this.deps.boardId)
       const snapshots: LaneSnapshot[] = []
       for (const lane of lanes) {
-        // activeOnly pushes the archived filter into SQL: the hottest read in
-        // the system must never hydrate the unbounded done-lane archive.
-        const cards = await tx.cards.listByLane(lane.id, { activeOnly: true })
+        // activeOnly + the join-sourced extras (tags/attachmentCount/location)
+        // in one bounded read per lane: the hottest read in the system must
+        // never hydrate the unbounded done-lane archive nor fan out per card.
+        const rows = await tx.cards.listBoardSummariesByLane(lane.id)
         snapshots.push({
           lane,
-          cards: cards.map(boardCardOf),
-          wipLimitExceeded: lane.wipLimit !== null && cards.length > lane.wipLimit,
+          cards: rows.map((row) => boardCardOf(row.card, row.extras)),
+          wipLimitExceeded: lane.wipLimit !== null && rows.length > lane.wipLimit,
         })
       }
       return { lanes: snapshots }
