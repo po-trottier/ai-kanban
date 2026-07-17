@@ -6,6 +6,8 @@ import {
   type Comment,
   type Lane,
   type Location,
+  type ServiceToken,
+  type Session,
   type Tag,
   type User,
 } from '../domain/entities.ts'
@@ -76,14 +78,94 @@ export interface UserRepository {
   findById(id: string): Promise<User | null>
 }
 
+/**
+ * A user row plus its stored password hash. Auth-surface only (login,
+ * change-password): the hash never enters the `User` entity, so response
+ * schemas are structurally unable to leak it (docs/architecture/security.md).
+ */
+export interface UserCredentials {
+  user: User
+  passwordHash: string
+}
+
+/**
+ * Full user-account surface consumed by the server's auth handlers and the
+ * admin users CRUD (docs/architecture/rest-api.md#auth--users). Core services
+ * never touch it — they read users via the hash-free `UserRepository`.
+ */
+export interface UserAccountRepository {
+  /** Case-insensitive email lookup, hash included (login). */
+  findByEmail(email: string): Promise<UserCredentials | null>
+  /** Lookup by id, hash included (change-password verifies the current one). */
+  findById(id: string): Promise<UserCredentials | null>
+  /** Every user, active and inactive (admin management, last-admin guard). */
+  list(): Promise<User[]>
+  /** Rejects a duplicate email (UNIQUE) with ConflictError. */
+  insert(user: User, passwordHash: string): Promise<void>
+  /** Updates profile fields (displayName/role/isActive/mustChangePassword) — never the hash. */
+  update(user: User): Promise<void>
+  /** Replaces the hash and sets the mustChangePassword flag atomically. */
+  setPassword(userId: string, passwordHash: string, mustChangePassword: boolean): Promise<void>
+}
+
+/**
+ * Server-side web sessions (ADR-009). `id` is always the sha256 hex of the
+ * raw cookie value — the raw 256-bit id exists only in the cookie. Expiry is
+ * folded into `expiresAt` at write time (`min(lastSeen + idle, createdAt +
+ * absolute)`), so validity is a single timestamp comparison.
+ */
+export interface SessionRepository {
+  create(session: Session): Promise<void>
+  findByHash(idHash: string): Promise<Session | null>
+  /** Sliding renewal: updates lastSeenAt and the folded expiresAt. */
+  touch(idHash: string, lastSeenAt: string, expiresAt: string): Promise<void>
+  /** Deletes one session (logout). Missing hash is a no-op. */
+  revoke(idHash: string): Promise<void>
+  /**
+   * Deletes every session of the user except `exceptIdHash` (all of them when
+   * omitted) — password change keeps the current session; role change and
+   * deactivation revoke everything (docs/architecture/security.md).
+   */
+  revokeOthersForUser(userId: string, exceptIdHash?: string): Promise<void>
+  /** Purges sessions with `expiresAt <= nowIso`; returns the count (daily job). */
+  deleteExpired(nowIso: string): Promise<number>
+}
+
+/**
+ * MCP/automation bearer credentials (ADR-009). The raw `rkb_…` token is shown
+ * once at creation; only its sha256 is stored. Revocation is the only
+ * lifecycle end — rows are never deleted (audit trail of issued credentials).
+ */
+export interface ServiceTokenRepository {
+  /** Hash lookup including revoked rows — callers check `revokedAt`. */
+  findByHash(tokenHash: string): Promise<ServiceToken | null>
+  updateLastUsed(id: string, lastUsedAt: string): Promise<void>
+  /** All tokens, newest first (admin list). */
+  list(): Promise<ServiceToken[]>
+  insert(token: ServiceToken): Promise<void>
+  /** Sets revokedAt (idempotent); NotFoundError when the id does not exist. */
+  revoke(id: string, revokedAt: string): Promise<void>
+}
+
 export interface LaneRepository {
   /** Board order (position ascending). */
   listByBoard(boardId: string): Promise<Lane[]>
   findByKey(boardId: string, key: string): Promise<Lane | null>
+  /** Persists label/wipLimit edits; NotFoundError when the id does not exist. */
+  update(lane: Lane): Promise<void>
 }
 
 export interface LocationRepository {
   findById(id: string): Promise<Location | null>
+  /** Every location row; clients assemble the tree from parentId. */
+  list(): Promise<Location[]>
+  insert(location: Location): Promise<void>
+  update(location: Location): Promise<void>
+  /**
+   * Hard delete. Rejects with ConflictError while rows still reference the
+   * location (child locations, cards) — the FK constraints are the backstop.
+   */
+  delete(id: string): Promise<void>
 }
 
 export interface TagRepository {
@@ -94,6 +176,8 @@ export interface TagRepository {
   listByCard(cardId: string): Promise<Tag[]>
   /** Full-replacement of the card_tags rows. */
   setCardTags(cardId: string, tagIds: string[]): Promise<void>
+  /** Every known tag, name order (autocomplete: GET /tags). */
+  listAll(): Promise<Tag[]>
 }
 
 export interface PolicyRepository {
@@ -125,6 +209,9 @@ export interface TransactionContext {
   comments: CommentRepository
   attachments: AttachmentRepository
   users: UserRepository
+  userAccounts: UserAccountRepository
+  sessions: SessionRepository
+  serviceTokens: ServiceTokenRepository
   lanes: LaneRepository
   locations: LocationRepository
   tags: TagRepository

@@ -50,6 +50,12 @@ export class SqliteTagRepository implements TagRepository {
     return Promise.resolve(rows)
   }
 
+  /** Every known tag, name order (autocomplete). */
+  listAll(): Promise<Tag[]> {
+    const rows = this.db.select().from(tags).orderBy(asc(tags.name), asc(tags.id)).all()
+    return Promise.resolve(rows)
+  }
+
   /** Full-replacement of the card_tags rows. */
   setCardTags(cardId: string, tagIds: string[]): Promise<void> {
     try {

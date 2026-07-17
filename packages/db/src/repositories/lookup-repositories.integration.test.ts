@@ -73,6 +73,18 @@ describe('SqliteLaneRepository', () => {
     expect(found?.id).toBe(base.lanes.review.id)
     expect(wrongBoard).toBeNull()
   })
+
+  it('updates label and WIP limit; unknown ids reject with NotFoundError', async () => {
+    const lane = base.lanes.intake
+
+    await run((tx) => tx.lanes.update({ ...lane, label: 'Triage', wipLimit: 4 }))
+    const updated = await run((tx) => tx.lanes.findByKey(base.boardId, 'intake'))
+
+    expect(updated).toMatchObject({ label: 'Triage', wipLimit: 4 })
+    await expect(run((tx) => tx.lanes.update({ ...lane, id: newId() }))).rejects.toMatchObject({
+      name: 'NotFoundError',
+    })
+  })
 })
 
 describe('SqliteLocationRepository', () => {

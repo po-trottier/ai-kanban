@@ -26,9 +26,12 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
   `GET /cards/:id/events` and comments oldest-first. No offset pagination anywhere.
 - **Errors**: RFC 9457 problem+json: `{ type, title, status, detail, ...extras }`. Validation
   errors include a `issues` array from Zod. Codes: 400 validation, 401 unauthenticated,
-  403 policy denial (includes `rule`), 404, 409 conflict (stale version, stale move neighbors,
-  attachment limit, archived card), 413 upload too large, 415 bad MIME, 422 illegal transition
-  when enforcement is on (includes `from`, `to`), 429 rate limited (with `Retry-After`).
+  403 policy denial (includes `rule`) — plus `invalid-current-password` (wrong current password
+  on change-password; no `rule`) and `csrf`/`password-change-required` — 404, 409 conflict
+  (stale version, stale move neighbors, attachment limit, archived card), 413 upload too large,
+  415 bad MIME, 422 illegal transition when enforcement is on (includes `from`, `to`), 429 rate
+  limited (with `Retry-After`), 507 `insufficient-storage` for both upload quotas (the per-user
+  daily quota and the `BLOB_DIR` high-water mark — see security.md#uploads).
 
 ## Endpoints
 

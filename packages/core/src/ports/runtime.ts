@@ -27,6 +27,8 @@ export interface EventBus {
 /** Binary storage for attachment blobs; keys are server-generated UUIDs. */
 export interface BlobStorePort {
   put(key: string, content: Uint8Array): Promise<void>
+  /** The stored bytes, or null when the key is unknown (download route). */
+  get(key: string): Promise<Uint8Array | null>
   delete(key: string): Promise<void>
 }
 

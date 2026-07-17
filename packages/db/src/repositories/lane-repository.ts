@@ -1,6 +1,7 @@
-import { type Lane, type LaneKey, type LaneRepository } from '@rivian-kanban/core'
+import { NotFoundError, type Lane, type LaneKey, type LaneRepository } from '@rivian-kanban/core'
 import { and, asc, eq } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
+import { toError } from '../errors.ts'
 import { lanes } from '../schema.ts'
 
 export class SqliteLaneRepository implements LaneRepository {
@@ -28,5 +29,20 @@ export class SqliteLaneRepository implements LaneRepository {
       .where(and(eq(lanes.boardId, boardId), eq(lanes.key, key as LaneKey)))
       .get()
     return Promise.resolve(row ?? null)
+  }
+
+  /** Label/WIP-limit edits only — key and position are structural (seed-owned). */
+  update(lane: Lane): Promise<void> {
+    try {
+      const result = this.db
+        .update(lanes)
+        .set({ label: lane.label, wipLimit: lane.wipLimit })
+        .where(eq(lanes.id, lane.id))
+        .run()
+      if (result.changes === 0) return Promise.reject(new NotFoundError('lane'))
+      return Promise.resolve()
+    } catch (error) {
+      return Promise.reject(toError(error))
+    }
   }
 }

@@ -73,6 +73,10 @@ export class InMemoryBlobStore implements BlobStorePort {
     return Promise.resolve()
   }
 
+  get(key: string): Promise<Uint8Array | null> {
+    return Promise.resolve(this.blobs.get(key) ?? null)
+  }
+
   delete(key: string): Promise<void> {
     if (this.failNextDelete) {
       this.failNextDelete = false

@@ -5,10 +5,12 @@ import {
   type Comment,
   type Lane,
   type Location,
+  type ServiceToken,
+  type Session,
   type Tag,
   type User,
 } from '../domain/entities.ts'
-import { DuplicatePositionError, NotFoundError } from '../domain/errors.ts'
+import { ConflictError, DuplicatePositionError, NotFoundError } from '../domain/errors.ts'
 import { type CardEvent, type CardEventType } from '../domain/events.ts'
 import { type BoardPolicy } from '../domain/policy.ts'
 import {
@@ -20,9 +22,13 @@ import {
   type LaneRepository,
   type LocationRepository,
   type PolicyRepository,
+  type ServiceTokenRepository,
+  type SessionRepository,
   type TagRepository,
   type TransactionContext,
   type UnitOfWork,
+  type UserAccountRepository,
+  type UserCredentials,
   type UserRepository,
 } from '../ports/repositories.ts'
 
@@ -39,9 +45,18 @@ interface CardTagRow {
   tagId: string
 }
 
+/** userId → stored password hash rows (JSON-clonable; auth surface). */
+interface PasswordHashRow {
+  userId: string
+  hash: string
+}
+
 interface DbState {
   lanes: Lane[]
   users: User[]
+  passwordHashes: PasswordHashRow[]
+  sessions: Session[]
+  serviceTokens: ServiceToken[]
   locations: Location[]
   cards: Card[]
   comments: Comment[]
@@ -56,6 +71,9 @@ function emptyState(): DbState {
   return {
     lanes: [],
     users: [],
+    passwordHashes: [],
+    sessions: [],
+    serviceTokens: [],
     locations: [],
     cards: [],
     comments: [],
@@ -96,6 +114,9 @@ export class InMemoryDb implements UnitOfWork {
       comments: new InMemoryCommentRepository(state),
       attachments: new InMemoryAttachmentRepository(state),
       users: new InMemoryUserRepository(state),
+      userAccounts: new InMemoryUserAccountRepository(state),
+      sessions: new InMemorySessionRepository(state),
+      serviceTokens: new InMemoryServiceTokenRepository(state),
       lanes: new InMemoryLaneRepository(state),
       locations: new InMemoryLocationRepository(state),
       tags: new InMemoryTagRepository(state),
@@ -110,8 +131,24 @@ export class InMemoryDb implements UnitOfWork {
     this.state.lanes.push(clone(lane))
   }
 
-  seedUser(user: User): void {
+  seedUser(user: User, passwordHash = '!in-memory-placeholder!'): void {
     this.state.users.push(clone(user))
+    this.state.passwordHashes.push({ userId: user.id, hash: passwordHash })
+  }
+
+  seedSession(session: Session): void {
+    this.state.sessions.push(clone(session))
+  }
+
+  /** Committed sessions for a user (asserting revocation behavior). */
+  sessionsFor(userId: string): Session[] {
+    return clone(this.state.sessions.filter((session) => session.userId === userId))
+  }
+
+  getServiceToken(id: string): ServiceToken {
+    const token = this.state.serviceTokens.find((candidate) => candidate.id === id)
+    if (!token) throw new NotFoundError('service token')
+    return clone(token)
   }
 
   seedLocation(location: Location): void {
@@ -374,6 +411,148 @@ class InMemoryUserRepository implements UserRepository {
   }
 }
 
+class InMemoryUserAccountRepository implements UserAccountRepository {
+  private readonly state: DbState
+
+  constructor(state: DbState) {
+    this.state = state
+  }
+
+  private credentialsOf(user: User): UserCredentials {
+    const row = this.state.passwordHashes.find((candidate) => candidate.userId === user.id)
+    return { user: clone(user), passwordHash: row?.hash ?? '' }
+  }
+
+  findByEmail(email: string): Promise<UserCredentials | null> {
+    const wanted = email.toLowerCase()
+    const user = this.state.users.find((candidate) => candidate.email.toLowerCase() === wanted)
+    return Promise.resolve(user ? this.credentialsOf(user) : null)
+  }
+
+  findById(id: string): Promise<UserCredentials | null> {
+    const user = this.state.users.find((candidate) => candidate.id === id)
+    return Promise.resolve(user ? this.credentialsOf(user) : null)
+  }
+
+  list(): Promise<User[]> {
+    return Promise.resolve(clone(this.state.users))
+  }
+
+  insert(user: User, passwordHash: string): Promise<void> {
+    const wanted = user.email.toLowerCase()
+    if (this.state.users.some((candidate) => candidate.email.toLowerCase() === wanted)) {
+      return Promise.reject(new ConflictError('email already in use'))
+    }
+    this.state.users.push(clone(user))
+    this.state.passwordHashes.push({ userId: user.id, hash: passwordHash })
+    return Promise.resolve()
+  }
+
+  update(user: User): Promise<void> {
+    const index = this.state.users.findIndex((candidate) => candidate.id === user.id)
+    if (index === -1) return Promise.reject(new NotFoundError('user'))
+    this.state.users.splice(index, 1, clone(user))
+    return Promise.resolve()
+  }
+
+  setPassword(userId: string, passwordHash: string, mustChangePassword: boolean): Promise<void> {
+    const user = this.state.users.find((candidate) => candidate.id === userId)
+    if (!user) return Promise.reject(new NotFoundError('user'))
+    const row = this.state.passwordHashes.find((candidate) => candidate.userId === userId)
+    if (row) row.hash = passwordHash
+    else this.state.passwordHashes.push({ userId, hash: passwordHash })
+    user.mustChangePassword = mustChangePassword
+    return Promise.resolve()
+  }
+}
+
+class InMemorySessionRepository implements SessionRepository {
+  private readonly state: DbState
+
+  constructor(state: DbState) {
+    this.state = state
+  }
+
+  create(session: Session): Promise<void> {
+    this.state.sessions.push(clone(session))
+    return Promise.resolve()
+  }
+
+  findByHash(idHash: string): Promise<Session | null> {
+    const session = this.state.sessions.find((candidate) => candidate.id === idHash)
+    return Promise.resolve(session ? clone(session) : null)
+  }
+
+  touch(idHash: string, lastSeenAt: string, expiresAt: string): Promise<void> {
+    const session = this.state.sessions.find((candidate) => candidate.id === idHash)
+    if (session) {
+      session.lastSeenAt = lastSeenAt
+      session.expiresAt = expiresAt
+    }
+    return Promise.resolve()
+  }
+
+  revoke(idHash: string): Promise<void> {
+    this.retain((session) => session.id !== idHash)
+    return Promise.resolve()
+  }
+
+  revokeOthersForUser(userId: string, exceptIdHash?: string): Promise<void> {
+    this.retain((session) => session.userId !== userId || session.id === exceptIdHash)
+    return Promise.resolve()
+  }
+
+  deleteExpired(nowIso: string): Promise<number> {
+    const before = this.state.sessions.length
+    this.retain((session) => session.expiresAt > nowIso)
+    return Promise.resolve(before - this.state.sessions.length)
+  }
+
+  private retain(keep: (session: Session) => boolean): void {
+    const kept = this.state.sessions.filter(keep)
+    this.state.sessions.length = 0
+    this.state.sessions.push(...kept)
+  }
+}
+
+class InMemoryServiceTokenRepository implements ServiceTokenRepository {
+  private readonly state: DbState
+
+  constructor(state: DbState) {
+    this.state = state
+  }
+
+  findByHash(tokenHash: string): Promise<ServiceToken | null> {
+    const token = this.state.serviceTokens.find((candidate) => candidate.tokenHash === tokenHash)
+    return Promise.resolve(token ? clone(token) : null)
+  }
+
+  updateLastUsed(id: string, lastUsedAt: string): Promise<void> {
+    const token = this.state.serviceTokens.find((candidate) => candidate.id === id)
+    if (!token) return Promise.reject(new NotFoundError('service token'))
+    token.lastUsedAt = lastUsedAt
+    return Promise.resolve()
+  }
+
+  list(): Promise<ServiceToken[]> {
+    return Promise.resolve(
+      clone([...this.state.serviceTokens].sort((a, b) => binaryCompare(b.createdAt, a.createdAt))),
+    )
+  }
+
+  insert(token: ServiceToken): Promise<void> {
+    this.state.serviceTokens.push(clone(token))
+    return Promise.resolve()
+  }
+
+  revoke(id: string, revokedAt: string): Promise<void> {
+    const token = this.state.serviceTokens.find((candidate) => candidate.id === id)
+    if (!token) return Promise.reject(new NotFoundError('service token'))
+    token.revokedAt = token.revokedAt ?? revokedAt
+    return Promise.resolve()
+  }
+}
+
 class InMemoryLaneRepository implements LaneRepository {
   private readonly state: DbState
 
@@ -397,6 +576,13 @@ class InMemoryLaneRepository implements LaneRepository {
     )
     return Promise.resolve(lane ? clone(lane) : null)
   }
+
+  update(lane: Lane): Promise<void> {
+    const index = this.state.lanes.findIndex((candidate) => candidate.id === lane.id)
+    if (index === -1) return Promise.reject(new NotFoundError('lane'))
+    this.state.lanes.splice(index, 1, clone(lane))
+    return Promise.resolve()
+  }
 }
 
 class InMemoryLocationRepository implements LocationRepository {
@@ -409,6 +595,33 @@ class InMemoryLocationRepository implements LocationRepository {
   findById(id: string): Promise<Location | null> {
     const location = this.state.locations.find((candidate) => candidate.id === id)
     return Promise.resolve(location ? clone(location) : null)
+  }
+
+  list(): Promise<Location[]> {
+    return Promise.resolve(clone(this.state.locations))
+  }
+
+  insert(location: Location): Promise<void> {
+    this.state.locations.push(clone(location))
+    return Promise.resolve()
+  }
+
+  update(location: Location): Promise<void> {
+    const index = this.state.locations.findIndex((candidate) => candidate.id === location.id)
+    if (index === -1) return Promise.reject(new NotFoundError('location'))
+    this.state.locations.splice(index, 1, clone(location))
+    return Promise.resolve()
+  }
+
+  delete(id: string): Promise<void> {
+    const index = this.state.locations.findIndex((candidate) => candidate.id === id)
+    if (index === -1) return Promise.reject(new NotFoundError('location'))
+    const referenced =
+      this.state.locations.some((candidate) => candidate.parentId === id) ||
+      this.state.cards.some((card) => card.locationId === id)
+    if (referenced) return Promise.reject(new ConflictError('location is still referenced'))
+    this.state.locations.splice(index, 1)
+    return Promise.resolve()
   }
 }
 
@@ -445,6 +658,12 @@ class InMemoryTagRepository implements TagRepository {
     this.state.cardTags.length = 0
     this.state.cardTags.push(...kept, ...tagIds.map((tagId) => ({ cardId, tagId })))
     return Promise.resolve()
+  }
+
+  listAll(): Promise<Tag[]> {
+    return Promise.resolve(
+      clone([...this.state.tags].sort((a, b) => binaryCompare(a.name, b.name))),
+    )
   }
 }
 

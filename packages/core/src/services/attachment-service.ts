@@ -109,6 +109,19 @@ export class AttachmentService {
   }
 
   /**
+   * Active attachment metadata by id — the download route's lookup. Reads
+   * are never policy-checked (universal read visibility, ADR-008).
+   * Soft-deleted attachments are NotFoundError, like a missing row.
+   */
+  async getActive(attachmentId: string): Promise<Attachment> {
+    return this.deps.uow.run(async (tx) => {
+      const attachment = requireFound(await tx.attachments.findById(attachmentId), 'attachment')
+      if (attachment.deletedAt !== null) throw new NotFoundError('attachment')
+      return attachment
+    })
+  }
+
+  /**
    * Soft-deletes the metadata row, hints connected clients, then removes the
    * blob best-effort — once the row is committed, a blob-store failure must
    * not report the delete as failed or suppress the SSE hint (an orphaned

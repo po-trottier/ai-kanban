@@ -1,0 +1,103 @@
+import {
+  type AttachmentService,
+  type BoardQueryService,
+  type CardService,
+  type Clock,
+  type CommentService,
+  type PolicyService,
+  type UnitOfWork,
+  type User,
+} from '@rivian-kanban/core'
+import { type LocalBlobStore } from './adapters/blob/local-blob-store.ts'
+import { type InProcessEventBus } from './adapters/event-bus.ts'
+import { type AuthService } from './auth/auth-service.ts'
+import { type LaneAdminService } from './lanes/lane-admin-service.ts'
+import { type LocationAdminService } from './locations/location-admin-service.ts'
+import { type ServiceTokenService } from './tokens/service-token-service.ts'
+import { type UserAdminService } from './users/user-admin-service.ts'
+
+/**
+ * Everything `buildApp` needs, assembled by the composition root
+ * (src/wiring) for production and by createTestApp for integration tests.
+ * Tunables default to the documented budgets; tests inject different values
+ * through the same constructor path (configuration, not mocking).
+ */
+
+interface RateLimitBudget {
+  max: number
+  timeWindowMs: number
+}
+
+export interface AppConfig {
+  nodeEnv: 'development' | 'test' | 'production'
+  trustProxyHops: number
+  /** pino level; 'silent' in tests. */
+  logLevel: string
+  version: { version: string; gitSha: string; builtAt: string }
+  /** Built SPA directory served statically; null when packages/web/dist is absent. */
+  spaRoot: string | null
+  /** docs/architecture/security.md rate-limit table. */
+  rateLimits: {
+    global: RateLimitBudget
+    login: RateLimitBudget
+    upload: RateLimitBudget
+  }
+  sse: {
+    /** 25 s in production (ADR-008); tests shorten it. */
+    keepaliveMs: number
+    /** Per-user concurrent stream cap — oldest dropped (security.md). */
+    maxStreamsPerUser: number
+  }
+  uploads: {
+    /** 500 MB/day/user (security.md#uploads). */
+    dailyQuotaBytesPerUser: number
+    /** BLOB_DIR high-water mark; uploads past it are 507. */
+    blobHighWaterBytes: number
+  }
+  /** under-pressure event-loop-delay threshold; 0 disables (tests). */
+  maxEventLoopDelayMs: number
+}
+
+interface AppServices {
+  cards: CardService
+  comments: CommentService
+  attachments: AttachmentService
+  queries: BoardQueryService
+  policies: PolicyService
+  auth: AuthService
+  users: UserAdminService
+  lanes: LaneAdminService
+  locations: LocationAdminService
+  tokens: ServiceTokenService
+}
+
+export interface AppDeps {
+  config: AppConfig
+  uow: UnitOfWork
+  clock: Clock
+  eventBus: InProcessEventBus
+  blobStore: LocalBlobStore
+  services: AppServices
+}
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    /** Resolved by the session-auth hook on protected /api/v1 routes. */
+    authUser: User | null
+    /** sha256 of the presented session cookie (revocation handle). */
+    sessionHash: string | null
+  }
+
+  interface FastifyContextConfig {
+    /** Skips session auth (login + operational endpoints). */
+    public?: boolean
+    /** Reachable while must_change_password is set (change-password/logout/me). */
+    allowWithPasswordChange?: boolean
+    /** Multipart request — exempt from the JSON body-schema requirement. */
+    multipart?: boolean
+    /** Deliberately bodyless mutation (logout, reopen, unblock). */
+    bodyless?: boolean
+    /** Response is a stream/binary — exempt from the response-schema rule. */
+    rawResponse?: boolean
+  }
+}

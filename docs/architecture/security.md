@@ -99,8 +99,8 @@ What is security-relevant here:
   image processing requires a security review and sandboxing.
 - Limits: 25 MB/file, 10 active files/card (enforced in the insert transaction), one file per
   request; @fastify/multipart hard limits on part count and field sizes. Quotas against
-  disk-fill DoS: 500 MB/day per user, plus a global `BLOB_DIR` high-water mark that rejects
-  uploads with 507 while headroom remains for SQLite+WAL on the shared volume.
+  disk-fill DoS: 500 MB/day per user, plus a global `BLOB_DIR` high-water mark that leaves
+  headroom for SQLite+WAL on the shared volume — either quota rejects the upload with 507.
 - Blobs stored under random UUID keys (original filename only in DB metadata — no path
   traversal surface). Downloads: `Content-Disposition: attachment` with the filename sanitized
   (CR/LF/quotes stripped, ASCII fallback + RFC 5987 `filename*`), `nosniff`. Blob directory

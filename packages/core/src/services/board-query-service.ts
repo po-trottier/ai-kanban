@@ -118,6 +118,11 @@ export class BoardQueryService {
     })
   }
 
+  /** Every known tag, name order (`GET /tags` autocomplete). */
+  async listTags(): Promise<Tag[]> {
+    return this.deps.uow.run((tx) => tx.tags.listAll())
+  }
+
   /** Full card detail: card + tags + location + active attachment metadata. */
   async cardDetail(cardId: string): Promise<CardDetail> {
     return this.deps.uow.run(async (tx) => {

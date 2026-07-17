@@ -63,11 +63,12 @@ module.exports = {
     {
       name: 'fs-only-in-blob-adapter-and-wiring',
       comment:
-        'Filesystem access is confined to the blob-store adapter and the composition root (BlobStorePort portability, docs/dev/standards.md).',
+        'Filesystem access is confined to the blob-store adapter and the composition root (BlobStorePort portability, docs/dev/standards.md). Test files are exempt: every integration test file owns a real temp directory (docs/dev/testing.md).',
       severity: 'error',
       from: {
         path: '^packages/server/src',
-        pathNot: '^packages/server/src/(adapters/blob|wiring|main\\.ts|cli\\.ts)',
+        pathNot:
+          '^packages/server/src/(adapters/blob|wiring|main\\.ts|cli\\.ts|test/)|\\.integration\\.test\\.ts$',
       },
       to: { path: '^(node:)?fs' },
     },
