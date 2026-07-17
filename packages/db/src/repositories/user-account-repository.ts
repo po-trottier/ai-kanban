@@ -43,6 +43,12 @@ export class SqliteUserAccountRepository implements UserAccountRepository {
     return Promise.resolve(row === undefined ? null : toCredentials(row))
   }
 
+  /** Exact match on the stored Slack binding (docs/architecture/slack.md#identity-mapping). */
+  findBySlackUserId(slackUserId: string): Promise<UserCredentials | null> {
+    const row = this.db.select().from(users).where(eq(users.slackUserId, slackUserId)).get()
+    return Promise.resolve(row === undefined ? null : toCredentials(row))
+  }
+
   list(): Promise<User[]> {
     const rows = this.db
       .select({

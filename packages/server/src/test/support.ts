@@ -25,6 +25,8 @@ export const TEST_ARGON2: Argon2Params = { memoryCost: 2048, timeCost: 2, parall
 
 export interface TestAppOptions extends WireOptions {
   seedDemoData?: boolean
+  /** Extra env vars for the boot (e.g. SLACK_* pointing at fixture servers). */
+  env?: Record<string, string>
 }
 
 export interface TestApp {
@@ -60,12 +62,13 @@ export function sessionCookieOf(response: InjectResponse): string {
 
 export async function createTestApp(options: TestAppOptions = {}): Promise<TestApp> {
   const dir = mkdtempSync(join(tmpdir(), 'rivian-kanban-server-'))
-  const { seedDemoData, ...wireOptions } = options
+  const { seedDemoData, env: envOverrides, ...wireOptions } = options
   const env = parseEnv({
     NODE_ENV: 'test',
     DATABASE_PATH: join(dir, 'test.sqlite'),
     BLOB_DIR: join(dir, 'blobs'),
     SEED_DEMO_DATA: seedDemoData === true ? 'true' : 'false',
+    ...envOverrides,
   })
   const wired = await wireApp(env, {
     hasherParams: TEST_ARGON2,

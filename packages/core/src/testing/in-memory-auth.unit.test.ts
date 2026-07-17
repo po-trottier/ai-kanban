@@ -50,6 +50,22 @@ describe('InMemoryUserAccountRepository', () => {
     expect(credentials?.passwordHash).toBeTruthy()
   })
 
+  it('finds by stored Slack binding exactly; unbound ids resolve null', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const target = scenario.users.technician
+    await scenario.db.run((tx) => tx.userAccounts.update({ ...target, slackUserId: 'U0TECH' }))
+
+    // Act
+    const bound = await scenario.db.run((tx) => tx.userAccounts.findBySlackUserId('U0TECH'))
+    const unbound = await scenario.db.run((tx) => tx.userAccounts.findBySlackUserId('U0GHOST'))
+
+    // Assert
+    expect(bound?.user.id).toBe(target.id)
+    expect(bound?.passwordHash).toBeTruthy()
+    expect(unbound).toBeNull()
+  })
+
   it('rejects inserting a duplicate email with ConflictError', async () => {
     // Arrange
     const scenario = createScenario()

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CANCEL_RESOLUTIONS } from './constants.ts'
+import { CANCEL_RESOLUTIONS, CARD_DESCRIPTION_MAX, CARD_TITLE_MAX } from './constants.ts'
 import {
   isoDateSchema,
   laneKeySchema,
@@ -24,8 +24,8 @@ const expectedVersionSchema = z.number().int().min(1)
  * pass it through the trusted `CreateCardOptions` service parameter instead.
  */
 export const createCardInputSchema = z.strictObject({
-  title: z.string().trim().min(1).max(200),
-  description: z.string().max(20_000).default(''),
+  title: z.string().trim().min(1).max(CARD_TITLE_MAX),
+  description: z.string().max(CARD_DESCRIPTION_MAX).default(''),
   priority: prioritySchema.default('P2'),
   assigneeId: z.uuid().optional(),
   locationId: z.uuid().optional(),
@@ -36,8 +36,8 @@ export type CreateCardInput = z.infer<typeof createCardInputSchema>
 
 /** Field edits; every provided field is diffed into a `card.field_changed` event. */
 export const updateCardInputSchema = z.strictObject({
-  title: z.string().trim().min(1).max(200).optional(),
-  description: z.string().max(20_000).optional(),
+  title: z.string().trim().min(1).max(CARD_TITLE_MAX).optional(),
+  description: z.string().max(CARD_DESCRIPTION_MAX).optional(),
   priority: prioritySchema.optional(),
   estimateMinutes: z.number().int().positive().nullable().optional(),
   assigneeId: z.uuid().nullable().optional(),

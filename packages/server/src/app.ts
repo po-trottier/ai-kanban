@@ -1,7 +1,7 @@
 import cookie from '@fastify/cookie'
 import fastifyStatic from '@fastify/static'
 import swagger from '@fastify/swagger'
-import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify'
+import Fastify, { type FastifyInstance } from 'fastify'
 import { FastifySSEPlugin } from 'fastify-sse-v2'
 import {
   jsonSchemaTransform,
@@ -9,7 +9,6 @@ import {
   validatorCompiler,
 } from 'fastify-type-provider-zod'
 import { randomUUID } from 'node:crypto'
-import { pino } from 'pino'
 import { mcpRoutes } from './mcp/mcp-routes.ts'
 import { registerErrorHandling } from './plugins/error-handler.ts'
 import { registerSchemaGuard } from './plugins/schema-guard.ts'
@@ -35,27 +34,12 @@ import { type AppDeps } from './types.ts'
  */
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const { config } = deps
-  // Typed as the base logger: pino's own Logger type would narrow the
-  // FastifyInstance generics and break every plugin signature.
-  const logger: FastifyBaseLogger = pino({
-    level: config.logLevel,
-    // Secrets never reach the logs (docs/architecture/security.md#secrets--configuration).
-    redact: [
-      'req.headers.authorization',
-      'req.headers.cookie',
-      'res.headers["set-cookie"]',
-      '*.password',
-      '*.currentPassword',
-      '*.newPassword',
-      '*.tempPassword',
-      '*.rawToken',
-      '*.passwordHash',
-    ],
-  })
   const app = Fastify({
     trustProxy: config.trustProxyHops,
     genReqId: () => randomUUID(),
-    loggerInstance: logger,
+    // The process-wide pino root from the composition root (redaction
+    // configured there) — the notifier and Slack adapter share it.
+    loggerInstance: deps.logger,
     bodyLimit: 1024 * 1024,
   })
 

@@ -1,12 +1,15 @@
 import { z } from 'zod'
 import {
   ACTOR_KINDS,
+  CARD_DESCRIPTION_MAX,
   CARD_ORIGINS,
+  CARD_TITLE_MAX,
   LANE_KEYS,
   LOCATION_KINDS,
   PRIORITIES,
   RESOLUTIONS,
   ROLES,
+  TAG_NAME_MAX,
   TOKEN_SCOPES,
   WAITING_REASONS,
 } from './constants.ts'
@@ -28,7 +31,7 @@ export const waitingReasonSchema = z.enum(WAITING_REASONS)
 export const tokenScopeSchema = z.enum(TOKEN_SCOPES)
 
 /** Tag names: ≤ 50 chars, trimmed, case preserved, matched case-insensitively. */
-export const tagNameSchema = z.string().trim().min(1).max(50)
+export const tagNameSchema = z.string().trim().min(1).max(TAG_NAME_MAX)
 
 export const userSchema = z.strictObject({
   id: z.uuid(),
@@ -73,8 +76,8 @@ export const cardSchema = z.strictObject({
   laneId: z.uuid(),
   /** Fractional ordering key, UNIQUE(laneId, position) (ADR-006). */
   position: z.string().min(1),
-  title: z.string().min(1).max(200),
-  description: z.string().max(20_000),
+  title: z.string().min(1).max(CARD_TITLE_MAX),
+  description: z.string().max(CARD_DESCRIPTION_MAX),
   priority: prioritySchema,
   estimateMinutes: z.number().int().positive().nullable(),
   reporterId: z.uuid(),

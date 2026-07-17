@@ -25,6 +25,16 @@ export function roleAtLeast(role: Role, minimum: Role): boolean {
 export const PRIORITIES = ['P0', 'P1', 'P2'] as const
 export type Priority = (typeof PRIORITIES)[number]
 
+/**
+ * Card field caps (docs/architecture/data-model.md), owned here as the single
+ * source: the zod schemas reference them, and adapters that truncate before
+ * validation (Slack thread capture, summarizer clamping) import the same
+ * values instead of re-encoding literals.
+ */
+export const CARD_TITLE_MAX = 200
+export const CARD_DESCRIPTION_MAX = 20_000
+export const TAG_NAME_MAX = 50
+
 export const WAITING_REASONS = ['parts', 'vendor', 'access', 'info', 'funding'] as const
 export type WaitingReason = (typeof WAITING_REASONS)[number]
 

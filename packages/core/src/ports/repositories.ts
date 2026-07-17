@@ -96,6 +96,12 @@ export interface UserCredentials {
 export interface UserAccountRepository {
   /** Case-insensitive email lookup, hash included (login). */
   findByEmail(email: string): Promise<UserCredentials | null>
+  /**
+   * Sticky Slack identity binding (docs/architecture/slack.md#identity-mapping):
+   * exact match on the stored `users.slack_user_id`, or null when no user has
+   * been bound to that Slack id yet.
+   */
+  findBySlackUserId(slackUserId: string): Promise<UserCredentials | null>
   /** Lookup by id, hash included (change-password verifies the current one). */
   findById(id: string): Promise<UserCredentials | null>
   /** Every user, active and inactive (admin management, last-admin guard). */

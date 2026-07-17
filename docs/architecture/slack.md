@@ -23,7 +23,10 @@ work in threads, and out-of-thread quick creation is the web UI's job).
    schema-constrained structured output → `{ title, description, suggestedPriority, tags[] }`.
    If disabled or on failure: prefill the raw thread text. Either way the human reviews.
 4. `views.update` the modal with the prefilled, editable draft (title, description, priority,
-   tags, assignee, location).
+   tags, assignee, location). Two platform caps apply to the prefill only: the description
+   input is truncated at Slack's 3,000-character `plain_text_input` limit (with a visible
+   truncation marker), and the thread fetch reads the first `conversations.replies` page
+   (200 messages) — the permalink preserves the full thread either way.
 5. On `view_submission`: `cardService.create(actor, draft)` — card lands in **Intake** with
    `origin: 'slack'`, AI values stored as ordinary draft field values, Slack permalink +
    `{channel, thread_ts}` recorded.
@@ -106,4 +109,7 @@ provider); a redaction step can be inserted in the SummarizerPort adapter if req
   code; the provider-swap config is itself exercised by running the same test against two
   fixture providers.
 - **Manual smoke test** (dev-only, not CI): one Socket Mode run against a staging workspace
-  when credentials arrive.
+  when credentials arrive. Verify completion DMs deliver under the pinned scope list —
+  `chat.postMessage` to a bare user id may require `im:write` (or a prior
+  `conversations.open`) in some workspaces; if so, amend the scope list as a deliberate,
+  PO-visible change.
