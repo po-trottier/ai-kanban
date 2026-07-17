@@ -1,6 +1,7 @@
 import { LANE_KEYS, PRIORITIES, type Card } from '@rivian-kanban/core'
 import {
   Accordion,
+  ActionIcon,
   Badge,
   Button,
   Group,
@@ -15,14 +16,14 @@ import {
   TextInput,
   UnstyledButton,
 } from '@mantine/core'
-import { useDebouncedValue } from '@mantine/hooks'
-import { SlidersHorizontal } from 'lucide-react'
+import { ChevronDown, SlidersHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useBoard } from '../api/board.ts'
 import { useCardSearch } from '../api/card.ts'
 import { useLocations, useTags, useUsers } from '../api/meta.ts'
 import { LocationPicker } from '../card/LocationPicker.tsx'
+import { cx } from '../lib/cx.ts'
 import { formatEstimate, utcToday } from '../lib/format.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { PinIcon, SearchIcon } from '../shell/icons.tsx'
@@ -38,15 +39,17 @@ import classes from './search.module.css'
  * reachable (the header live-filter only narrows the loaded board). Opened
  * on demand from the header field's filter icon or the board's no-matches
  * link, it searches `GET /cards` across every card — including archived by
- * default — with a collapsible facet panel (priority, column, tag, location,
+ * default — with a collapsible facet panel (priority, column, tags, location,
  * archived scope) and lists matches as compact, kanban-styled rows that
  * deep-link into the card panel.
  *
- * Search is asynchronous and cursor-paginated: a changed term or facet fires a
- * fresh query while the previous results stay on screen (a spinner marks the
- * in-flight fetch), and long result sets load a page at a time. Open state and
- * the seed query live in the URL (`?search=1`, `?q=`), so the body remounts
- * fresh on each open, seeded with whatever the board was being filtered by.
+ * Nothing queries until the user presses Search (or Enter): the fields are a
+ * DRAFT, applied as one snapshot, so several facets can be set without a
+ * request per change. Search is asynchronous and cursor-paginated — the
+ * previous results stay on screen while the next applied query loads (a spinner
+ * marks it), and long result sets load a page at a time. Open state and the
+ * seed query live in the URL (`?search=1`, `?q=`), so the body remounts fresh
+ * on each open, seeded (and pre-applied) with the board's current query.
  */
 export function SearchModal() {
   const { opened, close } = useSearchModal()
@@ -60,30 +63,51 @@ export function SearchModal() {
   )
 }
 
+interface AppliedFilters {
+  q: string
+  priority: (typeof PRIORITIES)[number] | null
+  lane: (typeof LANE_KEYS)[number] | null
+  tags: string[]
+  locationId: string | null
+  archivedScope: ArchivedScope
+}
+
+type ArchivedScope = 'both' | 'active' | 'archived'
+/** Archived scope defaults to "both" — this modal is the only place archived
+ * cards surface, so they're in scope by default. Clearing resets here. */
+const DEFAULT_SCOPE: ArchivedScope = 'both'
+
 function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: () => void }) {
   const navigate = useNavigate()
+  // Draft fields the user edits freely; nothing queries until they press Search
+  // (or Enter) — so several facets can be set in one pass without a request, and
+  // wait, per change.
   const [text, setText] = useState(seedQuery)
   const [priority, setPriority] = useState<(typeof PRIORITIES)[number] | null>(null)
   const [lane, setLane] = useState<(typeof LANE_KEYS)[number] | null>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [locationId, setLocationId] = useState<string | null>(null)
-  // Archived scope is a 3-way choice, defaulting to "both" — this modal is the
-  // only place archived cards surface, so they're in scope by default.
-  const [archivedScope, setArchivedScope] = useState<'both' | 'active' | 'archived'>('both')
-  // Debounce the free-text so each keystroke doesn't fire a (potentially slow,
-  // archive-wide) request; facet selects apply immediately.
-  const [debouncedText] = useDebouncedValue(text.trim(), 300)
+  const [archivedScope, setArchivedScope] = useState<ArchivedScope>(DEFAULT_SCOPE)
+  const [filtersOpen, setFiltersOpen] = useState(true)
+  // The applied snapshot actually drives the query — seeded (and pre-applied)
+  // from the board query so opening pre-populated shows results at once.
+  const [applied, setApplied] = useState<AppliedFilters>(() => ({
+    q: seedQuery.trim(),
+    priority: null,
+    lane: null,
+    tags: [],
+    locationId: null,
+    archivedScope: DEFAULT_SCOPE,
+  }))
 
-  const includeArchived = archivedScope !== 'active'
-  const archivedOnly = archivedScope === 'archived'
   const search = useCardSearch({
-    q: debouncedText,
-    includeArchived,
-    archivedOnly,
-    priority,
-    lane,
-    tags: selectedTags,
-    locationId,
+    q: applied.q,
+    includeArchived: applied.archivedScope !== 'active',
+    archivedOnly: applied.archivedScope === 'archived',
+    priority: applied.priority,
+    lane: applied.lane,
+    tags: applied.tags,
+    locationId: applied.locationId,
   })
   const board = useBoard()
   const users = useUsers()
@@ -105,7 +129,28 @@ function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: (
   const activeFacetCount =
     [priority, lane, locationId].filter((value) => value !== null).length +
     (selectedTags.length > 0 ? 1 : 0) +
-    (archivedScope === 'both' ? 0 : 1)
+    (archivedScope === DEFAULT_SCOPE ? 0 : 1)
+  const hasDraftFilters = text.trim() !== '' || activeFacetCount > 0
+
+  const applyFilters = () => {
+    setApplied({ q: text.trim(), priority, lane, tags: selectedTags, locationId, archivedScope })
+  }
+  const clearAll = () => {
+    setText('')
+    setPriority(null)
+    setLane(null)
+    setSelectedTags([])
+    setLocationId(null)
+    setArchivedScope(DEFAULT_SCOPE)
+    setApplied({
+      q: '',
+      priority: null,
+      lane: null,
+      tags: [],
+      locationId: null,
+      archivedScope: DEFAULT_SCOPE,
+    })
+  }
 
   const openCard = (cardId: string) => {
     // Navigating to the card drops `?search=1`, which closes this modal, and
@@ -115,28 +160,75 @@ function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: (
 
   return (
     <Stack gap="md">
-      <TextInput
-        aria-label={strings.search.queryAriaLabel}
-        placeholder={strings.search.queryPlaceholder}
-        value={text}
-        leftSection={<SearchIcon size={16} />}
-        data-autofocus
-        onChange={(event) => {
-          setText(event.currentTarget.value)
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          applyFilters()
         }}
-      />
-      <Accordion variant="separated" chevronPosition="right" defaultValue="filters">
+      >
+        <Group gap="sm" align="flex-end" wrap="nowrap">
+          <TextInput
+            className={classes.grow}
+            aria-label={strings.search.queryAriaLabel}
+            placeholder={strings.search.queryPlaceholder}
+            value={text}
+            data-autofocus
+            onChange={(event) => {
+              setText(event.currentTarget.value)
+            }}
+          />
+          <Button type="submit" leftSection={<SearchIcon size={16} />}>
+            {strings.search.searchButton}
+          </Button>
+        </Group>
+      </form>
+      <Accordion
+        variant="separated"
+        // Controlled so the caret can live OUTSIDE the control (rendered after
+        // Clear all, on its right) — the built-in chevron is hidden below.
+        value={filtersOpen ? 'filters' : null}
+        onChange={(value) => {
+          setFiltersOpen(value === 'filters')
+        }}
+        classNames={{ chevron: classes.hiddenChevron }}
+      >
         <Accordion.Item value="filters">
-          <Accordion.Control icon={<SlidersHorizontal size={16} aria-hidden />}>
-            <Group gap="xs" wrap="nowrap" component="span">
-              {strings.search.filtersToggle}
-              {activeFacetCount > 0 ? (
-                <Badge size="sm" circle variant="filled">
-                  {activeFacetCount}
-                </Badge>
-              ) : null}
-            </Group>
-          </Accordion.Control>
+          <Group gap="xs" wrap="nowrap" align="center" pr="xs">
+            <Accordion.Control
+              className={classes.grow}
+              icon={<SlidersHorizontal size={16} aria-hidden />}
+            >
+              <Group gap="xs" wrap="nowrap" component="span">
+                {strings.search.filtersToggle}
+                {activeFacetCount > 0 ? (
+                  <Badge size="sm" circle variant="filled">
+                    {activeFacetCount}
+                  </Badge>
+                ) : null}
+              </Group>
+            </Accordion.Control>
+            {hasDraftFilters ? (
+              <Button variant="subtle" color="gray" size="compact-sm" onClick={clearAll}>
+                {strings.search.clearFilters}
+              </Button>
+            ) : null}
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              aria-label={
+                filtersOpen ? strings.search.collapseFilters : strings.search.expandFilters
+              }
+              onClick={() => {
+                setFiltersOpen((open) => !open)
+              }}
+            >
+              <ChevronDown
+                size={16}
+                aria-hidden
+                className={cx(classes.caret, filtersOpen && classes.caretOpen)}
+              />
+            </ActionIcon>
+          </Group>
           <Accordion.Panel>
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
               <Select
@@ -180,15 +272,18 @@ function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: (
               />
               <Select
                 label={strings.search.archivedFilter}
+                // Works like every other facet: the empty/cleared state is the
+                // default "Active and archived" (shown as the placeholder), and
+                // the two options narrow it. Clearing returns to that default.
+                placeholder={strings.search.archivedBoth}
                 data={[
-                  { value: 'both', label: strings.search.archivedBoth },
                   { value: 'active', label: strings.search.activeOnly },
                   { value: 'archived', label: strings.search.archivedOnly },
                 ]}
-                value={archivedScope}
-                allowDeselect={false}
+                value={archivedScope === DEFAULT_SCOPE ? null : archivedScope}
+                clearable
                 onChange={(value) => {
-                  if (value !== null) setArchivedScope(value)
+                  setArchivedScope(value ?? DEFAULT_SCOPE)
                 }}
               />
             </SimpleGrid>

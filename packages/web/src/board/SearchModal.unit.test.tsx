@@ -91,9 +91,10 @@ describe('SearchModal', () => {
         ),
     })
     renderApp({ fetchFn: fake.fetch, route: '/?search=1' })
-    // Act — the facet panel is open by default; choose the P0 option
+    // Act — the facet panel is open by default; choose P0, then apply via Search
     await user.click(await screen.findByRole('combobox', { name: 'Priority' }))
     await user.click(await screen.findByRole('option', { name: 'P0 — Critical' }))
+    await user.click(screen.getByRole('button', { name: 'Search' }))
     // Assert
     const results = await screen.findByRole('list', { name: 'Search results' })
     expect(within(results).getByText('Burst pipe')).toBeInTheDocument()
@@ -117,9 +118,10 @@ describe('SearchModal', () => {
         ),
     })
     renderApp({ fetchFn: fake.fetch, route: '/?search=1' })
-    // Act — pick a tag chip from the multi-select
+    // Act — pick a tag chip from the multi-select, then apply via Search
     await user.click(await screen.findByRole('combobox', { name: 'Tags' }))
     await user.click(await screen.findByRole('option', { name: 'HVAC' }))
+    await user.click(screen.getByRole('button', { name: 'Search' }))
     // Assert
     const results = await screen.findByRole('list', { name: 'Search results' })
     expect(within(results).getByText('HVAC job')).toBeInTheDocument()
@@ -143,9 +145,10 @@ describe('SearchModal', () => {
         ),
     })
     renderApp({ fetchFn: fake.fetch, route: '/?search=1' })
-    // Act — switch the archived scope to "Archived only"
+    // Act — switch the archived scope to "Archived only", then apply via Search
     await user.click(await screen.findByRole('combobox', { name: 'Archived cards' }))
     await user.click(await screen.findByRole('option', { name: 'Archived only' }))
+    await user.click(screen.getByRole('button', { name: 'Search' }))
     // Assert
     const results = await screen.findByRole('list', { name: 'Search results' })
     expect(within(results).getByText('Old job')).toBeInTheDocument()
@@ -168,10 +171,57 @@ describe('SearchModal', () => {
     // Act
     await user.click(await screen.findByRole('combobox', { name: 'Column' }))
     await user.click(await screen.findByRole('option', { name: 'In Progress' }))
+    await user.click(screen.getByRole('button', { name: 'Search' }))
     // Assert
     const results = await screen.findByRole('list', { name: 'Search results' })
     expect(within(results).getByText('Grease door hinge')).toBeInTheDocument()
     expect(lastCardsCall(fake)).toContain('lane=in_progress')
+  })
+
+  it('batches edits — nothing queries until Search is pressed', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const match = makeCard('ready', { title: 'Zebra card' })
+    const fake = searchApp({
+      'GET /api/v1/cards': (_init: RequestInit | undefined, url: string) =>
+        jsonResponse(
+          url.includes('q=zebra')
+            ? { items: [match], nextCursor: null }
+            : { items: [], nextCursor: null },
+        ),
+    })
+    renderApp({ fetchFn: fake.fetch, route: '/?search=1' })
+    await screen.findByText('No cards match your search.')
+    // Act — typing does NOT fire a request carrying the term (no auto-apply)…
+    await user.type(await screen.findByRole('textbox', { name: 'Search cards' }), 'zebra')
+    expect(lastCardsCall(fake) ?? '').not.toContain('q=zebra')
+    // …only pressing Search applies it.
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    // Assert
+    expect(await screen.findByText('Zebra card')).toBeInTheDocument()
+    expect(lastCardsCall(fake)).toContain('q=zebra')
+  })
+
+  it('resets the query and facets with Clear all', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const match = makeCard('ready', { title: 'Fix pump' })
+    const fake = searchApp({
+      'GET /api/v1/cards': (_init: RequestInit | undefined, url: string) =>
+        jsonResponse(
+          url.includes('q=pump')
+            ? { items: [match], nextCursor: null }
+            : { items: [], nextCursor: null },
+        ),
+    })
+    renderApp({ fetchFn: fake.fetch, route: '/?q=pump&search=1' })
+    expect(await screen.findByText('Fix pump')).toBeInTheDocument()
+    // Act
+    await user.click(screen.getByRole('button', { name: 'Clear all' }))
+    // Assert — the field empties and an empty search is applied (pump gone).
+    expect(screen.getByRole('textbox', { name: 'Search cards' })).toHaveValue('')
+    await screen.findByText('No cards match your search.')
+    expect(lastCardsCall(fake)).not.toContain('q=pump')
   })
 
   it('opens a result in the card detail panel', async () => {

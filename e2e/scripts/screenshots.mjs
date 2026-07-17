@@ -156,10 +156,13 @@ try {
   // facet panel; archived cards are in scope by default.
   await page.getByRole('button', { name: 'Advanced search' }).click()
   await page.getByRole('textbox', { name: 'Search cards' }).fill('door')
+  // Filters batch-apply on the Search button (magnifying glass), not live.
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.getByRole('list', { name: 'Search results' }).waitFor()
   await shot(page, '09-search')
   // Archived is in scope by default, so the seeded archived card surfaces.
   await page.getByRole('textbox', { name: 'Search cards' }).fill('fire extinguisher')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.getByText('Annual fire extinguisher inspection').waitFor()
   await shot(page, '10-search-archived')
   await page.keyboard.press('Escape')

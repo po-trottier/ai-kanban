@@ -189,12 +189,20 @@ export const strings = {
     /** Subtle link from the board-filter no-results state into advanced search,
      * carrying the current query so the modal opens pre-populated. */
     searchAllArchived: 'Search all cards, including archived',
-    /** Full-width query field: title + description substring, live as you type. */
+    /** Full-width query field: title + description substring. Nothing queries
+     * until Search is pressed, so several facets can be set in one pass. */
     queryPlaceholder: 'Search by title or description…',
     /** Stable accessible name for the query input (tests target it). */
     queryAriaLabel: 'Search cards',
+    /** Applies the query + facets (a magnifying-glass button + the Enter key). */
+    searchButton: 'Search',
+    /** Resets every facet to its default and clears the query. */
+    clearFilters: 'Clear all',
     /** Collapsible facet section (the search bar stays; only the facets fold). */
     filtersToggle: 'Filters',
+    /** aria-labels for the caret that expands/collapses the facet panel. */
+    expandFilters: 'Expand filters',
+    collapseFilters: 'Collapse filters',
     /** Facet filters (each defaults to "any"). Column maps to the board lane;
      * Tags is multi-select (any-of); Location is recursively inclusive. */
     priorityFilter: 'Priority',

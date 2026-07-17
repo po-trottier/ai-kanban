@@ -8,17 +8,18 @@ import { laneList, openBoard, openCardMenu, signIn } from './support/ui.ts'
  * reopen path (guide.md). The legacy `/search` route redirects into the modal. */
 
 async function search(page: Page, query: string): Promise<void> {
-  // The modal searches live (debounced) — no submit button to press.
+  // Filters are batch-applied: fill the field, then press Search to run it.
   await page.getByLabel('Search cards').fill(query)
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
 }
 
-/** Switch the archived-scope facet (a 3-way combobox, default "Active and archived"). */
-async function setArchivedScope(
-  page: Page,
-  option: 'Active and archived' | 'Active cards only' | 'Archived only',
-) {
+/** Narrow the archived-scope facet to one of its two options and apply it —
+ * facets don't take effect until Search is pressed. The default (unfiltered)
+ * "Active and archived" is the placeholder, reached by clearing, not an option. */
+async function setArchivedScope(page: Page, option: 'Active cards only' | 'Archived only') {
   await page.getByRole('combobox', { name: 'Archived cards' }).click()
   await page.getByRole('option', { name: option, exact: true }).click()
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
 }
 
 test('finds a seeded card by substring', async ({ page, context }) => {
