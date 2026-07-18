@@ -89,22 +89,15 @@ export class SqliteCardRepository implements CardRepository {
     return Promise.resolve(rows)
   }
 
-  listBoardSummariesByLane(laneId: string): Promise<BoardCardRow[]> {
-    // The active cards in position order plus the leaf location name (LEFT
-    // JOIN so location-less cards survive) — the same activeOnly filter and
-    // ORDER BY as listByLane, so the partial live-rows index still serves it.
-    const rows = this.db
-      .select({ card: cards, locationLabel: locations.name })
-      .from(cards)
-      .leftJoin(locations, eq(cards.locationId, locations.id))
-      .where(and(eq(cards.laneId, laneId), isNull(cards.archivedAt)))
-      .orderBy(asc(cards.position))
-      .all()
-    if (rows.length === 0) return Promise.resolve([])
+  /**
+   * Attaches the board extras (tag names, active-attachment count, leaf location
+   * name) to location-joined card rows — two grouped reads over the row set, not
+   * per-card. Shared by both board-summary reads (by-lane and filtered).
+   */
+  private attachExtras(rows: { card: Card; locationLabel: string | null }[]): BoardCardRow[] {
+    if (rows.length === 0) return []
 
     const cardIds = rows.map((row) => row.card.id)
-    // Tag names per card (case-preserved stored form) and the active-attachment
-    // count per card — two grouped reads over the lane's cards, not per-card.
     const tagRows = this.db
       .select({ cardId: cardTags.cardId, name: tags.name })
       .from(cardTags)
@@ -127,16 +120,30 @@ export class SqliteCardRepository implements CardRepository {
       .all()
     const attachmentCountByCard = new Map(attachmentRows.map((row) => [row.cardId, row.count]))
 
-    return Promise.resolve(
-      rows.map((row) => ({
-        card: row.card,
-        extras: {
-          tags: tagsByCard.get(row.card.id) ?? [],
-          attachmentCount: attachmentCountByCard.get(row.card.id) ?? 0,
-          locationLabel: row.locationLabel,
-        },
-      })),
-    )
+    return rows.map((row) => ({
+      card: row.card,
+      extras: {
+        tags: tagsByCard.get(row.card.id) ?? [],
+        attachmentCount: attachmentCountByCard.get(row.card.id) ?? 0,
+        locationLabel: row.locationLabel,
+      },
+    }))
+  }
+
+  listBoardSummariesByLane(laneId: string): Promise<BoardCardRow[]> {
+    // The active cards in position order plus the leaf location name (LEFT
+    // JOIN so location-less cards survive) — the same activeOnly filter and
+    // ORDER BY as listByLane, so the partial live-rows index still serves it.
+    // Tag names and the active-attachment count per card come from attachExtras
+    // (two grouped reads, not per-card).
+    const rows = this.db
+      .select({ card: cards, locationLabel: locations.name })
+      .from(cards)
+      .leftJoin(locations, eq(cards.locationId, locations.id))
+      .where(and(eq(cards.laneId, laneId), isNull(cards.archivedAt)))
+      .orderBy(asc(cards.position))
+      .all()
+    return Promise.resolve(this.attachExtras(rows))
   }
 
   /** Index-only COUNT under the partial live-rows index (port contract). */
@@ -270,40 +277,6 @@ export class SqliteCardRepository implements CardRepository {
       .where(and(...this.filterConditions(filter)))
       .orderBy(asc(cards.position))
       .all()
-    if (rows.length === 0) return Promise.resolve([])
-
-    const cardIds = rows.map((row) => row.card.id)
-    const tagRows = this.db
-      .select({ cardId: cardTags.cardId, name: tags.name })
-      .from(cardTags)
-      .innerJoin(tags, eq(cardTags.tagId, tags.id))
-      .where(inArray(cardTags.cardId, cardIds))
-      .orderBy(asc(tags.name))
-      .all()
-    const tagsByCard = new Map<number, string[]>()
-    for (const { cardId, name } of tagRows) {
-      const list = tagsByCard.get(cardId) ?? []
-      list.push(name)
-      tagsByCard.set(cardId, list)
-    }
-
-    const attachmentRows = this.db
-      .select({ cardId: attachments.cardId, count: sql<number>`count(*)` })
-      .from(attachments)
-      .where(and(inArray(attachments.cardId, cardIds), isNull(attachments.deletedAt)))
-      .groupBy(attachments.cardId)
-      .all()
-    const attachmentCountByCard = new Map(attachmentRows.map((row) => [row.cardId, row.count]))
-
-    return Promise.resolve(
-      rows.map((row) => ({
-        card: row.card,
-        extras: {
-          tags: tagsByCard.get(row.card.id) ?? [],
-          attachmentCount: attachmentCountByCard.get(row.card.id) ?? 0,
-          locationLabel: row.locationLabel,
-        },
-      })),
-    )
+    return Promise.resolve(this.attachExtras(rows))
   }
 }
