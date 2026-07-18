@@ -1,4 +1,5 @@
 import { Button, Group, Modal, Stack, Text } from '@mantine/core'
+import { X } from 'lucide-react'
 import { strings } from '../strings.ts'
 
 export interface ConfirmModalProps {
@@ -31,7 +32,7 @@ export function ConfirmModal({
       <Stack gap="md">
         <Text size="sm">{body}</Text>
         <Group justify="flex-end" gap="sm">
-          <Button variant="default" onClick={onClose}>
+          <Button variant="default" leftSection={<X size={16} aria-hidden />} onClick={onClose}>
             {strings.common.cancel}
           </Button>
           <Button {...(destructive ? { color: 'red' } : {})} loading={loading} onClick={onConfirm}>

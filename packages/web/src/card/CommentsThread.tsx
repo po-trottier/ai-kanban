@@ -1,5 +1,6 @@
 import { type Comment } from '@rivian-kanban/core'
 import { Button, Group, Paper, Stack, Text, Textarea } from '@mantine/core'
+import { Check, Pencil, Reply, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { buildCommentThread } from '../lib/comments.ts'
@@ -183,6 +184,7 @@ function CommentItem({
           <Group gap="xs">
             <Button
               size="xs"
+              leftSection={<Check size={14} aria-hidden />}
               onClick={() => {
                 if (draft.trim() === '') return
                 onEdit(comment.id, draft.trim())
@@ -194,6 +196,7 @@ function CommentItem({
             <Button
               size="xs"
               variant="default"
+              leftSection={<X size={14} aria-hidden />}
               onClick={() => {
                 setEditing(false)
                 setDraft(comment.body)
@@ -210,13 +213,19 @@ function CommentItem({
       )}
       {!deleted && !editing && !readOnly ? (
         <Group gap="xs" mt="xs">
-          <Button size="compact-xs" variant="subtle" onClick={onReply}>
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            leftSection={<Reply size={14} aria-hidden />}
+            onClick={onReply}
+          >
             {strings.common.reply}
           </Button>
           {own ? (
             <Button
               size="compact-xs"
               variant="subtle"
+              leftSection={<Pencil size={14} aria-hidden />}
               // Short visible label; the accessible name stays 'Edit comment'.
               aria-label={strings.comments.editLabel}
               onClick={() => {
@@ -230,6 +239,7 @@ function CommentItem({
             <Button
               size="compact-xs"
               variant="subtle"
+              leftSection={<Trash2 size={14} aria-hidden />}
               // Muted, not alarming red; accessible name stays 'Delete comment'.
               color="gray"
               c="dimmed"

@@ -12,8 +12,9 @@ import {
   Text,
   TextInput,
   Title,
+  Tooltip,
 } from '@mantine/core'
-import { Plus } from 'lucide-react'
+import { Check, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { strings } from '../strings.ts'
 import { DotsIcon } from '../shell/icons.tsx'
@@ -173,14 +174,16 @@ export function PolicyEditorForm({
                     </Text>
                     <Menu position="bottom-end" withinPortal>
                       <Menu.Target>
-                        <ActionIcon
-                          size="sm"
-                          variant="subtle"
-                          color="gray"
-                          aria-label={strings.policy.roleMenuLabel(role.name)}
-                        >
-                          <DotsIcon size={16} />
-                        </ActionIcon>
+                        <Tooltip label={strings.policy.roleMenuLabel(role.name)}>
+                          <ActionIcon
+                            size="sm"
+                            variant="subtle"
+                            color="gray"
+                            aria-label={strings.policy.roleMenuLabel(role.name)}
+                          >
+                            <DotsIcon size={16} />
+                          </ActionIcon>
+                        </Tooltip>
                       </Menu.Target>
                       <Menu.Dropdown>
                         <Menu.Item
@@ -279,6 +282,7 @@ export function PolicyEditorForm({
       <Group justify="flex-end">
         <Button
           loading={saving}
+          leftSection={<Check size={16} aria-hidden />}
           onClick={() => {
             onSave(document)
           }}
@@ -415,6 +419,7 @@ function AddRoleModal({
             {strings.common.cancel}
           </Button>
           <Button
+            leftSection={<Plus size={16} aria-hidden />}
             disabled={!canSubmit}
             onClick={() => {
               onAdd(key, name.trim())
@@ -455,6 +460,7 @@ function RenameRoleModal({
             {strings.common.cancel}
           </Button>
           <Button
+            leftSection={<Check size={16} aria-hidden />}
             disabled={name.trim() === ''}
             onClick={() => {
               onRename(name.trim())

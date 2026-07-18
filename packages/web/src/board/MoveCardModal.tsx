@@ -8,6 +8,7 @@ import {
 } from '@rivian-kanban/core'
 import { Button, Group, Modal, Select, Stack, Text, Textarea } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
+import { ArrowRightLeft } from 'lucide-react'
 import { useState } from 'react'
 import { isWaitingLane, type MoveIntent } from '../api/board-cache.ts'
 import { type BoardResponse } from '../api/schemas.ts'
@@ -165,6 +166,7 @@ export function MoveCardModal({
             {strings.common.cancel}
           </Button>
           <Button
+            leftSection={<ArrowRightLeft size={16} aria-hidden />}
             disabled={!laneAllowed || !waitingComplete}
             onClick={() => {
               const intent: MoveIntent = {

@@ -12,6 +12,7 @@ import {
   Title,
 } from '@mantine/core'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
+import { LogIn } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { Navigate, useNavigate } from 'react-router'
 import { z } from 'zod'
@@ -108,7 +109,11 @@ export function LoginPage() {
               error={form.formState.errors.password?.message}
               {...form.register('password')}
             />
-            <Button type="submit" loading={login.isPending}>
+            <Button
+              type="submit"
+              loading={login.isPending}
+              leftSection={<LogIn size={16} aria-hidden />}
+            >
               {strings.auth.loginButton}
             </Button>
             <Text size="sm" c="dimmed">

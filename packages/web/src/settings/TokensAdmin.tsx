@@ -1,6 +1,6 @@
 import { TOKEN_SCOPES, type TokenScope } from '@rivian-kanban/core'
 import { Badge, Button, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
-import { RefreshCw } from 'lucide-react'
+import { Ban, Plus, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import {
   useCreateServiceToken,
@@ -41,6 +41,7 @@ export function TokensAdmin() {
       <Group justify="flex-end">
         <Button
           size="sm"
+          leftSection={<Plus size={16} aria-hidden />}
           onClick={() => {
             setCreateOpen(true)
           }}
@@ -107,6 +108,7 @@ export function TokensAdmin() {
                       size="compact-xs"
                       variant="light"
                       color="red"
+                      leftSection={<Ban size={14} aria-hidden />}
                       onClick={() => {
                         setRevokeTarget(token)
                       }}
@@ -162,6 +164,7 @@ export function TokensAdmin() {
             <Group justify="flex-end">
               <Button
                 loading={createToken.isPending}
+                leftSection={<Plus size={16} aria-hidden />}
                 disabled={draft.name.trim() === ''}
                 onClick={() => {
                   createToken.mutate(draft, {

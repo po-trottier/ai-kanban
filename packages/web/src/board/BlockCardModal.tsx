@@ -1,4 +1,5 @@
 import { Button, Group, Modal, Stack, Textarea } from '@mantine/core'
+import { Ban } from 'lucide-react'
 import { useState } from 'react'
 import { strings } from '../strings.ts'
 
@@ -33,6 +34,7 @@ export function BlockCardModal({ onSubmit, onClose }: BlockCardModalProps) {
           </Button>
           {/* Blocking is a routine, non-destructive flag — primary, not red. */}
           <Button
+            leftSection={<Ban size={16} aria-hidden />}
             onClick={() => {
               setTouched(true)
               const trimmed = reason.trim()

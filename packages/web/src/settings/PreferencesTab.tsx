@@ -1,4 +1,5 @@
 import { Button, Input, SegmentedControl, Select, Stack } from '@mantine/core'
+import { Check } from 'lucide-react'
 import { THEMES, type Theme } from '@rivian-kanban/core'
 import { useState } from 'react'
 import { useUpdateProfile } from '../api/auth.ts'
@@ -63,7 +64,12 @@ export function PreferencesTab() {
         allowDeselect={false}
         nothingFoundMessage={strings.profile.timezoneNothingFound}
       />
-      <Button onClick={save} loading={update.isPending} w="fit-content">
+      <Button
+        onClick={save}
+        loading={update.isPending}
+        leftSection={<Check size={16} aria-hidden />}
+        w="fit-content"
+      >
         {strings.common.save}
       </Button>
     </Stack>

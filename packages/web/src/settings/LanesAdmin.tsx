@@ -1,4 +1,5 @@
 import { Button, NumberInput, Table, TextInput } from '@mantine/core'
+import { Check } from 'lucide-react'
 import { useState } from 'react'
 import { usePatchLane } from '../api/admin.ts'
 import { useBoard } from '../api/board.ts'
@@ -67,6 +68,7 @@ function LaneRow({ snapshot }: { snapshot: LaneSnapshot }) {
       <Table.Td>
         <Button
           size="sm"
+          leftSection={<Check size={16} aria-hidden />}
           disabled={!dirty || label.trim() === ''}
           loading={patchLane.isPending}
           onClick={() => {

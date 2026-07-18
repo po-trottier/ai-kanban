@@ -1,4 +1,5 @@
 import { Button, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
+import { Ban, KeyRound, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useCreateUser, usePatchUser } from '../api/admin.ts'
 import { useUsers } from '../api/meta.ts'
@@ -27,6 +28,7 @@ export function UsersAdmin() {
       <Group justify="flex-end">
         <Button
           size="sm"
+          leftSection={<Plus size={16} aria-hidden />}
           onClick={() => {
             setCreateOpen(true)
           }}
@@ -74,6 +76,7 @@ export function UsersAdmin() {
                   <Button
                     size="compact-xs"
                     variant="light"
+                    leftSection={<KeyRound size={14} aria-hidden />}
                     onClick={() => {
                       patchUser.mutate(
                         { userId: user.id, input: { resetPassword: true } },
@@ -91,6 +94,7 @@ export function UsersAdmin() {
                     size="compact-xs"
                     variant="light"
                     color="red"
+                    leftSection={<Ban size={14} aria-hidden />}
                     onClick={() => {
                       setDeactivating({ id: user.id, name: user.displayName })
                     }}
@@ -141,6 +145,7 @@ export function UsersAdmin() {
             <Group justify="flex-end">
               <Button
                 loading={createUser.isPending}
+                leftSection={<Plus size={16} aria-hidden />}
                 disabled={draft.displayName.trim() === '' || draft.email.trim() === ''}
                 onClick={() => {
                   createUser.mutate(draft, {
@@ -181,6 +186,7 @@ export function UsersAdmin() {
               </Button>
               <Button
                 color="red"
+                leftSection={<Ban size={16} aria-hidden />}
                 onClick={() => {
                   patchUser.mutate({ userId: deactivating.id, input: { isActive: false } })
                   setDeactivating(null)
