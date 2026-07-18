@@ -93,6 +93,25 @@ Read [architecture/overview.md](../architecture/overview.md) first. Short versio
    behavior.
 4. New architectural dependency or pattern → ADR in `docs/architecture/decisions/`.
 
+## AI-assisted development (library docs, skills, MCP)
+
+Most of the stack postdates common model training cutoffs, so recalling library APIs from memory
+drifts. Prefer each library's own machine-readable docs / tools — fetch `llms(-full).txt` on
+demand for exact APIs; `skills` (`npx skills add <repo> --skill <name>`) drop reusable agent skill
+packages into the repo:
+
+| Library                  | AI resource                                                                                                                                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Mantine 9** (UI)       | `mantine.dev/llms-full.txt`; skills `mantinedev/skills` (`mantine-form`, `mantine-combobox`, `mantine-custom-components`); `@mantine/mcp-server`. UI conventions in [frontend.md](../architecture/frontend.md#mantine-ui-library--conventions--ai-resources). |
+| **TanStack Query 5**     | `tanstack.com/query/latest/llms.txt`                                                                                                                                                                                                                          |
+| **Zod 4**                | `zod.dev/llms.txt`                                                                                                                                                                                                                                            |
+| **Drizzle ORM**          | `orm.drizzle.team/llms.txt`                                                                                                                                                                                                                                   |
+| **Vercel AI SDK** (`ai`) | `ai-sdk.dev/llms-full.txt`; skill `npx skills add vercel/ai`                                                                                                                                                                                                  |
+| **Playwright** (e2e/QA)  | official MCP `@playwright/mcp` — browser automation over accessibility snapshots (`npx @playwright/mcp@latest`), handy for driving the app instead of the throwaway Playwright scripts                                                                        |
+
+React (react.dev) and Fastify (fastify.dev) publish only standard HTML docs — no dedicated
+`llms.txt`.
+
 ## Trying the MCP server locally
 
 Run `npm run dev`, log in as the seeded admin, and create a token in **Settings → Service
