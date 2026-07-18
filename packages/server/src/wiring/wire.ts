@@ -34,6 +34,7 @@ import { SetupService } from '../auth/setup-service.ts'
 import { LoginBackoff } from '../auth/backoff.ts'
 import { PasswordHasher, type Argon2Params } from '../auth/password-hasher.ts'
 import { type Env } from '../env.ts'
+import { FilterPresetService } from '../filters/filter-preset-service.ts'
 import { LaneAdminService } from '../lanes/lane-admin-service.ts'
 import { AppMetrics } from '../metrics/metrics.ts'
 import { createMetricCollectors } from './metric-collectors.ts'
@@ -217,6 +218,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     lanes: new LaneAdminService({ uow, eventBus, boardId }),
     locations: new LocationAdminService({ ...shared, boardId }),
     tokens: new ServiceTokenService({ uow, clock, ids, boardId }),
+    filterPresets: new FilterPresetService({ uow, clock, ids }),
   }
 
   const config: AppConfig = {

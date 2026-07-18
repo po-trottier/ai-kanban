@@ -4,11 +4,13 @@ import {
   activityUserSchema,
   attachmentSchema,
   boardCardSchema,
+  boardFilterSchema,
   boardPolicySchema,
   boardSnapshotSchemaOf,
   CARD_EVENT_TYPES,
   cardDetailSchemaOf,
   cardSchema,
+  filterPresetSchema,
   laneSchema,
   locationSchema,
   pageSchemaOf,
@@ -53,6 +55,16 @@ export const boardPolicyResponseSchema = z.object({
 export const serviceTokenResponseSchema = z.object(
   serviceTokenSchema.omit({ tokenHash: true }).shape,
 )
+
+/**
+ * A saved filter preset (docs/architecture/board-filters.md) — the stored shape
+ * as a stripping wrapper; the nested `filter` reuses the canonical
+ * `boardFilterSchema` shape (single-schema rule).
+ */
+export const filterPresetResponseSchema = z.object({
+  ...filterPresetSchema.shape,
+  filter: z.object(boardFilterSchema.shape),
+})
 
 /** Soft-deleted comment bodies are blanked by core before serialization. */
 export const commentResponseSchema = z.object(redactedCommentSchema.shape)

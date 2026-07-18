@@ -3,6 +3,7 @@ import {
   ACTOR_KINDS,
   activityFeedRequestSchema,
   affectsBoardSnapshot,
+  boardFilterSchema,
   createLocationInputSchema,
   policyDocumentSchema,
   updateLaneInputSchema,
@@ -111,6 +112,21 @@ export function boardRoutes(deps: AppDeps) {
       }
       return reply.type('application/json; charset=utf-8').send(entry.body)
     })
+
+    // The filtered board (docs/architecture/board-filters.md). A read with a
+    // body — the filter has ten facets (several arrays), so the canonical
+    // BoardFilter JSON body is far less brittle than a query string. Not
+    // cached/ETag'd like GET /board: it's per-filter, not the hot shared read.
+    r.post(
+      '/board/query',
+      {
+        schema: {
+          body: boardFilterSchema,
+          response: { 200: boardResponseSchema },
+        },
+      },
+      async (request) => queries.filteredBoard(request.body),
+    )
 
     r.patch(
       '/lanes/:id',
