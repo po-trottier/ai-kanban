@@ -4,7 +4,7 @@
  * CSP relaxation (sourced from Unsplash under its hotlink-permissive license,
  * then committed). One is picked at random per visit.
  */
-export const AUTH_BACKGROUNDS = [
+const AUTH_BACKGROUNDS = [
   '/auth/bg-1.jpg',
   '/auth/bg-2.jpg',
   '/auth/bg-3.jpg',
