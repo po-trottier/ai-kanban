@@ -69,7 +69,8 @@ export function LoginPage() {
           }}
         >
           <Stack gap="md">
-            <Stack gap="xs">
+            {/* Brand header centered over the (left-aligned) form fields. */}
+            <Stack gap="xs" align="center">
               <Image
                 src="/logo.png"
                 alt=""
