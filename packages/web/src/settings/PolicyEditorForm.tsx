@@ -205,16 +205,20 @@ export function PolicyEditorForm({
                 </Table.Th>
               ))}
               <Table.Th>
-                <Button
-                  size="sm"
-                  variant="light"
-                  leftSection={<Plus size={16} aria-hidden />}
-                  onClick={() => {
-                    setAddOpen(true)
-                  }}
-                >
-                  {strings.policy.addRole}
-                </Button>
+                {/* Right-align at content width so the button hugs the header's
+                    right edge instead of filling this trailing column. */}
+                <Group justify="flex-end">
+                  <Button
+                    size="sm"
+                    variant="light"
+                    leftSection={<Plus size={16} aria-hidden />}
+                    onClick={() => {
+                      setAddOpen(true)
+                    }}
+                  >
+                    {strings.policy.addRole}
+                  </Button>
+                </Group>
               </Table.Th>
             </Table.Tr>
           </Table.Thead>
