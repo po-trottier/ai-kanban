@@ -65,8 +65,9 @@ export function CardFieldInputs({
   return (
     <>
       <TextInput
-        label={<FieldLabel label={strings.detail.titleLabel} help={strings.fieldHelp.title} />}
-        withAsterisk
+        label={
+          <FieldLabel label={strings.detail.titleLabel} help={strings.fieldHelp.title} required />
+        }
         disabled={disabled}
         error={errors.title}
         {...titleField}

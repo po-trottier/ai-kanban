@@ -1,4 +1,4 @@
-import { ActionIcon, Group, Tooltip } from '@mantine/core'
+import { ActionIcon, Group, Text, Tooltip } from '@mantine/core'
 import { Info } from 'lucide-react'
 import { type ReactNode } from 'react'
 
@@ -7,6 +7,8 @@ export interface FieldLabelProps {
   label: ReactNode
   /** Plain-language explanation shown on the info icon's tooltip. */
   help: string
+  /** Render a required asterisk right after the label text (same line). */
+  required?: boolean
 }
 
 /**
@@ -16,10 +18,17 @@ export interface FieldLabelProps {
  * it as a Mantine input's `label` prop. The icon carries the help text as its
  * accessible name so keyboard/AT users reach the same explanation.
  */
-export function FieldLabel({ label, help }: FieldLabelProps) {
+export function FieldLabel({ label, help, required = false }: FieldLabelProps) {
   return (
     <Group gap={4} wrap="nowrap" component="span">
-      {label}
+      <span>
+        {label}
+        {required ? (
+          <Text span c="red" aria-hidden>
+            {' *'}
+          </Text>
+        ) : null}
+      </span>
       <Tooltip label={help} withArrow multiline w={240}>
         <ActionIcon variant="transparent" color="gray" size="xs" aria-label={help}>
           <Info size={14} aria-hidden />
