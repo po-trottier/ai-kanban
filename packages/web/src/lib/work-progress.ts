@@ -37,6 +37,39 @@ export function businessMinutesBetween(start: Date, end: Date, timezone: string)
   return total
 }
 
+/** Is `at` inside a business-hours window (weekday 09:00–17:00 in `timezone`)? */
+export function isBusinessHours(at: Date, timezone: string): boolean {
+  const local = dayjs(at).tz(timezone)
+  const weekday = local.day() // 0 = Sunday, 6 = Saturday, in the local zone
+  if (weekday === 0 || weekday === 6) return false
+  return local.hour() >= BUSINESS_START_HOUR && local.hour() < BUSINESS_END_HOUR
+}
+
+/**
+ * Whether the burn-down clock is accruing right now. Accrual counts business
+ * time ONLY (09:00–17:00 Mon–Fri in the viewer's zone), so the clock runs in
+ * that window and pauses outside it — the ONLY thing that stops it. Waiting on
+ * parts/vendor and the blocked flag do NOT pause accrual (the simple-elapsed
+ * rule above), so they are `running` states carrying a `reason` for context,
+ * never a fake pause — the label stays honest about what the number counts.
+ */
+export type TimerState =
+  | { running: true; reason: 'working' | 'waiting' | 'blocked' }
+  | { running: false; reason: 'off_hours' }
+
+/** The timer's state at `now`, given the card's waiting/blocked context. */
+export function timerState(
+  now: Date,
+  timezone: string,
+  context: { waiting: boolean; blocked: boolean },
+): TimerState {
+  if (!isBusinessHours(now, timezone)) return { running: false, reason: 'off_hours' }
+  // Blocked is the stronger exception signal, so it wins the label over waiting.
+  if (context.blocked) return { running: true, reason: 'blocked' }
+  if (context.waiting) return { running: true, reason: 'waiting' }
+  return { running: true, reason: 'working' }
+}
+
 export interface WorkProgress {
   /** Elapsed / estimate as a 0–100 (capped) percentage for the bar. */
   percent: number

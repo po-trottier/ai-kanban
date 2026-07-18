@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { businessMinutesBetween, workProgress } from './work-progress.ts'
+import {
+  businessMinutesBetween,
+  isBusinessHours,
+  timerState,
+  workProgress,
+} from './work-progress.ts'
 
 /** UTC instant helper. 2026-01-01 is a Thursday, so 01/02 = Fri, 01/05 = Mon. */
 function utc(year: number, month: number, day: number, hour: number, minute = 0): Date {
@@ -79,6 +84,75 @@ describe('businessMinutesBetween', () => {
     // Assert
     expect(utcMinutes).toBe(0)
     expect(laMinutes).toBe(120)
+  })
+})
+
+describe('isBusinessHours', () => {
+  it('is true inside a weekday 09:00–17:00 window', () => {
+    // Arrange — Thu 10:00 UTC
+    const at = utc(2026, 1, 1, 10)
+    // Act
+    const inHours = isBusinessHours(at, 'UTC')
+    // Assert
+    expect(inHours).toBe(true)
+  })
+
+  it('is false before 09:00, at/after 17:00, and on weekends', () => {
+    // Arrange — early, the exclusive end, and Saturday (2026-01-03)
+    const early = utc(2026, 1, 1, 8)
+    const end = utc(2026, 1, 1, 17)
+    const saturday = utc(2026, 1, 3, 12)
+    // Act
+    const results = [early, end, saturday].map((at) => isBusinessHours(at, 'UTC'))
+    // Assert
+    expect(results).toEqual([false, false, false])
+  })
+
+  it('anchors the window to the viewer zone, not UTC', () => {
+    // Arrange — 18:00 UTC is off-hours in UTC but 10:00 local business hours in LA (UTC-8).
+    const at = utc(2026, 1, 1, 18)
+    // Act
+    const utcHours = isBusinessHours(at, 'UTC')
+    const laHours = isBusinessHours(at, 'America/Los_Angeles')
+    // Assert
+    expect(utcHours).toBe(false)
+    expect(laHours).toBe(true)
+  })
+})
+
+describe('timerState', () => {
+  const noContext = { waiting: false, blocked: false }
+
+  it('runs inside business hours and pauses off-hours', () => {
+    // Arrange — Thu 10:00 (in) vs Thu 20:00 (out)
+    const inHours = utc(2026, 1, 1, 10)
+    const offHours = utc(2026, 1, 1, 20)
+    // Act
+    const running = timerState(inHours, 'UTC', noContext)
+    const paused = timerState(offHours, 'UTC', noContext)
+    // Assert
+    expect(running).toEqual({ running: true, reason: 'working' })
+    expect(paused).toEqual({ running: false, reason: 'off_hours' })
+  })
+
+  it('keeps running (not a fake pause) while waiting or blocked, since accrual continues', () => {
+    // Arrange — inside business hours; waiting and blocked are running reasons.
+    const at = utc(2026, 1, 1, 10)
+    // Act — blocked outranks waiting for the label
+    const waiting = timerState(at, 'UTC', { waiting: true, blocked: false })
+    const blocked = timerState(at, 'UTC', { waiting: true, blocked: true })
+    // Assert
+    expect(waiting).toEqual({ running: true, reason: 'waiting' })
+    expect(blocked).toEqual({ running: true, reason: 'blocked' })
+  })
+
+  it('reports off-hours even when waiting/blocked (only business hours gate the clock)', () => {
+    // Arrange — Thu 20:00, waiting+blocked
+    const at = utc(2026, 1, 1, 20)
+    // Act
+    const state = timerState(at, 'UTC', { waiting: true, blocked: true })
+    // Assert — off-hours wins: the clock is genuinely paused
+    expect(state).toEqual({ running: false, reason: 'off_hours' })
   })
 })
 

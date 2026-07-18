@@ -200,10 +200,21 @@ export const strings = {
     resumePrefix: (date: string) => `resume ${date}`,
     /** Work burn-down bar: business-hours elapsed since In Progress vs the estimate. */
     workProgressLabel: (percent: number) => `Work progress: ${String(percent)}% of the estimate`,
-    workProgressTooltip: (elapsed: string, estimate: string) =>
-      `${elapsed} of ${estimate} estimated work elapsed (business hours)`,
-    workOverdueTooltip: (elapsed: string, estimate: string) =>
-      `Overdue — ${elapsed} of work against a ${estimate} estimate`,
+    /** Short RUNNING / PAUSED chip on the bar — what the clock is doing right now. */
+    timerRunning: 'Running',
+    timerPaused: 'Paused',
+    /** The "why", read out after the chip and in the tooltip's first line. */
+    timerReason: {
+      working: 'counting work time',
+      waiting: 'waiting on parts/vendor — clock still counting',
+      blocked: 'card is blocked — clock still counting',
+      off_hours: 'outside business hours',
+    },
+    /** Tooltip: the timer line, the elapsed-vs-estimate line, and the accrual window. */
+    workProgressTooltip: (state: string, elapsed: string, estimate: string) =>
+      `${state}. ${elapsed} of ${estimate} estimated work elapsed. Time accrues only during business hours (Mon–Fri, 9am–5pm in your time zone).`,
+    workOverdueTooltip: (state: string, elapsed: string, estimate: string) =>
+      `${state}. Overdue — ${elapsed} of work against a ${estimate} estimate. Time accrues only during business hours (Mon–Fri, 9am–5pm in your time zone).`,
   },
 
   search: {

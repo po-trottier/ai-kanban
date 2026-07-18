@@ -187,6 +187,8 @@ export function CardItem({
         <WorkProgressBar
           workStartedAt={card.workStartedAt}
           estimateMinutes={card.estimateMinutes}
+          waiting={card.waitingReason !== null}
+          blocked={card.blocked}
         />
       ) : null}
       {closestEdge !== null ? (
