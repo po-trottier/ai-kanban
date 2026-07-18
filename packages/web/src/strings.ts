@@ -409,8 +409,9 @@ export const strings = {
 
   settings: {
     pageTitle: 'Settings',
-    gearLabel: 'Settings',
-    adminsOnly: 'Only admins can open settings.',
+    /** Avatar-menu item that opens the Settings page (every role). */
+    menuItem: 'Settings',
+    tabPreferences: 'Preferences',
     tabUsers: 'Users',
     tabLanes: 'Columns',
     tabPolicy: 'Permissions',
@@ -418,10 +419,10 @@ export const strings = {
     tabTokens: 'Service tokens',
   },
 
-  // Per-user preferences (the avatar-menu item every role can open), distinct
-  // from the admin-only Settings page above.
+  // The per-user preferences fields (time zone + theme), now the first Settings
+  // tab every role sees. Kept under `profile.*` so the field copy stays in one
+  // place regardless of where the controls are mounted.
   profile: {
-    menuItem: 'Preferences',
     title: 'Preferences',
     timezoneLabel: 'Time zone',
     timezoneHelp: 'Dates and times across the app are shown in this time zone.',

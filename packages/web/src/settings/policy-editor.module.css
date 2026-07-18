@@ -1,0 +1,6 @@
+/* Roles matrix: every role column is the same width regardless of role-name
+   length, so the checkbox grid reads as an even lattice (ADR-016: token-only —
+   the width is a fixed lane size shared with lanes-admin's input width). */
+.roleColumn {
+  width: 12rem;
+}

@@ -4,24 +4,16 @@ import { describe, expect, it } from 'vitest'
 import { createFakeFetch } from '../test/fake-fetch.ts'
 import { fixtureAdmin } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
-import { ProfileSettingsModal } from './ProfileSettingsModal.tsx'
+import { PreferencesTab } from './PreferencesTab.tsx'
 
-describe('ProfileSettingsModal', () => {
+describe('PreferencesTab', () => {
   it('seeds the current zone + theme and saves newly picked ones via PATCH /auth/me', async () => {
     // Arrange — fixtureAdmin defaults to PST + system theme; the PATCH echoes the update.
     const user = userEvent.setup()
     const fake = createFakeFetch({
       'PATCH /api/v1/auth/me': { ...fixtureAdmin, timezone: 'America/New_York', theme: 'dark' },
     })
-    let closed = false
-    renderWithProviders(
-      <ProfileSettingsModal
-        onClose={() => {
-          closed = true
-        }}
-      />,
-      { fetchFn: fake.fetch },
-    )
+    renderWithProviders(<PreferencesTab />, { fetchFn: fake.fetch })
 
     // Assert — the picker is seeded from the signed-in user (PST) and the theme
     // control offers all three modes (System is the seeded selection).
@@ -37,11 +29,11 @@ describe('ProfileSettingsModal', () => {
     await user.click(screen.getByRole('radio', { name: 'Dark' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
-    // Assert — the PATCH carried both display prefs and the modal closed.
+    // Assert — the PATCH carried both display prefs and the success toast shows.
     expect(fake.lastBody('PATCH', '/api/v1/auth/me')).toEqual({
       timezone: 'America/New_York',
       theme: 'dark',
     })
-    expect(closed).toBe(true)
+    expect(await screen.findByText('Preferences saved')).toBeInTheDocument()
   })
 })

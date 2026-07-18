@@ -1,5 +1,6 @@
 import { type Permission, type PolicyDocument, type RoleDefinition } from '@rivian-kanban/core'
 import {
+  ActionIcon,
   Button,
   Checkbox,
   Group,
@@ -12,8 +13,11 @@ import {
   TextInput,
   Title,
 } from '@mantine/core'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { strings } from '../strings.ts'
+import { DotsIcon } from '../shell/icons.tsx'
+import classes from './policy-editor.module.css'
 
 export interface PolicyEditorFormProps {
   value: PolicyDocument
@@ -159,20 +163,24 @@ export function PolicyEditorForm({
                 {strings.policy.permissionColumnHeader}
               </Table.Th>
               {document.roles.map((role, roleIndex) => (
-                <Table.Th key={role.key}>
-                  <Group gap="xs" wrap="nowrap" justify="space-between">
+                <Table.Th key={role.key} className={classes.roleColumn}>
+                  {/* Name + its "…" menu sit together in one cluster (the menu
+                      right after the name), so the control reads as belonging to
+                      the role rather than floating at the column's far edge. */}
+                  <Group gap="xs" wrap="nowrap">
                     <Text size="sm" fw={600}>
                       {role.name}
                     </Text>
                     <Menu position="bottom-end" withinPortal>
                       <Menu.Target>
-                        <Button
-                          size="compact-xs"
+                        <ActionIcon
+                          size="sm"
                           variant="subtle"
+                          color="gray"
                           aria-label={strings.policy.roleMenuLabel(role.name)}
                         >
-                          ⋯
-                        </Button>
+                          <DotsIcon size={16} />
+                        </ActionIcon>
                       </Menu.Target>
                       <Menu.Dropdown>
                         <Menu.Item
@@ -198,8 +206,9 @@ export function PolicyEditorForm({
               ))}
               <Table.Th>
                 <Button
-                  size="compact-xs"
+                  size="sm"
                   variant="light"
+                  leftSection={<Plus size={16} aria-hidden />}
                   onClick={() => {
                     setAddOpen(true)
                   }}

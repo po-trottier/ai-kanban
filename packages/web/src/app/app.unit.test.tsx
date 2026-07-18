@@ -70,6 +70,7 @@ describe('app routing', () => {
 
   it('renders the authenticated shell and board at /', async () => {
     // Arrange
+    const user = userEvent.setup()
     const fake = authedRoutes()
     // Act
     renderApp({ fetchFn: fake.fetch })
@@ -79,7 +80,10 @@ describe('app routing', () => {
     // title stays visible so the header identifies the app on any logo asset.
     expect(screen.getByRole('heading', { name: 'Facilities Kanban' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'New card' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Settings')).toBeInTheDocument()
+    // Settings is the single entry point now — a menu item in the avatar
+    // dropdown (the header gear is gone), reachable by every role.
+    await user.click(screen.getByRole('button', { name: fixtureAdmin.displayName }))
+    expect(await screen.findByRole('menuitem', { name: 'Settings' })).toBeInTheDocument()
   })
 
   it('redirects the legacy /search route to the board with advanced search open', async () => {
@@ -104,19 +108,24 @@ describe('app routing', () => {
     expect(screen.getByRole('textbox', { name: 'Filter the board' })).toBeInTheDocument()
   })
 
-  it('hides the settings gear from non-admins and gates /settings in the UI', async () => {
-    // Arrange
+  it('lets a non-admin open Settings and see only the Preferences tab', async () => {
+    // Arrange — a plain user (no manage* grant): Settings is open to everyone
+    // now (for their preferences), but the admin tabs stay gated.
     const fake = authedRoutes({ 'GET /api/v1/auth/me': fixtureTech })
     // Act
     renderApp({ fetchFn: fake.fetch, route: '/settings' })
-    // Assert
-    expect(await screen.findByText('Only admins can open settings.')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Settings')).not.toBeInTheDocument()
+    // Assert — the Preferences tab and its theme selector are present; none of
+    // the admin tabs render, and there is no admins-only wall.
+    expect(await screen.findByRole('tab', { name: 'Preferences' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'System' })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Users' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Permissions' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Only admins can open settings.')).not.toBeInTheDocument()
   })
 
-  it('shows the settings gear to a custom role with any manage* grant (ADR-013)', async () => {
+  it('shows the admin tabs to a custom role with any manage* grant (ADR-013)', async () => {
     // Arrange — a role keyed 'auditor' (not 'admin') granting one manage
-    // permission; the gear gates on the permission, not the literal role key.
+    // permission; the admin tabs gate on the permission, not the literal role key.
     const auditor: User = { ...fixtureAdmin, role: 'auditor' }
     const policy: PolicyDocument = {
       ...permissivePolicy,
@@ -130,10 +139,12 @@ describe('app routing', () => {
       'GET /api/v1/policy': policyRecordOf(policy),
     })
     // Act
-    renderApp({ fetchFn: fake.fetch })
-    // Assert — board renders and the custom-admin sees the gear.
-    expect(await screen.findByText('Fix pump')).toBeInTheDocument()
-    expect(screen.getByLabelText('Settings')).toBeInTheDocument()
+    renderApp({ fetchFn: fake.fetch, route: '/settings' })
+    // Assert — Preferences plus the admin tabs are all present for the custom
+    // admin (the admin tabs appear once the policy loads and canManage flips on).
+    expect(await screen.findByRole('tab', { name: 'Users' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Preferences' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Locations' })).toBeInTheDocument()
   })
 
   it('interposes the change-password page while must_change_password is set', async () => {

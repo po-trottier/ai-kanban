@@ -1,20 +1,16 @@
-import { ActionIcon, AppShell, Avatar, Group, Menu, Title, UnstyledButton } from '@mantine/core'
+import { AppShell, Avatar, Group, Menu, Title, UnstyledButton } from '@mantine/core'
 import { useState } from 'react'
 import { Link, Outlet, useMatch, useNavigate } from 'react-router'
 import { useLogout } from '../api/auth.ts'
-import { usePolicy } from '../api/meta.ts'
-import { canManageAnything } from '../auth/permissions.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
 import { SearchModal } from '../board/SearchModal.tsx'
 import { CardPanel } from '../card/CardPanel.tsx'
 import { initials } from '../lib/format.ts'
-import { ProfileSettingsModal } from '../settings/ProfileSettingsModal.tsx'
 import { strings } from '../strings.ts'
 import { CARD_PANEL_FULLSCREEN_BREAKPOINT, SIZES } from '../theme.ts'
 import { BoardLegend } from './BoardLegend.tsx'
 import { CardPanelSlotContext } from './card-panel-slot.ts'
 import { HeaderSearch } from './HeaderSearch.tsx'
-import { GearIcon } from './icons.tsx'
 import { NewCardButton } from './NewCardButton.tsx'
 import { PanelResizeHandle } from './PanelResizeHandle.tsx'
 import { SseBridge } from './SseBridge.tsx'
@@ -31,7 +27,6 @@ import classes from './shell.module.css'
  */
 export function AppLayout() {
   const me = useCurrentUser()
-  const policy = usePolicy()
   const navigate = useNavigate()
   const logout = useLogout()
   // The header filter only drives the board; it does nothing on /search or
@@ -44,8 +39,6 @@ export function AppLayout() {
   // The deep-linked card id, published by the CardPanel route element.
   const [openCardId, setOpenCardId] = useState<string | null>(null)
   const panelOpen = openCardId !== null
-  // Per-user preferences modal (time zone), opened from the avatar menu.
-  const [preferencesOpen, setPreferencesOpen] = useState(false)
   // Draggable, persisted width for the docked detail panel (desktop only; the
   // panel goes full-screen below the breakpoint).
   const panelResize = useCardPanelWidth()
@@ -87,26 +80,14 @@ export function AppLayout() {
             <div className={classes.headerSearch}>{onBoardRoute ? <HeaderSearch /> : null}</div>
             <Group gap="sm">
               {/* Right cluster (ITEM A), left→right: New card, the badge-legend
-                  help icon, the settings gear (any manage* grant — ADR-013, not
-                  a hardcoded 'admin' role), then the avatar menu. The centered
-                  live-search (above) and this help icon replace the former
-                  "Search cards" and "What do the badges mean?" text buttons;
-                  global/archived search stays reachable via /search from the
-                  header-filter empty state. */}
+                  help icon, then the avatar menu (which now carries the single
+                  Settings entry — no separate gear). The centered live-search
+                  (above) and this help icon replace the former "Search cards"
+                  and "What do the badges mean?" text buttons; global/archived
+                  search stays reachable via /search from the header-filter
+                  empty state. */}
               <NewCardButton />
               <BoardLegend />
-              {canManageAnything(policy.data, me.role) ? (
-                <ActionIcon
-                  component={Link}
-                  to="/settings"
-                  variant="subtle"
-                  color="gray"
-                  size="lg"
-                  aria-label={strings.settings.gearLabel}
-                >
-                  <GearIcon />
-                </ActionIcon>
-              ) : null}
               <Menu position="bottom-end">
                 <Menu.Target>
                   <UnstyledButton aria-label={me.displayName}>
@@ -117,12 +98,8 @@ export function AppLayout() {
                 </Menu.Target>
                 <Menu.Dropdown>
                   <Menu.Label>{me.displayName}</Menu.Label>
-                  <Menu.Item
-                    onClick={() => {
-                      setPreferencesOpen(true)
-                    }}
-                  >
-                    {strings.profile.menuItem}
+                  <Menu.Item component={Link} to="/settings">
+                    {strings.settings.menuItem}
                   </Menu.Item>
                   <Menu.Item
                     onClick={() => {
@@ -152,14 +129,6 @@ export function AppLayout() {
         {/* Advanced search is board-scoped (archived + facet search over every
             card); mounted only on the board route, opened via `?search=1`. */}
         {onBoardRoute ? <SearchModal /> : null}
-        {/* Mounted only while open so its draft always seeds from the live user. */}
-        {preferencesOpen ? (
-          <ProfileSettingsModal
-            onClose={() => {
-              setPreferencesOpen(false)
-            }}
-          />
-        ) : null}
       </AppShell>
     </CardPanelSlotContext.Provider>
   )
