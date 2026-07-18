@@ -19,7 +19,7 @@ export interface LaneColumnProps {
   canCancel: boolean
   canReopen: boolean
   canArchive: boolean
-  canDropFrom: (target: LaneKey) => (source: { cardId: string; laneKey: LaneKey }) => boolean
+  canDropFrom: (target: LaneKey) => (source: { cardId: number; laneKey: LaneKey }) => boolean
   onOpenCard: (cardId: string) => void
   onMenuAction: (card: BoardCard, action: CardMenuAction) => void
 }

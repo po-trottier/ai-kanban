@@ -101,7 +101,7 @@ describe('POST /cards/:id/comments', () => {
     })
     const ghostCard = await t.request(cookie, {
       method: 'POST',
-      url: '/api/v1/cards/00000000-0000-7000-8000-00000000dead/comments',
+      url: '/api/v1/cards/999999/comments',
       payload: { body: 'Hello?' },
     })
     const crossThread = await t.request(cookie, {

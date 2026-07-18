@@ -129,7 +129,7 @@ describe('moveCardInputSchema', () => {
     // Arrange
     const body = {
       toLane: 'waiting_parts_vendor',
-      prevCardId: UUID,
+      prevCardId: 42,
       waitingReason: 'parts',
       expectedResumeAt: '2026-08-01',
       expectedVersion: 2,

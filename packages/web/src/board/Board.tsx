@@ -46,7 +46,7 @@ export function Board({
   // tears down and re-registers all drop targets (possibly mid-drag), and the
   // React Compiler that would otherwise memoize it is off under Vitest.
   const canDropFrom = useCallback(
-    (target: LaneKey) => (source: { cardId: string; laneKey: LaneKey }) =>
+    (target: LaneKey) => (source: { cardId: number; laneKey: LaneKey }) =>
       canMoveToLane(policy, role, source.laneKey, target),
     [policy, role],
   )

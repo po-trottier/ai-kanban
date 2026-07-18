@@ -99,15 +99,19 @@ describe('metrics listener', () => {
       payload: { title: 'measure me' },
     })
     expect(created.statusCode).toBe(201)
-    const cardId = created.json<{ id: string }>().id
-    const detail = await t.request(cookie, { method: 'GET', url: `/api/v1/cards/${cardId}` })
+    const cardId = created.json<{ id: number }>().id
+    const detail = await t.request(cookie, {
+      method: 'GET',
+      url: `/api/v1/cards/${String(cardId)}`,
+    })
     expect(detail.statusCode).toBe(200)
 
     const body = await scrape()
 
     expect(body).toContain('route="/api/v1/cards"')
     expect(body).toContain('route="/api/v1/cards/:id"')
-    expect(body).not.toContain(cardId)
+    // The raw id is templated out of the route label — never a per-card series.
+    expect(body).not.toContain(`route="/api/v1/cards/${String(cardId)}"`)
     expect(body).not.toContain(user.email)
   })
 

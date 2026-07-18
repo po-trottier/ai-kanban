@@ -2,7 +2,8 @@
 
 Drizzle ORM schema, SQLite dialect today. Portability rules (enforced, see
 [dev/standards.md](../dev/standards.md)): conservative column types only (TEXT, INTEGER, REAL),
-ISO-8601 UTC strings for timestamps, TEXT ids (UUIDv7), no SQLite-only features outside the
+ISO-8601 UTC strings for timestamps, TEXT ids (UUIDv7) — except `cards.id`, which is the
+INTEGER ticket number (see below) — no SQLite-only features outside the
 `db` package. The Postgres port is a one-time mechanical `sqlite-core` → `pg-core` schema
 rewrite behind unchanged repository ports ([ADR-003](decisions/ADR-003-drizzle-sqlite.md)).
 
@@ -87,9 +88,8 @@ Index: `(board_id, created_at)`.
 
 | column                                               | type                       | notes                                                                                                                                                                                                                                                                                                                        |
 | ---------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id                                                   | TEXT PK                    | UUIDv7                                                                                                                                                                                                                                                                                                                       |
+| id                                                   | INTEGER PK                 | the human-readable sequential ticket number (Jira-style, shown as `#N`); the id IS the ticket number, there is no separate UUID. Assigned as `MAX(id)+1` per board inside the create transaction — atomic under SQLite's single writer, the id PRIMARY KEY is the backstop (the Postgres port would use a sequence)          |
 | board_id                                             | TEXT FK NOT NULL           |                                                                                                                                                                                                                                                                                                                              |
-| number                                               | INTEGER NOT NULL           | human-readable sequential ticket number (Jira-style, shown as `#N`), UNIQUE(board_id, number); assigned as `MAX(number)+1` inside the create transaction — atomic under SQLite's single writer, the unique index is the backstop (the Postgres port would use a sequence). The UUID `id` stays the internal key              |
 | lane_id                                              | TEXT FK NOT NULL           | current status                                                                                                                                                                                                                                                                                                               |
 | position                                             | TEXT NOT NULL              | fractional key; UNIQUE(lane_id, position)                                                                                                                                                                                                                                                                                    |
 | title                                                | TEXT NOT NULL              | ≤ 200 chars                                                                                                                                                                                                                                                                                                                  |
@@ -113,36 +113,36 @@ Index: `(board_id, created_at)`.
 | created_at / updated_at                              | TEXT NOT NULL              |                                                                                                                                                                                                                                                                                                                              |
 | archived_at                                          | TEXT NULL                  | set by manual archive (`POST /cards/:id/archive`) or the 90-day `doneArchival` backstop; cleared on reopen                                                                                                                                                                                                                   |
 
-Indexes: `(lane_id, position)`, UNIQUE `(board_id, number)` (ticket-number uniqueness, also
-serves `MAX(number)`), `(board_id, archived_at)`, `(assignee_id)`, `(reporter_id)`,
-and `(created_at, id)` for the newest-first keyset list query. Two partial indexes keep hot
+Indexes: `(lane_id, position)`, `(board_id, archived_at)`, `(assignee_id)`, `(reporter_id)`,
+and `(created_at, id)` for the newest-first keyset list query. The id PRIMARY KEY is globally
+unique and serves `MAX(id)` for the per-board ticket-number assignment. Two partial indexes keep hot
 reads proportional to LIVE rows despite the in-place done-lane archive growing forever:
 `(lane_id, position) WHERE archived_at IS NULL` (board snapshot / WIP counts) and
 `(created_at, id) WHERE blocked = 1 AND archived_at IS NULL` (the stale-cards blocked leg).
 
 ### tags / card_tags
 
-`tags(id, name UNIQUE COLLATE NOCASE)`; `card_tags(card_id, tag_id, PK(card_id, tag_id))`.
+`tags(id, name UNIQUE COLLATE NOCASE)`; `card_tags(card_id INTEGER FK, tag_id, PK(card_id, tag_id))`.
 Free-form (≤ 50 chars, trimmed, case preserved, matched case-insensitively), created on first
 use, normalized for per-tag queries. Card updates send tags as a full-replacement array.
 
 ### comments
 
-| column                  | type             | notes                                                              |
-| ----------------------- | ---------------- | ------------------------------------------------------------------ |
-| id                      | TEXT PK          |                                                                    |
-| card_id                 | TEXT FK NOT NULL |                                                                    |
-| parent_comment_id       | TEXT FK NULL     | one level of nesting: replies to a reply attach to the same parent |
-| author_id               | TEXT FK NOT NULL |                                                                    |
-| body                    | TEXT NOT NULL    | markdown, ≤ 10,000 chars                                           |
-| created_at / updated_at | TEXT NOT NULL    |                                                                    |
-| deleted_at              | TEXT NULL        | soft delete keeps thread shape; body rendered as “deleted”         |
+| column                  | type                | notes                                                              |
+| ----------------------- | ------------------- | ------------------------------------------------------------------ |
+| id                      | TEXT PK             |                                                                    |
+| card_id                 | INTEGER FK NOT NULL |                                                                    |
+| parent_comment_id       | TEXT FK NULL        | one level of nesting: replies to a reply attach to the same parent |
+| author_id               | TEXT FK NOT NULL    |                                                                    |
+| body                    | TEXT NOT NULL       | markdown, ≤ 10,000 chars                                           |
+| created_at / updated_at | TEXT NOT NULL       |                                                                    |
+| deleted_at              | TEXT NULL           | soft delete keeps thread shape; body rendered as “deleted”         |
 
 Index: `(card_id, created_at)`.
 
 ### attachments
 
-`id, card_id FK, filename (original, display only), mime, bytes, sha256, storage_key
+`id, card_id INTEGER FK, filename (original, display only), mime, bytes, sha256, storage_key
 (random UUID — the blob's name on disk/S3), uploaded_by FK, created_at, deleted_at NULL`.
 Binaries live behind the BlobStorePort, never in the database. Index: `(card_id)`.
 
@@ -152,15 +152,15 @@ Append-only. Written **in the same transaction** as the mutation it records
 ([ADR-005](decisions/ADR-005-audit-trail.md)). Never updated or deleted (PII removal is a hard
 delete of source rows plus a `card.pii_deleted` tombstone event).
 
-| column     | type             | notes                                          |
-| ---------- | ---------------- | ---------------------------------------------- |
-| id         | TEXT PK          | UUIDv7 (time-ordered)                          |
-| card_id    | TEXT FK NOT NULL |                                                |
-| actor_id   | TEXT NULL        | user id or service-token id; NULL for `system` |
-| actor_kind | TEXT NOT NULL    | `user \| mcp \| slack \| system`               |
-| event_type | TEXT NOT NULL    | see below                                      |
-| payload    | TEXT NOT NULL    | JSON, shape per event type                     |
-| created_at | TEXT NOT NULL    |                                                |
+| column     | type                | notes                                          |
+| ---------- | ------------------- | ---------------------------------------------- |
+| id         | TEXT PK             | UUIDv7 (time-ordered)                          |
+| card_id    | INTEGER FK NOT NULL |                                                |
+| actor_id   | TEXT NULL           | user id or service-token id; NULL for `system` |
+| actor_kind | TEXT NOT NULL       | `user \| mcp \| slack \| system`               |
+| event_type | TEXT NOT NULL       | see below                                      |
+| payload    | TEXT NOT NULL       | JSON, shape per event type                     |
+| created_at | TEXT NOT NULL       |                                                |
 
 Index: `(card_id, created_at)` — per-card history is the only event query surface in v1; a
 board-wide event index arrives with its first consumer.

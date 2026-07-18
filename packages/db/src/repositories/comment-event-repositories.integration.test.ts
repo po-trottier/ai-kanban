@@ -261,7 +261,7 @@ describe('SqliteEventRepository', () => {
   it('rejects events for a card that does not exist (FK enforced)', async () => {
     const orphan: CardEvent = {
       id: newId(),
-      cardId: newId(),
+      cardId: 999_999,
       actorId: null,
       actorKind: 'system',
       eventType: 'card.archived',

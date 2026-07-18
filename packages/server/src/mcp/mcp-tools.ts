@@ -54,7 +54,7 @@ import { type AppDeps } from '../types.ts'
  * intact.
  */
 
-const cardIdShape = { cardId: z.uuid() }
+const cardIdShape = { cardId: z.number().int().positive() }
 
 const listCardsToolSchema = listCardsFilterSchema.extend(pageRequestSchema.shape)
 const getCardToolSchema = z.strictObject(cardIdShape)

@@ -77,8 +77,8 @@ export type UpdateCardInput = z.infer<typeof updateCardInputSchema>
  */
 export const moveCardInputSchema = z.strictObject({
   toLane: laneKeySchema,
-  prevCardId: z.uuid().nullable().default(null),
-  nextCardId: z.uuid().nullable().default(null),
+  prevCardId: z.number().int().positive().nullable().default(null),
+  nextCardId: z.number().int().positive().nullable().default(null),
   waitingReason: waitingReasonSchema.optional(),
   expectedResumeAt: isoDateSchema.optional(),
   expectedVersion: expectedVersionSchema,

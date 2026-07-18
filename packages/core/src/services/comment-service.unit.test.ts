@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ArchivedError, NotFoundError, PolicyDeniedError } from '../domain/errors.ts'
 import { createScenario, type Scenario } from '../testing/index.ts'
 
-async function seedComment(scenario: Scenario, cardId: string, authorId: string) {
+async function seedComment(scenario: Scenario, cardId: number, authorId: string) {
   return scenario.comments.add({ kind: 'user', id: authorId, role: 'user' }, cardId, {
     body: 'first comment',
   })

@@ -26,7 +26,7 @@ export interface CardItemProps {
   canCancel: boolean
   canReopen: boolean
   canArchive: boolean
-  canDropFrom: (source: { cardId: string; laneKey: LaneKey }) => boolean
+  canDropFrom: (source: { cardId: number; laneKey: LaneKey }) => boolean
   onOpen: (cardId: string) => void
   onMenuAction: (card: BoardCard, action: CardMenuAction) => void
 }
@@ -69,14 +69,14 @@ export function CardItem({
       role="group"
       aria-label={card.title}
       onClick={() => {
-        onOpen(card.id)
+        onOpen(String(card.id))
       }}
     >
       {/* #number · title … priority + menu */}
       <Group justify="space-between" align="center" wrap="nowrap" gap="xs">
         <Group gap={6} wrap="nowrap" className={classes.grow}>
           <Text size="xs" c="dimmed" fw={EMPHASIS_FONT_WEIGHT}>
-            {formatTicketNumber(card.number)}
+            {formatTicketNumber(card.id)}
           </Text>
           <Text size="sm" fw={EMPHASIS_FONT_WEIGHT} truncate className={classes.grow}>
             {card.title}

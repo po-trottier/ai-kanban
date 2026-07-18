@@ -281,9 +281,8 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       const positionIndex = positionCounters.get(overrides.laneId) ?? 0
       positionCounters.set(overrides.laneId, positionIndex + 1)
       const card = cardWith({
-        id: ids.newId(),
+        id: cardCount,
         boardId: board.id,
-        number: cardCount,
         position: appendPosition(positionIndex),
         reporterId: demoUsers.user.id,
         createdAt,

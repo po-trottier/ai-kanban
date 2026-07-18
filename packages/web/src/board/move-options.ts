@@ -71,8 +71,8 @@ export interface PositionChoice {
   /** Stable option id for selects. */
   value: string
   label: string
-  prevCardId: string | null
-  nextCardId: string | null
+  prevCardId: number | null
+  nextCardId: number | null
 }
 
 /**
@@ -92,7 +92,7 @@ export interface PositionChoice {
 export function positionChoices(
   // Only id + title are read, so both a board summary and a full card fit.
   laneCards: Pick<BoardCard, 'id' | 'title'>[],
-  movingCardId: string,
+  movingCardId: number,
   labels: { first: string; last: string; after: (title: string) => string },
 ): [PositionChoice, ...PositionChoice[]] {
   const others = laneCards.filter((card) => card.id !== movingCardId)
@@ -114,7 +114,7 @@ export function positionChoices(
   // "After <card>" only for the true middle gaps — the first N−1 cards; the
   // gap after the last card is the named "Last" above.
   const middle: PositionChoice[] = others.slice(0, -1).map((card, index) => ({
-    value: `after:${card.id}`,
+    value: `after:${String(card.id)}`,
     label: labels.after(card.title),
     prevCardId: card.id,
     nextCardId: others[index + 1]?.id ?? null,
@@ -125,7 +125,7 @@ export function positionChoices(
 export interface DropTarget {
   laneKey: LaneKey
   /** Card the pointer is over, with the closest edge; absent = empty lane area. */
-  overCardId?: string
+  overCardId?: number
   edge?: Edge
 }
 
@@ -139,12 +139,12 @@ export interface DroppedOn {
  * target (with its closest edge) wins over the enclosing lane target.
  */
 export function resolveDropTarget(dropTargets: DroppedOn[]): DropTarget | null {
-  const cardTarget = dropTargets.find((entry) => typeof entry.data.cardId === 'string')
+  const cardTarget = dropTargets.find((entry) => typeof entry.data.cardId === 'number')
   if (cardTarget !== undefined) {
     const edge = extractClosestEdge(cardTarget.data)
     return {
       laneKey: cardTarget.data.laneKey as LaneKey,
-      overCardId: cardTarget.data.cardId as string,
+      overCardId: cardTarget.data.cardId as number,
       ...(edge === null ? {} : { edge }),
     }
   }
@@ -159,7 +159,7 @@ export function resolveDropTarget(dropTargets: DroppedOn[]): DropTarget | null {
  */
 export function moveIntentFromDrop(
   board: BoardResponse,
-  cardId: string,
+  cardId: number,
   target: DropTarget,
 ): MoveIntent | null {
   // Dropping a card onto itself (the change-of-mind gesture) is always a no-op.
@@ -183,7 +183,7 @@ export function moveIntentFromDrop(
 }
 
 /** True when the intent leaves the card exactly between its current neighbors. */
-export function isSamePosition(board: BoardResponse, cardId: string, intent: MoveIntent): boolean {
+export function isSamePosition(board: BoardResponse, cardId: number, intent: MoveIntent): boolean {
   const lane = board.lanes.find((snapshot) => snapshot.lane.key === intent.toLane)
   if (lane === undefined) return false
   const current = lane.cards.findIndex((card) => card.id === cardId)
@@ -199,7 +199,7 @@ export function isSamePosition(board: BoardResponse, cardId: string, intent: Mov
  */
 export function dropPosition(
   board: BoardResponse,
-  cardId: string,
+  cardId: number,
   intent: MoveIntent,
 ): { laneLabel: string; position: number } | null {
   const lane = board.lanes.find((snapshot) => snapshot.lane.key === intent.toLane)

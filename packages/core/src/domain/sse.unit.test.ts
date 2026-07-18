@@ -7,7 +7,7 @@ const UUID = '10000000-0000-7000-8000-000000000001'
 describe('sseHintSchema (ADR-008 hint catalog)', () => {
   it('parses a card-scoped hint with cardId, version, and eventId', () => {
     // Arrange
-    const hint = { type: 'card.status_changed', cardId: UUID, version: 4, eventId: UUID }
+    const hint = { type: 'card.status_changed', cardId: 42, version: 4, eventId: UUID }
 
     // Act
     const parsed = sseHintSchema.parse(hint)

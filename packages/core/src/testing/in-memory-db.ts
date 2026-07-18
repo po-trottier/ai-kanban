@@ -43,7 +43,7 @@ import {
  */
 
 interface CardTagRow {
-  cardId: string
+  cardId: number
   tagId: string
 }
 
@@ -174,7 +174,7 @@ export class InMemoryDb implements UnitOfWork {
     this.state.tags.push(clone(tag))
   }
 
-  seedCardTag(cardId: string, tagId: string): void {
+  seedCardTag(cardId: number, tagId: string): void {
     this.state.cardTags.push({ cardId, tagId })
   }
 
@@ -182,7 +182,7 @@ export class InMemoryDb implements UnitOfWork {
     this.state.policies.push(clone(policy))
   }
 
-  getCard(id: string): Card {
+  getCard(id: number): Card {
     const card = this.state.cards.find((candidate) => candidate.id === id)
     if (!card) throw new NotFoundError('card')
     return clone(card)
@@ -201,12 +201,12 @@ export class InMemoryDb implements UnitOfWork {
   }
 
   /** Committed audit events for a card, in append order. */
-  eventsFor(cardId: string): CardEvent[] {
+  eventsFor(cardId: number): CardEvent[] {
     return clone(this.state.events.filter((event) => event.cardId === cardId))
   }
 
   /** Committed tag names for a card, in card_tags order. */
-  tagNamesFor(cardId: string): string[] {
+  tagNamesFor(cardId: number): string[] {
     return this.state.cardTags
       .filter((row) => row.cardId === cardId)
       .map((row) => this.state.tags.find((tag) => tag.id === row.tagId)?.name ?? '')
@@ -235,15 +235,15 @@ class InMemoryCardRepository implements CardRepository {
     this.db = db
   }
 
-  findById(id: string): Promise<Card | null> {
+  findById(id: number): Promise<Card | null> {
     const card = this.state.cards.find((candidate) => candidate.id === id)
     return Promise.resolve(card ? clone(card) : null)
   }
 
-  nextCardNumber(boardId: string): Promise<number> {
+  nextCardId(boardId: string): Promise<number> {
     const max = this.state.cards
       .filter((card) => card.boardId === boardId)
-      .reduce((highest, card) => Math.max(highest, card.number), 0)
+      .reduce((highest, card) => Math.max(highest, card.id), 0)
     return Promise.resolve(max + 1)
   }
 
@@ -307,16 +307,16 @@ class InMemoryCardRepository implements CardRepository {
     let cards = this.state.cards
       .filter((card) => this.matches(card, filter))
       .sort((a, b) =>
-        a.createdAt === b.createdAt
-          ? binaryCompare(b.id, a.id)
-          : binaryCompare(b.createdAt, a.createdAt),
+        a.createdAt === b.createdAt ? b.id - a.id : binaryCompare(b.createdAt, a.createdAt),
       )
     const after = page?.after
     if (after !== undefined) {
+      // Card cursors carry the integer card id; Number() is a no-op on it.
+      const afterId = Number(after.id)
       cards = cards.filter(
         (card) =>
           card.createdAt < after.createdAt ||
-          (card.createdAt === after.createdAt && card.id < after.id),
+          (card.createdAt === after.createdAt && card.id < afterId),
       )
     }
     if (page?.limit !== undefined) cards = cards.slice(0, page.limit)
@@ -403,7 +403,7 @@ class InMemoryCommentRepository implements CommentRepository {
     return Promise.resolve()
   }
 
-  listByCard(cardId: string): Promise<Comment[]> {
+  listByCard(cardId: number): Promise<Comment[]> {
     return Promise.resolve(
       clone(
         this.state.comments
@@ -442,7 +442,7 @@ class InMemoryAttachmentRepository implements AttachmentRepository {
     return Promise.resolve()
   }
 
-  listByCard(cardId: string): Promise<Attachment[]> {
+  listByCard(cardId: number): Promise<Attachment[]> {
     return Promise.resolve(
       clone(
         this.state.attachments
@@ -738,7 +738,7 @@ class InMemoryTagRepository implements TagRepository {
     return Promise.resolve()
   }
 
-  listByCard(cardId: string): Promise<Tag[]> {
+  listByCard(cardId: number): Promise<Tag[]> {
     const tagIds = this.state.cardTags
       .filter((row) => row.cardId === cardId)
       .map((row) => row.tagId)
@@ -748,7 +748,7 @@ class InMemoryTagRepository implements TagRepository {
     return Promise.resolve(clone(tags))
   }
 
-  setCardTags(cardId: string, tagIds: string[]): Promise<void> {
+  setCardTags(cardId: number, tagIds: string[]): Promise<void> {
     const kept = this.state.cardTags.filter((row) => row.cardId !== cardId)
     this.state.cardTags.length = 0
     this.state.cardTags.push(...kept, ...tagIds.map((tagId) => ({ cardId, tagId })))
@@ -796,7 +796,7 @@ class InMemoryEventRepository implements EventRepository {
   }
 
   listByCard(
-    cardId: string,
+    cardId: number,
     options?: { types?: readonly CardEventType[]; after?: CursorKey; limit?: number },
   ): Promise<CardEvent[]> {
     let events = this.state.events
@@ -809,10 +809,12 @@ class InMemoryEventRepository implements EventRepository {
       )
     const after = options?.after
     if (after !== undefined) {
+      // Event cursors carry the UUID event id; String() is a no-op on it.
+      const afterId = String(after.id)
       events = events.filter(
         (event) =>
           event.createdAt > after.createdAt ||
-          (event.createdAt === after.createdAt && event.id > after.id),
+          (event.createdAt === after.createdAt && event.id > afterId),
       )
     }
     if (options?.limit !== undefined) events = events.slice(0, options.limit)
@@ -820,7 +822,7 @@ class InMemoryEventRepository implements EventRepository {
   }
 
   async listLatestByCard(
-    cardId: string,
+    cardId: number,
     limit: number,
     types?: readonly CardEventType[],
   ): Promise<CardEvent[]> {
@@ -832,7 +834,7 @@ class InMemoryEventRepository implements EventRepository {
     sinceIso: string,
     options?: {
       types?: readonly CardEventType[]
-      cardId?: string
+      cardId?: number
       actorKind?: ActorKind
       after?: CursorKey
       limit?: number
@@ -851,10 +853,12 @@ class InMemoryEventRepository implements EventRepository {
       )
     const after = options?.after
     if (after !== undefined) {
+      // Event cursors carry the UUID event id; String() is a no-op on it.
+      const afterId = String(after.id)
       events = events.filter(
         (event) =>
           event.createdAt < after.createdAt ||
-          (event.createdAt === after.createdAt && event.id < after.id),
+          (event.createdAt === after.createdAt && event.id < afterId),
       )
     }
     if (options?.limit !== undefined) events = events.slice(0, options.limit)

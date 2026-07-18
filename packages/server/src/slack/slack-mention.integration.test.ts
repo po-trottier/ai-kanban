@@ -58,7 +58,7 @@ describe('app_mention → card creation', () => {
     const confirmations = harness.fixture.callsTo('chat.postMessage')
     expect(confirmations).toHaveLength(1)
     expect(confirmations[0]).toMatchObject({ thread_ts: '1752749000.000100' })
-    expect(String(confirmations[0]?.text)).toContain(`/cards/${cards[0]?.id ?? ''}`)
+    expect(String(confirmations[0]?.text)).toContain(`/cards/${String(cards[0]?.id ?? '')}`)
   })
 
   it('captures just the message for an out-of-thread mention (P2 default)', async () => {

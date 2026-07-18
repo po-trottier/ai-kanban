@@ -79,7 +79,7 @@ describe('view_submission → card in intake', () => {
       channel: DEFAULT_SUBMISSION_META.channelId,
       thread_ts: DEFAULT_SUBMISSION_META.threadTs,
     })
-    expect(String(confirmations[0]?.text)).toContain(`/cards/${card.id}`)
+    expect(String(confirmations[0]?.text)).toContain(`/cards/${String(card.id)}`)
     const events = await harness.testApp.wired.deps.uow.run((tx) => tx.events.listByCard(card.id))
     expect(events[0]).toMatchObject({
       eventType: 'card.created',

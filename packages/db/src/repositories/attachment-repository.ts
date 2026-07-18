@@ -40,7 +40,7 @@ export class SqliteAttachmentRepository implements AttachmentRepository {
   }
 
   /** Oldest-first; id tie-break keeps equal-timestamp rows deterministic. */
-  listByCard(cardId: string): Promise<Attachment[]> {
+  listByCard(cardId: number): Promise<Attachment[]> {
     const rows = this.db
       .select()
       .from(attachments)

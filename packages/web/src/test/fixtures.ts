@@ -87,9 +87,8 @@ let cardCounter = 500
 export function makeCard(laneKey: LaneKey, overrides: Partial<Card> = {}): Card {
   cardCounter += 1
   return cardWith({
-    id: uid(cardCounter),
+    id: cardCounter,
     boardId: FIXTURE_BOARD_ID,
-    number: cardCounter,
     laneId: laneByKey(laneKey).id,
     position: `a${String(cardCounter)}`,
     title: `Card ${String(cardCounter)}`,

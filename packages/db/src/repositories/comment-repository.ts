@@ -36,7 +36,7 @@ export class SqliteCommentRepository implements CommentRepository {
   }
 
   /** Oldest-first on (createdAt, id); soft-deleted rows included (thread shape). */
-  listByCard(cardId: string): Promise<Comment[]> {
+  listByCard(cardId: number): Promise<Comment[]> {
     const rows = this.db
       .select()
       .from(comments)

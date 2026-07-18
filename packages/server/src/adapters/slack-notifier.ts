@@ -83,7 +83,7 @@ export class SlackNotifier implements NotifierPort {
   private async dmUser(
     recipient: User,
     text: string,
-    log: { cardId: string; skipMessage: string; failMessage: string },
+    log: { cardId: number; skipMessage: string; failMessage: string },
   ): Promise<void> {
     try {
       const slackUserId = recipient.slackUserId ?? (await this.lookupAndBind(recipient))

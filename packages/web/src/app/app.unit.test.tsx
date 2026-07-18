@@ -194,17 +194,17 @@ describe('app routing', () => {
     const card = makeCard('ready', { title: 'Fix pump', description: 'It leaks' })
     const fake = authedRoutes({
       'GET /api/v1/board': makeBoard({ ready: [card] }),
-      [`GET /api/v1/cards/${card.id}`]: {
+      [`GET /api/v1/cards/${String(card.id)}`]: {
         card: card,
         tags: [],
         location: null,
         attachments: [],
       },
-      [`GET /api/v1/cards/${card.id}/comments`]: [],
-      [`GET /api/v1/cards/${card.id}/events`]: { items: [], nextCursor: null },
+      [`GET /api/v1/cards/${String(card.id)}/comments`]: [],
+      [`GET /api/v1/cards/${String(card.id)}/events`]: { items: [], nextCursor: null },
     })
     // Act
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     // Assert
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(await screen.findByRole('textbox', { name: /Title/ })).toHaveValue('Fix pump')

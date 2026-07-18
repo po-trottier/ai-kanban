@@ -1,6 +1,6 @@
 CREATE TABLE `attachments` (
 	`id` text PRIMARY KEY NOT NULL,
-	`card_id` text NOT NULL,
+	`card_id` integer NOT NULL,
 	`filename` text NOT NULL,
 	`mime` text NOT NULL,
 	`bytes` integer NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE `boards` (
 --> statement-breakpoint
 CREATE TABLE `card_events` (
 	`id` text PRIMARY KEY NOT NULL,
-	`card_id` text NOT NULL,
+	`card_id` integer NOT NULL,
 	`actor_id` text,
 	`actor_kind` text NOT NULL,
 	`event_type` text NOT NULL,
@@ -44,7 +44,7 @@ CREATE TABLE `card_events` (
 --> statement-breakpoint
 CREATE INDEX `card_events_card_id_created_at_idx` ON `card_events` (`card_id`,`created_at`);--> statement-breakpoint
 CREATE TABLE `card_tags` (
-	`card_id` text NOT NULL,
+	`card_id` integer NOT NULL,
 	`tag_id` text NOT NULL,
 	PRIMARY KEY(`card_id`, `tag_id`),
 	FOREIGN KEY (`card_id`) REFERENCES `cards`(`id`) ON UPDATE no action ON DELETE no action,
@@ -52,9 +52,8 @@ CREATE TABLE `card_tags` (
 );
 --> statement-breakpoint
 CREATE TABLE `cards` (
-	`id` text PRIMARY KEY NOT NULL,
+	`id` integer PRIMARY KEY NOT NULL,
 	`board_id` text NOT NULL,
-	`number` integer NOT NULL,
 	`lane_id` text NOT NULL,
 	`position` text NOT NULL,
 	`title` text NOT NULL,
@@ -88,7 +87,6 @@ CREATE TABLE `cards` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `cards_lane_id_position_unique` ON `cards` (`lane_id`,`position`);--> statement-breakpoint
-CREATE UNIQUE INDEX `cards_board_id_number_unique` ON `cards` (`board_id`,`number`);--> statement-breakpoint
 CREATE INDEX `cards_board_id_archived_at_idx` ON `cards` (`board_id`,`archived_at`);--> statement-breakpoint
 CREATE INDEX `cards_assignee_id_idx` ON `cards` (`assignee_id`);--> statement-breakpoint
 CREATE INDEX `cards_reporter_id_idx` ON `cards` (`reporter_id`);--> statement-breakpoint
@@ -97,7 +95,7 @@ CREATE INDEX `cards_lane_active_position_idx` ON `cards` (`lane_id`,`position`) 
 CREATE INDEX `cards_blocked_active_idx` ON `cards` (`created_at`,`id`) WHERE "cards"."blocked" = 1 and "cards"."archived_at" is null;--> statement-breakpoint
 CREATE TABLE `comments` (
 	`id` text PRIMARY KEY NOT NULL,
-	`card_id` text NOT NULL,
+	`card_id` integer NOT NULL,
 	`parent_comment_id` text,
 	`author_id` text NOT NULL,
 	`body` text NOT NULL,

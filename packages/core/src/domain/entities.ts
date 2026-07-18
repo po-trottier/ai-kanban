@@ -96,11 +96,11 @@ export const locationSchema = z.strictObject({
 export type Location = z.infer<typeof locationSchema>
 
 export const cardSchema = z.strictObject({
-  id: z.uuid(),
+  /** The card's primary key IS its human-readable ticket number: a positive
+   * integer, unique per board (Jira-style), assigned atomically on create
+   * (`MAX(id) + 1` per board). There is no separate UUID. */
+  id: z.number().int().positive(),
   boardId: z.uuid(),
-  /** Human-readable sequential ticket number, unique per board (Jira-style),
-   * assigned atomically on create. The UUID `id` stays the internal key. */
-  number: z.number().int().positive(),
   laneId: z.uuid(),
   /** Fractional ordering key, UNIQUE(laneId, position) (ADR-006). */
   position: z.string().min(1),
@@ -142,7 +142,7 @@ export type Tag = z.infer<typeof tagSchema>
 
 export const commentSchema = z.strictObject({
   id: z.uuid(),
-  cardId: z.uuid(),
+  cardId: z.number().int().positive(),
   /** One level of nesting: replies to a reply attach to the same parent. */
   parentCommentId: z.uuid().nullable(),
   authorId: z.uuid(),
@@ -164,7 +164,7 @@ export const redactedCommentSchema = z.strictObject({ ...commentSchema.shape, bo
 
 export const attachmentSchema = z.strictObject({
   id: z.uuid(),
-  cardId: z.uuid(),
+  cardId: z.number().int().positive(),
   /** Original filename, display only — blobs live under `storageKey`. */
   filename: z.string().min(1).max(255),
   mime: z.string().min(1),

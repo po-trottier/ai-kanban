@@ -50,9 +50,9 @@ async function runJob(clock: FixedClock): Promise<{ archived: number }> {
   return service.archiveExpired(systemActor())
 }
 
-async function reloadCard(id: string): Promise<Card> {
+async function reloadCard(id: number): Promise<Card> {
   const card = await t.wired.deps.uow.read((tx) => tx.cards.findById(id))
-  if (card === null) throw new Error(`card ${id} disappeared`)
+  if (card === null) throw new Error(`card ${String(id)} disappeared`)
   return card
 }
 

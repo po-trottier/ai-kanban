@@ -85,7 +85,7 @@ export function makeEvent(
   ids: IdGenerator,
   clock: Clock,
   actor: Actor,
-  cardId: string,
+  cardId: number,
   body: CardEventBody,
 ): CardEvent {
   return cardEventSchema.parse({

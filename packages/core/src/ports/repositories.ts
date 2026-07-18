@@ -57,14 +57,14 @@ export interface CardQueryFilter {
 }
 
 export interface CardRepository {
-  findById(id: string): Promise<Card | null>
+  findById(id: number): Promise<Card | null>
   /**
-   * The next sequential ticket number for the board — `MAX(number) + 1`, or 1
-   * for the first card. Called inside the create transaction; SQLite's single
-   * writer makes read-then-insert atomic, and UNIQUE(board_id, number) is the
-   * backstop (the Postgres port would use a sequence).
+   * The next card id for the board — `MAX(id) + 1`, or 1 for the first card.
+   * The id IS the sequential per-board ticket number. Called inside the create
+   * transaction; SQLite's single writer makes read-then-insert atomic, and the
+   * id PRIMARY KEY is the backstop (the Postgres port would use a sequence).
    */
-  nextCardNumber(boardId: string): Promise<number>
+  nextCardId(boardId: string): Promise<number>
   /** May reject with DuplicatePositionError — the UNIQUE(laneId, position) backstop. */
   insert(card: Card): Promise<void>
   /** May reject with DuplicatePositionError — the UNIQUE(laneId, position) backstop. */
@@ -115,7 +115,7 @@ export interface CommentRepository {
   insert(comment: Comment): Promise<void>
   update(comment: Comment): Promise<void>
   /** Oldest-first on (createdAt, id); soft-deleted rows included (thread shape). */
-  listByCard(cardId: string): Promise<Comment[]>
+  listByCard(cardId: number): Promise<Comment[]>
 }
 
 export interface AttachmentRepository {
@@ -123,7 +123,7 @@ export interface AttachmentRepository {
   insert(attachment: Attachment): Promise<void>
   update(attachment: Attachment): Promise<void>
   /** All rows for the card, oldest-first; callers filter soft-deleted. */
-  listByCard(cardId: string): Promise<Attachment[]>
+  listByCard(cardId: number): Promise<Attachment[]>
 }
 
 export interface UserRepository {
@@ -245,9 +245,9 @@ export interface TagRepository {
   findByNameCi(name: string): Promise<Tag | null>
   insert(tag: Tag): Promise<void>
   /** The card's tags in their stored (case-preserved) form. */
-  listByCard(cardId: string): Promise<Tag[]>
+  listByCard(cardId: number): Promise<Tag[]>
   /** Full-replacement of the card_tags rows. */
-  setCardTags(cardId: string, tagIds: string[]): Promise<void>
+  setCardTags(cardId: number, tagIds: string[]): Promise<void>
   /** Every known tag, name order (autocomplete: GET /tags). */
   listAll(): Promise<Tag[]>
 }
@@ -270,7 +270,7 @@ export interface EventRepository {
    * strict inequality exactly (see CardRepository.query).
    */
   listByCard(
-    cardId: string,
+    cardId: number,
     options?: { types?: readonly CardEventType[]; after?: CursorKey; limit?: number },
   ): Promise<CardEvent[]>
   /**
@@ -282,7 +282,7 @@ export interface EventRepository {
    * enter lane X" reads O(1) instead of full-history scans.
    */
   listLatestByCard(
-    cardId: string,
+    cardId: number,
     limit: number,
     types?: readonly CardEventType[],
   ): Promise<CardEvent[]>
@@ -299,7 +299,7 @@ export interface EventRepository {
     sinceIso: string,
     options?: {
       types?: readonly CardEventType[]
-      cardId?: string
+      cardId?: number
       actorKind?: ActorKind
       after?: CursorKey
       limit?: number

@@ -51,7 +51,7 @@ describe('InMemoryDb — honest transactionality', () => {
     // Arrange
     const scenario = createScenario()
     const existing = scenario.seedCard()
-    const duplicate = { ...existing, id: '00000000-0000-7000-8000-00000000beef' }
+    const duplicate = { ...existing, id: existing.id + 1 }
 
     // Act
     const act = scenario.db.run((tx) => tx.cards.insert(duplicate))

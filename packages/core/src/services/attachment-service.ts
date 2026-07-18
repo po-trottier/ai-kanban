@@ -50,7 +50,7 @@ export class AttachmentService {
    * Caps: 25 MB/file, 10 active files/card (409).
    * Audit events: `attachment.added`.
    */
-  async add(actor: Actor, cardId: string, rawInput: unknown): Promise<Attachment> {
+  async add(actor: Actor, cardId: number, rawInput: unknown): Promise<Attachment> {
     const input = addAttachmentInputSchema.parse(rawInput)
     if (input.content.byteLength > MAX_ATTACHMENT_BYTES) {
       throw new LimitExceededError('attachment exceeds the 25 MB limit', MAX_ATTACHMENT_BYTES)

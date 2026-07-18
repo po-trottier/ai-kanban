@@ -25,8 +25,8 @@ export const ASSIGNEE_UNRESOLVED_MESSAGE =
   "Couldn't resolve that assignee — leave the field blank and the card can be assigned on the board."
 
 /** Where a card lives in the web UI (PUBLIC_BASE_URL is the SPA origin). */
-function cardUrl(publicBaseUrl: string, cardId: string): string {
-  return `${publicBaseUrl.replace(/\/$/, '')}/cards/${cardId}`
+function cardUrl(publicBaseUrl: string, cardId: number): string {
+  return `${publicBaseUrl.replace(/\/$/, '')}/cards/${String(cardId)}`
 }
 
 /**
@@ -40,14 +40,14 @@ function escapeSlackText(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-export function createdMessage(publicBaseUrl: string, card: { id: string; title: string }): string {
+export function createdMessage(publicBaseUrl: string, card: { id: number; title: string }): string {
   return `Created ticket in Intake: "${escapeSlackText(card.title)}" — ${cardUrl(publicBaseUrl, card.id)}`
 }
 
 /** The Review→Done completion DM (docs/architecture/slack.md#notifications-outbound). */
 export function completedMessage(
   publicBaseUrl: string,
-  card: { id: string; title: string },
+  card: { id: number; title: string },
 ): string {
   return `Your facilities ticket "${escapeSlackText(card.title)}" is done: ${cardUrl(publicBaseUrl, card.id)}`
 }
@@ -55,7 +55,7 @@ export function completedMessage(
 /** The waiting-lane overdue DM (docs/product/workflow.md#waiting-on-parts--vendor-discipline). */
 export function waitingOverdueMessage(
   publicBaseUrl: string,
-  card: { id: string; title: string; expectedResumeAt: string | null },
+  card: { id: number; title: string; expectedResumeAt: string | null },
 ): string {
   const since =
     card.expectedResumeAt === null ? '' : ` (expected to resume ${card.expectedResumeAt})`

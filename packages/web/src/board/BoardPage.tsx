@@ -84,7 +84,7 @@ export function BoardPage() {
   )
 
   const onDrop = useCallback(
-    (source: { cardId: string; laneKey: LaneKey }, target: DropTarget) => {
+    (source: { cardId: number; laneKey: LaneKey }, target: DropTarget) => {
       if (board === undefined) return
       const card = board.lanes
         .flatMap((snapshot) => snapshot.cards)
@@ -129,7 +129,7 @@ export function BoardPage() {
     const currentLane = laneKeyOfCard(board, card)
     switch (action) {
       case 'open':
-        openCard(card.id)
+        openCard(String(card.id))
         break
       case 'move':
         if (currentLane !== null) setModal({ kind: 'move', card, currentLane })

@@ -47,7 +47,7 @@ function card(overrides: Partial<Card> = {}): Card {
 }
 
 /** A minimal valid attachment row for the board-summary count join. */
-function attachment(cardId: string, filename: string) {
+function attachment(cardId: number, filename: string) {
   return {
     id: newId(),
     cardId,
@@ -85,7 +85,7 @@ describe('CRUD + uniqueness backstop', () => {
   })
 
   it('findById returns null for an unknown id', async () => {
-    await expect(run((tx) => tx.cards.findById(newId()))).resolves.toBeNull()
+    await expect(run((tx) => tx.cards.findById(999_999))).resolves.toBeNull()
   })
 
   it('update rewrites the row and update of a missing card rejects NotFoundError', async () => {
@@ -329,9 +329,9 @@ describe('query — cursor contract (createdAt DESC, id DESC, strictly older)', 
   const laneId = () => base.lanes.done.id
   const shared = '2026-07-16T15:00:00.000Z'
   const older = '2026-07-16T14:00:00.000Z'
-  const idLow = '20000000-0000-7000-8000-000000000001'
-  const idHigh = '20000000-0000-7000-8000-000000000002'
-  const idOld = '20000000-0000-7000-8000-000000000003'
+  const idLow = 20_000_001
+  const idHigh = 20_000_002
+  const idOld = 20_000_003
 
   beforeAll(async () => {
     await run(async (tx) => {

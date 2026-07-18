@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "98a44810-cd23-428c-9fcc-f16b2fd735b5",
+  "id": "091dcac9-5bb5-4507-ab75-dd16ba4e48a6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -16,7 +16,7 @@
         },
         "card_id": {
           "name": "card_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -243,7 +243,7 @@
         },
         "card_id": {
           "name": "card_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -318,7 +318,7 @@
       "columns": {
         "card_id": {
           "name": "card_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -377,7 +377,7 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": true,
           "notNull": true,
           "autoincrement": false
@@ -385,13 +385,6 @@
         "board_id": {
           "name": "board_id",
           "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "number": {
-          "name": "number",
-          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -584,14 +577,6 @@
           ],
           "isUnique": true
         },
-        "cards_board_id_number_unique": {
-          "name": "cards_board_id_number_unique",
-          "columns": [
-            "board_id",
-            "number"
-          ],
-          "isUnique": true
-        },
         "cards_board_id_archived_at_idx": {
           "name": "cards_board_id_archived_at_idx",
           "columns": [
@@ -724,7 +709,7 @@
         },
         "card_id": {
           "name": "card_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false

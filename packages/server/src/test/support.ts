@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -169,11 +168,15 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
  * slack metadata, version 1, now timestamps — with the fields a test actually
  * cares about supplied as overrides.
  */
+/** Monotonic integer card id for raw fixtures — the id IS the ticket number. */
+let nextRawCardId = 0
+
 export function rawCard(
   overrides: Partial<Card> & { boardId: string; laneId: string; reporterId: string },
 ): Card {
+  nextRawCardId += 1
   return cardWith({
-    id: randomUUID(),
+    id: nextRawCardId,
     position: 'a0',
     title: 'raw fixture card',
     createdAt: new Date().toISOString(),

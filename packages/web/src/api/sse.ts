@@ -18,14 +18,21 @@ export function hintInvalidations(hint: SseHint): readonly (readonly string[])[]
       return [queryKeys.locations]
     case 'comment.added':
     case 'comment.edited':
-    case 'comment.deleted':
-      return [queryKeys.comments(hint.cardId), queryKeys.events(hint.cardId)]
+    case 'comment.deleted': {
+      // Query keys are stringy (URL params are strings); the hint id is an int.
+      const cardId = String(hint.cardId)
+      return [queryKeys.comments(cardId), queryKeys.events(cardId)]
+    }
     case 'attachment.added':
-    case 'attachment.removed':
-      return [queryKeys.card(hint.cardId), queryKeys.events(hint.cardId)]
-    default:
+    case 'attachment.removed': {
+      const cardId = String(hint.cardId)
+      return [queryKeys.card(cardId), queryKeys.events(cardId)]
+    }
+    default: {
       // card.* — board summaries, the card detail, and its history all change.
-      return [queryKeys.board, queryKeys.card(hint.cardId), queryKeys.events(hint.cardId)]
+      const cardId = String(hint.cardId)
+      return [queryKeys.board, queryKeys.card(cardId), queryKeys.events(cardId)]
+    }
   }
 }
 

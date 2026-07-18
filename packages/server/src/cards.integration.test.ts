@@ -18,7 +18,7 @@ afterAll(async () => {
 })
 
 interface CardBody {
-  id: string
+  id: number
   title: string
   version: number
   priority: string
@@ -51,10 +51,10 @@ async function createRoom(cookie: string): Promise<{ id: string }> {
   return location({ kind: 'room', name: 'Cards Room', parentId: floor.id })
 }
 
-async function eventsOf(cookie: string, cardId: string) {
+async function eventsOf(cookie: string, cardId: number) {
   const response = await t.request(cookie, {
     method: 'GET',
-    url: `/api/v1/cards/${cardId}/events`,
+    url: `/api/v1/cards/${String(cardId)}/events`,
   })
   return response.json<{
     items: {
@@ -147,7 +147,7 @@ describe('GET /cards/:id', () => {
 
     const response = await t.request(admin.cookie, {
       method: 'GET',
-      url: `/api/v1/cards/${card.id}`,
+      url: `/api/v1/cards/${String(card.id)}`,
     })
 
     expect(response.statusCode).toBe(200)
@@ -164,14 +164,14 @@ describe('GET /cards/:id', () => {
     expect(detail.attachments).toEqual([])
   })
 
-  it('404s an unknown card and 400s a non-uuid id', async () => {
+  it('404s an unknown card and 400s a non-numeric id', async () => {
     const { cookie } = await t.asRole('user')
 
     const missing = await t.request(cookie, {
       method: 'GET',
-      url: '/api/v1/cards/00000000-0000-7000-8000-00000000dead',
+      url: '/api/v1/cards/999999',
     })
-    const invalid = await t.request(cookie, { method: 'GET', url: '/api/v1/cards/not-a-uuid' })
+    const invalid = await t.request(cookie, { method: 'GET', url: '/api/v1/cards/not-a-number' })
 
     expect(missing.statusCode).toBe(404)
     expect(invalid.statusCode).toBe(400)
@@ -185,7 +185,7 @@ describe('PATCH /cards/:id', () => {
 
     const response = await t.request(cookie, {
       method: 'PATCH',
-      url: `/api/v1/cards/${card.id}`,
+      url: `/api/v1/cards/${String(card.id)}`,
       headers: { 'if-match': '"1"' },
       payload: { title: 'After', priority: 'P0' },
     })
@@ -205,12 +205,15 @@ describe('PATCH /cards/:id', () => {
 
     await t.request(cookie, {
       method: 'PATCH',
-      url: `/api/v1/cards/${card.id}`,
+      url: `/api/v1/cards/${String(card.id)}`,
       headers: { 'if-match': '"1"' },
       payload: { tags: ['b', 'c'] },
     })
 
-    const detail = await t.request(cookie, { method: 'GET', url: `/api/v1/cards/${card.id}` })
+    const detail = await t.request(cookie, {
+      method: 'GET',
+      url: `/api/v1/cards/${String(card.id)}`,
+    })
     const names = detail.json<{ tags: { name: string }[] }>().tags.map((tag) => tag.name)
     expect(names.sort()).toEqual(['b', 'c'])
   })
@@ -220,14 +223,14 @@ describe('PATCH /cards/:id', () => {
     const card = await createCard(cookie, { title: 'Contended' })
     await t.request(cookie, {
       method: 'PATCH',
-      url: `/api/v1/cards/${card.id}`,
+      url: `/api/v1/cards/${String(card.id)}`,
       headers: { 'if-match': '"1"' },
       payload: { title: 'First writer wins' },
     })
 
     const stale = await t.request(cookie, {
       method: 'PATCH',
-      url: `/api/v1/cards/${card.id}`,
+      url: `/api/v1/cards/${String(card.id)}`,
       headers: { 'if-match': '"1"' },
       payload: { title: 'Second writer loses' },
     })
@@ -244,12 +247,12 @@ describe('PATCH /cards/:id', () => {
 
     const missing = await t.request(cookie, {
       method: 'PATCH',
-      url: `/api/v1/cards/${card.id}`,
+      url: `/api/v1/cards/${String(card.id)}`,
       payload: { title: 'x' },
     })
     const malformed = await t.request(cookie, {
       method: 'PATCH',
-      url: `/api/v1/cards/${card.id}`,
+      url: `/api/v1/cards/${String(card.id)}`,
       headers: { 'if-match': '"abc"' },
       payload: { title: 'x' },
     })
@@ -277,7 +280,7 @@ describe('GET /cards — filters', () => {
       })
       await solo.request(cookie, {
         method: 'POST',
-        url: `/api/v1/cards/${p0Card.id}/block`,
+        url: `/api/v1/cards/${String(p0Card.id)}/block`,
         headers: { 'if-match': '"1"' },
         payload: { reason: 'Parts missing' },
       })
@@ -497,7 +500,7 @@ describe('GET /cards/:id/events', () => {
     for (const title of ['One', 'Two', 'Three']) {
       await t.request(cookie, {
         method: 'PATCH',
-        url: `/api/v1/cards/${card.id}`,
+        url: `/api/v1/cards/${String(card.id)}`,
         headers: { 'if-match': `"${String(await currentVersion(cookie, card.id))}"` },
         payload: { title },
       })
@@ -505,7 +508,7 @@ describe('GET /cards/:id/events', () => {
 
     const firstPage = await t.request(cookie, {
       method: 'GET',
-      url: `/api/v1/cards/${card.id}/events?limit=2`,
+      url: `/api/v1/cards/${String(card.id)}/events?limit=2`,
     })
     const page = firstPage.json<{ items: { eventType: string }[]; nextCursor: string | null }>()
     expect(page.items).toHaveLength(2)
@@ -514,13 +517,13 @@ describe('GET /cards/:id/events', () => {
 
     const rest = await t.request(cookie, {
       method: 'GET',
-      url: `/api/v1/cards/${card.id}/events?limit=10&cursor=${page.nextCursor ?? ''}`,
+      url: `/api/v1/cards/${String(card.id)}/events?limit=10&cursor=${page.nextCursor ?? ''}`,
     })
     expect(rest.json<{ items: unknown[] }>().items).toHaveLength(2)
 
     const filtered = await t.request(cookie, {
       method: 'GET',
-      url: `/api/v1/cards/${card.id}/events?type=card.field_changed`,
+      url: `/api/v1/cards/${String(card.id)}/events?type=card.field_changed`,
     })
     expect(
       filtered
@@ -534,14 +537,14 @@ describe('GET /cards/:id/events', () => {
 
     const response = await t.request(cookie, {
       method: 'GET',
-      url: '/api/v1/cards/00000000-0000-7000-8000-00000000dead/events',
+      url: '/api/v1/cards/999999/events',
     })
 
     expect(response.statusCode).toBe(404)
   })
 })
 
-async function currentVersion(cookie: string, cardId: string): Promise<number> {
-  const detail = await t.request(cookie, { method: 'GET', url: `/api/v1/cards/${cardId}` })
+async function currentVersion(cookie: string, cardId: number): Promise<number> {
+  const detail = await t.request(cookie, { method: 'GET', url: `/api/v1/cards/${String(cardId)}` })
   return detail.json<{ card: { version: number } }>().card.version
 }

@@ -35,7 +35,7 @@ export class SqliteEventRepository implements EventRepository {
    * not cast.
    */
   listByCard(
-    cardId: string,
+    cardId: number,
     options?: { types?: readonly CardEventType[]; after?: CursorKey; limit?: number },
   ): Promise<CardEvent[]> {
     if (options?.types?.length === 0) {
@@ -50,7 +50,8 @@ export class SqliteEventRepository implements EventRepository {
       conditions.push(
         or(
           gt(cardEvents.createdAt, after.createdAt),
-          and(eq(cardEvents.createdAt, after.createdAt), gt(cardEvents.id, after.id)),
+          // Event cursors carry the UUID event id; String() is a no-op on it.
+          and(eq(cardEvents.createdAt, after.createdAt), gt(cardEvents.id, String(after.id))),
         ),
       )
     }
@@ -69,7 +70,7 @@ export class SqliteEventRepository implements EventRepository {
    * optionally filtered by event type (port contract).
    */
   listLatestByCard(
-    cardId: string,
+    cardId: number,
     limit: number,
     types?: readonly CardEventType[],
   ): Promise<CardEvent[]> {
@@ -98,7 +99,7 @@ export class SqliteEventRepository implements EventRepository {
     sinceIso: string,
     options?: {
       types?: readonly CardEventType[]
-      cardId?: string
+      cardId?: number
       actorKind?: ActorKind
       after?: CursorKey
       limit?: number
@@ -118,7 +119,8 @@ export class SqliteEventRepository implements EventRepository {
       conditions.push(
         or(
           lt(cardEvents.createdAt, after.createdAt),
-          and(eq(cardEvents.createdAt, after.createdAt), lt(cardEvents.id, after.id)),
+          // Event cursors carry the UUID event id; String() is a no-op on it.
+          and(eq(cardEvents.createdAt, after.createdAt), lt(cardEvents.id, String(after.id))),
         ),
       )
     }

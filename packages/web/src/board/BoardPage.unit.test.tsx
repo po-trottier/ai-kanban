@@ -48,7 +48,7 @@ describe('BoardPage move flows', () => {
     const moving = makeCard('intake', { title: 'Triaged card', version: 7 })
     const fake = boardApp(
       { ready: [a], intake: [moving] },
-      { [`POST /api/v1/cards/${moving.id}/move`]: moving },
+      { [`POST /api/v1/cards/${String(moving.id)}/move`]: moving },
     )
     renderApp({ fetchFn: fake.fetch })
     // Act
@@ -61,7 +61,7 @@ describe('BoardPage move flows', () => {
     await user.click(screen.getByRole('option', { name: 'Last (bottom)' }))
     await user.click(screen.getByRole('button', { name: 'Move' }))
     // Assert
-    expect(fake.lastBody('POST', `/api/v1/cards/${moving.id}/move`)).toEqual({
+    expect(fake.lastBody('POST', `/api/v1/cards/${String(moving.id)}/move`)).toEqual({
       toLane: 'ready',
       prevCardId: a.id,
       nextCardId: null,
@@ -76,7 +76,7 @@ describe('BoardPage move flows', () => {
     const moving = makeCard('intake', { title: 'Needs parts', version: 2 })
     const fake = boardApp(
       { intake: [moving] },
-      { [`POST /api/v1/cards/${moving.id}/move`]: moving },
+      { [`POST /api/v1/cards/${String(moving.id)}/move`]: moving },
     )
     renderApp({ fetchFn: fake.fetch })
     // Act — picking the waiting lane reveals the reason + date in the SAME
@@ -92,7 +92,7 @@ describe('BoardPage move flows', () => {
     await user.click(nth(screen.getAllByRole('button', { name: /20 July 2026/ }), 0))
     await user.click(screen.getByRole('button', { name: 'Move' }))
     // Assert
-    expect(fake.lastBody('POST', `/api/v1/cards/${moving.id}/move`)).toMatchObject({
+    expect(fake.lastBody('POST', `/api/v1/cards/${String(moving.id)}/move`)).toMatchObject({
       toLane: 'waiting_parts_vendor',
       waitingReason: 'vendor',
       expectedResumeAt: '2026-07-20',
@@ -107,7 +107,8 @@ describe('BoardPage move flows', () => {
     const fake = boardApp(
       { ready: [a], intake: [moving] },
       {
-        [`POST /api/v1/cards/${moving.id}/move`]: () => problemResponse(409, { title: 'Conflict' }),
+        [`POST /api/v1/cards/${String(moving.id)}/move`]: () =>
+          problemResponse(409, { title: 'Conflict' }),
       },
     )
     renderApp({ fetchFn: fake.fetch })
@@ -170,7 +171,7 @@ describe('BoardPage card actions', () => {
     const card = makeCard('in_progress', { title: 'Stuck card', version: 3 })
     const fake = boardApp(
       { intake: [card] },
-      { [`POST /api/v1/cards/${card.id}/block`]: jsonResponse(card) },
+      { [`POST /api/v1/cards/${String(card.id)}/block`]: jsonResponse(card) },
     )
     renderApp({ fetchFn: fake.fetch })
     // Act
@@ -182,7 +183,7 @@ describe('BoardPage card actions', () => {
     )
     await user.click(screen.getByRole('button', { name: 'Block card' }))
     // Assert
-    expect(fake.lastBody('POST', `/api/v1/cards/${card.id}/block`)).toEqual({
+    expect(fake.lastBody('POST', `/api/v1/cards/${String(card.id)}/block`)).toEqual({
       reason: 'vendor no-show',
     })
   })
@@ -193,7 +194,7 @@ describe('BoardPage card actions', () => {
     const card = makeCard('intake', { title: 'Duplicate request', version: 5 })
     const fake = boardApp(
       { intake: [card] },
-      { [`POST /api/v1/cards/${card.id}/cancel`]: jsonResponse(card) },
+      { [`POST /api/v1/cards/${String(card.id)}/cancel`]: jsonResponse(card) },
     )
     renderApp({ fetchFn: fake.fetch })
     // Act
@@ -203,7 +204,7 @@ describe('BoardPage card actions', () => {
     await user.click(screen.getByRole('option', { name: 'Duplicate' }))
     await user.click(screen.getByRole('button', { name: 'Cancel card' }))
     // Assert
-    expect(fake.lastBody('POST', `/api/v1/cards/${card.id}/cancel`)).toEqual({
+    expect(fake.lastBody('POST', `/api/v1/cards/${String(card.id)}/cancel`)).toEqual({
       resolution: 'duplicate',
     })
     const call = fake.calls.find((c) => c.url.includes('/cancel'))
@@ -222,14 +223,14 @@ describe('BoardPage card actions', () => {
     })
     const fake = boardApp(
       { intake: [card] },
-      { [`POST /api/v1/cards/${card.id}/unblock`]: jsonResponse(card) },
+      { [`POST /api/v1/cards/${String(card.id)}/unblock`]: jsonResponse(card) },
     )
     renderApp({ fetchFn: fake.fetch })
     // Act
     await openCardMenu(user, 'Blocked card')
     await user.click(await screen.findByRole('menuitem', { name: 'Unblock' }))
     // Assert
-    expect(fake.lastBody('POST', `/api/v1/cards/${card.id}/unblock`)).toEqual({})
+    expect(fake.lastBody('POST', `/api/v1/cards/${String(card.id)}/unblock`)).toEqual({})
   })
 
   it('reopens a terminal card from the menu (cancel is replaced by reopen)', async () => {
@@ -238,14 +239,14 @@ describe('BoardPage card actions', () => {
     const card = makeCard('done', { title: 'Finished card', resolution: 'completed', version: 9 })
     const fake = boardApp(
       { intake: [card] },
-      { [`POST /api/v1/cards/${card.id}/reopen`]: jsonResponse(card) },
+      { [`POST /api/v1/cards/${String(card.id)}/reopen`]: jsonResponse(card) },
     )
     renderApp({ fetchFn: fake.fetch })
     // Act
     await openCardMenu(user, 'Finished card')
     await user.click(await screen.findByRole('menuitem', { name: 'Reopen' }))
     // Assert
-    expect(fake.lastBody('POST', `/api/v1/cards/${card.id}/reopen`)).toEqual({})
+    expect(fake.lastBody('POST', `/api/v1/cards/${String(card.id)}/reopen`)).toEqual({})
     const call = fake.calls.find((c) => c.url.includes('/reopen'))
     expect(new Headers(call?.init?.headers).get('If-Match')).toBe('"9"')
   })
@@ -262,7 +263,7 @@ describe('BoardPage card actions', () => {
       'GET /api/v1/users': fixturePickerUsers,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
-      [`POST /api/v1/cards/${done.id}/archive`]: jsonResponse({
+      [`POST /api/v1/cards/${String(done.id)}/archive`]: jsonResponse({
         ...done,
         archivedAt: '2026-07-16T00:00:00.000Z',
       }),
@@ -276,7 +277,7 @@ describe('BoardPage card actions', () => {
     await openCardMenu(user, 'Closed job')
     await user.click(await screen.findByRole('menuitem', { name: 'Archive' }))
     // Assert
-    expect(fake.lastBody('POST', `/api/v1/cards/${done.id}/archive`)).toEqual({})
+    expect(fake.lastBody('POST', `/api/v1/cards/${String(done.id)}/archive`)).toEqual({})
     const call = fake.calls.find((c) => c.url.includes('/archive'))
     expect(new Headers(call?.init?.headers).get('If-Match')).toBe('"7"')
     expect(await screen.findByText('Card archived')).toBeInTheDocument()
@@ -305,7 +306,7 @@ describe('BoardPage card actions', () => {
     const fake = boardApp(
       { intake: [moving] },
       {
-        [`POST /api/v1/cards/${moving.id}/move`]: () =>
+        [`POST /api/v1/cards/${String(moving.id)}/move`]: () =>
           problemResponse(422, { title: 'Illegal transition' }),
       },
     )

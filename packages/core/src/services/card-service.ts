@@ -130,9 +130,8 @@ export class CardService {
       const top = await tx.cards.edgeOfLane(intake.id, 'first')
       const nowIso = this.deps.clock.now().toISOString()
       const card: Card = {
-        id: this.deps.ids.newId(),
+        id: await tx.cards.nextCardId(this.deps.boardId),
         boardId: this.deps.boardId,
-        number: await tx.cards.nextCardNumber(this.deps.boardId),
         laneId: intake.id,
         position: generateKeyBetween(null, top?.position ?? null),
         title: input.title,
@@ -184,7 +183,7 @@ export class CardService {
    * `expectedVersion` conflicts (409).
    * Audit events: one `card.field_changed` per changed field.
    */
-  async update(actor: Actor, cardId: string, rawInput: unknown): Promise<Card> {
+  async update(actor: Actor, cardId: number, rawInput: unknown): Promise<Card> {
     const input = updateCardInputSchema.parse(rawInput)
     const result = await this.deps.uow.run(async (tx) => {
       const card = requireFound(await tx.cards.findById(cardId), 'card')
@@ -298,7 +297,7 @@ export class CardService {
    * Audit events: `card.reordered` (same lane) or `card.status_changed` with
    * `wipLimitExceeded`/`clearedWaiting` markers.
    */
-  async move(actor: Actor, cardId: string, rawInput: unknown): Promise<Card> {
+  async move(actor: Actor, cardId: number, rawInput: unknown): Promise<Card> {
     const input = moveCardInputSchema.parse(rawInput)
     const result = await runWithPositionRetry(
       this.deps.uow,
@@ -333,7 +332,7 @@ export class CardService {
             })
           : null
 
-        const readNeighbor = async (neighborId: string | null): Promise<Card | null> => {
+        const readNeighbor = async (neighborId: number | null): Promise<Card | null> => {
           if (neighborId === null) return null
           const neighbor = await tx.cards.findById(neighborId)
           if (
@@ -439,7 +438,7 @@ export class CardService {
    * already in `done` conflict (409); stale `expectedVersion` conflicts.
    * Audit events: a single `card.cancelled` (no `card.status_changed`).
    */
-  async cancel(actor: Actor, cardId: string, rawInput: unknown): Promise<Card> {
+  async cancel(actor: Actor, cardId: number, rawInput: unknown): Promise<Card> {
     const input = cancelCardInputSchema.parse(rawInput)
     const result = await runWithPositionRetry(
       this.deps.uow,
@@ -490,7 +489,7 @@ export class CardService {
    * transition (422); stale `expectedVersion` conflicts.
    * Audit events: `card.reopened`.
    */
-  async reopen(actor: Actor, cardId: string, rawInput: unknown): Promise<Card> {
+  async reopen(actor: Actor, cardId: number, rawInput: unknown): Promise<Card> {
     const input = reopenCardInputSchema.parse(rawInput)
     const result = await runWithPositionRetry(
       this.deps.uow,
@@ -544,7 +543,7 @@ export class CardService {
    * archived (409, read-only); stale `expectedVersion` conflicts (409).
    * Audit events: one `card.archived` (actorKind `user`).
    */
-  async archive(actor: Actor, cardId: string, rawInput: unknown): Promise<Card> {
+  async archive(actor: Actor, cardId: number, rawInput: unknown): Promise<Card> {
     const input = archiveCardInputSchema.parse(rawInput)
     const result = await this.deps.uow.run(async (tx) => {
       const card = requireFound(await tx.cards.findById(cardId), 'card')
@@ -703,7 +702,7 @@ export class CardService {
    * conflicts.
    * Audit events: `card.blocked` with the reason.
    */
-  async block(actor: Actor, cardId: string, rawInput: unknown): Promise<Card> {
+  async block(actor: Actor, cardId: number, rawInput: unknown): Promise<Card> {
     const input = blockCardInputSchema.parse(rawInput)
     return this.setBlockedFlag(actor, cardId, input.expectedVersion, input.reason)
   }
@@ -715,7 +714,7 @@ export class CardService {
    * conflicts (409); stale `expectedVersion` conflicts.
    * Audit events: `card.unblocked`.
    */
-  async unblock(actor: Actor, cardId: string, rawInput: unknown): Promise<Card> {
+  async unblock(actor: Actor, cardId: number, rawInput: unknown): Promise<Card> {
     const input = unblockCardInputSchema.parse(rawInput)
     return this.setBlockedFlag(actor, cardId, input.expectedVersion, null)
   }
@@ -736,7 +735,7 @@ export class CardService {
 
   private async setBlockedFlag(
     actor: Actor,
-    cardId: string,
+    cardId: number,
     expectedVersion: number,
     reason: string | null,
   ): Promise<Card> {

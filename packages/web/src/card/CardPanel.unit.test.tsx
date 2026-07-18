@@ -26,14 +26,14 @@ function panelApp(extra: Record<string, unknown> = {}): FakeFetch {
     'GET /api/v1/users': fixturePickerUsers,
     'GET /api/v1/locations': [],
     'GET /api/v1/tags': [{ id: uid(110), name: 'plumbing' }],
-    [`GET /api/v1/cards/${card.id}`]: {
+    [`GET /api/v1/cards/${String(card.id)}`]: {
       card: card,
       tags: [],
       location: null,
       attachments: [],
     },
-    [`GET /api/v1/cards/${card.id}/comments`]: [],
-    [`GET /api/v1/cards/${card.id}/events`]: { items: [], nextCursor: null },
+    [`GET /api/v1/cards/${String(card.id)}/comments`]: [],
+    [`GET /api/v1/cards/${String(card.id)}/events`]: { items: [], nextCursor: null },
     ...extra,
   })
 }
@@ -43,7 +43,7 @@ describe('CardPanel', () => {
     // Arrange
     const fake = panelApp()
     // Act
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     // Assert — the dialog is named by its header: the hidden panel label,
     // the card title, and the priority badge sitting inline beside it.
     const dialog = await screen.findByRole('dialog', { name: /Fix pump/ })
@@ -55,7 +55,7 @@ describe('CardPanel', () => {
     // Arrange — desktop is the default viewport in the test environment
     const user = userEvent.setup()
     const fake = panelApp()
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     await screen.findByRole('dialog', { name: /Fix pump/ })
     // Act — operate the shell BEHIND the open drawer: a modal drawer would
     // swallow the outside click (and close on it) instead of letting it land.
@@ -68,15 +68,15 @@ describe('CardPanel', () => {
   it('saves edited fields with If-Match from the card version', async () => {
     // Arrange
     const user = userEvent.setup()
-    const fake = panelApp({ [`PATCH /api/v1/cards/${card.id}`]: card })
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    const fake = panelApp({ [`PATCH /api/v1/cards/${String(card.id)}`]: card })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     // Act
     const title = await screen.findByRole('textbox', { name: /Title/ })
     await user.clear(title)
     await user.type(title, 'Replace pump seal')
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     // Assert
-    expect(fake.lastBody('PATCH', `/api/v1/cards/${card.id}`)).toEqual({
+    expect(fake.lastBody('PATCH', `/api/v1/cards/${String(card.id)}`)).toEqual({
       title: 'Replace pump seal',
     })
     const patch = fake.calls.find((c) => c.method === 'PATCH')
@@ -93,8 +93,8 @@ describe('CardPanel', () => {
       body: 'Old note',
     })
     const fake = panelApp({
-      [`GET /api/v1/cards/${card.id}/comments`]: [existing],
-      [`POST /api/v1/cards/${card.id}/comments`]: makeComment({
+      [`GET /api/v1/cards/${String(card.id)}/comments`]: [existing],
+      [`POST /api/v1/cards/${String(card.id)}/comments`]: makeComment({
         id: uid(112),
         cardId: card.id,
         body: 'New note',
@@ -102,7 +102,7 @@ describe('CardPanel', () => {
       [`PATCH /api/v1/comments/${existing.id}`]: { ...existing, body: 'Edited note' },
       [`DELETE /api/v1/comments/${existing.id}`]: {},
     })
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     await screen.findByRole('textbox', { name: /Title/ })
     // Act
     await user.click(screen.getByRole('tab', { name: 'Comments' }))
@@ -117,7 +117,7 @@ describe('CardPanel', () => {
     // A confirmation guards the irreversible delete — confirm it.
     await user.click(await screen.findByRole('button', { name: 'Delete it' }))
     // Assert
-    expect(fake.lastBody('POST', `/api/v1/cards/${card.id}/comments`)).toEqual({
+    expect(fake.lastBody('POST', `/api/v1/cards/${String(card.id)}/comments`)).toEqual({
       body: 'New note',
     })
     expect(fake.lastBody('PATCH', `/api/v1/comments/${existing.id}`)).toEqual({
@@ -135,8 +135,8 @@ describe('CardPanel', () => {
       authorId: fixtureAdmin.id,
       body: 'Note to keep',
     })
-    const fake = panelApp({ [`GET /api/v1/cards/${card.id}/comments`]: [existing] })
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    const fake = panelApp({ [`GET /api/v1/cards/${String(card.id)}/comments`]: [existing] })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     await screen.findByRole('textbox', { name: /Title/ })
     // Act — open the delete confirm, then press Escape to back out of it.
     await user.click(screen.getByRole('tab', { name: 'Comments' }))
@@ -166,9 +166,9 @@ describe('CardPanel', () => {
       body: 'Reply kept for context',
     })
     const fake = panelApp({
-      [`GET /api/v1/cards/${card.id}/comments`]: [deleted, reply],
+      [`GET /api/v1/cards/${String(card.id)}/comments`]: [deleted, reply],
     })
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     await screen.findByRole('textbox', { name: /Title/ })
     // Act
     await user.click(screen.getByRole('tab', { name: 'Comments' }))
@@ -184,14 +184,14 @@ describe('CardPanel', () => {
     const second = makeStatusChangedEvent(card, 22, 'waiting_approval', 'ready')
     let eventsCall = 0
     const fake = panelApp({
-      [`GET /api/v1/cards/${card.id}/events`]: () => {
+      [`GET /api/v1/cards/${String(card.id)}/events`]: () => {
         eventsCall += 1
         return eventsCall === 1
           ? { items: [first], nextCursor: 'cursor-2' }
           : { items: [second], nextCursor: null }
       },
     })
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     await screen.findByRole('textbox', { name: /Title/ })
     // Act
     await user.click(screen.getByRole('tab', { name: 'History' }))
@@ -220,17 +220,17 @@ describe('CardPanel', () => {
       'GET /api/v1/users': fixturePickerUsers,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
-      [`GET /api/v1/cards/${archived.id}`]: {
+      [`GET /api/v1/cards/${String(archived.id)}`]: {
         card: archived,
         tags: [],
         location: null,
         attachments: [],
       },
-      [`GET /api/v1/cards/${archived.id}/comments`]: [],
-      [`GET /api/v1/cards/${archived.id}/events`]: { items: [], nextCursor: null },
-      [`POST /api/v1/cards/${archived.id}/reopen`]: archived,
+      [`GET /api/v1/cards/${String(archived.id)}/comments`]: [],
+      [`GET /api/v1/cards/${String(archived.id)}/events`]: { items: [], nextCursor: null },
+      [`POST /api/v1/cards/${String(archived.id)}/reopen`]: archived,
     })
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${archived.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(archived.id)}` })
     // Act
     await screen.findByText('This card is archived — reopen it to make changes.')
     await user.click(screen.getByRole('button', { name: 'Reopen' }))
@@ -246,10 +246,10 @@ describe('CardPanel', () => {
     // Arrange
     const user = userEvent.setup()
     const fake = panelApp({
-      [`POST /api/v1/cards/${card.id}/comments`]: () =>
+      [`POST /api/v1/cards/${String(card.id)}/comments`]: () =>
         problemResponse(409, { title: 'Card is archived' }),
     })
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     await screen.findByRole('textbox', { name: /Title/ })
     // Act
     await user.click(screen.getByRole('tab', { name: 'Comments' }))
@@ -277,7 +277,7 @@ describe('CardPanel', () => {
     const fake = panelApp({
       'GET /api/v1/auth/me': fixtureTech,
       'GET /api/v1/policy': policyRecordOf(permissivePolicy),
-      [`GET /api/v1/cards/${card.id}`]: {
+      [`GET /api/v1/cards/${String(card.id)}`]: {
         card: card,
         tags: [],
         location: null,
@@ -285,7 +285,7 @@ describe('CardPanel', () => {
       },
     })
     // Act
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     // Assert
     expect(await screen.findByRole('img', { name: 'their-photo.png' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Delete their-photo.png' })).not.toBeInTheDocument()
@@ -306,8 +306,8 @@ describe('CardPanel', () => {
       createdAt: '2026-07-01T10:00:00.000Z',
       deletedAt: null,
     }
-    const fake = panelApp({ [`POST /api/v1/cards/${card.id}/attachments`]: stored })
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    const fake = panelApp({ [`POST /api/v1/cards/${String(card.id)}/attachments`]: stored })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     await screen.findByRole('textbox', { name: /Title/ })
     // Act
     const file = new File(['png-bytes'], 'after.png', { type: 'image/png' })
@@ -335,17 +335,17 @@ describe('CardPanel', () => {
       'GET /api/v1/users': fixturePickerUsers,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
-      [`GET /api/v1/cards/${blocked.id}`]: {
+      [`GET /api/v1/cards/${String(blocked.id)}`]: {
         card: blocked,
         tags: [],
         location: null,
         attachments: [],
       },
-      [`GET /api/v1/cards/${blocked.id}/comments`]: [],
-      [`GET /api/v1/cards/${blocked.id}/events`]: { items: [], nextCursor: null },
-      [`POST /api/v1/cards/${blocked.id}/unblock`]: { ...blocked, blocked: false },
+      [`GET /api/v1/cards/${String(blocked.id)}/comments`]: [],
+      [`GET /api/v1/cards/${String(blocked.id)}/events`]: { items: [], nextCursor: null },
+      [`POST /api/v1/cards/${String(blocked.id)}/unblock`]: { ...blocked, blocked: false },
     })
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${blocked.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(blocked.id)}` })
     // Act
     expect(await screen.findByText('This card is blocked')).toBeInTheDocument()
     expect(screen.getByText('Waiting on landlord approval')).toBeInTheDocument()
@@ -369,17 +369,17 @@ describe('CardPanel', () => {
       'GET /api/v1/users': fixturePickerUsers,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
-      [`GET /api/v1/cards/${cancelled.id}`]: {
+      [`GET /api/v1/cards/${String(cancelled.id)}`]: {
         card: cancelled,
         tags: [],
         location: null,
         attachments: [],
       },
-      [`GET /api/v1/cards/${cancelled.id}/comments`]: [],
-      [`GET /api/v1/cards/${cancelled.id}/events`]: { items: [], nextCursor: null },
+      [`GET /api/v1/cards/${String(cancelled.id)}/comments`]: [],
+      [`GET /api/v1/cards/${String(cancelled.id)}/events`]: { items: [], nextCursor: null },
     })
     // Act
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${cancelled.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(cancelled.id)}` })
     // Assert
     expect(await screen.findByText('This card was cancelled')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Reopen' })).toBeInTheDocument()
@@ -400,17 +400,17 @@ describe('CardPanel', () => {
       'GET /api/v1/users': fixturePickerUsers,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
-      [`GET /api/v1/cards/${duplicate.id}`]: {
+      [`GET /api/v1/cards/${String(duplicate.id)}`]: {
         card: duplicate,
         tags: [],
         location: null,
         attachments: [],
       },
-      [`GET /api/v1/cards/${duplicate.id}/comments`]: [],
-      [`GET /api/v1/cards/${duplicate.id}/events`]: { items: [], nextCursor: null },
+      [`GET /api/v1/cards/${String(duplicate.id)}/comments`]: [],
+      [`GET /api/v1/cards/${String(duplicate.id)}/events`]: { items: [], nextCursor: null },
     })
     // Act
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${duplicate.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(duplicate.id)}` })
     // Assert
     expect(await screen.findByText('This card is a duplicate')).toBeInTheDocument()
   })
@@ -431,17 +431,21 @@ describe('CardPanel', () => {
       'GET /api/v1/users': fixturePickerUsers,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
-      [`GET /api/v1/cards/${waiting.id}`]: {
+      [`GET /api/v1/cards/${String(waiting.id)}`]: {
         card: waiting,
         tags: [],
         location: null,
         attachments: [],
       },
-      [`GET /api/v1/cards/${waiting.id}/comments`]: [],
-      [`GET /api/v1/cards/${waiting.id}/events`]: { items: [], nextCursor: null },
-      [`PATCH /api/v1/cards/${waiting.id}`]: { ...waiting, waitingReason: 'vendor', version: 6 },
+      [`GET /api/v1/cards/${String(waiting.id)}/comments`]: [],
+      [`GET /api/v1/cards/${String(waiting.id)}/events`]: { items: [], nextCursor: null },
+      [`PATCH /api/v1/cards/${String(waiting.id)}`]: {
+        ...waiting,
+        waitingReason: 'vendor',
+        version: 6,
+      },
     })
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${waiting.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(waiting.id)}` })
     // Act — wait for the panel body (its Title field) so we don't match the
     // lane label of the same name behind the non-modal panel.
     await screen.findByRole('textbox', { name: /Title/ })
@@ -452,7 +456,7 @@ describe('CardPanel', () => {
     await user.click(await screen.findByRole('option', { name: 'Vendor' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
     // Assert — PATCH carried only the changed reason and the If-Match version.
-    expect(fake.lastBody('PATCH', `/api/v1/cards/${waiting.id}`)).toEqual({
+    expect(fake.lastBody('PATCH', `/api/v1/cards/${String(waiting.id)}`)).toEqual({
       waitingReason: 'vendor',
       expectedResumeAt: '2026-08-01',
     })
@@ -464,10 +468,10 @@ describe('CardPanel', () => {
     // Arrange
     const user = userEvent.setup()
     const fake = panelApp({
-      [`POST /api/v1/cards/${card.id}/attachments`]: () =>
+      [`POST /api/v1/cards/${String(card.id)}/attachments`]: () =>
         problemResponse(413, { title: 'Upload too large' }),
     })
-    renderApp({ fetchFn: fake.fetch, route: `/cards/${card.id}` })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     await screen.findByRole('textbox', { name: /Title/ })
     // Act
     const file = new File(['png-bytes'], 'huge.png', { type: 'image/png' })

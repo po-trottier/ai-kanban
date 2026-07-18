@@ -48,7 +48,10 @@ export function useMoveCard(onMoved?: (args: MoveCardArgs) => void) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ card, intent }: MoveCardArgs) =>
-      api.post(`/cards/${card.id}/move`, cardSchema, { body: intent, ifMatch: card.version }),
+      api.post(`/cards/${String(card.id)}/move`, cardSchema, {
+        body: intent,
+        ifMatch: card.version,
+      }),
     onMutate: async ({ card, intent }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.board })
       const previous = queryClient.getQueryData<BoardResponse>(queryKeys.board)
@@ -75,8 +78,14 @@ export function useMoveCard(onMoved?: (args: MoveCardArgs) => void) {
       const note = args.comment?.trim()
       if (note !== undefined && note !== '') {
         void api
-          .post(`/cards/${args.card.id}/comments`, commentResponseSchema, { body: { body: note } })
-          .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.comments(args.card.id) }))
+          .post(`/cards/${String(args.card.id)}/comments`, commentResponseSchema, {
+            body: { body: note },
+          })
+          .then(() =>
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.comments(String(args.card.id)),
+            }),
+          )
           .catch(notifyError)
       }
     },
@@ -110,7 +119,8 @@ export function useUpdateCard() {
     }: {
       card: Card
       changes: Omit<UpdateCardInput, 'expectedVersion'>
-    }) => api.patch(`/cards/${card.id}`, cardSchema, { body: changes, ifMatch: card.version }),
+    }) =>
+      api.patch(`/cards/${String(card.id)}`, cardSchema, { body: changes, ifMatch: card.version }),
     onSuccess: (updated) => {
       notifySuccess(strings.detail.fieldsSaved)
       invalidateCard(queryClient, updated.id)
@@ -146,7 +156,7 @@ export function useCardAction() {
     // Only id + version are read (route + If-Match): the board summary and the
     // panel's full Card both fit, so both surfaces call one mutation.
     mutationFn: ({ card, ...action }: { card: Pick<BoardCard, 'id' | 'version'> } & CardAction) =>
-      api.post(`/cards/${card.id}/${action.action}`, cardSchema, {
+      api.post(`/cards/${String(card.id)}/${action.action}`, cardSchema, {
         body: 'body' in action ? action.body : {},
         ifMatch: card.version,
       }),
@@ -163,8 +173,10 @@ export function useCardAction() {
   })
 }
 
-function invalidateCard(queryClient: QueryClient, cardId: string): void {
+function invalidateCard(queryClient: QueryClient, cardId: number): void {
+  // Query keys are stringy (URL params are strings); the card id is an int.
+  const key = String(cardId)
   void queryClient.invalidateQueries({ queryKey: queryKeys.board })
-  void queryClient.invalidateQueries({ queryKey: queryKeys.card(cardId) })
-  void queryClient.invalidateQueries({ queryKey: queryKeys.events(cardId) })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.card(key) })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.events(key) })
 }

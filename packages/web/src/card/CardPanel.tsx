@@ -134,7 +134,7 @@ export function CardPanel({ cardId }: { cardId: string }) {
           ) : (
             <>
               <Text fw={EMPHASIS_FONT_WEIGHT} c="dimmed">
-                {formatTicketNumber(card.number)}
+                {formatTicketNumber(card.id)}
               </Text>
               <Text fw={EMPHASIS_FONT_WEIGHT} lineClamp={1}>
                 {card.title}

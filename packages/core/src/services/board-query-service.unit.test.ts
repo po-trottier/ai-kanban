@@ -295,7 +295,7 @@ describe('BoardQueryService.cardDetail', () => {
     const scenario = createScenario()
 
     // Act
-    const act = scenario.queries.cardDetail(fixtureId(999))
+    const act = scenario.queries.cardDetail(999)
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(NotFoundError)
@@ -493,7 +493,7 @@ describe('BoardQueryService.cardDetailWithThread', () => {
     const scenario = createScenario()
 
     // Act
-    const act = scenario.queries.cardDetailWithThread(fixtureId(999), 5)
+    const act = scenario.queries.cardDetailWithThread(999, 5)
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(NotFoundError)

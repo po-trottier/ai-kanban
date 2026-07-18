@@ -4,7 +4,12 @@ import { type ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { type AppDeps } from '../types.ts'
 import { actorOf } from './user-routes.ts'
-import { commentResponseSchema, emptyBodySchema, idParamsSchema } from './schemas.ts'
+import {
+  cardIdParamsSchema,
+  commentResponseSchema,
+  emptyBodySchema,
+  idParamsSchema,
+} from './schemas.ts'
 
 /**
  * Threaded comments (docs/architecture/rest-api.md#comments). Soft-deleted
@@ -20,7 +25,7 @@ export function commentRoutes(deps: AppDeps) {
       '/cards/:id/comments',
       {
         schema: {
-          params: idParamsSchema,
+          params: cardIdParamsSchema,
           response: { 200: z.array(commentResponseSchema) },
         },
       },
@@ -31,7 +36,7 @@ export function commentRoutes(deps: AppDeps) {
       '/cards/:id/comments',
       {
         schema: {
-          params: idParamsSchema,
+          params: cardIdParamsSchema,
           body: addCommentInputSchema,
           response: { 201: commentResponseSchema },
         },

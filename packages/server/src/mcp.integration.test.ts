@@ -121,14 +121,14 @@ interface SnapshotLane {
   blockedCount: number
   wipLimitExceeded: boolean
   oldestCardCreatedAt: string | null
-  cards: { id: string; title: string; createdAt: string }[]
+  cards: { id: number; title: string; createdAt: string }[]
 }
 
 /**
  * The current top card of a lane (position order) — cross-lane moves into a
  * non-empty lane need a real neighbor, exactly like REST drags (ADR-006).
  */
-async function laneTopId(client: Client, laneKey: string): Promise<string | null> {
+async function laneTopId(client: Client, laneKey: string): Promise<number | null> {
   const snapshot = await callOk<{ lanes: SnapshotLane[] }>(client, 'get_board_snapshot')
   return snapshot.lanes.find((entry) => entry.lane.key === laneKey)?.cards[0]?.id ?? null
 }
@@ -205,7 +205,8 @@ describe('read tools against the demo seed', () => {
     expect(inProgress?.cardCount).toBe(2)
     expect(inProgress?.blockedCount).toBe(1)
     expect(inProgress?.oldestCardCreatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
-    expect(inProgress?.cards[0]?.id).toMatch(/^[0-9a-f-]{36}$/)
+    expect(inProgress?.cards[0]?.id).toEqual(expect.any(Number))
+    expect(inProgress?.cards[0]?.id).toBeGreaterThan(0)
   })
 
   it('list_cards filters by lane and paginates with the shared cursor', async () => {
@@ -657,17 +658,17 @@ describe('board-wide read tools', () => {
 })
 
 describe('read-scope identity rule', () => {
-  const ZERO_UUID = '00000000-0000-7000-8000-000000000000'
+  const ABSENT_CARD_ID = 999999
   it.each([
     ['create_card', { title: 'denied' }],
-    ['update_card', { cardId: ZERO_UUID, expectedVersion: 1 }],
-    ['move_card', { cardId: ZERO_UUID, toLane: 'ready', expectedVersion: 1 }],
-    ['comment_on_card', { cardId: ZERO_UUID, body: 'denied' }],
-    ['cancel_card', { cardId: ZERO_UUID, resolution: 'duplicate', expectedVersion: 1 }],
-    ['reopen_card', { cardId: ZERO_UUID, expectedVersion: 1 }],
-    ['archive_card', { cardId: ZERO_UUID, expectedVersion: 1 }],
-    ['block_card', { cardId: ZERO_UUID, reason: 'denied', expectedVersion: 1 }],
-    ['unblock_card', { cardId: ZERO_UUID, expectedVersion: 1 }],
+    ['update_card', { cardId: ABSENT_CARD_ID, expectedVersion: 1 }],
+    ['move_card', { cardId: ABSENT_CARD_ID, toLane: 'ready', expectedVersion: 1 }],
+    ['comment_on_card', { cardId: ABSENT_CARD_ID, body: 'denied' }],
+    ['cancel_card', { cardId: ABSENT_CARD_ID, resolution: 'duplicate', expectedVersion: 1 }],
+    ['reopen_card', { cardId: ABSENT_CARD_ID, expectedVersion: 1 }],
+    ['archive_card', { cardId: ABSENT_CARD_ID, expectedVersion: 1 }],
+    ['block_card', { cardId: ABSENT_CARD_ID, reason: 'denied', expectedVersion: 1 }],
+    ['unblock_card', { cardId: ABSENT_CARD_ID, expectedVersion: 1 }],
   ] as const)('denies %s for a read-scope token, naming the rule', async (name, args) => {
     const client = await connect(reader.raw)
 
@@ -866,7 +867,7 @@ describe('audit trail', () => {
 
     const response = await t.request(adminCookie, {
       method: 'GET',
-      url: `/api/v1/cards/${card.id}/events`,
+      url: `/api/v1/cards/${String(card.id)}/events`,
     })
 
     const events = response.json<{

@@ -31,8 +31,8 @@ describe('CardService.create', () => {
     const second = await scenario.cards.create(scenario.actors.technician, { title: 'Second' })
 
     // Assert
-    expect(first.number).toBe(1)
-    expect(second.number).toBe(2)
+    expect(first.id).toBe(1)
+    expect(second.id).toBe(2)
   })
 
   it('writes a card.created audit event with a full snapshot including tags', async () => {

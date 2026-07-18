@@ -20,7 +20,7 @@ afterAll(async () => {
 })
 
 interface CardBody {
-  id: string
+  id: number
   laneId: string
   position: string
   version: number
@@ -42,22 +42,22 @@ async function createCard(title: string): Promise<CardBody> {
 }
 
 async function act(
-  card: { id: string; version: number },
+  card: { id: number; version: number },
   action: string,
   payload?: Record<string, unknown>,
 ) {
   return t.request(cookie, {
     method: 'POST',
-    url: `/api/v1/cards/${card.id}/${action}`,
+    url: `/api/v1/cards/${String(card.id)}/${action}`,
     headers: { 'if-match': `"${String(card.version)}"` },
     ...(payload !== undefined ? { payload } : {}),
   })
 }
 
-async function lastEvent(cardId: string) {
+async function lastEvent(cardId: number) {
   const response = await t.request(cookie, {
     method: 'GET',
-    url: `/api/v1/cards/${cardId}/events`,
+    url: `/api/v1/cards/${String(cardId)}/events`,
   })
   const items = response.json<{
     items: { eventType: string; payload: Record<string, unknown> }[]
@@ -130,7 +130,7 @@ describe('POST /cards/:id/move', () => {
     const response = await act(card, 'move', { toLane: 'intake', prevCardId: neighbor.id })
 
     expect(response.statusCode).toBe(409)
-    expect(response.json<{ current: { id: string } }>().current.id).toBe(card.id)
+    expect(response.json<{ current: { id: number } }>().current.id).toBe(card.id)
   })
 
   it('409s a stale If-Match version', async () => {
@@ -144,10 +144,10 @@ describe('POST /cards/:id/move', () => {
   })
 })
 
-async function patch(card: { id: string; version: number }, body: Record<string, unknown>) {
+async function patch(card: { id: number; version: number }, body: Record<string, unknown>) {
   return t.request(cookie, {
     method: 'PATCH',
-    url: `/api/v1/cards/${card.id}`,
+    url: `/api/v1/cards/${String(card.id)}`,
     headers: { 'if-match': `"${String(card.version)}"` },
     payload: body,
   })
@@ -369,14 +369,14 @@ describe('archived cards are read-only', () => {
 
     const patch = await t.request(cookie, {
       method: 'PATCH',
-      url: `/api/v1/cards/${card.id}`,
+      url: `/api/v1/cards/${String(card.id)}`,
       headers: { 'if-match': '"1"' },
       payload: { title: 'Nope' },
     })
     const move = await act(card, 'move', { toLane: 'ready' })
     const comment = await t.request(cookie, {
       method: 'POST',
-      url: `/api/v1/cards/${card.id}/comments`,
+      url: `/api/v1/cards/${String(card.id)}/comments`,
       payload: { body: 'Nope' },
     })
 

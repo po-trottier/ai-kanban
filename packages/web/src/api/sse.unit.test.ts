@@ -7,7 +7,8 @@ import { connectStream, hintInvalidations, type StreamSource } from './sse.ts'
 describe('hintInvalidations', () => {
   it('maps card hints to board, card, and history queries', () => {
     // Arrange
-    const cardId = uid(1)
+    const cardId = 1
+    const key = String(cardId)
     const hint = {
       type: 'card.status_changed',
       cardId,
@@ -17,17 +18,18 @@ describe('hintInvalidations', () => {
     // Act
     const keys = hintInvalidations(hint)
     // Assert
-    expect(keys).toEqual([queryKeys.board, queryKeys.card(cardId), queryKeys.events(cardId)])
+    expect(keys).toEqual([queryKeys.board, queryKeys.card(key), queryKeys.events(key)])
   })
 
   it('maps comment hints to the comment thread and history only', () => {
     // Arrange
-    const cardId = uid(1)
+    const cardId = 1
+    const key = String(cardId)
     const hint = { type: 'comment.added', cardId, version: 3, eventId: uid(2) } as const
     // Act
     const keys = hintInvalidations(hint)
     // Assert
-    expect(keys).toEqual([queryKeys.comments(cardId), queryKeys.events(cardId)])
+    expect(keys).toEqual([queryKeys.comments(key), queryKeys.events(key)])
   })
 
   it('maps board-scoped hints to their config caches (ADR-008)', () => {

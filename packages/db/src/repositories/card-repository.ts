@@ -36,16 +36,16 @@ export class SqliteCardRepository implements CardRepository {
     this.db = db
   }
 
-  findById(id: string): Promise<Card | null> {
+  findById(id: number): Promise<Card | null> {
     const row = this.db.select().from(cards).where(eq(cards.id, id)).get()
     return Promise.resolve(row ?? null)
   }
 
-  nextCardNumber(boardId: string): Promise<number> {
-    // MAX(number)+1 under the board-number unique index; atomic inside the
-    // create transaction (SQLite single writer), the index is the backstop.
+  nextCardId(boardId: string): Promise<number> {
+    // MAX(id)+1 per board — the id IS the ticket number; atomic inside the
+    // create transaction (SQLite single writer), the id PK is the backstop.
     const row = this.db
-      .select({ max: sql<number | null>`max(${cards.number})` })
+      .select({ max: sql<number | null>`max(${cards.id})` })
       .from(cards)
       .where(eq(cards.boardId, boardId))
       .get()
@@ -112,7 +112,7 @@ export class SqliteCardRepository implements CardRepository {
       .where(inArray(cardTags.cardId, cardIds))
       .orderBy(asc(tags.name))
       .all()
-    const tagsByCard = new Map<string, string[]>()
+    const tagsByCard = new Map<number, string[]>()
     for (const { cardId, name } of tagRows) {
       const list = tagsByCard.get(cardId) ?? []
       list.push(name)
@@ -217,7 +217,8 @@ export class SqliteCardRepository implements CardRepository {
       conditions.push(
         or(
           lt(cards.createdAt, after.createdAt),
-          and(eq(cards.createdAt, after.createdAt), lt(cards.id, after.id)),
+          // Card cursors carry the integer card id; Number() is a no-op on it.
+          and(eq(cards.createdAt, after.createdAt), lt(cards.id, Number(after.id))),
         ),
       )
     }

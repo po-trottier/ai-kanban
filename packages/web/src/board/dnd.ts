@@ -28,7 +28,7 @@ const CARD_DATA_TYPE = 'rivian-kanban/card'
 
 interface CardDragData extends Record<string | symbol, unknown> {
   type: typeof CARD_DATA_TYPE
-  cardId: string
+  cardId: number
   laneKey: LaneKey
 }
 
@@ -48,7 +48,7 @@ export function useCardDnd(
   ref: RefObject<HTMLElement | null>,
   card: BoardCard,
   laneKey: LaneKey,
-  canDrop: (source: { cardId: string; laneKey: LaneKey }) => boolean,
+  canDrop: (source: { cardId: number; laneKey: LaneKey }) => boolean,
 ): CardDndState {
   const [state, setState] = useState<CardDndState>(idleCardState)
 
@@ -123,7 +123,7 @@ export function useCardDnd(
 export function useLaneDnd(
   ref: RefObject<HTMLElement | null>,
   laneKey: LaneKey,
-  canDrop: (source: { cardId: string; laneKey: LaneKey }) => boolean,
+  canDrop: (source: { cardId: number; laneKey: LaneKey }) => boolean,
 ): { isDropTarget: boolean } {
   const [isDropTarget, setIsDropTarget] = useState(false)
 
@@ -165,7 +165,7 @@ export function useBoardAutoScroll(ref: RefObject<HTMLElement | null>): void {
 
 /** Watches all card drops and reports the resolved target to the board. */
 export function useBoardDropMonitor(
-  onDrop: (source: { cardId: string; laneKey: LaneKey }, target: DropTarget) => void,
+  onDrop: (source: { cardId: number; laneKey: LaneKey }, target: DropTarget) => void,
 ): void {
   useEffect(
     () =>

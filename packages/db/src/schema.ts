@@ -130,12 +130,13 @@ export const boardPolicies = sqliteTable(
 export const cards = sqliteTable(
   'cards',
   {
-    id: text('id').primaryKey(),
+    /** The primary key IS the human-readable ticket number: a per-board
+     * sequential integer assigned by the service (MAX(id)+1), not autoincrement.
+     * Globally unique as the PK; per-board sequential by construction. */
+    id: integer('id').primaryKey(),
     boardId: text('board_id')
       .notNull()
       .references(() => boards.id),
-    /** Human-readable sequential ticket number, UNIQUE(board_id, number). */
-    number: integer('number').notNull(),
     laneId: text('lane_id')
       .notNull()
       .references(() => lanes.id),
@@ -176,8 +177,6 @@ export const cards = sqliteTable(
   (table) => [
     /** The concurrent-duplicate backstop (ADR-006) → DuplicatePositionError. */
     uniqueIndex('cards_lane_id_position_unique').on(table.laneId, table.position),
-    /** Sequential ticket-number uniqueness per board (also serves `MAX(number)`). */
-    uniqueIndex('cards_board_id_number_unique').on(table.boardId, table.number),
     index('cards_board_id_archived_at_idx').on(table.boardId, table.archivedAt),
     index('cards_assignee_id_idx').on(table.assigneeId),
     index('cards_reporter_id_idx').on(table.reporterId),
@@ -220,7 +219,7 @@ export const tags = sqliteTable('tags', {
 export const cardTags = sqliteTable(
   'card_tags',
   {
-    cardId: text('card_id')
+    cardId: integer('card_id')
       .notNull()
       .references(() => cards.id),
     tagId: text('tag_id')
@@ -234,7 +233,7 @@ export const comments = sqliteTable(
   'comments',
   {
     id: text('id').primaryKey(),
-    cardId: text('card_id')
+    cardId: integer('card_id')
       .notNull()
       .references(() => cards.id),
     /** One level of nesting: replies to a reply attach to the same parent. */
@@ -256,7 +255,7 @@ export const attachments = sqliteTable(
   'attachments',
   {
     id: text('id').primaryKey(),
-    cardId: text('card_id')
+    cardId: integer('card_id')
       .notNull()
       .references(() => cards.id),
     /** Original filename, display only. */
@@ -281,7 +280,7 @@ export const cardEvents = sqliteTable(
   {
     /** UUIDv7 — time-ordered. */
     id: text('id').primaryKey(),
-    cardId: text('card_id')
+    cardId: integer('card_id')
       .notNull()
       .references(() => cards.id),
     /** User id or service-token id — deliberately no FK; NULL for `system`. */

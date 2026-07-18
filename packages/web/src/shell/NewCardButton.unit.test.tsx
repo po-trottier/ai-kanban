@@ -53,7 +53,7 @@ describe('NewCardButton', () => {
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
       'POST /api/v1/cards': card,
-      [`POST /api/v1/cards/${card.id}/attachments`]: attachment,
+      [`POST /api/v1/cards/${String(card.id)}/attachments`]: attachment,
     })
     renderWithProviders(<NewCardButton />, { fetchFn: fake.fetch })
     // Act
@@ -71,7 +71,8 @@ describe('NewCardButton', () => {
     })
     expect(
       fake.calls.some(
-        (call) => call.method === 'POST' && call.url === `/api/v1/cards/${card.id}/attachments`,
+        (call) =>
+          call.method === 'POST' && call.url === `/api/v1/cards/${String(card.id)}/attachments`,
       ),
     ).toBe(true)
   })

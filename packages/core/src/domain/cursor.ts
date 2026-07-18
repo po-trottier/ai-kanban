@@ -6,7 +6,9 @@ import { z } from 'zod'
  */
 export const cursorKeySchema = z.strictObject({
   createdAt: z.iso.datetime(),
-  id: z.uuid(),
+  /** Card list paginates on the integer card id; event feeds on the UUID event
+   * id. One shared cursor token, so the tie-break id is either. */
+  id: z.union([z.uuid(), z.number().int().positive()]),
 })
 
 export type CursorKey = z.infer<typeof cursorKeySchema>

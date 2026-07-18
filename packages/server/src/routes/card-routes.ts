@@ -19,8 +19,8 @@ import { actorOf } from './user-routes.ts'
 import {
   cardDetailResponseSchema,
   cardEventResponseSchema,
+  cardIdParamsSchema,
   cardResponseSchema,
-  idParamsSchema,
   ifMatchHeadersSchema,
   pageResponseOf,
 } from './schemas.ts'
@@ -115,7 +115,7 @@ export function cardRoutes(deps: AppDeps) {
       '/cards/:id',
       {
         schema: {
-          params: idParamsSchema,
+          params: cardIdParamsSchema,
           response: { 200: cardDetailResponseSchema },
         },
       },
@@ -129,7 +129,7 @@ export function cardRoutes(deps: AppDeps) {
       '/cards/:id',
       {
         schema: {
-          params: idParamsSchema,
+          params: cardIdParamsSchema,
           headers: ifMatchHeadersSchema,
           body: updateCardInputSchema.omit({ expectedVersion: true }),
           response: { 200: cardResponseSchema },
@@ -148,7 +148,7 @@ export function cardRoutes(deps: AppDeps) {
       '/cards/:id/move',
       {
         schema: {
-          params: idParamsSchema,
+          params: cardIdParamsSchema,
           headers: ifMatchHeadersSchema,
           body: moveCardInputSchema.omit({ expectedVersion: true }),
           response: { 200: cardResponseSchema },
@@ -167,7 +167,7 @@ export function cardRoutes(deps: AppDeps) {
       '/cards/:id/cancel',
       {
         schema: {
-          params: idParamsSchema,
+          params: cardIdParamsSchema,
           headers: ifMatchHeadersSchema,
           body: cancelCardInputSchema.omit({ expectedVersion: true }),
           response: { 200: cardResponseSchema },
@@ -187,7 +187,7 @@ export function cardRoutes(deps: AppDeps) {
       {
         config: { bodyless: true },
         schema: {
-          params: idParamsSchema,
+          params: cardIdParamsSchema,
           headers: ifMatchHeadersSchema,
           response: { 200: cardResponseSchema },
         },
@@ -205,7 +205,7 @@ export function cardRoutes(deps: AppDeps) {
       {
         config: { bodyless: true },
         schema: {
-          params: idParamsSchema,
+          params: cardIdParamsSchema,
           headers: ifMatchHeadersSchema,
           response: { 200: cardResponseSchema },
         },
@@ -222,7 +222,7 @@ export function cardRoutes(deps: AppDeps) {
       '/cards/:id/block',
       {
         schema: {
-          params: idParamsSchema,
+          params: cardIdParamsSchema,
           headers: ifMatchHeadersSchema,
           body: blockCardInputSchema.omit({ expectedVersion: true }),
           response: { 200: cardResponseSchema },
@@ -242,7 +242,7 @@ export function cardRoutes(deps: AppDeps) {
       {
         config: { bodyless: true },
         schema: {
-          params: idParamsSchema,
+          params: cardIdParamsSchema,
           headers: ifMatchHeadersSchema,
           response: { 200: cardResponseSchema },
         },
@@ -259,7 +259,7 @@ export function cardRoutes(deps: AppDeps) {
       '/cards/:id/events',
       {
         schema: {
-          params: idParamsSchema,
+          params: cardIdParamsSchema,
           querystring: eventsQuerySchema,
           response: { 200: pageResponseOf(cardEventResponseSchema) },
         },

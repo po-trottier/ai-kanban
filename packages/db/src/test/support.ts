@@ -63,6 +63,13 @@ export function newId(): string {
   return ids.newId()
 }
 
+/** Monotonic integer card id for fixtures — the card id IS its ticket number. */
+let nextCardId = 0
+function newCardId(): number {
+  nextCardId += 1
+  return nextCardId
+}
+
 export const T0 = '2026-07-16T12:00:00.000Z'
 
 function makeUser(overrides: Partial<User> = {}): User {
@@ -91,7 +98,7 @@ export function makeCard(
   overrides: Partial<Card> & Pick<Card, 'boardId' | 'laneId' | 'reporterId'>,
 ): Card {
   return cardWith({
-    id: newId(),
+    id: newCardId(),
     position: 'a0',
     title: 'Test card',
     createdAt: T0,

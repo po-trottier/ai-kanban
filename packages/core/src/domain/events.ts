@@ -11,7 +11,7 @@ import { cardSchema, isoDateTimeSchema, laneKeySchema, tagNameSchema } from './e
 const eventBase = {
   /** UUIDv7 — time-ordered. */
   id: z.uuid(),
-  cardId: z.uuid(),
+  cardId: z.number().int().positive(),
   /** User id or service-token id; null for `system`. */
   actorId: z.uuid().nullable(),
   actorKind: z.enum(ACTOR_KINDS),
@@ -62,8 +62,8 @@ export const cardEventSchema = z.discriminatedUnion('eventType', [
     eventType: z.literal('card.reordered'),
     payload: z.strictObject({
       lane: laneKeySchema,
-      prevCardId: z.uuid().nullable(),
-      nextCardId: z.uuid().nullable(),
+      prevCardId: z.number().int().positive().nullable(),
+      nextCardId: z.number().int().positive().nullable(),
     }),
   }),
   z.strictObject({

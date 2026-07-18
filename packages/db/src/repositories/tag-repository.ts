@@ -38,7 +38,7 @@ export class SqliteTagRepository implements TagRepository {
    * The card's tags in stored (case-preserved) form. Ordered by name (NOCASE)
    * for determinism — card_tags carries no ordering column.
    */
-  listByCard(cardId: string): Promise<Tag[]> {
+  listByCard(cardId: number): Promise<Tag[]> {
     const rows = this.db
       .select({ id: tags.id, name: tags.name })
       .from(cardTags)
@@ -56,7 +56,7 @@ export class SqliteTagRepository implements TagRepository {
   }
 
   /** Full-replacement of the card_tags rows. */
-  setCardTags(cardId: string, tagIds: string[]): Promise<void> {
+  setCardTags(cardId: number, tagIds: string[]): Promise<void> {
     try {
       this.db.delete(cardTags).where(eq(cardTags.cardId, cardId)).run()
       if (tagIds.length > 0) {

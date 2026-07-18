@@ -113,7 +113,7 @@ export const cardHistoryRequestSchema = pageRequestSchema.extend({
 export const activityFeedRequestSchema = pageRequestSchema.extend({
   sinceIso: isoDateTimeSchema.optional(),
   type: z.enum(CARD_EVENT_TYPES).optional(),
-  cardId: z.uuid().optional(),
+  cardId: z.coerce.number().int().positive().optional(),
   actorKind: z.enum(ACTOR_KINDS).optional(),
 })
 
@@ -177,7 +177,7 @@ export class BoardQueryService {
   }
 
   /** Full card detail: card + tags + location + active attachment metadata. */
-  async cardDetail(cardId: string): Promise<CardDetail> {
+  async cardDetail(cardId: number): Promise<CardDetail> {
     return this.deps.uow.read(async (tx) => {
       const card = requireFound(await tx.cards.findById(cardId), 'card')
       return detailOf(tx, card)
@@ -192,7 +192,7 @@ export class BoardQueryService {
    * never disagree about a concurrently committed mutation.
    */
   async cardDetailWithThread(
-    cardId: string,
+    cardId: number,
     latestEventsTake: number,
   ): Promise<CardDetailWithThread> {
     return this.deps.uow.read(async (tx) => {
@@ -205,7 +205,7 @@ export class BoardQueryService {
   }
 
   /** Per-card audit history, oldest-first, filterable by event type. */
-  async cardHistory(cardId: string, rawRequest?: unknown): Promise<Page<EnrichedCardEvent>> {
+  async cardHistory(cardId: number, rawRequest?: unknown): Promise<Page<EnrichedCardEvent>> {
     const request = cardHistoryRequestSchema.parse(rawRequest ?? {})
     const after = request.cursor !== undefined ? decodeCursor(request.cursor) : undefined
     return this.deps.uow.read(async (tx) => {
@@ -260,7 +260,7 @@ export class BoardQueryService {
     const input = staleCardsInputSchema.parse(rawInput ?? {})
     const now = this.deps.clock.now()
     return this.deps.uow.read(async (tx) => {
-      const stale = new Map<string, StaleCard>()
+      const stale = new Map<number, StaleCard>()
       const mark = (card: Card, reason: StaleReason) => {
         const entry = stale.get(card.id) ?? { card, reasons: [] }
         entry.reasons.push(reason)
@@ -295,8 +295,8 @@ export class BoardQueryService {
       }
 
       return [...stale.values()].sort((a, b) => {
-        const left = `${a.card.createdAt}/${a.card.id}`
-        const right = `${b.card.createdAt}/${b.card.id}`
+        const left = `${a.card.createdAt}/${String(a.card.id)}`
+        const right = `${b.card.createdAt}/${String(b.card.id)}`
         if (left < right) return -1
         return left > right ? 1 : 0
       })

@@ -82,7 +82,6 @@ describe('schema contract (data-model.md)', () => {
     const documented = [
       'id',
       'board_id',
-      'number',
       'lane_id',
       'position',
       'title',
@@ -159,7 +158,6 @@ describe('schema contract (data-model.md)', () => {
     expect(summaries).toEqual({
       cards: [
         'cards_lane_id_position_unique UNIQUE (lane_id, position)',
-        'cards_board_id_number_unique UNIQUE (board_id, number)',
         'cards_board_id_archived_at_idx (board_id, archived_at)',
         'cards_assignee_id_idx (assignee_id)',
         'cards_reporter_id_idx (reporter_id)',

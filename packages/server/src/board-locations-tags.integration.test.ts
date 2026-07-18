@@ -344,7 +344,7 @@ describe('GET /locations + admin CRUD', () => {
       url: '/api/v1/cards',
       payload: { title: 'Located card', locationId: roomId },
     })
-    const cardId = created.json<{ id: string }>().id
+    const cardId = created.json<{ id: number }>().id
 
     const parentDelete = await t.request(adminCookie, {
       method: 'DELETE',
@@ -362,7 +362,7 @@ describe('GET /locations + admin CRUD', () => {
     // The card survives with its optional location cleared.
     const detail = await t.request(adminCookie, {
       method: 'GET',
-      url: `/api/v1/cards/${cardId}`,
+      url: `/api/v1/cards/${String(cardId)}`,
     })
     expect(detail.statusCode).toBe(200)
     expect(detail.json<{ card: { id: string }; location: unknown }>().location).toBeNull()
@@ -461,7 +461,7 @@ describe('GET /events (board-wide activity feed)', () => {
       url: '/api/v1/cards',
       payload: { title: 'Activity feed card' },
     })
-    const cardId = created.json<{ id: string }>().id
+    const cardId = created.json<{ id: number }>().id
 
     const feed = await t.request(cookie, {
       method: 'GET',
@@ -469,17 +469,17 @@ describe('GET /events (board-wide activity feed)', () => {
     })
     const createdOnly = await t.request(cookie, {
       method: 'GET',
-      url: `/api/v1/events?since=${encodeURIComponent(before)}&type=card.created&cardId=${cardId}`,
+      url: `/api/v1/events?since=${encodeURIComponent(before)}&type=card.created&cardId=${String(cardId)}`,
     })
 
     expect(feed.statusCode).toBe(200)
-    const items = feed.json<{ items: { eventType: string; createdAt: string; cardId: string }[] }>()
+    const items = feed.json<{ items: { eventType: string; createdAt: string; cardId: number }[] }>()
       .items
     expect(items.some((event) => event.cardId === cardId)).toBe(true)
     // Newest-first: the timestamps already come sorted descending.
     const timestamps = items.map((event) => event.createdAt)
     expect(timestamps).toEqual([...timestamps].sort((a, b) => (a < b ? 1 : -1)))
-    const filtered = createdOnly.json<{ items: { eventType: string; cardId: string }[] }>().items
+    const filtered = createdOnly.json<{ items: { eventType: string; cardId: number }[] }>().items
     expect(filtered.map((event) => event.eventType)).toEqual(['card.created'])
     expect(filtered[0]?.cardId).toBe(cardId)
   })
@@ -492,7 +492,7 @@ describe('GET /events (board-wide activity feed)', () => {
       url: '/api/v1/cards',
       payload: { title: 'Ancient history card' },
     })
-    const cardId = created.json<{ id: string }>().id
+    const cardId = created.json<{ id: number }>().id
     const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
     // Backdate this card's events directly — the audit trail is append-only, so
     // the port has no update method; a raw write is the honest test arrange.
@@ -503,7 +503,7 @@ describe('GET /events (board-wide activity feed)', () => {
 
     const defaulted = await t.request(cookie, { method: 'GET', url: '/api/v1/events' })
 
-    const ids = defaulted.json<{ items: { cardId: string }[] }>().items.map((e) => e.cardId)
+    const ids = defaulted.json<{ items: { cardId: number }[] }>().items.map((e) => e.cardId)
     expect(ids).not.toContain(cardId)
   })
 

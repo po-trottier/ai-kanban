@@ -230,14 +230,14 @@ describe('SearchModal', () => {
     const user = userEvent.setup()
     const fake = searchApp({
       'GET /api/v1/cards': { items: [found], nextCursor: null },
-      [`GET /api/v1/cards/${found.id}`]: {
+      [`GET /api/v1/cards/${String(found.id)}`]: {
         card: found,
         tags: [],
         location: null,
         attachments: [],
       },
-      [`GET /api/v1/cards/${found.id}/comments`]: [],
-      [`GET /api/v1/cards/${found.id}/events`]: { items: [], nextCursor: null },
+      [`GET /api/v1/cards/${String(found.id)}/comments`]: [],
+      [`GET /api/v1/cards/${String(found.id)}/events`]: { items: [], nextCursor: null },
     })
     renderApp({ fetchFn: fake.fetch, route: '/?search=1' })
     // Act

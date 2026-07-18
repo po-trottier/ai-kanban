@@ -9,7 +9,7 @@ import { CARD_EVENT_TYPES } from './events.ts'
 /** Card-scoped: `type` is the audit event_type; `eventId` its UUIDv7. */
 export const cardSseHintSchema = z.strictObject({
   type: z.enum(CARD_EVENT_TYPES),
-  cardId: z.uuid(),
+  cardId: z.number().int().positive(),
   version: z.number().int().min(1),
   eventId: z.uuid(),
 })

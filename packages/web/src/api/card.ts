@@ -160,10 +160,12 @@ export function useUploadAttachment(cardId: string) {
 export function useUploadNewCardAttachment() {
   const api = useApi()
   return useMutation({
-    mutationFn: ({ cardId, file }: { cardId: string; file: File }) => {
+    mutationFn: ({ cardId, file }: { cardId: number; file: File }) => {
       const formData = new FormData()
       formData.append('file', file)
-      return api.post(`/cards/${cardId}/attachments`, attachmentUploadResponseSchema, { formData })
+      return api.post(`/cards/${String(cardId)}/attachments`, attachmentUploadResponseSchema, {
+        formData,
+      })
     },
   })
 }

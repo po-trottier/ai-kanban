@@ -22,7 +22,7 @@ export function isWaitingLane(key: LaneKey): boolean {
  */
 export function applyMoveToBoard(
   board: BoardResponse,
-  cardId: string,
+  cardId: number,
   intent: MoveIntent,
 ): BoardResponse {
   const moving = board.lanes.flatMap((snapshot) => snapshot.cards).find((c) => c.id === cardId)
@@ -57,8 +57,8 @@ export function applyMoveToBoard(
 function insertBetweenNeighbors(
   cards: BoardCard[],
   card: BoardCard,
-  prevCardId: string | null,
-  nextCardId: string | null,
+  prevCardId: number | null,
+  nextCardId: number | null,
 ): BoardCard[] {
   if (prevCardId !== null) {
     const at = cards.findIndex((c) => c.id === prevCardId)

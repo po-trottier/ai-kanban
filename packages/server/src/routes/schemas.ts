@@ -86,7 +86,7 @@ export const boardResponseSchema = boardSnapshotSchemaOf({
  */
 export const cardEventResponseSchema = z.object({
   id: z.uuid(),
-  cardId: z.uuid(),
+  cardId: z.number().int().positive(),
   actorId: z.uuid().nullable(),
   actorKind: z.enum(ACTOR_KINDS),
   eventType: z.enum(CARD_EVENT_TYPES),
@@ -104,3 +104,10 @@ export const ifMatchHeadersSchema = z.looseObject({
 })
 
 export const idParamsSchema = z.object({ id: z.uuid() })
+
+/**
+ * Card `:id` path param: the id IS the integer ticket number. URL params arrive
+ * as strings, so coerce to a positive int (a non-numeric path 404s at the
+ * service). Non-card routes (users, locations, tokens) keep `idParamsSchema`.
+ */
+export const cardIdParamsSchema = z.object({ id: z.coerce.number().int().positive() })

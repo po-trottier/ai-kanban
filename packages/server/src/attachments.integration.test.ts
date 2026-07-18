@@ -125,12 +125,7 @@ describe('POST /cards/:id/attachments', () => {
   })
 
   it('404s an unknown card', async () => {
-    const response = await upload(
-      cookie,
-      '00000000-0000-7000-8000-00000000dead',
-      'pixel.png',
-      PNG_1X1,
-    )
+    const response = await upload(cookie, '999999', 'pixel.png', PNG_1X1)
 
     expect(response.statusCode).toBe(404)
   })

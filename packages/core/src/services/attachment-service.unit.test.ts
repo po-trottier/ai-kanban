@@ -19,7 +19,7 @@ function uploadInput(bytes = 3) {
   }
 }
 
-function seedAttachments(scenario: Scenario, cardId: string, active: number, deleted = 0) {
+function seedAttachments(scenario: Scenario, cardId: number, active: number, deleted = 0) {
   for (let i = 0; i < active + deleted; i += 1) {
     scenario.db.seedAttachment({
       id: fixtureId(800 + i),

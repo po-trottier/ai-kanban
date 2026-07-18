@@ -378,14 +378,14 @@ function SearchResultCard({
     <UnstyledButton
       className={classes.result}
       onClick={() => {
-        onOpen(card.id)
+        onOpen(String(card.id))
       }}
     >
       {/* One dense line: #number, title (ellipsized), badges, lane, dimmed meta. */}
       <Group wrap="nowrap" align="center" gap="sm">
         <Group gap={6} wrap="nowrap" className={classes.grow}>
           <Text size="xs" c="dimmed" fw={EMPHASIS_FONT_WEIGHT}>
-            {formatTicketNumber(card.number)}
+            {formatTicketNumber(card.id)}
           </Text>
           <Text size="sm" fw={EMPHASIS_FONT_WEIGHT} truncate className={classes.grow}>
             {card.title}

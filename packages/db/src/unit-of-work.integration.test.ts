@@ -34,7 +34,7 @@ function countRows(table: 'cards' | 'comments' | 'card_events'): number {
   return row?.n ?? 0
 }
 
-function blockedEvent(cardId: string): CardEvent {
+function blockedEvent(cardId: number): CardEvent {
   return {
     id: newId(),
     cardId,
@@ -160,7 +160,7 @@ describe('SqliteUnitOfWork', () => {
     })
 
     await expect(failing).rejects.toThrow('aborted underneath')
-    await expect(db.uow.run((tx) => tx.cards.findById('no-such-id'))).resolves.toBeNull()
+    await expect(db.uow.run((tx) => tx.cards.findById(999_999))).resolves.toBeNull()
   })
 
   it('nested run() rejects fast, the outer work rolls back, and the connection stays usable', async () => {
@@ -229,7 +229,7 @@ describe('SqliteUnitOfWork', () => {
   })
 
   it('read() nested inside run() rejects fast like a nested run()', async () => {
-    const nested = db.uow.run(() => db.uow.read((tx) => tx.cards.findById('no-such-id')))
+    const nested = db.uow.run(() => db.uow.read((tx) => tx.cards.findById(999_999)))
 
     await expect(nested).rejects.toThrow('nested UnitOfWork.run()/read()')
   })

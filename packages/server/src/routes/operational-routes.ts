@@ -35,7 +35,8 @@ export function operationalRoutes(deps: AppDeps) {
           // healthcheck does not flap while a long write transaction holds
           // the single writer) and never a table scan: this polls every few
           // seconds forever, so its cost must not grow with the data.
-          await deps.uow.read((tx) => tx.cards.findById('00000000-0000-0000-0000-000000000000'))
+          // Card ids are positive; 0 is a guaranteed indexed miss (O(1) probe).
+          await deps.uow.read((tx) => tx.cards.findById(0))
           return { status: 'ok' as const }
         } catch {
           return reply.code(503).send({ status: 'unavailable' as const })

@@ -8,7 +8,12 @@ import { contentDispositionAttachment } from '../http/content-disposition.ts'
 import { type UploadQuota } from '../uploads/upload-quota.ts'
 import { type AppDeps } from '../types.ts'
 import { actorOf } from './user-routes.ts'
-import { attachmentResponseSchema, emptyBodySchema, idParamsSchema } from './schemas.ts'
+import {
+  attachmentResponseSchema,
+  cardIdParamsSchema,
+  emptyBodySchema,
+  idParamsSchema,
+} from './schemas.ts'
 
 /**
  * Attachments (docs/architecture/rest-api.md#attachments, security.md#uploads):
@@ -35,7 +40,7 @@ export function attachmentRoutes(deps: AppDeps, quota: UploadQuota) {
           },
         },
         schema: {
-          params: idParamsSchema,
+          params: cardIdParamsSchema,
           response: { 201: attachmentResponseSchema },
         },
       },

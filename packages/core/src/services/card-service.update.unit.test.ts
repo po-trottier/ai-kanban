@@ -156,7 +156,7 @@ describe('CardService.update', () => {
     const scenario = createScenario()
 
     // Act
-    const act = scenario.cards.update(scenario.actors.technician, fixtureId(999), {
+    const act = scenario.cards.update(scenario.actors.technician, 999, {
       title: 'Ghost',
       expectedVersion: 1,
     })

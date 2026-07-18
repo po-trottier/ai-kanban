@@ -6,7 +6,7 @@ describe('resolveDropTarget', () => {
   it('prefers the inner-most card target with its closest edge', () => {
     // Arrange
     const cardData = attachClosestEdge(
-      { cardId: 'card-1', laneKey: 'ready' },
+      { cardId: 1, laneKey: 'ready' },
       {
         element: document.createElement('div'),
         input: { clientX: 0, clientY: 0 } as never,
@@ -17,7 +17,7 @@ describe('resolveDropTarget', () => {
     // Act
     const target = resolveDropTarget(stack)
     // Assert
-    expect(target).toMatchObject({ laneKey: 'ready', overCardId: 'card-1' })
+    expect(target).toMatchObject({ laneKey: 'ready', overCardId: 1 })
   })
 
   it('falls back to the lane target for drops on empty lane space', () => {

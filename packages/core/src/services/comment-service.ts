@@ -57,7 +57,7 @@ export class CommentService {
    */
   async add(
     actor: Actor,
-    cardId: string,
+    cardId: number,
     rawInput: unknown,
     options: AddCommentOptions = {},
   ): Promise<Comment> {
@@ -164,7 +164,7 @@ export class CommentService {
    * shared read path — deleted content never leaves the server on ANY
    * surface (rest-api.md#comments, `redactedCommentSchema`).
    */
-  async listForCard(cardId: string): Promise<Comment[]> {
+  async listForCard(cardId: number): Promise<Comment[]> {
     const thread = await this.deps.uow.read(async (tx) => {
       requireFound(await tx.cards.findById(cardId), 'card')
       return tx.comments.listByCard(cardId)
