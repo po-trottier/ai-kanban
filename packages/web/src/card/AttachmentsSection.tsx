@@ -1,4 +1,9 @@
-import { ALLOWED_ATTACHMENT_MIME_TYPES, type Attachment } from '@rivian-kanban/core'
+import {
+  ALLOWED_ATTACHMENT_MIME_TYPES,
+  MAX_ACTIVE_ATTACHMENTS_PER_CARD,
+  MAX_ATTACHMENT_BYTES,
+  type Attachment,
+} from '@rivian-kanban/core'
 import {
   ActionIcon,
   Anchor,
@@ -13,10 +18,13 @@ import {
 import { Trash2, Upload } from 'lucide-react'
 import { useState, type DragEvent } from 'react'
 import { attachmentUrl } from '../api/card.ts'
+import { notifyError } from '../api/notify.ts'
 import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { strings } from '../strings.ts'
 import { cx } from '../lib/cx.ts'
 import classes from './card.module.css'
+
+const ALLOWED_MIME: ReadonlySet<string> = new Set(ALLOWED_ATTACHMENT_MIME_TYPES)
 
 export interface AttachmentsSectionProps {
   attachments: Attachment[]
@@ -42,10 +50,37 @@ export function AttachmentsSection({
 }: AttachmentsSectionProps) {
   const [dragActive, setDragActive] = useState(false)
 
+  /**
+   * Validate a picked/dropped batch against the SAME core caps the server
+   * enforces, so we skip doomed requests: reject the whole batch up front if it
+   * would push the card over MAX_ACTIVE_ATTACHMENTS_PER_CARD, and drop
+   * oversized/wrong-type files individually (each with a toast). Every survivor
+   * is handed to onUpload — CardPanel fires one mutation per file, so per-file
+   * request errors (413/415/409) still surface via the hook's onError.
+   */
+  const handleFiles = (files: File[]) => {
+    if (files.length === 0) return
+    if (attachments.length + files.length > MAX_ACTIVE_ATTACHMENTS_PER_CARD) {
+      notifyError(new Error(strings.attachments.tooMany(MAX_ACTIVE_ATTACHMENTS_PER_CARD)))
+      return
+    }
+    for (const file of files) {
+      if (!ALLOWED_MIME.has(file.type)) {
+        notifyError(new Error(strings.attachments.wrongType(file.name)))
+        continue
+      }
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        notifyError(new Error(strings.attachments.tooLarge(file.name)))
+        continue
+      }
+      onUpload(file)
+    }
+  }
+
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault()
     setDragActive(false)
-    for (const file of Array.from(event.dataTransfer.files)) onUpload(file)
+    handleFiles(Array.from(event.dataTransfer.files))
   }
 
   return (
@@ -125,10 +160,10 @@ export function AttachmentsSection({
                 <input
                   type="file"
                   hidden
+                  multiple
                   accept={ALLOWED_ATTACHMENT_MIME_TYPES.join(',')}
                   onChange={(event) => {
-                    const file = event.currentTarget.files?.[0]
-                    if (file !== undefined) onUpload(file)
+                    handleFiles(Array.from(event.currentTarget.files ?? []))
                     event.currentTarget.value = ''
                   }}
                 />

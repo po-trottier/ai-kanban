@@ -21,6 +21,23 @@ test('uploads a PNG via the dropzone input and shows the thumbnail', async ({ pa
   await expect(page.getByText('No attachments yet')).toBeHidden()
 })
 
+test('uploads several files selected at once', async ({ page, context }) => {
+  await signIn(context)
+  const card = await createCard(context.request, `Attach multi ${randomUUID()}`)
+  await page.goto(`/cards/${card.id}`)
+
+  await page
+    .getByRole('group', { name: 'Attachment dropzone' })
+    .locator('input[type="file"]')
+    .setInputFiles([
+      { name: 'first.png', mimeType: 'image/png', buffer: PNG_1X1 },
+      { name: 'second.png', mimeType: 'image/png', buffer: PNG_1X1 },
+    ])
+
+  await expect(page.getByRole('img', { name: 'first.png' })).toBeVisible()
+  await expect(page.getByRole('img', { name: 'second.png' })).toBeVisible()
+})
+
 test('downloads the exact uploaded bytes and deletes the attachment', async ({ page, context }) => {
   await signIn(context)
   const card = await createCard(context.request, `Attach download ${randomUUID()}`)

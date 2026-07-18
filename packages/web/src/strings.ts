@@ -564,6 +564,13 @@ export const strings = {
     deleteLabel: (filename: string) => `Delete ${filename}`,
     empty: 'No attachments yet',
     uploaded: 'Attachment uploaded',
+    // Client-side batch guards mirroring the core upload caps, so we never fire
+    // doomed requests (ALLOWED_ATTACHMENT_MIME_TYPES / MAX_ATTACHMENT_BYTES /
+    // MAX_ACTIVE_ATTACHMENTS_PER_CARD).
+    tooLarge: (filename: string) => `${filename} is over 25 MB — skipped.`,
+    wrongType: (filename: string) => `${filename} isn't an image or PDF — skipped.`,
+    tooMany: (max: number) =>
+      `A card can hold at most ${String(max)} attachments — pick fewer files.`,
   },
 
   comments: {

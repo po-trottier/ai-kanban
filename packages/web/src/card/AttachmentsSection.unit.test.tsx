@@ -111,6 +111,90 @@ describe('AttachmentsSection', () => {
     expect(deleted).toEqual([image.id])
   })
 
+  it('uploads every file when several are picked at once', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const uploaded: File[] = []
+    renderWithProviders(
+      <AttachmentsSection
+        attachments={[]}
+        currentUserId={fixtureAdmin.id}
+        canDeleteOthers={false}
+        uploading={false}
+        onUpload={(file) => uploaded.push(file)}
+        onDelete={noop}
+      />,
+    )
+    // Act — a multi-select of three valid files
+    const files = [
+      new File(['a'], 'one.png', { type: 'image/png' }),
+      new File(['b'], 'two.jpg', { type: 'image/jpeg' }),
+      new File(['c'], 'three.pdf', { type: 'application/pdf' }),
+    ]
+    const input = screen.getByLabelText<HTMLInputElement>('Browse files')
+    await user.upload(input, files)
+    // Assert — each survivor is handed to onUpload once
+    expect(uploaded.map((f) => f.name)).toEqual(['one.png', 'two.jpg', 'three.pdf'])
+  })
+
+  it('rejects the whole batch when it would exceed the 10-per-card cap', async () => {
+    // Arrange — card already holds 9 attachments, so 2 more overflows
+    const user = userEvent.setup()
+    const uploaded: File[] = []
+    const existing = Array.from({ length: 9 }, (_, i) => makeAttachment({ id: uid(200 + i) }))
+    renderWithProviders(
+      <AttachmentsSection
+        attachments={existing}
+        currentUserId={fixtureAdmin.id}
+        canDeleteOthers={false}
+        uploading={false}
+        onUpload={(file) => uploaded.push(file)}
+        onDelete={noop}
+      />,
+    )
+    // Act
+    const files = [
+      new File(['a'], 'ten.png', { type: 'image/png' }),
+      new File(['b'], 'eleven.png', { type: 'image/png' }),
+    ]
+    const input = screen.getByLabelText<HTMLInputElement>('Browse files')
+    await user.upload(input, files)
+    // Assert — nothing uploaded, a clear message shown
+    expect(uploaded).toEqual([])
+    expect(await screen.findByText(/at most 10 attachments/)).toBeInTheDocument()
+  })
+
+  it('skips oversized and wrong-type files, uploading only the valid ones', async () => {
+    // Arrange — applyAccept off so the disallowed type reaches our own guard
+    // (drops bypass the input's `accept`, and browsers don't strictly enforce it).
+    const user = userEvent.setup({ applyAccept: false })
+    const uploaded: File[] = []
+    renderWithProviders(
+      <AttachmentsSection
+        attachments={[]}
+        currentUserId={fixtureAdmin.id}
+        canDeleteOthers={false}
+        uploading={false}
+        onUpload={(file) => uploaded.push(file)}
+        onDelete={noop}
+      />,
+    )
+    // Act — one valid, one 26 MB (over 25 MB), one disallowed type
+    const oversized = new File(['x'], 'huge.png', { type: 'image/png' })
+    Object.defineProperty(oversized, 'size', { value: 26 * 1024 * 1024 })
+    const files = [
+      new File(['ok'], 'good.png', { type: 'image/png' }),
+      oversized,
+      new File(['zip'], 'archive.zip', { type: 'application/zip' }),
+    ]
+    const input = screen.getByLabelText<HTMLInputElement>('Browse files')
+    await user.upload(input, files)
+    // Assert — only the valid file uploads; each skip is announced
+    expect(uploaded.map((f) => f.name)).toEqual(['good.png'])
+    expect(await screen.findByText(/huge\.png is over 25 MB/)).toBeInTheDocument()
+    expect(await screen.findByText(/archive\.zip isn't an image or PDF/)).toBeInTheDocument()
+  })
+
   it("offers delete on others' uploads only when the policy gate allows it (ADR-013)", () => {
     // Arrange — an attachment uploaded by someone else, gate closed
     const theirs = makeAttachment({ id: uid(104), uploadedBy: fixtureTech.id })
