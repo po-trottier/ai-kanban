@@ -43,7 +43,7 @@ describe('CORS deny-all', () => {
 
 describe('CSRF layers', () => {
   it('rejects a state-changing request without JSON content type or X-Requested-With', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
 
     const response = await t.app.inject({
       method: 'POST',
@@ -57,7 +57,7 @@ describe('CSRF layers', () => {
   })
 
   it('rejects a bodyless POST without X-Requested-With and accepts it with', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
 
     const rejected = await t.app.inject({
       method: 'POST',
@@ -75,7 +75,7 @@ describe('CSRF layers', () => {
   })
 
   it('accepts application/json without the custom header (layer satisfied)', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
 
     const response = await t.app.inject({
       method: 'POST',
@@ -201,7 +201,7 @@ describe('rate limiting', () => {
 
 describe('problem+json everywhere', () => {
   it('formats unknown /api routes as problem 404', async () => {
-    const { cookie } = await t.asRole('requester')
+    const { cookie } = await t.asRole('user')
 
     const response = await t.request(cookie, { method: 'GET', url: '/api/v1/does-not-exist' })
 
@@ -210,7 +210,7 @@ describe('problem+json everywhere', () => {
   })
 
   it('formats validation failures with an issues array', async () => {
-    const { cookie } = await t.asRole('requester')
+    const { cookie } = await t.asRole('user')
 
     const response = await t.request(cookie, {
       method: 'POST',
@@ -230,7 +230,7 @@ describe('OpenAPI + docs UI', () => {
     const anonymous = await t.app.inject({ method: 'GET', url: '/api/v1/openapi.json' })
     expect(anonymous.statusCode).toBe(401)
 
-    const { cookie } = await t.asRole('requester')
+    const { cookie } = await t.asRole('user')
     const response = await t.request(cookie, { method: 'GET', url: '/api/v1/openapi.json' })
 
     expect(response.statusCode).toBe(200)
@@ -240,7 +240,7 @@ describe('OpenAPI + docs UI', () => {
   })
 
   it('serves the Scalar docs UI outside production', async () => {
-    const { cookie } = await t.asRole('requester')
+    const { cookie } = await t.asRole('user')
 
     const entry = await t.request(cookie, { method: 'GET', url: '/api/v1/docs' })
     // The Scalar plugin redirects the bare prefix to its trailing-slash UI.

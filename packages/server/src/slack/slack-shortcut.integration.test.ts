@@ -60,7 +60,7 @@ async function summarizerAgainst(respond: () => unknown, delayMs?: number) {
 describe('message shortcut → editable draft modal', () => {
   it('opens the loading modal, then updates it with the raw-text draft (no summarizer)', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(messageActionPayload())
@@ -82,7 +82,7 @@ describe('message shortcut → editable draft modal', () => {
 
   it('carries channel/thread_ts/permalink through private_metadata', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(
@@ -100,7 +100,7 @@ describe('message shortcut → editable draft modal', () => {
   it('prefills the modal with the summarizer draft when enabled', async () => {
     const summarizer = await summarizerAgainst(() => anthropicMessagesResponse(SUMMARY_DOCUMENT))
     harness = await createSlackHarness({ summarizer })
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(messageActionPayload())
@@ -117,7 +117,7 @@ describe('message shortcut → editable draft modal', () => {
   it('falls back to the raw thread text when the summarizer returns garbage', async () => {
     const summarizer = await summarizerAgainst(() => anthropicMessagesResponse({ wrong: 'shape' }))
     harness = await createSlackHarness({ summarizer })
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(messageActionPayload())
@@ -135,7 +135,7 @@ describe('message shortcut → editable draft modal', () => {
       5_000,
     )
     harness = await createSlackHarness({ summarizer })
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(messageActionPayload())
@@ -152,7 +152,7 @@ describe('message shortcut → editable draft modal', () => {
       summarizer,
       limits: { summariesPerUserPerMinute: 0 },
     })
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(messageActionPayload())
@@ -177,7 +177,7 @@ describe('message shortcut → editable draft modal', () => {
 
   it('binds the Slack id to the board user on first use (sticky mapping)', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(messageActionPayload())
@@ -190,7 +190,7 @@ describe('message shortcut → editable draft modal', () => {
 
   it('dedupes redelivered shortcut trigger_ids — the modal opens once', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(messageActionPayload({ triggerId: '9999.redelivered' }))
@@ -201,7 +201,7 @@ describe('message shortcut → editable draft modal', () => {
 
   it('rejects a message_action from a foreign workspace outright', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(messageActionPayload({ teamId: 'T0EVIL' }))
@@ -229,7 +229,7 @@ describe('message shortcut → editable draft modal', () => {
         }),
       },
     })
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(messageActionPayload())
@@ -243,7 +243,7 @@ describe('message shortcut → editable draft modal', () => {
     harness = await createSlackHarness({
       slackOverrides: { 'views.open': () => ({ ok: false, error: 'expired_trigger_id' }) },
     })
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await expect(harness.send(messageActionPayload())).resolves.toBeUndefined()

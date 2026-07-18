@@ -63,7 +63,7 @@ function daysFromNow(days: number): FixedClock {
 
 describe('done archival (CardService.archiveExpired)', () => {
   it('archives completed and cancelled cards 90 days after they entered done', async () => {
-    const supervisor = await t.createUser('supervisor')
+    const supervisor = await t.createUser('admin')
     const { cards } = t.wired.deps.services
     const completed = await cards.create(actorOf(supervisor.user), { title: 'completed work' })
     await cards.move(actorOf(supervisor.user), completed.id, {
@@ -98,7 +98,7 @@ describe('done archival (CardService.archiveExpired)', () => {
   })
 
   it('reruns are no-ops: archived cards are never re-archived', async () => {
-    const supervisor = await t.createUser('supervisor')
+    const supervisor = await t.createUser('admin')
     const { cards } = t.wired.deps.services
     const card = await cards.create(actorOf(supervisor.user), { title: 'done long ago' })
     await cards.move(actorOf(supervisor.user), card.id, {
@@ -121,7 +121,7 @@ describe('done archival (CardService.archiveExpired)', () => {
   })
 
   it('leaves cards outside done untouched no matter their age', async () => {
-    const supervisor = await t.createUser('supervisor')
+    const supervisor = await t.createUser('admin')
     const { cards } = t.wired.deps.services
     const card = await cards.create(actorOf(supervisor.user), { title: 'still in intake' })
 
@@ -134,7 +134,7 @@ describe('done archival (CardService.archiveExpired)', () => {
   it('falls back to updatedAt for done cards without an entered-done event', async () => {
     // Directly seeded rows (fixtures, imports) may sit in done with no audit
     // trail; the job must still archive them from persisted state alone.
-    const supervisor = await t.createUser('supervisor')
+    const supervisor = await t.createUser('admin')
     const done = await t.wired.deps.uow.read((tx) => tx.lanes.findByKey(t.wired.boardId, 'done'))
     if (done === null) throw new Error('done lane missing')
     const old = '2026-01-01T00:00:00.000Z'

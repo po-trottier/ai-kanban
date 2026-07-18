@@ -19,20 +19,20 @@ afterAll(async () => {
 
 describe('GET /users', () => {
   it('lists active users with exactly id/displayName/role — system user excluded', async () => {
-    const { user, cookie } = await t.asRole('requester')
+    const { user, cookie } = await t.asRole('user')
 
     const response = await t.request(cookie, { method: 'GET', url: '/api/v1/users' })
 
     expect(response.statusCode).toBe(200)
     const users = response.json<Record<string, unknown>[]>()
     const me = users.find((row) => row.id === user.id)
-    expect(me).toEqual({ id: user.id, displayName: user.displayName, role: 'requester' })
+    expect(me).toEqual({ id: user.id, displayName: user.displayName, role: 'user' })
     expect(users.map((row) => row.id)).not.toContain(t.wired.systemUserId)
   })
 
   it('omits deactivated users', async () => {
     const admin = await t.asRole('admin')
-    const { user } = await t.createUser('technician', { isActive: false })
+    const { user } = await t.createUser('user', { isActive: false })
 
     const response = await t.request(admin.cookie, { method: 'GET', url: '/api/v1/users' })
 
@@ -41,7 +41,7 @@ describe('GET /users', () => {
 
   it('includes emails for admins only (the users admin table)', async () => {
     const admin = await t.asRole('admin')
-    const requester = await t.asRole('requester')
+    const requester = await t.asRole('user')
 
     const adminView = await t.request(admin.cookie, { method: 'GET', url: '/api/v1/users' })
     const requesterView = await t.request(requester.cookie, { method: 'GET', url: '/api/v1/users' })
@@ -64,7 +64,7 @@ describe('POST /users', () => {
     const response = await t.request(admin.cookie, {
       method: 'POST',
       url: '/api/v1/users',
-      payload: { email: 'newbie@test.example', displayName: 'Newbie', role: 'technician' },
+      payload: { email: 'newbie@test.example', displayName: 'Newbie', role: 'user' },
     })
 
     expect(response.statusCode).toBe(201)
@@ -78,18 +78,18 @@ describe('POST /users', () => {
   })
 
   it('is admin-only (403, named rule) and validates the body (400)', async () => {
-    const tech = await t.asRole('technician')
+    const tech = await t.asRole('user')
     const admin = await t.asRole('admin')
 
     const denied = await t.request(tech.cookie, {
       method: 'POST',
       url: '/api/v1/users',
-      payload: { email: 'x@test.example', displayName: 'X', role: 'requester' },
+      payload: { email: 'x@test.example', displayName: 'X', role: 'user' },
     })
     const invalid = await t.request(admin.cookie, {
       method: 'POST',
       url: '/api/v1/users',
-      payload: { email: 'not-an-email', displayName: '', role: 'requester' },
+      payload: { email: 'not-an-email', displayName: '', role: 'user' },
     })
 
     expect(denied.statusCode).toBe(403)
@@ -99,12 +99,12 @@ describe('POST /users', () => {
 
   it('rejects a duplicate email with 409', async () => {
     const admin = await t.asRole('admin')
-    const { user } = await t.createUser('requester')
+    const { user } = await t.createUser('user')
 
     const response = await t.request(admin.cookie, {
       method: 'POST',
       url: '/api/v1/users',
-      payload: { email: user.email.toUpperCase(), displayName: 'Dup', role: 'requester' },
+      payload: { email: user.email.toUpperCase(), displayName: 'Dup', role: 'user' },
     })
 
     expect(response.statusCode).toBe(409)
@@ -114,23 +114,23 @@ describe('POST /users', () => {
 describe('PATCH /users/:id', () => {
   it('changes the role and revokes the user sessions immediately', async () => {
     const admin = await t.asRole('admin')
-    const victim = await t.asRole('technician')
+    const victim = await t.asRole('user')
 
     const response = await t.request(admin.cookie, {
       method: 'PATCH',
       url: `/api/v1/users/${victim.user.id}`,
-      payload: { role: 'supervisor' },
+      payload: { role: 'admin' },
     })
 
     expect(response.statusCode).toBe(200)
-    expect(response.json<{ user: { role: string } }>().user.role).toBe('supervisor')
+    expect(response.json<{ user: { role: string } }>().user.role).toBe('admin')
     const meAfter = await t.request(victim.cookie, { method: 'GET', url: '/api/v1/auth/me' })
     expect(meAfter.statusCode).toBe(401)
   })
 
   it('resetPassword issues a fresh temp password and kills the old one', async () => {
     const admin = await t.asRole('admin')
-    const victim = await t.asRole('requester')
+    const victim = await t.asRole('user')
 
     const response = await t.request(admin.cookie, {
       method: 'PATCH',
@@ -163,7 +163,7 @@ describe('PATCH /users/:id', () => {
     const missing = await t.request(admin.cookie, {
       method: 'PATCH',
       url: '/api/v1/users/00000000-0000-7000-8000-000000000123',
-      payload: { role: 'requester' },
+      payload: { role: 'user' },
     })
     const empty = await t.request(admin.cookie, {
       method: 'PATCH',
@@ -176,7 +176,7 @@ describe('PATCH /users/:id', () => {
   })
 
   it('is admin-only', async () => {
-    const tech = await t.asRole('technician')
+    const tech = await t.asRole('user')
 
     const response = await t.request(tech.cookie, {
       method: 'PATCH',
@@ -198,7 +198,7 @@ describe('last-active-admin guard', () => {
       const demote = await solo.request(admin.cookie, {
         method: 'PATCH',
         url: `/api/v1/users/${admin.user.id}`,
-        payload: { role: 'supervisor' },
+        payload: { role: 'user' },
       })
       const deactivate = await solo.request(admin.cookie, {
         method: 'PATCH',
@@ -226,7 +226,7 @@ describe('last-active-admin guard', () => {
       const demote = await solo.request(first.cookie, {
         method: 'PATCH',
         url: `/api/v1/users/${first.user.id}`,
-        payload: { role: 'supervisor' },
+        payload: { role: 'user' },
       })
 
       expect(demote.statusCode).toBe(200)

@@ -10,7 +10,7 @@ import { TokensAdmin } from './TokensAdmin.tsx'
 const activeToken: ServiceTokenView = {
   id: uid(81),
   name: 'reporting-bot',
-  role: 'technician',
+  role: 'user',
   scope: 'read',
   createdBy: fixtureAdmin.id,
   createdAt: '2026-07-01T10:00:00.000Z',
@@ -67,7 +67,7 @@ describe('TokensAdmin', () => {
     expect(screen.getByText('Copy this token now — it is shown only once.')).toBeInTheDocument()
     expect(fake.lastBody('POST', '/api/v1/service-tokens')).toEqual({
       name: 'reporting-bot',
-      role: 'technician',
+      role: 'user',
       scope: 'read',
     })
   })

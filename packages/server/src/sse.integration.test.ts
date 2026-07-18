@@ -103,7 +103,7 @@ describe('GET /api/v1/stream', () => {
   })
 
   it('streams invalidation hints for committed mutations', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
     const client = await openStream(cookie)
     await client.waitFor(':connected')
 
@@ -129,7 +129,7 @@ describe('GET /api/v1/stream', () => {
   })
 
   it('emits keepalive comments so idle proxies keep the connection', async () => {
-    const { cookie } = await t.asRole('requester')
+    const { cookie } = await t.asRole('user')
     const client = await openStream(cookie)
 
     await client.waitFor(':keepalive', 3_000)
@@ -139,7 +139,7 @@ describe('GET /api/v1/stream', () => {
   })
 
   it('drops the oldest stream when a user opens a sixth connection', async () => {
-    const { cookie } = await t.asRole('supervisor')
+    const { cookie } = await t.asRole('admin')
     const clients: SseClient[] = []
     for (let index = 0; index < 5; index += 1) {
       clients.push(await openStream(cookie))
@@ -166,7 +166,7 @@ describe('GET /api/v1/stream', () => {
   })
 
   it('unsubscribes closed connections from the bus', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
     const client = await openStream(cookie)
     await client.waitFor(':connected')
     client.destroy()
@@ -185,7 +185,7 @@ describe('GET /api/v1/stream', () => {
   })
 
   it('releases the bus subscription when the client disconnects during auth', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
     const before = t.wired.deps.eventBus.subscriberCount()
 
     // Destroy the socket the moment the request is written — racing the
@@ -210,7 +210,7 @@ describe('GET /api/v1/stream', () => {
 
   it('ends the stream within one keepalive after the user is deactivated', async () => {
     const admin = await t.asRole('admin')
-    const victim = await t.asRole('requester')
+    const victim = await t.asRole('user')
     const client = await openStream(victim.cookie)
     await client.waitFor(':connected')
 
@@ -235,7 +235,7 @@ describe('graceful shutdown with connected SSE clients', () => {
     if (address === null || typeof address === 'string') throw new Error('no listen address')
     const soloUrl = `http://127.0.0.1:${String(address.port)}`
 
-    const { cookie } = await solo.asRole('technician')
+    const { cookie } = await solo.asRole('user')
     const client = await new Promise<SseClient>((resolve, reject) => {
       const req = httpRequest(
         `${soloUrl}/api/v1/stream`,

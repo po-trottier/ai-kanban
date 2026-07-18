@@ -34,7 +34,7 @@ async function createLocation(payload: Record<string, unknown>) {
 
 describe('GET /board', () => {
   it('returns the 7 seeded lanes in order with cards in position order', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
     const first = await t.request(cookie, {
       method: 'POST',
       url: '/api/v1/cards',
@@ -158,7 +158,7 @@ describe('PATCH /lanes/:id (admin)', () => {
   })
 
   it('is admin-only (403 with the always-on rule) and 404s unknown lanes', async () => {
-    const technician = await t.asRole('technician')
+    const technician = await t.asRole('user')
     const lane = await laneByKey('ready')
 
     const denied = await t.request(technician.cookie, {
@@ -205,7 +205,7 @@ describe('GET /locations + admin CRUD', () => {
       name: 'List Room',
       parentId: floor.json<LocationBody>().id,
     })
-    const { cookie } = await t.asRole('requester')
+    const { cookie } = await t.asRole('user')
 
     const response = await t.request(cookie, { method: 'GET', url: '/api/v1/locations' })
 
@@ -397,7 +397,7 @@ describe('GET /locations + admin CRUD', () => {
   })
 
   it('restricts CRUD to admins (403) while reads stay open', async () => {
-    const requester = await t.asRole('requester')
+    const requester = await t.asRole('user')
 
     const create = await t.request(requester.cookie, {
       method: 'POST',
@@ -422,7 +422,7 @@ describe('GET /locations + admin CRUD', () => {
 
 describe('GET /tags', () => {
   it('lists known tags for autocomplete after they are first used', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
     await t.request(cookie, {
       method: 'POST',
       url: '/api/v1/cards',

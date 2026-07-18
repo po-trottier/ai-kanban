@@ -34,7 +34,7 @@ describe('PolicyEditorForm', () => {
     const approvalGate = screen.getByRole('combobox', {
       name: 'Minimum role: Waiting for Approval to Ready',
     })
-    expect(approvalGate).toHaveValue('Supervisor')
+    expect(approvalGate).toHaveValue('Administrator')
     expect(screen.getAllByRole('row')).toHaveLength(11)
   })
 
@@ -77,13 +77,13 @@ describe('PolicyEditorForm', () => {
     await user.click(
       screen.getByRole('combobox', { name: 'Minimum role: Intake to Waiting for Approval' }),
     )
-    await user.click(screen.getByRole('option', { name: 'Technician' }))
+    await user.click(screen.getByRole('option', { name: 'User' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
     // Assert
     expect(saved[0]?.transitions[0]).toEqual({
       from: 'intake',
       to: 'waiting_approval',
-      minRole: 'technician',
+      minRole: 'user',
     })
   })
 
@@ -102,13 +102,13 @@ describe('PolicyEditorForm', () => {
     // Act — action gates are disabled until enforcement is on; enable it first.
     await user.click(screen.getByRole('switch', { name: /Enforce workflow transitions/ }))
     await user.click(screen.getByRole('combobox', { name: 'Cancel cards' }))
-    await user.click(screen.getByRole('option', { name: 'Supervisor' }))
+    await user.click(screen.getByRole('option', { name: 'Administrator' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await user.click(screen.getByRole('combobox', { name: 'Cancel cards' }))
     await user.click(screen.getByRole('option', { name: 'Any role' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
     // Assert
-    expect(saved[0]?.actionGates).toEqual({ cancel: 'supervisor' })
+    expect(saved[0]?.actionGates).toEqual({ cancel: 'admin' })
     expect(saved[1]?.actionGates).toEqual({})
   })
 })

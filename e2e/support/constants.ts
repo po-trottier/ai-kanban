@@ -32,7 +32,7 @@ export const DATA_DIR = join(tmpdir(), `rivian-kanban-e2e-${treeId}`)
 /** SEED_DEMO_PASSWORD handed to the server — deterministic demo logins. */
 export const DEMO_PASSWORD = 'rivian-e2e-demo-pass'
 
-export type DemoRole = 'requester' | 'technician' | 'supervisor' | 'admin'
+export type DemoRole = 'user' | 'admin'
 
 /** Demo account emails match packages/db `demoUserEmail`. */
 export function demoEmail(role: DemoRole): string {

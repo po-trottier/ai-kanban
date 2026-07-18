@@ -147,8 +147,8 @@ beforeAll(async () => {
   const address = await t.app.listen({ port: 0, host: '127.0.0.1' })
   baseUrl = address
   ;({ cookie: adminCookie } = await t.asRole('admin'))
-  writer = await mintToken('writer agent', 'technician', 'read_write')
-  reader = await mintToken('reporting agent', 'technician', 'read')
+  writer = await mintToken('writer agent', 'user', 'read_write')
+  reader = await mintToken('reporting agent', 'user', 'read')
 })
 
 afterAll(async () => {
@@ -309,7 +309,7 @@ describe('mutating tools', () => {
 
   it('create_card resolves reporterEmail to the matching user', async () => {
     const client = await connect(writer.raw)
-    const { user } = await t.createUser('requester')
+    const { user } = await t.createUser('user')
 
     const card = await callOk<Card>(client, 'create_card', {
       title: 'MCP-created on behalf of a requester',
@@ -335,7 +335,7 @@ describe('mutating tools', () => {
     // assignee rule), and the identical outcome closes the user-enumeration
     // oracle a distinct error would open.
     const client = await connect(writer.raw)
-    const { user } = await t.createUser('requester', { isActive: false })
+    const { user } = await t.createUser('user', { isActive: false })
 
     const problem = await callProblem(client, 'create_card', {
       title: 'Reporter is deactivated',
@@ -524,7 +524,7 @@ describe('enforcement-on policy posture', () => {
     expect(problem.to).toBe('done')
   })
 
-  it('per-edge minRole denies the technician token, naming the transition rule', async () => {
+  it('per-edge minRole denies the user token, naming the transition rule', async () => {
     const client = await connect(writer.raw)
     const card = await callOk<Card>(client, 'create_card', { title: 'Gated edge via MCP' })
     const staged = await callOk<Card>(client, 'move_card', {
@@ -566,7 +566,7 @@ describe('authentication at the transport edge', () => {
   })
 
   it('401s a revoked token', async () => {
-    const revoked = await mintToken('to be revoked', 'technician', 'read_write')
+    const revoked = await mintToken('to be revoked', 'user', 'read_write')
     const client = await connect(revoked.raw)
     await callOk(client, 'get_board_snapshot')
 
@@ -693,7 +693,7 @@ describe('per-token rate limiting', () => {
         const response = await tight.request(cookie, {
           method: 'POST',
           url: '/api/v1/service-tokens',
-          payload: { name, role: 'technician', scope: 'read' },
+          payload: { name, role: 'user', scope: 'read' },
         })
         return response.json<{ rawToken: string }>().rawToken
       }

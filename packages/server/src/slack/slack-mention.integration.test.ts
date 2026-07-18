@@ -30,7 +30,7 @@ async function allCards(): Promise<Card[]> {
 describe('app_mention → card creation', () => {
   it('creates the card from an in-thread mention with the thread as description', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(
@@ -63,7 +63,7 @@ describe('app_mention → card creation', () => {
 
   it('captures just the message for an out-of-thread mention (P2 default)', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(
@@ -84,7 +84,7 @@ describe('app_mention → card creation', () => {
 
   it('writes the audit event with the slack actor identity', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('technician')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(appMentionEnvelope({}))
@@ -103,7 +103,7 @@ describe('app_mention → card creation', () => {
 
   it('replies with the usage hint on an unparseable mention and creates nothing', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(appMentionEnvelope({ text: '<@UBOT001> please make me a ticket' }))
@@ -116,7 +116,7 @@ describe('app_mention → card creation', () => {
 
   it('rejects events from a foreign workspace outright', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(appMentionEnvelope({ teamId: 'T0EVIL' }))
@@ -128,7 +128,7 @@ describe('app_mention → card creation', () => {
 
   it('dedupes redelivered event ids — one card, one confirmation', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
     const envelope = appMentionEnvelope({ eventId: 'Ev0DUPLICATE' })
 
@@ -152,7 +152,7 @@ describe('app_mention → card creation', () => {
 
   it('rejects deactivated users the same way, without binding them', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester', { isActive: false })
+    const { user } = await harness.testApp.createUser('user', { isActive: false })
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(appMentionEnvelope({}))
@@ -179,7 +179,7 @@ describe('app_mention → card creation', () => {
     )
     llm = fixture.llm
     harness = await createSlackHarness({ summarizer: fixture.summarizer })
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(
@@ -202,7 +202,7 @@ describe('app_mention → card creation', () => {
     // slack.md#identity-mapping: the email is resolved once; a reassigned
     // corporate email must not let a new Slack account act as the old user.
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     await harness.testApp.wired.deps.uow.run((tx) =>
       tx.userAccounts.update({ ...user, slackUserId: 'U0DEPARTED' }),
     )
@@ -225,7 +225,7 @@ describe('app_mention → card creation', () => {
 
   it('escapes Slack control sequences in the confirmation message', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(appMentionEnvelope({ text: '<@UBOT001> create ticket <!channel> pwn' }))
@@ -241,7 +241,7 @@ describe('app_mention → card creation', () => {
 
   it('throttles card creation per user with a friendly in-thread rejection', async () => {
     harness = await createSlackHarness({ limits: { cardsPerUserPerMinute: 1 } })
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(appMentionEnvelope({ text: '<@UBOT001> create ticket First ticket' }))

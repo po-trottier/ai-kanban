@@ -14,7 +14,7 @@ import { createTestApp, type TestApp } from './test/support.ts'
 /**
  * The hourly waiting-lane aging job against a real temp SQLite database
  * (docs/product/workflow.md#waiting-on-parts--vendor-discipline): one DM per
- * overdue episode to the assignee + all active supervisors, `resumeAlertedAt`
+ * overdue episode to the assignee + all active admins, `resumeAlertedAt`
  * claimed in the same transaction (CardService.claimOverdueWaitingAlerts),
  * notifier failures never failing the loop. The job's run function is invoked
  * directly with a FixedClock-driven CardService — croner scheduling is
@@ -90,10 +90,10 @@ async function reloadCard(id: string): Promise<Card> {
 }
 
 describe('waiting aging alerts job', () => {
-  it('DMs the assignee plus every active supervisor and claims the episode', async () => {
-    const supervisor = await t.createUser('supervisor')
-    const inactiveSupervisor = await t.createUser('supervisor', { isActive: false })
-    const technician = await t.createUser('technician')
+  it('DMs the assignee plus every active admin and claims the episode', async () => {
+    const supervisor = await t.createUser('admin')
+    const inactiveSupervisor = await t.createUser('admin', { isActive: false })
+    const technician = await t.createUser('user')
     const card = await waitingCard(supervisor.user, '2026-07-10', {
       assigneeId: technician.user.id,
     })
@@ -104,7 +104,7 @@ describe('waiting aging alerts job', () => {
     expect(notifier.overdueAlerts).toHaveLength(1)
     const alert = notifier.overdueAlerts[0]
     expect(alert?.card.id).toBe(card.id)
-    // Assignee first, then active supervisors — deduped, inactive excluded.
+    // Assignee first, then active admins — deduped, inactive excluded.
     expect(alert?.recipients.map((user) => user.id)).toEqual([
       technician.user.id,
       supervisor.user.id,
@@ -115,7 +115,7 @@ describe('waiting aging alerts job', () => {
   })
 
   it('alerts exactly once per overdue episode across repeated runs', async () => {
-    const supervisor = await t.createUser('supervisor')
+    const supervisor = await t.createUser('admin')
     await waitingCard(supervisor.user, '2026-07-10')
 
     await runJob()
@@ -129,7 +129,7 @@ describe('waiting aging alerts job', () => {
   })
 
   it('re-entering the lane with fresh values starts a fresh episode', async () => {
-    const supervisor = await t.createUser('supervisor')
+    const supervisor = await t.createUser('admin')
     const card = await waitingCard(supervisor.user, '2026-07-10')
     await runJob()
 
@@ -154,7 +154,7 @@ describe('waiting aging alerts job', () => {
   })
 
   it('does not alert on the expected day itself — overdue starts the following UTC day', async () => {
-    const supervisor = await t.createUser('supervisor')
+    const supervisor = await t.createUser('admin')
     const today = await waitingCard(supervisor.user, '2026-07-16')
     const future = await waitingCard(supervisor.user, '2026-08-01')
 
@@ -166,8 +166,8 @@ describe('waiting aging alerts job', () => {
     expect((await reloadCard(future.id)).resumeAlertedAt).toBeNull()
   })
 
-  it('alerts supervisors only when the card has no assignee', async () => {
-    const supervisor = await t.createUser('supervisor')
+  it('alerts admins only when the card has no assignee', async () => {
+    const supervisor = await t.createUser('admin')
     await waitingCard(supervisor.user, '2026-07-10')
 
     await runJob()
@@ -177,7 +177,7 @@ describe('waiting aging alerts job', () => {
   })
 
   it('keeps the episode claimed when the notifier fails — the job never throws', async () => {
-    const supervisor = await t.createUser('supervisor')
+    const supervisor = await t.createUser('admin')
     const card = await waitingCard(supervisor.user, '2026-07-10')
     notifier.failWith = new Error('slack outage')
 

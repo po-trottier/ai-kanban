@@ -30,6 +30,20 @@ export function fixtureId(n: number): string {
 
 export const SCENARIO_BOARD_ID = fixtureId(1)
 
+/**
+ * Distinct fixture-user handles. Roles collapsed to `user | admin`, so these
+ * are just four different accounts: requester/technician are regular `user`s,
+ * supervisor/admin are `admin`s — the names are kept so the ~dozens of tests
+ * that reference `scenario.users.technician` etc. don't churn.
+ */
+export type FixtureUserKey = 'requester' | 'technician' | 'supervisor' | 'admin'
+const FIXTURE_USERS: { key: FixtureUserKey; role: Role }[] = [
+  { key: 'requester', role: 'user' },
+  { key: 'technician', role: 'user' },
+  { key: 'supervisor', role: 'admin' },
+  { key: 'admin', role: 'admin' },
+]
+
 export interface ScenarioOptions {
   policy?: PolicyDocument
   /**
@@ -50,9 +64,9 @@ export interface Scenario {
   blobStore: InMemoryBlobStore
   boardId: string
   lanes: Record<LaneKey, Lane>
-  users: Record<Role, User>
+  users: Record<FixtureUserKey, User>
   systemUser: User
-  actors: Record<Role, Actor> & {
+  actors: Record<FixtureUserKey, Actor> & {
     system: Actor
     mcpRead: Actor
     mcpReadWrite: Actor
@@ -94,20 +108,19 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
     }),
   ) as Record<LaneKey, Lane>
 
-  const roleList: Role[] = ['requester', 'technician', 'supervisor', 'admin']
   const users = Object.fromEntries(
-    roleList.map((role, index) => {
+    FIXTURE_USERS.map(({ key, role }, index) => {
       const user = userWith({
         id: fixtureId(20 + index),
-        email: `${role}@example.com`,
-        displayName: role,
+        email: `${key}@example.com`,
+        displayName: key,
         role,
         createdAt: nowIso,
       })
       db.seedUser(user)
-      return [role, user] as const
+      return [key, user] as const
     }),
-  ) as Record<Role, User>
+  ) as Record<FixtureUserKey, User>
   const systemUser = userWith({
     id: fixtureId(29),
     email: 'system@example.com',
@@ -134,9 +147,9 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
     supervisor: actorOf(users.supervisor),
     admin: actorOf(users.admin),
     system: { kind: 'system', id: systemUser.id, role: 'admin' },
-    mcpRead: { kind: 'mcp', id: fixtureId(40), role: 'technician', scope: 'read' },
-    mcpReadWrite: { kind: 'mcp', id: fixtureId(41), role: 'technician', scope: 'read_write' },
-    slack: { kind: 'slack', id: users.technician.id, role: 'technician' },
+    mcpRead: { kind: 'mcp', id: fixtureId(40), role: 'user', scope: 'read' },
+    mcpReadWrite: { kind: 'mcp', id: fixtureId(41), role: 'user', scope: 'read_write' },
+    slack: { kind: 'slack', id: users.technician.id, role: 'user' },
   }
 
   const shared = { uow: db, clock, ids, eventBus }

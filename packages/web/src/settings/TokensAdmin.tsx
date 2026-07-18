@@ -21,7 +21,7 @@ export function TokensAdmin() {
   const [revokeTarget, setRevokeTarget] = useState<ServiceTokenView | null>(null)
   const [draft, setDraft] = useState<{ name: string; role: Role; scope: TokenScope }>({
     name: '',
-    role: 'technician',
+    role: 'user',
     scope: 'read',
   })
 
@@ -144,7 +144,7 @@ export function TokensAdmin() {
                   createToken.mutate(draft, {
                     onSuccess: (created) => {
                       setCreateOpen(false)
-                      setDraft({ name: '', role: 'technician', scope: 'read' })
+                      setDraft({ name: '', role: 'user', scope: 'read' })
                       setRawToken(created.rawToken)
                     },
                   })

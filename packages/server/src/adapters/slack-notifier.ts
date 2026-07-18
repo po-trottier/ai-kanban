@@ -62,7 +62,7 @@ export class SlackNotifier implements NotifierPort {
    * Waiting-lane overdue alert (workflow.md#waiting-on-parts--vendor-discipline):
    * one DM per resolved recipient. Per-recipient failures are logged and
    * skipped — the hourly job already marked the episode as alerted, and one
-   * unmatched supervisor must not cost the others their DM.
+   * unmatched admin must not cost the others their DM.
    */
   async waitingOverdue(card: Card, recipients: User[]): Promise<void> {
     const text = waitingOverdueMessage(this.deps.publicBaseUrl, card)

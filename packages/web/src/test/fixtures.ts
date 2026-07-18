@@ -63,7 +63,7 @@ export const fixtureTech: User = userWith({
   id: uid(2),
   email: 'tech@example.com',
   displayName: 'Terry Tech',
-  role: 'technician',
+  role: 'user',
   createdAt: T0,
 })
 

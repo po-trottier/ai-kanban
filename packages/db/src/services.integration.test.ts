@@ -33,10 +33,10 @@ beforeAll(() => {
   db = openTestDb()
   const structural = structuralSeed(db.connection.db)
   boardId = structural.boardId
-  const technicianUser = insertUser(db.connection, { role: 'technician' })
-  const supervisorUser = insertUser(db.connection, { role: 'supervisor' })
-  technician = { kind: 'user', id: technicianUser.id, role: 'technician' }
-  supervisor = { kind: 'user', id: supervisorUser.id, role: 'supervisor' }
+  const technicianUser = insertUser(db.connection, { role: 'user' })
+  const supervisorUser = insertUser(db.connection, { role: 'admin' })
+  technician = { kind: 'user', id: technicianUser.id, role: 'user' }
+  supervisor = { kind: 'user', id: supervisorUser.id, role: 'admin' }
 
   const clock = new SystemClock()
   const ids = new Uuidv7IdGenerator()

@@ -221,8 +221,8 @@ describe('AttachmentService.remove', () => {
       uploadInput(),
     )
 
-    // Act
-    const denied = scenario.attachments.remove(scenario.actors.supervisor, attachment.id)
+    // Act — a different non-uploader below the gate (both are role `user`)
+    const denied = scenario.attachments.remove(scenario.actors.requester, attachment.id)
 
     // Assert
     await expect(denied).rejects.toBeInstanceOf(PolicyDeniedError)

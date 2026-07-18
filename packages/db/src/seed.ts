@@ -279,7 +279,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
         boardId: board.id,
         number: cardCount,
         position: appendPosition(positionIndex),
-        reporterId: demoUsers.requester.id,
+        reporterId: demoUsers.user.id,
         createdAt,
         ...overrides,
       })
@@ -322,7 +322,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
         laneId: laneOf('ready').id,
         title: 'Quarterly HVAC filter replacement',
         priority: 'P1',
-        assigneeId: demoUsers.technician.id,
+        assigneeId: demoUsers.user.id,
         estimateMinutes: 480,
         locationId: sampleRoom?.id ?? null,
       },
@@ -332,7 +332,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       laneId: laneOf('in_progress').id,
       title: 'Repair loading-dock leveler',
       priority: 'P0',
-      assigneeId: demoUsers.technician.id,
+      assigneeId: demoUsers.user.id,
       estimateMinutes: 120,
       // In progress for ~90 minutes → a partway work burn-down bar on the card.
       workStartedAt: new Date(nowMs - 90 * 60_000).toISOString(),
@@ -350,7 +350,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
     appendEvent({
       id: ids.newId(),
       cardId: blockedCard.id,
-      actorId: demoUsers.technician.id,
+      actorId: demoUsers.user.id,
       actorKind: 'user',
       eventType: 'card.blocked',
       payload: { reason: blockedReason },
@@ -374,13 +374,13 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
     insertCard({
       laneId: laneOf('review').id,
       title: 'Re-lamp parking lot light poles',
-      assigneeId: demoUsers.technician.id,
+      assigneeId: demoUsers.user.id,
     })
     insertCard({
       laneId: laneOf('done').id,
       title: 'Unclog sink in second-floor kitchen',
       resolution: 'completed',
-      assigneeId: demoUsers.technician.id,
+      assigneeId: demoUsers.user.id,
     })
     const cancelledCard = insertCard({
       laneId: laneOf('done').id,
@@ -390,7 +390,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
     appendEvent({
       id: ids.newId(),
       cardId: cancelledCard.id,
-      actorId: demoUsers.supervisor.id,
+      actorId: demoUsers.admin.id,
       actorKind: 'user',
       eventType: 'card.cancelled',
       payload: { resolution: 'cancelled', fromLane: 'ready' },
@@ -406,7 +406,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
     const parentComment = commentWith({
       id: ids.newId(),
       cardId: inProgressCard.id,
-      authorId: demoUsers.requester.id,
+      authorId: demoUsers.user.id,
       body: 'Any update? Deliveries are backing up at the dock.',
       createdAt: new Date(nowMs - 3 * 3_600_000).toISOString(),
     })
@@ -424,7 +424,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       id: ids.newId(),
       cardId: inProgressCard.id,
       parentCommentId: parentComment.id,
-      authorId: demoUsers.technician.id,
+      authorId: demoUsers.user.id,
       body: 'Hydraulic pump is out — new seal kit arrives tomorrow morning.',
       createdAt: new Date(nowMs - 2 * 3_600_000).toISOString(),
     })
@@ -447,7 +447,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       bytes: 184_320,
       sha256: 'deadbeef'.repeat(8),
       storageKey: ids.newId(),
-      uploadedBy: demoUsers.technician.id,
+      uploadedBy: demoUsers.user.id,
       createdAt: readyCard.createdAt,
       deletedAt: null,
     }

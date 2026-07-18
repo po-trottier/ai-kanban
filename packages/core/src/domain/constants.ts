@@ -14,7 +14,13 @@ export const LANE_KEYS = [
 ] as const
 export type LaneKey = (typeof LANE_KEYS)[number]
 
-export const ROLES = ['requester', 'technician', 'supervisor', 'admin'] as const
+/**
+ * Two assignable roles: `user` (everyone) and `admin` (Administrator). Kept a
+ * fixed enum on purpose — code-free permission customization is the job of the
+ * configurable policy document (ADR-013), which gates actions/transitions by
+ * role without a schema change. Dynamic custom roles are a future concern.
+ */
+export const ROLES = ['user', 'admin'] as const
 export type Role = (typeof ROLES)[number]
 
 /** True when `role` sits at or above `minimum` in the ordered role ladder (ADR-013). */

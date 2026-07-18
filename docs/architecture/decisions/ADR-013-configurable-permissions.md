@@ -4,8 +4,8 @@
 
 ## Context
 
-The original design enforced a role hierarchy on transitions (technician moves work, supervisor
-approves/closes). The product owner rejected hierarchy-by-default: _"By default everyone can
+The original design enforced a multi-level role hierarchy on transitions (a regular user moves
+work, an elevated role approves/closes). The product owner rejected hierarchy-by-default: _"By default everyone can
 move anywhere. You can support the feature but we should not enforce hierarchy by default."_
 That in turn requires a way to configure the board — an app-wide admin view.
 
@@ -35,10 +35,13 @@ That in turn requires a way to configure the board — an app-wide admin view.
   }
   ```
 
-  `Role` is `requester | technician | supervisor | admin` (ordered). The seeded document has
-  enforcement off, no action gates, and the researched 7-lane graph ready to activate. Stored
-  as append-only versions in `board_policies` — configuration changes have history and
-  authorship like everything else.
+  `Role` is `user | admin` (User / Administrator), ordered `user < admin`. This is a fixed enum
+  FOR NOW: two levels are enough for the permissive-by-default posture (regular users, plus the
+  admin surface), and code-free permission customization is the job of this policy document
+  rather than of new roles. Dynamic, admin-defined custom roles are a planned follow-up. The
+  seeded document has enforcement off, no action gates, and the researched 7-lane graph ready to
+  activate. Stored as append-only versions in `board_policies` — configuration changes have
+  history and authorship like everything else.
 
 - **The admin surface is the ONLY thing role-restricted by default.** The app-wide settings
   view and its APIs (users, lanes, permission policy, locations, service tokens) require the
@@ -52,8 +55,8 @@ That in turn requires a way to configure the board — an app-wide admin view.
 - **App-wide admin view** in the SPA: user management, lane labels/WIP limits, permission
   policy editor (enforcement toggle, per-transition gates, action gates), location tree,
   service tokens.
-- Roles (`requester < technician < supervisor < admin`) remain as assignable levels that gates
-  _may_ reference; they impose nothing until a gate is enabled.
+- Roles (`user < admin`) remain as assignable levels that gates _may_ reference; they impose
+  nothing until a gate is enabled.
 
 ## Consequences
 

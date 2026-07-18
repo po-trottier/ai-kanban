@@ -37,7 +37,7 @@ function run<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T> {
 
 describe('SqliteUserRepository', () => {
   it('hydrates the User entity without ever exposing password_hash', async () => {
-    const user = insertUser(db.connection, { displayName: 'Casey', role: 'supervisor' })
+    const user = insertUser(db.connection, { displayName: 'Casey', role: 'admin' })
 
     const found = await run((tx) => tx.users.findById(user.id))
 

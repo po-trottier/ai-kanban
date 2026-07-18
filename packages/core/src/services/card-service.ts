@@ -666,7 +666,7 @@ export class CardService {
       if (overdue.length === 0) return []
 
       const supervisors = (await tx.userAccounts.list()).filter(
-        (user) => user.role === 'supervisor' && user.isActive,
+        (user) => user.role === 'admin' && user.isActive && user.id !== this.deps.systemUserId,
       )
       const alerts: { card: Card; recipients: User[] }[] = []
       for (const card of overdue) {

@@ -24,7 +24,7 @@ describe('Board', () => {
       <Board
         board={board}
         policy={permissivePolicy}
-        role="technician"
+        role="user"
         users={fixturePickerUsers}
         today="2026-07-16"
         onOpenCard={noop}
@@ -57,7 +57,7 @@ describe('Board', () => {
       <Board
         board={board}
         policy={permissivePolicy}
-        role="technician"
+        role="user"
         users={fixturePickerUsers}
         today="2026-07-16"
         onOpenCard={noop}
@@ -77,7 +77,7 @@ describe('Board', () => {
       <Board
         board={board}
         policy={permissivePolicy}
-        role="technician"
+        role="user"
         users={fixturePickerUsers}
         today="2026-07-16"
         onOpenCard={noop}
@@ -98,7 +98,7 @@ describe('Board', () => {
       <Board
         board={board}
         policy={permissivePolicy}
-        role="technician"
+        role="user"
         users={fixturePickerUsers}
         today="2026-07-16"
         onOpenCard={noop}
@@ -122,7 +122,7 @@ describe('Board', () => {
         filtering
         filterQuery="boiler"
         policy={permissivePolicy}
-        role="technician"
+        role="user"
         users={fixturePickerUsers}
         today="2026-07-16"
         onOpenCard={noop}
@@ -146,7 +146,7 @@ describe('Board', () => {
       <Board
         board={board}
         policy={permissivePolicy}
-        role="technician"
+        role="user"
         users={fixturePickerUsers}
         today="2026-07-16"
         onOpenCard={noop}
@@ -168,7 +168,7 @@ describe('Board', () => {
       <Board
         board={board}
         policy={permissivePolicy}
-        role="technician"
+        role="user"
         users={fixturePickerUsers}
         today="2026-07-16"
         onOpenCard={noop}
@@ -199,7 +199,7 @@ describe('Board', () => {
       <Board
         board={board}
         policy={permissivePolicy}
-        role="technician"
+        role="user"
         users={fixturePickerUsers}
         today="2026-07-16"
         onOpenCard={noop}

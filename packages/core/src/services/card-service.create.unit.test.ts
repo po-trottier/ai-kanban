@@ -207,7 +207,7 @@ describe('CardService.create', () => {
       id: fixtureId(997),
       email: 'offboarded@example.com',
       displayName: 'Offboarded',
-      role: 'technician',
+      role: 'user',
       createdAt: scenario.clock.now().toISOString(),
       isActive: false,
     })

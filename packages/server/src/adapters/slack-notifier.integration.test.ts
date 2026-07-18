@@ -74,8 +74,8 @@ async function moveCard(
 describe('SlackNotifier (review→done completion DMs)', () => {
   it('DMs the requester on completion, binding their Slack id once', async () => {
     await bootWithSlack()
-    const requester = await t.asRole('requester')
-    const supervisor = await t.asRole('supervisor')
+    const requester = await t.asRole('user')
+    const supervisor = await t.asRole('admin')
     slack.setUserEmail('U0REQUESTER', requester.user.email)
 
     const card = await createCard(requester.cookie, 'Compressor leaking in bay 4')
@@ -98,8 +98,8 @@ describe('SlackNotifier (review→done completion DMs)', () => {
 
   it('reuses the stored binding for later completions (no second lookup)', async () => {
     await bootWithSlack()
-    const requester = await t.asRole('requester')
-    const supervisor = await t.asRole('supervisor')
+    const requester = await t.asRole('user')
+    const supervisor = await t.asRole('admin')
     slack.setUserEmail('U0REQUESTER', requester.user.email)
 
     const first = await createCard(requester.cookie, 'First ticket')
@@ -116,8 +116,8 @@ describe('SlackNotifier (review→done completion DMs)', () => {
 
   it('skips unmatched requesters silently — the move still succeeds', async () => {
     await bootWithSlack()
-    const requester = await t.asRole('requester')
-    const supervisor = await t.asRole('supervisor')
+    const requester = await t.asRole('user')
+    const supervisor = await t.asRole('admin')
     // No Slack directory entry for the requester's email.
 
     const card = await createCard(requester.cookie, 'Nobody on Slack')
@@ -133,8 +133,8 @@ describe('SlackNotifier (review→done completion DMs)', () => {
     await bootWithSlack({
       'chat.postMessage': () => ({ ok: false, error: 'channel_not_found' }),
     })
-    const requester = await t.asRole('requester')
-    const supervisor = await t.asRole('supervisor')
+    const requester = await t.asRole('user')
+    const supervisor = await t.asRole('admin')
     slack.setUserEmail('U0REQUESTER', requester.user.email)
 
     const card = await createCard(requester.cookie, 'Slack is having a day')
@@ -163,8 +163,8 @@ describe('SlackNotifier (review→done completion DMs)', () => {
 
   it('cancellation notifies no one', async () => {
     await bootWithSlack()
-    const requester = await t.asRole('requester')
-    const supervisor = await t.asRole('supervisor')
+    const requester = await t.asRole('user')
+    const supervisor = await t.asRole('admin')
     slack.setUserEmail('U0REQUESTER', requester.user.email)
 
     const card = await createCard(requester.cookie, 'Withdrawn request')
@@ -208,8 +208,8 @@ describe('SlackNotifier (waiting-lane overdue DMs via the aging job)', () => {
 
   it('DMs the assignee and the supervisor, one message each', async () => {
     await bootWithSlack()
-    const supervisor = await t.asRole('supervisor')
-    const technician = await t.createUser('technician', { slackUserId: 'U0TECH' })
+    const supervisor = await t.asRole('admin')
+    const technician = await t.createUser('user', { slackUserId: 'U0TECH' })
     slack.setUserEmail('U0SUPERVISOR', supervisor.user.email)
     slack.setUserEmail('U0TECH', technician.user.email)
     const created = await t.request(supervisor.cookie, {
@@ -233,9 +233,9 @@ describe('SlackNotifier (waiting-lane overdue DMs via the aging job)', () => {
 
   it('skips unmatched recipients without losing the others — and never re-fires', async () => {
     await bootWithSlack()
-    const supervisor = await t.asRole('supervisor')
+    const supervisor = await t.asRole('admin')
     // The supervisor has no Slack directory entry; the technician does.
-    const technician = await t.createUser('technician', { slackUserId: 'U0TECH' })
+    const technician = await t.createUser('user', { slackUserId: 'U0TECH' })
     slack.setUserEmail('U0TECH', technician.user.email)
     const created = await t.request(supervisor.cookie, {
       method: 'POST',

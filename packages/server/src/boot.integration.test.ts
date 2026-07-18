@@ -27,7 +27,7 @@ describe('demo seed boot (SEED_DEMO_DATA)', () => {
   })
 
   it('mints one-time credentials for every demo role and they can log in', async () => {
-    expect(t.wired.demoCredentials).toHaveLength(4)
+    expect(t.wired.demoCredentials).toHaveLength(2)
     const admin = t.wired.demoCredentials.find((credential) =>
       credential.email.startsWith('admin@'),
     )
@@ -83,7 +83,7 @@ describe('deterministic demo credentials (SEED_DEMO_PASSWORD)', () => {
     })
     const app = await buildApp(wired.deps)
     try {
-      expect(wired.demoCredentials).toHaveLength(4)
+      expect(wired.demoCredentials).toHaveLength(2)
       expect(wired.demoCredentials.every((c) => c.password === 'fixed-demo-password')).toBe(true)
 
       const login = await app.inject({

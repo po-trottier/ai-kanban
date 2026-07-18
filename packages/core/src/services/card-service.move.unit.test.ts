@@ -256,7 +256,7 @@ describe('CardService.move — terminal semantics via drag', () => {
   it('applies the reopen action gate to drags out of done (enforcement off)', async () => {
     // Arrange
     const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'supervisor' } },
+      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'admin' } },
     })
     const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'completed' })
 
@@ -278,7 +278,7 @@ describe('CardService.move — terminal semantics via drag', () => {
   it('lets a supervisor drag out of done through the reopen gate', async () => {
     // Arrange
     const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'supervisor' } },
+      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'admin' } },
     })
     const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'completed' })
 
@@ -296,7 +296,7 @@ describe('CardService.move — terminal semantics via drag', () => {
   it('does not consult the reopen gate for moves that do not leave done', async () => {
     // Arrange
     const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'supervisor' } },
+      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'admin' } },
     })
     const card = scenario.seedCard({ laneId: scenario.lanes.ready.id })
 
@@ -478,7 +478,7 @@ describe('CardService.move — transition enforcement on', () => {
 })
 
 describe('CardService.claimOverdueWaitingAlerts', () => {
-  it('claims overdue episodes once, resolving assignee + active supervisors deduped', async () => {
+  it('claims overdue episodes once, resolving assignee + active admins deduped', async () => {
     // Arrange: fixed clock is 2026-07-16 — overdue starts the day AFTER the date
     const scenario = createScenario()
     const overdue = scenario.seedCard({
@@ -497,12 +497,14 @@ describe('CardService.claimOverdueWaitingAlerts', () => {
     const first = await scenario.cards.claimOverdueWaitingAlerts()
     const second = await scenario.cards.claimOverdueWaitingAlerts()
 
-    // Assert — one claim per episode; assignee first, then the supervisor
+    // Assert — one claim per episode; assignee first, then every active admin
+    // (both fixture admins), deduped; the system automation user is excluded.
     expect(first.map((alert) => alert.card.id)).toEqual([overdue.id])
     expect(first.at(0)?.card.resumeAlertedAt).toBe('2026-07-16T12:00:00.000Z')
     expect(first.at(0)?.recipients.map((user) => user.id)).toEqual([
       scenario.users.technician.id,
       scenario.users.supervisor.id,
+      scenario.users.admin.id,
     ])
     expect(second).toEqual([])
   })

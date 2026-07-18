@@ -56,14 +56,14 @@ function putPolicy(document: Record<string, unknown>, cookie = adminCookie) {
 const ENFORCED_POLICY = {
   ...DEFAULT_POLICY_DOCUMENT,
   transitionEnforcement: true,
-  actionGates: { cancel: 'supervisor', reopen: 'supervisor' },
+  actionGates: { cancel: 'admin', reopen: 'admin' },
 } as const
 
 const PERMISSIVE_POLICY = DEFAULT_POLICY_DOCUMENT as unknown as Record<string, unknown>
 
 describe('GET /policy', () => {
   it('returns the seeded permissive document to any authenticated user', async () => {
-    const { cookie } = await t.asRole('requester')
+    const { cookie } = await t.asRole('user')
 
     const response = await t.request(cookie, { method: 'GET', url: '/api/v1/policy' })
 
@@ -75,7 +75,7 @@ describe('GET /policy', () => {
 
 describe('PUT /policy', () => {
   it('is admin-only and validates the document', async () => {
-    const tech = await t.asRole('technician')
+    const tech = await t.asRole('user')
 
     const denied = await putPolicy(PERMISSIVE_POLICY, tech.cookie)
     const invalid = await putPolicy({ transitionEnforcement: 'yes' })
@@ -105,7 +105,7 @@ describe('PUT /policy', () => {
 
 describe('default-permissive posture', () => {
   it('lets any authenticated user move any card anywhere and cancel', async () => {
-    const requester = await t.asRole('requester')
+    const requester = await t.asRole('user')
     const card = await createCard(requester.cookie, 'Permissive move')
 
     const moved = await moveCard(requester.cookie, card, 'done')
@@ -129,7 +129,7 @@ describe('enforcement-on posture', () => {
   })
 
   it('422s a move with no edge in the workflow graph, naming from and to', async () => {
-    const tech = await t.asRole('technician')
+    const tech = await t.asRole('user')
     const card = await createCard(tech.cookie, 'Illegal jump')
 
     const response = await moveCard(tech.cookie, card, 'done')
@@ -142,9 +142,9 @@ describe('enforcement-on posture', () => {
     })
   })
 
-  it('enforces per-edge minRole: technician denied, supervisor allowed', async () => {
-    const tech = await t.asRole('technician')
-    const supervisor = await t.asRole('supervisor')
+  it('enforces per-edge minRole: user denied, admin allowed', async () => {
+    const tech = await t.asRole('user')
+    const supervisor = await t.asRole('admin')
     const card = await createCard(tech.cookie, 'Approval path')
     const staged = await moveCard(tech.cookie, card, 'waiting_approval')
     expect(staged.statusCode).toBe(200)
@@ -159,8 +159,8 @@ describe('enforcement-on posture', () => {
   })
 
   it('enforces the cancel action gate', async () => {
-    const requester = await t.asRole('requester')
-    const supervisor = await t.asRole('supervisor')
+    const requester = await t.asRole('user')
+    const supervisor = await t.asRole('admin')
     const card = await createCard(requester.cookie, 'Gated cancel')
 
     const denied = await t.request(requester.cookie, {
@@ -182,8 +182,8 @@ describe('enforcement-on posture', () => {
   })
 
   it('enforces the reopen action gate on the done→ready edge', async () => {
-    const supervisor = await t.asRole('supervisor')
-    const requester = await t.asRole('requester')
+    const supervisor = await t.asRole('admin')
+    const requester = await t.asRole('user')
     const card = await createCard(supervisor.cookie, 'Gated reopen')
     const cancelled = await t.request(supervisor.cookie, {
       method: 'POST',
@@ -210,7 +210,7 @@ describe('enforcement-on posture', () => {
   })
 
   it('policy denials do not depend on card state: legal edges still work', async () => {
-    const tech = await t.asRole('technician')
+    const tech = await t.asRole('user')
     const card = await createCard(tech.cookie, 'Legal edge')
 
     const response = await moveCard(tech.cookie, card, 'waiting_approval')

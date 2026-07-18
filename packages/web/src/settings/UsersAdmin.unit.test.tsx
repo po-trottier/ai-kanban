@@ -15,7 +15,7 @@ describe('UsersAdmin', () => {
     // Assert
     expect(await screen.findByText('Ada Admin')).toBeInTheDocument()
     expect(screen.getByText('tech@example.com')).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Role: Terry Tech' })).toHaveValue('Technician')
+    expect(screen.getByRole('combobox', { name: 'Role: Terry Tech' })).toHaveValue('User')
   })
 
   it('creates a user and shows the one-time temp password exactly once', async () => {
@@ -36,7 +36,7 @@ describe('UsersAdmin', () => {
     expect(fake.lastBody('POST', '/api/v1/users')).toEqual({
       email: 'new@example.com',
       displayName: 'New Person',
-      role: 'requester',
+      role: 'user',
     })
   })
 

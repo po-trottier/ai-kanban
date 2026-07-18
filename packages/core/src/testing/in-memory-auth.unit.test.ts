@@ -25,7 +25,7 @@ function makeToken(createdBy: string, overrides: Partial<ServiceToken> = {}): Se
     id: fixtureId(700),
     name: 'agent',
     tokenHash: 'sha-1',
-    role: 'technician',
+    role: 'user',
     scope: 'read',
     createdBy,
     createdAt: '2026-07-16T12:00:00.000Z',

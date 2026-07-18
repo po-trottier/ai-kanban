@@ -14,7 +14,7 @@ describe('canMoveToLane', () => {
     // Arrange
     const policy = permissivePolicy
     // Act
-    const allowed = canMoveToLane(policy, 'requester', 'done', 'intake')
+    const allowed = canMoveToLane(policy, 'user', 'done', 'intake')
     // Assert
     expect(allowed).toBe(true)
   })
@@ -23,56 +23,56 @@ describe('canMoveToLane', () => {
     // Arrange
     const policy = enforcedPolicy
     // Act
-    const legal = canMoveToLane(policy, 'technician', 'intake', 'waiting_approval')
-    const illegal = canMoveToLane(policy, 'technician', 'intake', 'ready')
+    const legal = canMoveToLane(policy, 'user', 'intake', 'waiting_approval')
+    const illegal = canMoveToLane(policy, 'user', 'intake', 'ready')
     // Assert
     expect(legal).toBe(true)
     expect(illegal).toBe(false)
   })
 
   it('applies per-transition role gates when enforcement is on', () => {
-    // Arrange — waiting_approval → ready is supervisor-gated in the seed
+    // Arrange — waiting_approval → ready is admin-gated in the seed
     const policy = enforcedPolicy
     // Act
-    const asTechnician = canMoveToLane(policy, 'technician', 'waiting_approval', 'ready')
-    const asSupervisor = canMoveToLane(policy, 'supervisor', 'waiting_approval', 'ready')
+    const asUser = canMoveToLane(policy, 'user', 'waiting_approval', 'ready')
+    const asAdmin = canMoveToLane(policy, 'admin', 'waiting_approval', 'ready')
     // Assert
-    expect(asTechnician).toBe(false)
-    expect(asSupervisor).toBe(true)
+    expect(asUser).toBe(false)
+    expect(asAdmin).toBe(true)
   })
 
   it('gates within-Ready reorders behind reorderReady regardless of enforcement', () => {
     // Arrange
-    const gated = { ...permissivePolicy, actionGates: { reorderReady: 'supervisor' as const } }
+    const gated = { ...permissivePolicy, actionGates: { reorderReady: 'admin' as const } }
     // Act
-    const asTechnician = canMoveToLane(gated, 'technician', 'ready', 'ready')
-    const asSupervisor = canMoveToLane(gated, 'supervisor', 'ready', 'ready')
-    const otherLane = canMoveToLane(gated, 'technician', 'intake', 'intake')
+    const asUser = canMoveToLane(gated, 'user', 'ready', 'ready')
+    const asAdmin = canMoveToLane(gated, 'admin', 'ready', 'ready')
+    const otherLane = canMoveToLane(gated, 'user', 'intake', 'intake')
     // Assert
-    expect(asTechnician).toBe(false)
-    expect(asSupervisor).toBe(true)
+    expect(asUser).toBe(false)
+    expect(asAdmin).toBe(true)
     expect(otherLane).toBe(true)
   })
 
   it('treats a drag out of done as reopen: the reopen gate applies (server parity)', () => {
     // Arrange — CardService.move consults card.reopen for moves out of done
-    const gated = { ...permissivePolicy, actionGates: { reopen: 'supervisor' as const } }
+    const gated = { ...permissivePolicy, actionGates: { reopen: 'admin' as const } }
     // Act
-    const asTechnician = canMoveToLane(gated, 'technician', 'done', 'ready')
-    const asSupervisor = canMoveToLane(gated, 'supervisor', 'done', 'ready')
+    const asUser = canMoveToLane(gated, 'user', 'done', 'ready')
+    const asAdmin = canMoveToLane(gated, 'admin', 'done', 'ready')
     // Assert
-    expect(asTechnician).toBe(false)
-    expect(asSupervisor).toBe(true)
+    expect(asUser).toBe(false)
+    expect(asAdmin).toBe(true)
   })
 })
 
 describe('canPerformAction', () => {
   it('is permissive when the gate is absent and role-gated when present', () => {
     // Arrange
-    const gated = { ...permissivePolicy, actionGates: { cancel: 'supervisor' as const } }
+    const gated = { ...permissivePolicy, actionGates: { cancel: 'admin' as const } }
     // Act
-    const ungated = canPerformAction(permissivePolicy, 'requester', 'cancel')
-    const denied = canPerformAction(gated, 'technician', 'cancel')
+    const ungated = canPerformAction(permissivePolicy, 'user', 'cancel')
+    const denied = canPerformAction(gated, 'user', 'cancel')
     const allowed = canPerformAction(gated, 'admin', 'cancel')
     // Assert
     expect(ungated).toBe(true)
@@ -81,16 +81,16 @@ describe('canPerformAction', () => {
   })
 
   it('applies the done→ready transition to the reopen affordance when enforcement is on', () => {
-    // Arrange — core's engine ties reopen to the done→ready edge (supervisor
+    // Arrange — core's engine ties reopen to the done→ready edge (admin
     // in the seeded graph); the UI must not offer a Reopen the server rejects.
     const policy = enforcedPolicy
     // Act
-    const asTechnician = canPerformAction(policy, 'technician', 'reopen')
-    const asSupervisor = canPerformAction(policy, 'supervisor', 'reopen')
-    const enforcementOff = canPerformAction(permissivePolicy, 'technician', 'reopen')
+    const asUser = canPerformAction(policy, 'user', 'reopen')
+    const asAdmin = canPerformAction(policy, 'admin', 'reopen')
+    const enforcementOff = canPerformAction(permissivePolicy, 'user', 'reopen')
     // Assert
-    expect(asTechnician).toBe(false)
-    expect(asSupervisor).toBe(true)
+    expect(asUser).toBe(false)
+    expect(asAdmin).toBe(true)
     expect(enforcementOff).toBe(true)
   })
 
@@ -99,15 +99,15 @@ describe('canPerformAction', () => {
     const gated = {
       ...permissivePolicy,
       actionGates: {
-        deleteOthersComments: 'supervisor' as const,
+        deleteOthersComments: 'admin' as const,
         deleteOthersAttachments: 'admin' as const,
       },
     }
     // Act
-    const commentsUngated = canPerformAction(permissivePolicy, 'requester', 'deleteOthersComments')
-    const commentsDenied = canPerformAction(gated, 'technician', 'deleteOthersComments')
-    const commentsAllowed = canPerformAction(gated, 'supervisor', 'deleteOthersComments')
-    const attachmentsDenied = canPerformAction(gated, 'supervisor', 'deleteOthersAttachments')
+    const commentsUngated = canPerformAction(permissivePolicy, 'user', 'deleteOthersComments')
+    const commentsDenied = canPerformAction(gated, 'user', 'deleteOthersComments')
+    const commentsAllowed = canPerformAction(gated, 'admin', 'deleteOthersComments')
+    const attachmentsDenied = canPerformAction(gated, 'user', 'deleteOthersAttachments')
     // Assert
     expect(commentsUngated).toBe(true)
     expect(commentsDenied).toBe(false)

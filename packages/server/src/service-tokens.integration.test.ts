@@ -24,18 +24,18 @@ describe('POST /service-tokens', () => {
     const response = await t.request(adminCookie, {
       method: 'POST',
       url: '/api/v1/service-tokens',
-      payload: { name: 'ci-agent', role: 'technician', scope: 'read_write' },
+      payload: { name: 'ci-agent', role: 'user', scope: 'read_write' },
     })
 
     expect(response.statusCode).toBe(201)
     const body = response.json<{ rawToken: string; token: Record<string, unknown> }>()
     expect(body.rawToken).toMatch(/^rkb_[A-Za-z0-9_-]{43}$/)
-    expect(body.token).toMatchObject({ name: 'ci-agent', role: 'technician', scope: 'read_write' })
+    expect(body.token).toMatchObject({ name: 'ci-agent', role: 'user', scope: 'read_write' })
     expect(body.token).not.toHaveProperty('tokenHash')
   })
 
   it('validates the body and is admin-only', async () => {
-    const tech = await t.asRole('technician')
+    const tech = await t.asRole('user')
 
     const invalid = await t.request(adminCookie, {
       method: 'POST',
@@ -59,7 +59,7 @@ describe('GET /service-tokens', () => {
     await t.request(adminCookie, {
       method: 'POST',
       url: '/api/v1/service-tokens',
-      payload: { name: 'reader', role: 'requester', scope: 'read' },
+      payload: { name: 'reader', role: 'user', scope: 'read' },
     })
 
     const response = await t.request(adminCookie, { method: 'GET', url: '/api/v1/service-tokens' })
@@ -75,7 +75,7 @@ describe('GET /service-tokens', () => {
   })
 
   it('is admin-only', async () => {
-    const requester = await t.asRole('requester')
+    const requester = await t.asRole('user')
 
     const response = await t.request(requester.cookie, {
       method: 'GET',
@@ -91,7 +91,7 @@ describe('DELETE /service-tokens/:id', () => {
     const created = await t.request(adminCookie, {
       method: 'POST',
       url: '/api/v1/service-tokens',
-      payload: { name: 'to-revoke', role: 'technician', scope: 'read' },
+      payload: { name: 'to-revoke', role: 'user', scope: 'read' },
     })
     const id = created.json<{ token: { id: string } }>().token.id
 
@@ -109,7 +109,7 @@ describe('DELETE /service-tokens/:id', () => {
   })
 
   it('404s unknown tokens and denies non-admins', async () => {
-    const tech = await t.asRole('technician')
+    const tech = await t.asRole('user')
 
     const missing = await t.request(adminCookie, {
       method: 'DELETE',

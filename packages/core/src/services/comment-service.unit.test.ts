@@ -4,7 +4,7 @@ import { DEFAULT_POLICY_DOCUMENT } from '../domain/policy.ts'
 import { createScenario, type Scenario } from '../testing/index.ts'
 
 async function seedComment(scenario: Scenario, cardId: string, authorId: string) {
-  return scenario.comments.add({ kind: 'user', id: authorId, role: 'technician' }, cardId, {
+  return scenario.comments.add({ kind: 'user', id: authorId, role: 'user' }, cardId, {
     body: 'first comment',
   })
 }
@@ -213,7 +213,7 @@ describe('CommentService.softDelete', () => {
   it('applies the deleteOthersComments gate to non-authors only', async () => {
     // Arrange
     const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { deleteOthersComments: 'supervisor' } },
+      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { deleteOthersComments: 'admin' } },
     })
     const card = scenario.seedCard()
     const comment = await seedComment(scenario, card.id, scenario.users.technician.id)
@@ -230,7 +230,7 @@ describe('CommentService.softDelete', () => {
   it('lets a supervisor through the gate', async () => {
     // Arrange
     const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { deleteOthersComments: 'supervisor' } },
+      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { deleteOthersComments: 'admin' } },
     })
     const card = scenario.seedCard()
     const comment = await seedComment(scenario, card.id, scenario.users.technician.id)

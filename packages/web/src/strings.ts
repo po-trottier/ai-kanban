@@ -443,10 +443,8 @@ export const strings = {
     userCreated: 'User created',
     userUpdated: 'User updated',
     roles: {
-      requester: 'Requester',
-      technician: 'Technician',
-      supervisor: 'Supervisor',
-      admin: 'Admin',
+      user: 'User',
+      admin: 'Administrator',
     } satisfies Record<Role, string>,
   },
 

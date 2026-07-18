@@ -325,7 +325,7 @@ describe('BoardPage card actions', () => {
     const card = makeCard('intake', { title: 'Gated card' })
     const gatedPolicy = { ...permissivePolicy, actionGates: { cancel: 'admin' as const } }
     const fake = createFakeFetch({
-      'GET /api/v1/auth/me': { ...fixtureAdmin, role: 'technician' },
+      'GET /api/v1/auth/me': { ...fixtureAdmin, role: 'user' },
       'GET /api/v1/board': makeBoard({ intake: [card] }),
       'GET /api/v1/policy': policyRecordOf(gatedPolicy),
       'GET /api/v1/users': fixturePickerUsers,

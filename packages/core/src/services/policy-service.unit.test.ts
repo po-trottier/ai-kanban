@@ -69,7 +69,7 @@ describe('PolicyService.apply', () => {
     const scenario = createScenario()
 
     // Act
-    const act = scenario.policies.apply(scenario.actors.supervisor, DEFAULT_POLICY_DOCUMENT)
+    const act = scenario.policies.apply(scenario.actors.technician, DEFAULT_POLICY_DOCUMENT)
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(PolicyDeniedError)

@@ -79,7 +79,7 @@ test('routes a fresh admin-created user through the change-password interstitial
   const created = await createUser(request, {
     email,
     displayName: 'Interstitial User',
-    role: 'technician',
+    role: 'user',
   })
 
   await fillLogin(page, email, created.tempPassword)

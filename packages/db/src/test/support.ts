@@ -71,7 +71,7 @@ function makeUser(overrides: Partial<User> = {}): User {
     id,
     email: `${id}@example.com`,
     displayName: 'Test User',
-    role: 'technician',
+    role: 'user',
     createdAt: T0,
     ...overrides,
   })

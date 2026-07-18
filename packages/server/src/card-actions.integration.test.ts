@@ -12,7 +12,7 @@ let cookie: string
 
 beforeAll(async () => {
   t = await createTestApp()
-  ;({ cookie } = await t.asRole('technician'))
+  ;({ cookie } = await t.asRole('user'))
 })
 
 afterAll(async () => {

@@ -21,7 +21,7 @@ let cardId: string
 
 beforeAll(async () => {
   t = await createTestApp()
-  ;({ cookie } = await t.asRole('technician'))
+  ;({ cookie } = await t.asRole('user'))
   cardId = await newCard()
 })
 
@@ -232,7 +232,7 @@ describe('DELETE /attachments/:id', () => {
 
   it('allows deleting others uploads by default; the gate denies it', async () => {
     const admin = await t.asRole('admin')
-    const requester = await t.asRole('requester')
+    const requester = await t.asRole('user')
     const target = await newCard()
 
     const first = await upload(cookie, target, 'mine-1.png', PNG_1X1)
@@ -247,7 +247,7 @@ describe('DELETE /attachments/:id', () => {
       url: '/api/v1/policy',
       payload: {
         ...DEFAULT_POLICY_DOCUMENT,
-        actionGates: { deleteOthersAttachments: 'supervisor' },
+        actionGates: { deleteOthersAttachments: 'admin' },
       },
     })
     const second = await upload(cookie, target, 'mine-2.png', PNG_1X1)
@@ -269,7 +269,7 @@ describe('storage quotas (507)', () => {
       },
     })
     try {
-      const { cookie: soloCookie } = await solo.asRole('technician')
+      const { cookie: soloCookie } = await solo.asRole('user')
       const created = await solo.request(soloCookie, {
         method: 'POST',
         url: '/api/v1/cards',
@@ -306,7 +306,7 @@ describe('storage quotas (507)', () => {
       uploads: { dailyQuotaBytesPerUser: 500 * 1024 * 1024, blobHighWaterBytes: 10 },
     })
     try {
-      const { cookie: soloCookie } = await solo.asRole('technician')
+      const { cookie: soloCookie } = await solo.asRole('user')
       const created = await solo.request(soloCookie, {
         method: 'POST',
         url: '/api/v1/cards',
@@ -334,7 +334,7 @@ describe('upload rate limit (20/min/user by default)', () => {
       rateLimits: { upload: { max: 2, timeWindowMs: 60_000 } },
     })
     try {
-      const { cookie: soloCookie } = await solo.asRole('technician')
+      const { cookie: soloCookie } = await solo.asRole('user')
       const created = await solo.request(soloCookie, {
         method: 'POST',
         url: '/api/v1/cards',

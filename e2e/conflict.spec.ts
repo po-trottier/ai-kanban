@@ -26,7 +26,7 @@ test('a stale move from a second session is rolled back with the conflict toast'
   const title = `Conflict ${randomUUID()}`
   const card = await createCard(context.request, title)
 
-  const contextB = await newRoleContext(browser, 'technician') // session B: a different real user
+  const contextB = await newRoleContext(browser, 'user') // session B: a different real user
   const pageB = await contextB.newPage()
   await openBoard(pageB)
 

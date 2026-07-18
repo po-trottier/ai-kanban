@@ -19,7 +19,7 @@ const silentLog = pino({ level: 'silent' })
 
 beforeEach(async () => {
   t = await createTestApp()
-  reporterId = (await t.createUser('technician')).user.id
+  reporterId = (await t.createUser('user')).user.id
 })
 
 afterEach(async () => {

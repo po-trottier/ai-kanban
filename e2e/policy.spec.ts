@@ -34,7 +34,7 @@ test('enabling enforcement tightens a technician session live, without reload', 
   const title = `Policy ${randomUUID()}`
   await createCard(context.request, title)
 
-  const techContext = await newRoleContext(browser, 'technician')
+  const techContext = await newRoleContext(browser, 'user')
   const techPage = await techContext.newPage()
   await openBoard(techPage)
 

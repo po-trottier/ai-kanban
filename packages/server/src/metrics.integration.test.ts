@@ -92,7 +92,7 @@ describe('metrics listener', () => {
   })
 
   it('observes HTTP latency per templated route (never per raw URL)', async () => {
-    const { user, cookie } = await t.asRole('technician')
+    const { user, cookie } = await t.asRole('user')
     const created = await t.request(cookie, {
       method: 'POST',
       url: '/api/v1/cards',
@@ -116,7 +116,7 @@ describe('metrics listener', () => {
     const minted = await t.request(admin.cookie, {
       method: 'POST',
       url: '/api/v1/service-tokens',
-      payload: { name: 'metrics probe', role: 'technician', scope: 'read' },
+      payload: { name: 'metrics probe', role: 'user', scope: 'read' },
     })
     expect(minted.statusCode).toBe(201)
     const rawToken = minted.json<{ rawToken: string }>().rawToken
@@ -139,7 +139,7 @@ describe('metrics listener', () => {
   })
 
   it('gauges live SSE clients through the stream bookkeeping', async () => {
-    const { cookie } = await t.asRole('requester')
+    const { cookie } = await t.asRole('user')
     const controller = new AbortController()
     const stream = await fetch(`${baseUrl}/api/v1/stream`, {
       headers: { accept: 'text/event-stream', cookie: `sid=${cookie}` },

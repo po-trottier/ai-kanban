@@ -68,7 +68,7 @@ async function eventsOf(cookie: string, cardId: string) {
 
 describe('POST /cards', () => {
   it('creates in intake with documented defaults, reporter = acting user, ETag "1"', async () => {
-    const { user, cookie } = await t.asRole('requester')
+    const { user, cookie } = await t.asRole('user')
 
     const response = await t.request(cookie, {
       method: 'POST',
@@ -90,7 +90,7 @@ describe('POST /cards', () => {
   })
 
   it('writes a card.created audit event with a full snapshot', async () => {
-    const { user, cookie } = await t.asRole('technician')
+    const { user, cookie } = await t.asRole('user')
     const card = await createCard(cookie, { title: 'Audit me', tags: ['HVAC'] })
 
     const events = await eventsOf(cookie, card.id)
@@ -107,7 +107,7 @@ describe('POST /cards', () => {
   })
 
   it('rejects a missing title (400) and an unknown assignee (404)', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
 
     const invalid = await t.request(cookie, { method: 'POST', url: '/api/v1/cards', payload: {} })
     const ghost = await t.request(cookie, {
@@ -122,7 +122,7 @@ describe('POST /cards', () => {
   })
 
   it('rejects unknown body keys (strict schemas)', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
 
     const response = await t.request(cookie, {
       method: 'POST',
@@ -165,7 +165,7 @@ describe('GET /cards/:id', () => {
   })
 
   it('404s an unknown card and 400s a non-uuid id', async () => {
-    const { cookie } = await t.asRole('requester')
+    const { cookie } = await t.asRole('user')
 
     const missing = await t.request(cookie, {
       method: 'GET',
@@ -180,7 +180,7 @@ describe('GET /cards/:id', () => {
 
 describe('PATCH /cards/:id', () => {
   it('applies field edits, bumps the version, and audits one event per field', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
     const card = await createCard(cookie, { title: 'Before', description: 'old' })
 
     const response = await t.request(cookie, {
@@ -200,7 +200,7 @@ describe('PATCH /cards/:id', () => {
   })
 
   it('replaces tags as a full set', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
     const card = await createCard(cookie, { title: 'Tagged', tags: ['a', 'b'] })
 
     await t.request(cookie, {
@@ -216,7 +216,7 @@ describe('PATCH /cards/:id', () => {
   })
 
   it('409s a stale If-Match with the current card in the body', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
     const card = await createCard(cookie, { title: 'Contended' })
     await t.request(cookie, {
       method: 'PATCH',
@@ -239,7 +239,7 @@ describe('PATCH /cards/:id', () => {
   })
 
   it('400s a missing or malformed If-Match header', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
     const card = await createCard(cookie, { title: 'Locked' })
 
     const missing = await t.request(cookie, {
@@ -263,7 +263,7 @@ describe('GET /cards — filters', () => {
   it('filters by lane, priority, assignee, q, and blocked', async () => {
     const solo = await createTestApp()
     try {
-      const { user, cookie } = await solo.asRole('technician')
+      const { user, cookie } = await solo.asRole('user')
       const p0 = await solo.request(cookie, {
         method: 'POST',
         url: '/api/v1/cards',
@@ -311,7 +311,7 @@ describe('GET /cards — filters', () => {
     const solo = await createTestApp()
     try {
       const { cookie: adminCookie } = await solo.asRole('admin')
-      const { cookie } = await solo.asRole('technician')
+      const { cookie } = await solo.asRole('user')
       // Build a minimal building → floor → room to place one card in.
       const building = await solo.request(adminCookie, {
         method: 'POST',
@@ -363,7 +363,7 @@ describe('GET /cards — filters', () => {
   it('filters by tags with any-of semantics', async () => {
     const solo = await createTestApp()
     try {
-      const { cookie } = await solo.asRole('technician')
+      const { cookie } = await solo.asRole('user')
       const hvac = await solo.request(cookie, {
         method: 'POST',
         url: '/api/v1/cards',
@@ -397,7 +397,7 @@ describe('GET /cards — filters', () => {
   it('excludes archived cards unless includeArchived=true', async () => {
     const solo = await createTestApp()
     try {
-      const { cookie } = await solo.asRole('technician')
+      const { cookie } = await solo.asRole('user')
       const created = await solo.request(cookie, {
         method: 'POST',
         url: '/api/v1/cards',
@@ -446,7 +446,7 @@ describe('GET /cards — cursor pagination', () => {
   it('round-trips pages newest-first with an opaque cursor', async () => {
     const solo = await createTestApp()
     try {
-      const { cookie } = await solo.asRole('technician')
+      const { cookie } = await solo.asRole('user')
       for (let index = 0; index < 5; index += 1) {
         await solo.request(cookie, {
           method: 'POST',
@@ -477,7 +477,7 @@ describe('GET /cards — cursor pagination', () => {
   })
 
   it('rejects a limit above 200 and a malformed cursor with 400', async () => {
-    const { cookie } = await t.asRole('requester')
+    const { cookie } = await t.asRole('user')
 
     const tooBig = await t.request(cookie, { method: 'GET', url: '/api/v1/cards?limit=300' })
     const badCursor = await t.request(cookie, {
@@ -492,7 +492,7 @@ describe('GET /cards — cursor pagination', () => {
 
 describe('GET /cards/:id/events', () => {
   it('pages oldest-first and filters by type', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
     const card = await createCard(cookie, { title: 'Busy card' })
     for (const title of ['One', 'Two', 'Three']) {
       await t.request(cookie, {
@@ -530,7 +530,7 @@ describe('GET /cards/:id/events', () => {
   })
 
   it('404s an unknown card', async () => {
-    const { cookie } = await t.asRole('requester')
+    const { cookie } = await t.asRole('user')
 
     const response = await t.request(cookie, {
       method: 'GET',

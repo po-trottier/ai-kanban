@@ -30,7 +30,7 @@ async function loginRaw(email: string, password: string, ip = nextClientIp()) {
 
 describe('POST /auth/login', () => {
   it('issues an httpOnly SameSite=Lax session cookie and returns the user', async () => {
-    const { user, password } = await t.createUser('technician')
+    const { user, password } = await t.createUser('user')
 
     const response = await loginRaw(user.email, password)
 
@@ -45,7 +45,7 @@ describe('POST /auth/login', () => {
   })
 
   it('accepts the email case-insensitively', async () => {
-    const { user, password } = await t.createUser('requester')
+    const { user, password } = await t.createUser('user')
 
     const response = await loginRaw(user.email.toUpperCase(), password)
 
@@ -53,7 +53,7 @@ describe('POST /auth/login', () => {
   })
 
   it('fails uniformly for a wrong password and an unknown email', async () => {
-    const { user } = await t.createUser('technician')
+    const { user } = await t.createUser('user')
 
     const wrongPassword = await loginRaw(user.email, 'not-the-password')
     const unknownEmail = await loginRaw('nobody@test.example', 'not-the-password')
@@ -64,7 +64,7 @@ describe('POST /auth/login', () => {
   })
 
   it('fails uniformly for a deactivated account with the right password', async () => {
-    const { user, password } = await t.createUser('technician', { isActive: false })
+    const { user, password } = await t.createUser('user', { isActive: false })
 
     const response = await loginRaw(user.email, password)
 
@@ -84,7 +84,7 @@ describe('POST /auth/login', () => {
   })
 
   it('issues a fresh session id on every login (anti-fixation)', async () => {
-    const { user, password } = await t.createUser('technician')
+    const { user, password } = await t.createUser('user')
 
     const first = sessionCookieOf(await loginRaw(user.email, password))
     const second = sessionCookieOf(await loginRaw(user.email, password))
@@ -96,7 +96,7 @@ describe('POST /auth/login', () => {
 
 describe('session lifecycle', () => {
   it('login → me → logout → 401', async () => {
-    const { user, cookie } = await t.asRole('supervisor')
+    const { user, cookie } = await t.asRole('admin')
 
     const me = await t.request(cookie, { method: 'GET', url: '/api/v1/auth/me' })
     expect(me.statusCode).toBe(200)
@@ -122,7 +122,7 @@ describe('session lifecycle', () => {
 
   it('kills the session the moment the user is deactivated', async () => {
     const admin = await t.asRole('admin')
-    const victim = await t.asRole('technician')
+    const victim = await t.asRole('user')
 
     const deactivate = await t.request(admin.cookie, {
       method: 'PATCH',
@@ -138,7 +138,7 @@ describe('session lifecycle', () => {
 
 describe('POST /auth/change-password', () => {
   it('rejects a wrong current password with 403', async () => {
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
 
     const response = await t.request(cookie, {
       method: 'POST',
@@ -156,7 +156,7 @@ describe('POST /auth/change-password', () => {
     // change-password is the second password-verification surface: without
     // the shared backoff, a session-holding attacker could guess the account
     // password here without ever tripping the login control (security.md).
-    const { cookie } = await t.asRole('technician')
+    const { cookie } = await t.asRole('user')
     const guess = (attempt: number) =>
       t.request(cookie, {
         method: 'POST',
@@ -176,7 +176,7 @@ describe('POST /auth/change-password', () => {
   })
 
   it('enforces the password policy: too short and top-10k common are 400', async () => {
-    const { password, cookie } = await t.asRole('technician')
+    const { password, cookie } = await t.asRole('user')
 
     const short = await t.request(cookie, {
       method: 'POST',
@@ -196,7 +196,7 @@ describe('POST /auth/change-password', () => {
   })
 
   it('changes the password and revokes every other session', async () => {
-    const { user, password, cookie } = await t.asRole('technician')
+    const { user, password, cookie } = await t.asRole('user')
     const otherCookie = await t.login(user.email, password)
 
     const change = await t.request(cookie, {
@@ -226,7 +226,7 @@ describe('must_change_password gate', () => {
     const created = await t.request(admin.cookie, {
       method: 'POST',
       url: '/api/v1/users',
-      payload: { email: 'fresh@test.example', displayName: 'Fresh', role: 'requester' },
+      payload: { email: 'fresh@test.example', displayName: 'Fresh', role: 'user' },
     })
     expect(created.statusCode).toBe(201)
     const { user, tempPassword } = created.json<{
@@ -261,7 +261,7 @@ describe('must_change_password gate', () => {
     const created = await t.request(admin.cookie, {
       method: 'POST',
       url: '/api/v1/users',
-      payload: { email: 'fresh-tz@test.example', displayName: 'Fresh TZ', role: 'requester' },
+      payload: { email: 'fresh-tz@test.example', displayName: 'Fresh TZ', role: 'user' },
     })
     const { tempPassword } = created.json<{ tempPassword: string }>()
     const cookie = await t.login('fresh-tz@test.example', tempPassword)
@@ -281,7 +281,7 @@ describe('must_change_password gate', () => {
 
 describe('PATCH /auth/me (self-service profile)', () => {
   it('updates only the caller’s own time zone and persists it to the session', async () => {
-    const user = await t.asRole('technician')
+    const user = await t.asRole('user')
     const before = await t.request(user.cookie, { method: 'GET', url: '/api/v1/auth/me' })
     // Fresh users default to PST (data-model.md#users).
     expect(before.json<{ timezone: string }>().timezone).toBe('America/Los_Angeles')
@@ -299,7 +299,7 @@ describe('PATCH /auth/me (self-service profile)', () => {
   })
 
   it('rejects an unknown IANA zone with a 400 validation problem', async () => {
-    const user = await t.asRole('technician')
+    const user = await t.asRole('user')
     const bad = await t.request(user.cookie, {
       method: 'PATCH',
       url: '/api/v1/auth/me',
@@ -309,7 +309,7 @@ describe('PATCH /auth/me (self-service profile)', () => {
   })
 
   it('refuses any field other than the time zone — no privilege escalation via the profile route', async () => {
-    const user = await t.asRole('technician')
+    const user = await t.asRole('user')
     // strictObject body: the extra `role` is a 400, never a silent promotion.
     const escalate = await t.request(user.cookie, {
       method: 'PATCH',
@@ -319,7 +319,7 @@ describe('PATCH /auth/me (self-service profile)', () => {
     expect(escalate.statusCode).toBe(400)
 
     const after = await t.request(user.cookie, { method: 'GET', url: '/api/v1/auth/me' })
-    expect(after.json<{ role: string }>().role).toBe('technician')
+    expect(after.json<{ role: string }>().role).toBe('user')
   })
 
   it('rejects an unauthenticated request with 401', async () => {
@@ -334,7 +334,7 @@ describe('PATCH /auth/me (self-service profile)', () => {
 
 describe('per-account login backoff', () => {
   it('returns 429 with Retry-After after repeated failures (across IPs)', async () => {
-    const { user } = await t.createUser('technician')
+    const { user } = await t.createUser('user')
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const failed = await loginRaw(user.email, 'wrong-password')
@@ -351,7 +351,7 @@ describe('per-account login backoff', () => {
   })
 
   it('resets the counter on a successful login', async () => {
-    const { user, password } = await t.createUser('technician')
+    const { user, password } = await t.createUser('user')
 
     const failed = await loginRaw(user.email, 'wrong-password')
     expect(failed.statusCode).toBe(401)
@@ -370,7 +370,7 @@ describe('per-account login backoff', () => {
     // request of a concurrent burst read "no failures yet" — the exact
     // cross-IP attack the per-account backoff exists to stop. Attempts for
     // one email are queued, so the second sees the first recorded failure.
-    const { user } = await t.createUser('technician')
+    const { user } = await t.createUser('user')
 
     const [first, second] = await Promise.all([
       loginRaw(user.email, 'wrong-password'),
@@ -383,7 +383,7 @@ describe('per-account login backoff', () => {
   it('keeps simultaneous CORRECT logins for one account working (both 200)', async () => {
     // Serialization must not turn two tabs signing in at once into a 429:
     // the first success resets the counter before the second attempt runs.
-    const { user, password } = await t.createUser('technician')
+    const { user, password } = await t.createUser('user')
 
     const [first, second] = await Promise.all([
       loginRaw(user.email, password),

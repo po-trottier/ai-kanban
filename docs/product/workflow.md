@@ -59,16 +59,16 @@ hierarchy:
 | From                 | To                   | Suggested role gate | Notes                                        |
 | -------------------- | -------------------- | ------------------- | -------------------------------------------- |
 | intake               | waiting_approval     | —                   | Triage complete                              |
-| waiting_approval     | ready                | supervisor          | Approval                                     |
+| waiting_approval     | ready                | admin               | Approval                                     |
 | waiting_approval     | intake               | —                   | Send back for more triage                    |
 | ready                | in_progress          | —                   | Work starts                                  |
 | in_progress          | ready                | —                   | Deprioritized / handed back                  |
 | in_progress          | waiting_parts_vendor | —                   |                                              |
 | waiting_parts_vendor | in_progress          | —                   | Dependency resolved                          |
 | in_progress          | review               | —                   | Work physically complete                     |
-| review               | done                 | supervisor          | Verification + close-out; requester notified |
+| review               | done                 | admin               | Verification + close-out; requester notified |
 | review               | in_progress          | —                   | Failed verification / rework                 |
-| done                 | ready                | supervisor          | Reopen                                       |
+| done                 | ready                | admin               | Reopen                                       |
 
 Role gates are per-transition and individually configurable; the "suggested" column is what the
 seeded graph proposes when an admin flips enforcement on, not a default restriction. With
@@ -104,7 +104,7 @@ To keep the lane from becoming a black hole:
   for the new date and the episode is not double-fired.
 - A scheduled job sends one Slack DM per overdue episode (tracked via `resume_alerted_at`,
   cleared on lane exit or on an in-place date edit) to the assignee (if any) and to all active
-  users with the supervisor role.
+  users with the admin role (the system automation user is excluded).
 - The lane has its own seeded WIP limit.
 
 ## WIP limits

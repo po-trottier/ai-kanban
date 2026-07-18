@@ -58,7 +58,7 @@ describe('users create-admin', () => {
   })
 
   it('resets an existing account as break-glass recovery (promote + fresh password)', async () => {
-    const { user } = await t.createUser('requester')
+    const { user } = await t.createUser('user')
 
     const result = await createAdminUser(cliDeps(), user.email, true)
 
@@ -69,7 +69,7 @@ describe('users create-admin', () => {
   })
 
   it('revokes existing sessions when force-resetting an account', async () => {
-    const victim = await t.asRole('technician')
+    const victim = await t.asRole('user')
 
     await createAdminUser(cliDeps(), victim.user.email, true)
 

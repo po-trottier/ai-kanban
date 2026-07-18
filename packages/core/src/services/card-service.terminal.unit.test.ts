@@ -90,7 +90,7 @@ describe('CardService.cancel', () => {
   it('applies the cancel action gate', async () => {
     // Arrange
     const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { cancel: 'supervisor' } },
+      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { cancel: 'admin' } },
     })
     const card = scenario.seedCard()
 
@@ -150,7 +150,7 @@ describe('CardService.reopen', () => {
   it('applies the reopen action gate independently of the transition graph', async () => {
     // Arrange
     const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'supervisor' } },
+      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'admin' } },
     })
     const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'completed' })
 
@@ -168,7 +168,7 @@ describe('CardService.reopen', () => {
   it('lets a supervisor through the reopen action gate with enforcement off', async () => {
     // Arrange
     const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'supervisor' } },
+      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'admin' } },
     })
     const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'cancelled' })
 
@@ -289,7 +289,7 @@ describe('CardService.archive', () => {
   it('applies the archive action gate when configured', async () => {
     // Arrange
     const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { archive: 'supervisor' } },
+      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { archive: 'admin' } },
     })
     const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'completed' })
 

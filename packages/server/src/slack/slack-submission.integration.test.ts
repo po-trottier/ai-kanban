@@ -26,7 +26,7 @@ async function allCards(): Promise<Card[]> {
 describe('view_submission → card in intake', () => {
   it('creates the card with the edited draft, slack source, and reporter mapping', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     const ackResponse = await harness.send(
@@ -61,7 +61,7 @@ describe('view_submission → card in intake', () => {
 
   it('lands the card in the intake lane and confirms into the source thread', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(viewSubmissionPayload({}))
@@ -90,9 +90,9 @@ describe('view_submission → card in intake', () => {
 
   it('resolves the optional assignee email and location name', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
-    const { user: technician } = await harness.testApp.createUser('technician')
+    const { user: technician } = await harness.testApp.createUser('user')
     const locationId = '0197fead-0000-7000-8000-00000000aa01'
     await harness.testApp.wired.deps.uow.run((tx) =>
       tx.locations.insert({ id: locationId, parentId: null, kind: 'building', name: 'HQ Annex' }),
@@ -110,7 +110,7 @@ describe('view_submission → card in intake', () => {
 
   it('returns modal field errors for an unknown assignee email — no card', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     const ackResponse = await harness.send(
@@ -147,7 +147,7 @@ describe('view_submission → card in intake', () => {
 
   it('throttles per-user card creation with a friendly modal error', async () => {
     harness = await createSlackHarness({ limits: { cardsPerUserPerMinute: 1 } })
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(viewSubmissionPayload({ values: { title: 'First' } }))
@@ -162,7 +162,7 @@ describe('view_submission → card in intake', () => {
 
   it('rejects a view_submission from a foreign workspace outright', async () => {
     harness = await createSlackHarness()
-    const { user } = await harness.testApp.createUser('requester')
+    const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
 
     await harness.send(viewSubmissionPayload({ teamId: 'T0EVIL' }))

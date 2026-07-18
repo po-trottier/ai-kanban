@@ -14,7 +14,7 @@ export function UsersAdmin() {
   const patchUser = usePatchUser()
   const [createOpen, setCreateOpen] = useState(false)
   const [tempPassword, setTempPassword] = useState<string | null>(null)
-  const [draft, setDraft] = useState({ email: '', displayName: '', role: 'requester' as Role })
+  const [draft, setDraft] = useState({ email: '', displayName: '', role: 'user' as Role })
   // Deactivation is one-way in the UI (GET /users lists only active users), so it confirms.
   const [deactivating, setDeactivating] = useState<{ id: string; name: string } | null>(null)
 
@@ -146,7 +146,7 @@ export function UsersAdmin() {
                   createUser.mutate(draft, {
                     onSuccess: (response) => {
                       setCreateOpen(false)
-                      setDraft({ email: '', displayName: '', role: 'requester' })
+                      setDraft({ email: '', displayName: '', role: 'user' })
                       showTempPassword(response.tempPassword)
                     },
                   })

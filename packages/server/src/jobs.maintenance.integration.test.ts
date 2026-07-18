@@ -32,7 +32,7 @@ afterEach(async () => {
 
 describe('session purge job', () => {
   it('deletes expired sessions and keeps live ones working', async () => {
-    const { user, password } = await t.createUser('technician')
+    const { user, password } = await t.createUser('user')
     const live = await t.request(null, {
       method: 'POST',
       url: '/api/v1/auth/login',
@@ -64,9 +64,9 @@ describe('session purge job', () => {
 
 describe('sqlite snapshot job', () => {
   it('backs up into a dated file that restores through the normal boot path', async () => {
-    const supervisor = await t.createUser('supervisor')
+    const supervisor = await t.createUser('admin')
     const card = await t.wired.deps.services.cards.create(
-      { kind: 'user', id: supervisor.user.id, role: 'supervisor' },
+      { kind: 'user', id: supervisor.user.id, role: 'admin' },
       { title: 'survives the snapshot' },
     )
     const dir = join(t.env.DATABASE_PATH, '..', 'snapshots')

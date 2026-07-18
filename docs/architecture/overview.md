@@ -91,13 +91,13 @@ proxies more simply ([ADR-008](decisions/ADR-008-sse-realtime.md)).
 
 ## Scheduled jobs (croner, in-process)
 
-| Job                  | Schedule | Action                                                                                |
-| -------------------- | -------- | ------------------------------------------------------------------------------------- |
-| Waiting aging alerts | hourly   | Slack-DM assignee + active supervisors once per overdue episode (`resume_alerted_at`) |
-| Done archival        | daily    | set `archived_at` on cards Done > 90 days                                             |
-| Position rebalance   | daily    | rewrite fractional keys in lanes where key length exceeds threshold                   |
-| Session purge        | daily    | delete sessions past `expires_at` / the absolute cap                                  |
-| SQLite snapshot      | nightly  | online backup into a dated snapshot next to Litestream's continuous stream            |
+| Job                  | Schedule | Action                                                                           |
+| -------------------- | -------- | -------------------------------------------------------------------------------- |
+| Waiting aging alerts | hourly   | Slack-DM assignee + active admins once per overdue episode (`resume_alerted_at`) |
+| Done archival        | daily    | set `archived_at` on cards Done > 90 days                                        |
+| Position rebalance   | daily    | rewrite fractional keys in lanes where key length exceeds threshold              |
+| Session purge        | daily    | delete sessions past `expires_at` / the absolute cap                             |
+| SQLite snapshot      | nightly  | online backup into a dated snapshot next to Litestream's continuous stream       |
 
 All jobs are idempotent and restart-safe: they derive work from persisted state, never from
 in-memory queues, so a missed window is picked up on the next tick.

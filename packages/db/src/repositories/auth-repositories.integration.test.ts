@@ -235,7 +235,7 @@ describe('SqliteServiceTokenRepository', () => {
       id: newId(),
       name: 'ci-agent',
       tokenHash: `sha-${newId()}`,
-      role: 'technician',
+      role: 'user',
       scope: 'read',
       createdBy,
       createdAt: T0,

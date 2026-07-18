@@ -14,7 +14,7 @@ let cardId: string
 
 beforeAll(async () => {
   t = await createTestApp()
-  ;({ cookie } = await t.asRole('technician'))
+  ;({ cookie } = await t.asRole('user'))
   const created = await t.request(cookie, {
     method: 'POST',
     url: '/api/v1/cards',
@@ -59,7 +59,7 @@ async function thread(): Promise<CommentBody[]> {
 
 describe('POST /cards/:id/comments', () => {
   it('adds a comment, audits comment.added, and lists oldest-first', async () => {
-    const { user, cookie: author } = await t.asRole('requester')
+    const { user, cookie: author } = await t.asRole('user')
 
     const first = await addComment(author, 'First!')
     await addComment(author, 'Second!')
@@ -131,7 +131,7 @@ describe('PATCH /comments/:id', () => {
   })
 
   it('denies edits of other users comments — impersonation prevention', async () => {
-    const other = await t.asRole('supervisor')
+    const other = await t.asRole('admin')
     const comment = await addComment(cookie, 'Mine')
 
     const response = await t.request(other.cookie, {
@@ -169,7 +169,7 @@ describe('DELETE /comments/:id', () => {
 
   it('allows deleting others comments by default, denies once the gate is set', async () => {
     const admin = await t.asRole('admin')
-    const requester = await t.asRole('requester')
+    const requester = await t.asRole('user')
 
     const freeGame = await addComment(cookie, 'Delete me, default policy')
     const permissive = await t.request(requester.cookie, {
@@ -181,7 +181,7 @@ describe('DELETE /comments/:id', () => {
     const gated = await t.request(admin.cookie, {
       method: 'PUT',
       url: '/api/v1/policy',
-      payload: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { deleteOthersComments: 'supervisor' } },
+      payload: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { deleteOthersComments: 'admin' } },
     })
     expect(gated.statusCode).toBe(200)
 

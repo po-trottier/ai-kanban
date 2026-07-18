@@ -20,7 +20,7 @@ describe('MoveCardModal', () => {
         currentLane="intake"
         board={board}
         policy={permissivePolicy}
-        role="technician"
+        role="user"
         onSubmit={(selection) => selections.push(selection)}
         onClose={() => undefined}
       />,
@@ -55,7 +55,7 @@ describe('MoveCardModal', () => {
         currentLane="intake"
         board={board}
         policy={permissivePolicy}
-        role="technician"
+        role="user"
         onSubmit={(selection) => selections.push(selection)}
         onClose={() => undefined}
       />,
@@ -92,7 +92,7 @@ describe('MoveCardModal', () => {
         currentLane="intake"
         board={board}
         policy={permissivePolicy}
-        role="technician"
+        role="user"
         onSubmit={() => undefined}
         onClose={() => undefined}
       />,
@@ -119,7 +119,7 @@ describe('MoveCardModal', () => {
         currentLane="intake"
         board={board}
         policy={enforcedPolicy}
-        role="technician"
+        role="user"
         onSubmit={() => undefined}
         onClose={() => undefined}
       />,
@@ -138,7 +138,7 @@ describe('MoveCardModal', () => {
     // Arrange — reorderReady above the user role gates the current Ready lane
     const moving = makeCard('ready')
     const board = makeBoard({ ready: [moving] })
-    const gated = { ...permissivePolicy, actionGates: { reorderReady: 'supervisor' as const } }
+    const gated = { ...permissivePolicy, actionGates: { reorderReady: 'admin' as const } }
     // Act
     renderWithProviders(
       <MoveCardModal
@@ -146,7 +146,7 @@ describe('MoveCardModal', () => {
         currentLane="ready"
         board={board}
         policy={gated}
-        role="technician"
+        role="user"
         onSubmit={() => undefined}
         onClose={() => undefined}
       />,
@@ -170,7 +170,7 @@ describe('MoveCardModal', () => {
         currentLane="ready"
         board={board}
         policy={permissivePolicy}
-        role="technician"
+        role="user"
         onSubmit={(selection) => selections.push(selection)}
         onClose={() => {
           closed += 1
@@ -195,7 +195,7 @@ describe('MoveCardModal', () => {
         currentLane="in_progress"
         board={board}
         policy={permissivePolicy}
-        role="technician"
+        role="user"
         onSubmit={() => undefined}
         onClose={() => undefined}
       />,
@@ -224,7 +224,7 @@ describe('MoveCardModal', () => {
         currentLane="done"
         board={board}
         policy={permissivePolicy}
-        role="requester"
+        role="user"
         onSubmit={() => undefined}
         onClose={() => undefined}
       />,

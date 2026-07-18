@@ -18,7 +18,7 @@ function enforced(overrides: Partial<PolicyDocument> = {}): PolicyDocument {
 describe('evaluatePolicy — permissive default posture', () => {
   it('lets any authenticated user move any card to any lane', () => {
     // Arrange
-    const actor = userOf('requester')
+    const actor = userOf('user')
 
     // Act
     const decision = evaluatePolicy(
@@ -33,7 +33,7 @@ describe('evaluatePolicy — permissive default posture', () => {
 
   it('lets any authenticated user cancel, reopen, and reorder ready when no gates are set', () => {
     // Arrange
-    const actor = userOf('requester')
+    const actor = userOf('user')
 
     // Act
     const cancel = evaluatePolicy(actor, { type: 'card.cancel' }, DEFAULT_POLICY_DOCUMENT)
@@ -52,7 +52,7 @@ describe('evaluatePolicy — permissive default posture', () => {
 
   it('lets a non-author delete another comment when the gate is absent', () => {
     // Arrange
-    const actor = userOf('requester')
+    const actor = userOf('user')
 
     // Act
     const decision = evaluatePolicy(
@@ -84,7 +84,7 @@ describe('evaluatePolicy — always-on identity rules', () => {
 
   it('lets a read_write token mutate under the permissive default', () => {
     // Arrange
-    const writeToken: Actor = { kind: 'mcp', id: USER_ID, role: 'technician', scope: 'read_write' }
+    const writeToken: Actor = { kind: 'mcp', id: USER_ID, role: 'user', scope: 'read_write' }
 
     // Act
     const decision = evaluatePolicy(writeToken, { type: 'card.update' }, DEFAULT_POLICY_DOCUMENT)
@@ -95,7 +95,7 @@ describe('evaluatePolicy — always-on identity rules', () => {
 
   it('restricts comment editing to the author, even for admins', () => {
     // Arrange
-    const author = userOf('requester', USER_ID)
+    const author = userOf('user', USER_ID)
     const admin = userOf('admin', OTHER_ID)
 
     // Act
@@ -118,11 +118,11 @@ describe('evaluatePolicy — always-on identity rules', () => {
   it('restricts the admin surface to the admin role, always', () => {
     // Arrange
     const admin = userOf('admin')
-    const supervisor = userOf('supervisor')
+    const user = userOf('user')
 
     // Act
     const allowed = evaluatePolicy(admin, { type: 'admin' }, DEFAULT_POLICY_DOCUMENT)
-    const deniedDecision = evaluatePolicy(supervisor, { type: 'admin' }, DEFAULT_POLICY_DOCUMENT)
+    const deniedDecision = evaluatePolicy(user, { type: 'admin' }, DEFAULT_POLICY_DOCUMENT)
 
     // Assert
     expect(allowed).toEqual({ allowed: true })
@@ -150,37 +150,37 @@ describe('evaluatePolicy — always-on identity rules', () => {
 describe('evaluatePolicy — action gates', () => {
   it('applies the cancel gate by minimum role, exempt from the transition graph', () => {
     // Arrange
-    const policy = enforced({ actionGates: { cancel: 'technician' } })
+    const policy = enforced({ actionGates: { cancel: 'admin' } })
 
     // Act
-    const requester = evaluatePolicy(userOf('requester'), { type: 'card.cancel' }, policy)
-    const technician = evaluatePolicy(userOf('technician'), { type: 'card.cancel' }, policy)
+    const user = evaluatePolicy(userOf('user'), { type: 'card.cancel' }, policy)
+    const admin = evaluatePolicy(userOf('admin'), { type: 'card.cancel' }, policy)
 
     // Assert
-    expect(requester).toEqual({ allowed: false, kind: 'denied', rule: 'actionGates.cancel' })
-    expect(technician).toEqual({ allowed: true })
+    expect(user).toEqual({ allowed: false, kind: 'denied', rule: 'actionGates.cancel' })
+    expect(admin).toEqual({ allowed: true })
   })
 
   it('gates reordering of the ready lane only', () => {
     // Arrange
     const policy: PolicyDocument = {
       ...DEFAULT_POLICY_DOCUMENT,
-      actionGates: { reorderReady: 'supervisor' },
+      actionGates: { reorderReady: 'admin' },
     }
 
     // Act
     const readyDenied = evaluatePolicy(
-      userOf('technician'),
+      userOf('user'),
       { type: 'card.reorder', lane: 'ready' },
       policy,
     )
     const readyAllowed = evaluatePolicy(
-      userOf('supervisor'),
+      userOf('admin'),
       { type: 'card.reorder', lane: 'ready' },
       policy,
     )
     const otherLane = evaluatePolicy(
-      userOf('technician'),
+      userOf('user'),
       { type: 'card.reorder', lane: 'in_progress' },
       policy,
     )
@@ -199,38 +199,38 @@ describe('evaluatePolicy — action gates', () => {
     // Arrange
     const policy: PolicyDocument = {
       ...DEFAULT_POLICY_DOCUMENT,
-      actionGates: { reopen: 'supervisor' },
+      actionGates: { reopen: 'admin' },
     }
 
     // Act
-    const technician = evaluatePolicy(userOf('technician'), { type: 'card.reopen' }, policy)
-    const supervisor = evaluatePolicy(userOf('supervisor'), { type: 'card.reopen' }, policy)
+    const user = evaluatePolicy(userOf('user'), { type: 'card.reopen' }, policy)
+    const admin = evaluatePolicy(userOf('admin'), { type: 'card.reopen' }, policy)
 
     // Assert
-    expect(technician).toEqual({ allowed: false, kind: 'denied', rule: 'actionGates.reopen' })
-    expect(supervisor).toEqual({ allowed: true })
+    expect(user).toEqual({ allowed: false, kind: 'denied', rule: 'actionGates.reopen' })
+    expect(admin).toEqual({ allowed: true })
   })
 
   it('gates deleting others’ comments but never the author’s own', () => {
     // Arrange
     const policy: PolicyDocument = {
       ...DEFAULT_POLICY_DOCUMENT,
-      actionGates: { deleteOthersComments: 'supervisor' },
+      actionGates: { deleteOthersComments: 'admin' },
     }
 
     // Act
     const foreignDenied = evaluatePolicy(
-      userOf('technician'),
+      userOf('user'),
       { type: 'comment.delete', authorId: OTHER_ID },
       policy,
     )
     const foreignAllowed = evaluatePolicy(
-      userOf('supervisor'),
+      userOf('admin'),
       { type: 'comment.delete', authorId: OTHER_ID },
       policy,
     )
     const own = evaluatePolicy(
-      userOf('requester'),
+      userOf('user'),
       { type: 'comment.delete', authorId: USER_ID },
       policy,
     )
@@ -254,12 +254,12 @@ describe('evaluatePolicy — action gates', () => {
 
     // Act
     const foreign = evaluatePolicy(
-      userOf('supervisor'),
+      userOf('user'),
       { type: 'attachment.remove', uploaderId: OTHER_ID },
       policy,
     )
     const own = evaluatePolicy(
-      userOf('requester'),
+      userOf('user'),
       { type: 'attachment.remove', uploaderId: USER_ID },
       policy,
     )
@@ -281,7 +281,7 @@ describe('evaluatePolicy — transition enforcement on', () => {
 
     // Act
     const decision = evaluatePolicy(
-      userOf('requester'),
+      userOf('user'),
       { type: 'card.move', fromLane: 'intake', toLane: 'waiting_approval' },
       policy,
     )
@@ -310,29 +310,29 @@ describe('evaluatePolicy — transition enforcement on', () => {
     })
   })
 
-  it('applies the per-edge minRole gate (approval requires supervisor)', () => {
+  it('applies the per-edge minRole gate (approval requires admin)', () => {
     // Arrange
     const policy = enforced()
 
     // Act
-    const technician = evaluatePolicy(
-      userOf('technician'),
+    const user = evaluatePolicy(
+      userOf('user'),
       { type: 'card.move', fromLane: 'waiting_approval', toLane: 'ready' },
       policy,
     )
-    const supervisor = evaluatePolicy(
-      userOf('supervisor'),
+    const admin = evaluatePolicy(
+      userOf('admin'),
       { type: 'card.move', fromLane: 'waiting_approval', toLane: 'ready' },
       policy,
     )
 
     // Assert
-    expect(technician).toEqual({
+    expect(user).toEqual({
       allowed: false,
       kind: 'denied',
       rule: 'transition:waiting_approval->ready',
     })
-    expect(supervisor).toEqual({ allowed: true })
+    expect(admin).toEqual({ allowed: true })
   })
 
   it('subjects reopen to the done→ready edge gate', () => {
@@ -340,16 +340,16 @@ describe('evaluatePolicy — transition enforcement on', () => {
     const policy = enforced()
 
     // Act
-    const technician = evaluatePolicy(userOf('technician'), { type: 'card.reopen' }, policy)
-    const supervisor = evaluatePolicy(userOf('supervisor'), { type: 'card.reopen' }, policy)
+    const user = evaluatePolicy(userOf('user'), { type: 'card.reopen' }, policy)
+    const admin = evaluatePolicy(userOf('admin'), { type: 'card.reopen' }, policy)
 
     // Assert
-    expect(technician).toEqual({
+    expect(user).toEqual({
       allowed: false,
       kind: 'denied',
       rule: 'transition:done->ready',
     })
-    expect(supervisor).toEqual({ allowed: true })
+    expect(admin).toEqual({ allowed: true })
   })
 
   it('treats reopen as illegal when the graph has no done→ready edge', () => {
@@ -378,7 +378,7 @@ describe('evaluatePolicy — transition enforcement on', () => {
 
     // Act
     const decision = evaluatePolicy(
-      userOf('requester'),
+      userOf('user'),
       { type: 'card.reorder', lane: 'in_progress' },
       policy,
     )
