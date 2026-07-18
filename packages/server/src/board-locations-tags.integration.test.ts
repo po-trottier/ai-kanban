@@ -1,5 +1,4 @@
 import { LANE_KEYS } from '@rivian-kanban/core'
-import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestApp, type TestApp } from './test/support.ts'
 
@@ -497,9 +496,10 @@ describe('GET /events (board-wide activity feed)', () => {
     const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
     // Backdate this card's events directly — the audit trail is append-only, so
     // the port has no update method; a raw write is the honest test arrange.
-    t.wired.connection.db.run(
-      sql`UPDATE card_events SET created_at = ${twoDaysAgo} WHERE card_id = ${cardId}`,
-    )
+    // Uses the raw better-sqlite3 handle (drizzle-orm stays inside the db package).
+    t.wired.connection.raw
+      .prepare('UPDATE card_events SET created_at = ? WHERE card_id = ?')
+      .run(twoDaysAgo, cardId)
 
     const defaulted = await t.request(cookie, { method: 'GET', url: '/api/v1/events' })
 

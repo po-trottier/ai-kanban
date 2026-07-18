@@ -51,7 +51,7 @@ export type CardDetailResponse = z.infer<typeof cardDetailResponseSchema>
  * server (rest-api.md). The stored event never has them, so they are optional;
  * the intersection keeps core's discriminated payload union intact.
  */
-export const cardEventResponseSchema = z.intersection(
+const cardEventResponseSchema = z.intersection(
   cardEventSchema,
   z.object({
     actorLabel: z.string().optional(),
