@@ -123,9 +123,9 @@ describe('app routing', () => {
     expect(screen.queryByText('Only admins can open settings.')).not.toBeInTheDocument()
   })
 
-  it('shows the admin tabs to a custom role with any manage* grant (ADR-013)', async () => {
-    // Arrange — a role keyed 'auditor' (not 'admin') granting one manage
-    // permission; the admin tabs gate on the permission, not the literal role key.
+  it('gates each admin tab on its own permission (per-tab, ADR-013)', async () => {
+    // Arrange — a custom role keyed 'auditor' (not 'admin') granting ONLY
+    // manageLocations: it must see Preferences + Locations, and nothing else.
     const auditor: User = { ...fixtureAdmin, role: 'auditor' }
     const policy: PolicyDocument = {
       ...permissivePolicy,
@@ -140,11 +140,13 @@ describe('app routing', () => {
     })
     // Act
     renderApp({ fetchFn: fake.fetch, route: '/settings' })
-    // Assert — Preferences plus the admin tabs are all present for the custom
-    // admin (the admin tabs appear once the policy loads and canManage flips on).
-    expect(await screen.findByRole('tab', { name: 'Users' })).toBeInTheDocument()
+    // Assert — the Locations tab appears (its grant); Preferences is always
+    // there; the tabs whose permission this role lacks do NOT render.
+    expect(await screen.findByRole('tab', { name: 'Locations' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Preferences' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Locations' })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Users' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Permissions' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Service tokens' })).not.toBeInTheDocument()
   })
 
   it('interposes the change-password page while must_change_password is set', async () => {

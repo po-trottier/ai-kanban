@@ -28,3 +28,18 @@ export function canManageAnything(policy: PolicyDocument | undefined, role: stri
     myRole !== undefined && MANAGE_PERMISSIONS.some((perm) => myRole.permissions[perm] === true)
   )
 }
+
+/**
+ * Whether `role` grants ONE specific manage* permission in the active policy —
+ * lets the Settings page show each admin tab only to roles that can use it
+ * (per-tab gating, default-deny), so a user never sees a tab they can't act on.
+ * The server re-enforces the matching endpoint regardless.
+ */
+export function roleGrants(
+  policy: PolicyDocument | undefined,
+  role: string,
+  permission: (typeof MANAGE_PERMISSIONS)[number],
+): boolean {
+  const myRole = policy?.roles.find((candidate) => candidate.key === role)
+  return myRole?.permissions[permission] === true
+}
