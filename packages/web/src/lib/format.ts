@@ -1,5 +1,5 @@
 import { utcDayOf } from '@rivian-kanban/core'
-import dayjs from 'dayjs'
+import dayjs from './dayjs.ts'
 
 /** Hours in a working day (docs/product/workflow.md#priorities-and-estimates). */
 const WORKING_HOURS_PER_DAY = 8
@@ -62,11 +62,17 @@ export function utcToday(): string {
   return utcDayOf(new Date())
 }
 
-export function formatDateTime(iso: string): string {
-  return dayjs(iso).format('MMM D, YYYY HH:mm')
+/** An absolute timestamp rendered in the viewer's own time zone (IANA id). */
+export function formatDateTime(iso: string, timezone: string): string {
+  return dayjs(iso).tz(timezone).format('MMM D, YYYY HH:mm')
 }
 
-/** A short date ("Jul 20") for the board's resume cue and compact rows. */
+/**
+ * A short date ("Jul 20") for the board's resume cue and compact rows. Its
+ * input is a calendar date (`YYYY-MM-DD`, no time), which carries no zone — so
+ * it is rendered as-is and NOT converted to the viewer's time zone (that would
+ * shift the day for some viewers).
+ */
 export function formatDate(iso: string): string {
   return dayjs(iso).format('MMM D')
 }

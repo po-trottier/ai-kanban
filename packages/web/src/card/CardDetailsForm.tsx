@@ -5,6 +5,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { type z } from 'zod'
 import { type CardDetailResponse, type PickerUser } from '../api/schemas.ts'
+import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { strings } from '../strings.ts'
 import { cardFieldsControl } from './card-fields.ts'
@@ -37,6 +38,7 @@ export function CardDetailsForm({
   onSave,
 }: CardDetailsFormProps) {
   const { card } = detail
+  const timezone = useUserTimezone()
   const form = useForm<CardFieldsValues, unknown, CardFieldChanges>({
     resolver: standardSchemaResolver(cardFieldsSchema),
     defaultValues: valuesOf(detail),
@@ -85,7 +87,7 @@ export function CardDetailsForm({
             {strings.detail.reporterLabel}: {reporter?.displayName ?? strings.history.unknownUser}
           </Text>
           <Text size="xs" c="dimmed">
-            {strings.detail.createdLabel}: {formatDateTime(card.createdAt)}
+            {strings.detail.createdLabel}: {formatDateTime(card.createdAt, timezone)}
           </Text>
         </Group>
         {disabled ? null : (

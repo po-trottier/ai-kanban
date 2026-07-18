@@ -1,6 +1,7 @@
 import { type Comment } from '@rivian-kanban/core'
 import { Button, Group, Paper, Stack, Text, Textarea } from '@mantine/core'
 import { useState } from 'react'
+import { useUserTimezone } from '../auth/session-context.ts'
 import { buildCommentThread } from '../lib/comments.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { ConfirmModal } from '../shell/ConfirmModal.tsx'
@@ -141,6 +142,7 @@ function CommentItem({
 }: CommentItemProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(comment.body)
+  const timezone = useUserTimezone()
   const deleted = comment.deletedAt !== null
   // Editing is identity, not policy (ADR-013); deleting others' is gated.
   const own = comment.authorId === currentUserId
@@ -160,7 +162,7 @@ function CommentItem({
           {authorName}
         </Text>
         <Text size="xs" c="dimmed">
-          {formatDateTime(comment.createdAt)}
+          {formatDateTime(comment.createdAt, timezone)}
         </Text>
       </Group>
       {deleted ? (

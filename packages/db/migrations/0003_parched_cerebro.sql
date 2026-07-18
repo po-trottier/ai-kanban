@@ -1,1 +1,0 @@
-ALTER TABLE `cards` ADD `work_started_at` text;

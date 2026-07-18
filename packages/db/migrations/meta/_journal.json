@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1784261428414,
+      "when": 1784336008991,
       "tag": "0000_init",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1784289439179,
-      "tag": "0001_lean_reaper",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1784293382190,
-      "tag": "0002_complex_nighthawk",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1784327776143,
-      "tag": "0003_parched_cerebro",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1784331534302,
-      "tag": "0004_breezy_shiver_man",
       "breakpoints": true
     }
   ]

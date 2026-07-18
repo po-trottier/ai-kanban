@@ -53,6 +53,7 @@ export function userWith(
     mustChangePassword: false,
     slackUserId: null,
     isActive: true,
+    timezone: 'America/Los_Angeles',
     ...overrides,
   }
 }

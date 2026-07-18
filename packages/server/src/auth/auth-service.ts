@@ -1,5 +1,12 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { type Clock, type Session, type UnitOfWork, type User } from '@rivian-kanban/core'
+import {
+  NotFoundError,
+  updateProfileInputSchema,
+  type Clock,
+  type Session,
+  type UnitOfWork,
+  type User,
+} from '@rivian-kanban/core'
 import {
   BackoffActiveError,
   CurrentPasswordMismatchError,
@@ -221,6 +228,27 @@ export class AuthService {
     await uow.run(async (tx) => {
       await tx.userAccounts.setPassword(userId, newHash, false)
       await tx.sessions.revokeOthersForUser(userId, keepHash)
+    })
+  }
+
+  /**
+   * Self-service profile update: the authenticated user changes their OWN
+   * preferences (currently just their display time zone). Scoped to the
+   * caller's own row — the route passes `request.authUser.id`, never a
+   * client-supplied id — so there is no admin check and no IDOR surface. The
+   * input schema is a strictObject of only `timezone`, so role/active/email
+   * can never be smuggled in (no privilege escalation). Touches no
+   * password/session state, so unlike the admin update it never revokes
+   * sessions.
+   */
+  async updateProfile(userId: string, rawInput: unknown): Promise<User> {
+    const input = updateProfileInputSchema.parse(rawInput)
+    return this.deps.uow.run(async (tx) => {
+      const found = await tx.users.findById(userId)
+      if (found === null) throw new NotFoundError('user')
+      const updated: User = { ...found, timezone: input.timezone }
+      await tx.userAccounts.update(updated)
+      return updated
     })
   }
 

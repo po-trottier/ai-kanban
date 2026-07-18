@@ -1,4 +1,5 @@
 import {
+  DEFAULT_TIMEZONE,
   type ActorKind,
   type CardOrigin,
   type CardEventType,
@@ -58,6 +59,8 @@ export const users = sqliteTable(
       .default(false),
     slackUserId: text('slack_user_id'),
     isActive: integer('is_active', { mode: 'boolean' }).notNull(),
+    /** IANA display time zone; defaults to PST so existing rows backfill on migration. */
+    timezone: text('timezone').notNull().default(DEFAULT_TIMEZONE),
     createdAt: text('created_at').notNull(),
   },
   (table) => [

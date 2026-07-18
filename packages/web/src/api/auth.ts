@@ -1,4 +1,4 @@
-import { type SetupAdminInput, type User } from '@rivian-kanban/core'
+import { type SetupAdminInput, type UpdateProfileInput, type User } from '@rivian-kanban/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useApi } from './api-context.ts'
 import { queryKeys } from './keys.ts'
@@ -83,6 +83,21 @@ export function useChangePassword() {
       api.postVoid('/auth/change-password', { body: input }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.me })
+    },
+  })
+}
+
+/** `PATCH /auth/me` — the signed-in user updates their own profile (time zone). */
+export function useUpdateProfile() {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: UpdateProfileInput) =>
+      api.patch('/auth/me', meResponseSchema, { body: input }),
+    onSuccess: (user) => {
+      // The server returns the updated User; write it straight into the cache
+      // so every date render re-flows into the new zone immediately.
+      queryClient.setQueryData(queryKeys.me, user)
     },
   })
 }

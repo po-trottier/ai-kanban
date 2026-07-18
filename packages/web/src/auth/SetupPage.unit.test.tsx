@@ -12,6 +12,7 @@ import {
   policyRecordOf,
   uid,
 } from '../test/fixtures.ts'
+import { detectBrowserTimezone } from '../settings/timezone-select-data.ts'
 import { renderApp, renderWithProviders } from '../test/render.tsx'
 import { SetupPage } from './SetupPage.tsx'
 
@@ -82,11 +83,12 @@ describe('SetupPage', () => {
     await user.type(screen.getByRole('textbox', { name: 'Display name' }), 'First Admin')
     await user.type(screen.getByLabelText('Password'), 'a-strong-first-password')
     await user.click(screen.getByRole('button', { name: 'Create admin account' }))
-    // Assert
+    // Assert — the account fields plus the browser-auto-detected time zone
     expect(fake.lastBody('POST', '/api/v1/setup')).toEqual({
       email: 'first@org.example',
       displayName: 'First Admin',
       password: 'a-strong-first-password',
+      timezone: detectBrowserTimezone(),
     })
   })
 

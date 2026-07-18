@@ -1,6 +1,7 @@
 import {
   cardEventSchema,
   DEFAULT_POLICY_DOCUMENT,
+  DEFAULT_TIMEZONE,
   ROLES,
   Uuidv7IdGenerator,
   type Card,
@@ -90,6 +91,7 @@ export function structuralSeed(db: BetterSQLite3Database): StructuralSeedResult 
         mustChangePassword: false,
         slackUserId: null,
         isActive: true,
+        timezone: DEFAULT_TIMEZONE,
         createdAt: now,
       }
       tx.insert(users).values(system).run()

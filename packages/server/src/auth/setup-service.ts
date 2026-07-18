@@ -69,6 +69,7 @@ export class SetupService {
       mustChangePassword: false,
       slackUserId: null,
       isActive: true,
+      timezone: input.timezone,
       createdAt: now.toISOString(),
     }
     const { rawSessionId, session } = mintSession(user.id, now)

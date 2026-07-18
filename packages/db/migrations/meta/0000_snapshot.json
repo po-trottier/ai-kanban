@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f32948f8-fbf3-4fbe-81bb-60813abd325e",
+  "id": "417ca698-bc3e-4e70-a5fb-a3e4a5ca4ae1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -389,6 +389,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "number": {
+          "name": "number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "lane_id": {
           "name": "lane_id",
           "type": "text",
@@ -510,6 +517,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "work_started_at": {
+          "name": "work_started_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "slack_channel_id": {
           "name": "slack_channel_id",
           "type": "text",
@@ -570,6 +584,14 @@
           ],
           "isUnique": true
         },
+        "cards_board_id_number_unique": {
+          "name": "cards_board_id_number_unique",
+          "columns": [
+            "board_id",
+            "number"
+          ],
+          "isUnique": true
+        },
         "cards_board_id_archived_at_idx": {
           "name": "cards_board_id_archived_at_idx",
           "columns": [
@@ -591,6 +613,32 @@
             "reporter_id"
           ],
           "isUnique": false
+        },
+        "cards_created_at_id_idx": {
+          "name": "cards_created_at_id_idx",
+          "columns": [
+            "created_at",
+            "id"
+          ],
+          "isUnique": false
+        },
+        "cards_lane_active_position_idx": {
+          "name": "cards_lane_active_position_idx",
+          "columns": [
+            "lane_id",
+            "position"
+          ],
+          "isUnique": false,
+          "where": "\"cards\".\"archived_at\" is null"
+        },
+        "cards_blocked_active_idx": {
+          "name": "cards_blocked_active_idx",
+          "columns": [
+            "created_at",
+            "id"
+          ],
+          "isUnique": false,
+          "where": "\"cards\".\"blocked\" = 1 and \"cards\".\"archived_at\" is null"
         }
       },
       "foreignKeys": {
@@ -973,7 +1021,15 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "service_tokens_token_hash_unique": {
+          "name": "service_tokens_token_hash_unique",
+          "columns": [
+            "token_hash"
+          ],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {
         "service_tokens_created_by_users_id_fk": {
           "name": "service_tokens_created_by_users_id_fk",
@@ -1144,6 +1200,14 @@
           "notNull": true,
           "autoincrement": false
         },
+        "timezone": {
+          "name": "timezone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'America/Los_Angeles'"
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -1157,6 +1221,13 @@
           "name": "users_email_unique",
           "columns": [
             "email"
+          ],
+          "isUnique": true
+        },
+        "users_email_ci_unique": {
+          "name": "users_email_ci_unique",
+          "columns": [
+            "lower(\"email\")"
           ],
           "isUnique": true
         }
@@ -1175,6 +1246,14 @@
     "columns": {}
   },
   "internal": {
-    "indexes": {}
+    "indexes": {
+      "users_email_ci_unique": {
+        "columns": {
+          "lower(\"email\")": {
+            "isExpression": true
+          }
+        }
+      }
+    }
   }
 }

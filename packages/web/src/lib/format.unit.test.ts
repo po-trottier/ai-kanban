@@ -3,6 +3,7 @@ import {
   estimateToMinutes,
   estimateToParts,
   formatDate,
+  formatDateTime,
   formatEstimate,
   initials,
   isEstimateUnit,
@@ -127,6 +128,19 @@ describe('formatDate', () => {
     const result = formatDate(iso)
     // Assert
     expect(result).toBe('Jul 20')
+  })
+})
+
+describe('formatDateTime', () => {
+  it('renders an instant in the given time zone', () => {
+    // Arrange — the same UTC instant read from two different zones
+    const iso = '2026-07-20T02:30:00.000Z'
+    // Act
+    const utc = formatDateTime(iso, 'UTC')
+    const la = formatDateTime(iso, 'America/Los_Angeles')
+    // Assert — 02:30Z is 19:30 the previous day in Los Angeles (PDT, UTC-7)
+    expect(utc).toBe('Jul 20, 2026 02:30')
+    expect(la).toBe('Jul 19, 2026 19:30')
   })
 })
 

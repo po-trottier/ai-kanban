@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { ZodError } from 'zod'
+import { DEFAULT_TIMEZONE } from './constants.ts'
 import {
   cancelCardInputSchema,
   createCardInputSchema,
   moveCardInputSchema,
   pageRequestSchema,
+  setupAdminInputSchema,
   updateCardInputSchema,
+  updateProfileInputSchema,
 } from './commands.ts'
 
 const UUID = '10000000-0000-7000-8000-000000000001'
@@ -200,6 +203,56 @@ describe('pageRequestSchema', () => {
 
     // Act
     const act = () => pageRequestSchema.parse(query)
+
+    // Assert
+    expect(act).toThrow(ZodError)
+  })
+})
+
+describe('setupAdminInputSchema time zone', () => {
+  it('defaults an omitted time zone to PST', () => {
+    // Arrange
+    const body = { email: 'admin@org.example', displayName: 'Admin', password: 'x'.repeat(12) }
+
+    // Act
+    const input = setupAdminInputSchema.parse(body)
+
+    // Assert
+    expect(input.timezone).toBe(DEFAULT_TIMEZONE)
+  })
+
+  it('accepts a valid IANA zone and rejects an unknown one', () => {
+    // Arrange
+    const base = { email: 'admin@org.example', displayName: 'Admin', password: 'x'.repeat(12) }
+
+    // Act
+    const ok = setupAdminInputSchema.parse({ ...base, timezone: 'America/New_York' })
+    const bad = () => setupAdminInputSchema.parse({ ...base, timezone: 'Nowhere/Void' })
+
+    // Assert
+    expect(ok.timezone).toBe('America/New_York')
+    expect(bad).toThrow(ZodError)
+  })
+})
+
+describe('updateProfileInputSchema', () => {
+  it('accepts a valid IANA time zone', () => {
+    // Arrange
+    const body = { timezone: 'Europe/Paris' }
+
+    // Act
+    const input = updateProfileInputSchema.parse(body)
+
+    // Assert
+    expect(input.timezone).toBe('Europe/Paris')
+  })
+
+  it('rejects any field other than the time zone (no privilege escalation)', () => {
+    // Arrange — a mass-assignment attempt with an extra role key
+    const body = { timezone: 'UTC', role: 'admin' }
+
+    // Act
+    const act = () => updateProfileInputSchema.parse(body)
 
     // Assert
     expect(act).toThrow(ZodError)

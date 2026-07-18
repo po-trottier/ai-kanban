@@ -1,5 +1,6 @@
 import { type CardEvent } from '@rivian-kanban/core'
 import { Button, List, Stack, Text } from '@mantine/core'
+import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { describeActor, describeEvent, type HistoryContext } from '../lib/history.ts'
 import { strings } from '../strings.ts'
@@ -21,6 +22,7 @@ export function HistoryList({
   loadingMore,
   onLoadMore,
 }: HistoryListProps) {
+  const timezone = useUserTimezone()
   if (events.length === 0) {
     return (
       <Text size="sm" c="dimmed">
@@ -41,7 +43,7 @@ export function HistoryList({
               {describeEvent(event, context)}
             </Text>{' '}
             <Text size="xs" c="dimmed" component="span">
-              {formatDateTime(event.createdAt)}
+              {formatDateTime(event.createdAt, timezone)}
             </Text>
           </List.Item>
         ))}

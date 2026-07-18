@@ -70,6 +70,7 @@ export class SqliteUserAccountRepository implements UserAccountRepository {
         mustChangePassword: users.mustChangePassword,
         slackUserId: users.slackUserId,
         isActive: users.isActive,
+        timezone: users.timezone,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -114,6 +115,7 @@ export class SqliteUserAccountRepository implements UserAccountRepository {
           mustChangePassword: user.mustChangePassword,
           slackUserId: user.slackUserId,
           isActive: user.isActive,
+          timezone: user.timezone,
         })
         .where(eq(users.id, user.id))
         .run()

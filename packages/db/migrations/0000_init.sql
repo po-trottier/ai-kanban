@@ -54,6 +54,7 @@ CREATE TABLE `card_tags` (
 CREATE TABLE `cards` (
 	`id` text PRIMARY KEY NOT NULL,
 	`board_id` text NOT NULL,
+	`number` integer NOT NULL,
 	`lane_id` text NOT NULL,
 	`position` text NOT NULL,
 	`title` text NOT NULL,
@@ -71,6 +72,7 @@ CREATE TABLE `cards` (
 	`waiting_reason` text,
 	`expected_resume_at` text,
 	`resume_alerted_at` text,
+	`work_started_at` text,
 	`slack_channel_id` text,
 	`slack_thread_ts` text,
 	`slack_permalink` text,
@@ -86,9 +88,13 @@ CREATE TABLE `cards` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `cards_lane_id_position_unique` ON `cards` (`lane_id`,`position`);--> statement-breakpoint
+CREATE UNIQUE INDEX `cards_board_id_number_unique` ON `cards` (`board_id`,`number`);--> statement-breakpoint
 CREATE INDEX `cards_board_id_archived_at_idx` ON `cards` (`board_id`,`archived_at`);--> statement-breakpoint
 CREATE INDEX `cards_assignee_id_idx` ON `cards` (`assignee_id`);--> statement-breakpoint
 CREATE INDEX `cards_reporter_id_idx` ON `cards` (`reporter_id`);--> statement-breakpoint
+CREATE INDEX `cards_created_at_id_idx` ON `cards` (`created_at`,`id`);--> statement-breakpoint
+CREATE INDEX `cards_lane_active_position_idx` ON `cards` (`lane_id`,`position`) WHERE "cards"."archived_at" is null;--> statement-breakpoint
+CREATE INDEX `cards_blocked_active_idx` ON `cards` (`created_at`,`id`) WHERE "cards"."blocked" = 1 and "cards"."archived_at" is null;--> statement-breakpoint
 CREATE TABLE `comments` (
 	`id` text PRIMARY KEY NOT NULL,
 	`card_id` text NOT NULL,
@@ -136,6 +142,7 @@ CREATE TABLE `service_tokens` (
 	FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `service_tokens_token_hash_unique` ON `service_tokens` (`token_hash`);--> statement-breakpoint
 CREATE TABLE `sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -160,7 +167,9 @@ CREATE TABLE `users` (
 	`must_change_password` integer DEFAULT false NOT NULL,
 	`slack_user_id` text,
 	`is_active` integer NOT NULL,
+	`timezone` text DEFAULT 'America/Los_Angeles' NOT NULL,
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);
+CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);--> statement-breakpoint
+CREATE UNIQUE INDEX `users_email_ci_unique` ON `users` (lower("email"));

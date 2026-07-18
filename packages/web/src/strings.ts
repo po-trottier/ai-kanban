@@ -414,6 +414,17 @@ export const strings = {
     tabTokens: 'Service tokens',
   },
 
+  // Per-user preferences (the avatar-menu item every role can open), distinct
+  // from the admin-only Settings page above.
+  profile: {
+    menuItem: 'Preferences',
+    title: 'Preferences',
+    timezoneLabel: 'Time zone',
+    timezoneHelp: 'Dates and times across the app are shown in this time zone.',
+    timezoneNothingFound: 'No matching time zone',
+    saved: 'Preferences saved',
+  },
+
   users: {
     createButton: 'New user',
     createTitle: 'Create user',

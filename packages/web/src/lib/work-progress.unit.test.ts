@@ -12,7 +12,7 @@ describe('businessMinutesBetween', () => {
     const start = utc(2026, 1, 1, 10) // Thu 10:00
     const end = utc(2026, 1, 1, 12) // Thu 12:00
     // Act
-    const minutes = businessMinutesBetween(start, end)
+    const minutes = businessMinutesBetween(start, end, 'UTC')
     // Assert
     expect(minutes).toBe(120)
   })
@@ -22,7 +22,7 @@ describe('businessMinutesBetween', () => {
     const start = utc(2026, 1, 1, 8)
     const end = utc(2026, 1, 1, 18)
     // Act
-    const minutes = businessMinutesBetween(start, end)
+    const minutes = businessMinutesBetween(start, end, 'UTC')
     // Assert
     expect(minutes).toBe(480)
   })
@@ -32,7 +32,7 @@ describe('businessMinutesBetween', () => {
     const start = utc(2026, 1, 2, 16)
     const end = utc(2026, 1, 5, 10)
     // Act
-    const minutes = businessMinutesBetween(start, end)
+    const minutes = businessMinutesBetween(start, end, 'UTC')
     // Assert
     expect(minutes).toBe(120)
   })
@@ -42,7 +42,7 @@ describe('businessMinutesBetween', () => {
     const start = utc(2026, 1, 1, 9)
     const end = utc(2026, 1, 2, 17)
     // Act
-    const minutes = businessMinutesBetween(start, end)
+    const minutes = businessMinutesBetween(start, end, 'UTC')
     // Assert
     expect(minutes).toBe(960)
   })
@@ -51,8 +51,8 @@ describe('businessMinutesBetween', () => {
     // Arrange
     const start = utc(2026, 1, 1, 12)
     // Act
-    const same = businessMinutesBetween(start, start)
-    const reversed = businessMinutesBetween(start, utc(2026, 1, 1, 11))
+    const same = businessMinutesBetween(start, start, 'UTC')
+    const reversed = businessMinutesBetween(start, utc(2026, 1, 1, 11), 'UTC')
     // Assert
     expect(same).toBe(0)
     expect(reversed).toBe(0)
@@ -63,9 +63,22 @@ describe('businessMinutesBetween', () => {
     const start = utc(2026, 1, 1, 18)
     const end = utc(2026, 1, 1, 23)
     // Act
-    const minutes = businessMinutesBetween(start, end)
+    const minutes = businessMinutesBetween(start, end, 'UTC')
     // Assert
     expect(minutes).toBe(0)
+  })
+
+  it('anchors the business window to the viewer time zone, not UTC', () => {
+    // Arrange — Thu 18:00–20:00 UTC is after-hours in UTC (0 min), but in
+    // Los Angeles (UTC-8) that is 10:00–12:00 local, squarely business hours.
+    const start = utc(2026, 1, 1, 18)
+    const end = utc(2026, 1, 1, 20)
+    // Act
+    const utcMinutes = businessMinutesBetween(start, end, 'UTC')
+    const laMinutes = businessMinutesBetween(start, end, 'America/Los_Angeles')
+    // Assert
+    expect(utcMinutes).toBe(0)
+    expect(laMinutes).toBe(120)
   })
 })
 
@@ -74,7 +87,7 @@ describe('workProgress', () => {
     // Arrange — started Thu 10:00, now Thu 11:00 (60 business min) of a 120 min estimate
     const startedAt = utc(2026, 1, 1, 10).toISOString()
     // Act
-    const progress = workProgress(startedAt, 120, utc(2026, 1, 1, 11))
+    const progress = workProgress(startedAt, 120, utc(2026, 1, 1, 11), 'UTC')
     // Assert
     expect(progress).toEqual({ percent: 50, overdue: false, elapsedMinutes: 60 })
   })
@@ -83,7 +96,7 @@ describe('workProgress', () => {
     // Arrange — started Thu 09:00, now Thu 11:00 (120 business min) of a 60 min estimate
     const startedAt = utc(2026, 1, 1, 9).toISOString()
     // Act
-    const progress = workProgress(startedAt, 60, utc(2026, 1, 1, 11))
+    const progress = workProgress(startedAt, 60, utc(2026, 1, 1, 11), 'UTC')
     // Assert
     expect(progress.percent).toBe(100)
     expect(progress.overdue).toBe(true)
@@ -94,7 +107,7 @@ describe('workProgress', () => {
     // Arrange
     const startedAt = utc(2026, 1, 1, 10).toISOString()
     // Act
-    const progress = workProgress(startedAt, 0, utc(2026, 1, 1, 10, 30))
+    const progress = workProgress(startedAt, 0, utc(2026, 1, 1, 10, 30), 'UTC')
     // Assert
     expect(progress.overdue).toBe(true)
     expect(progress.percent).toBe(100)

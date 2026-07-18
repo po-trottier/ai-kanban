@@ -1,5 +1,11 @@
 import { randomBytes } from 'node:crypto'
-import { Uuidv7IdGenerator, type Clock, type UnitOfWork, type User } from '@rivian-kanban/core'
+import {
+  DEFAULT_TIMEZONE,
+  Uuidv7IdGenerator,
+  type Clock,
+  type UnitOfWork,
+  type User,
+} from '@rivian-kanban/core'
 import { type PasswordHasher } from '../auth/password-hasher.ts'
 
 /**
@@ -74,6 +80,7 @@ export async function createAdminUser(
     mustChangePassword: true,
     slackUserId: null,
     isActive: true,
+    timezone: DEFAULT_TIMEZONE,
     createdAt: clock.now().toISOString(),
   }
   await uow.run((tx) => tx.userAccounts.insert(user, passwordHash))

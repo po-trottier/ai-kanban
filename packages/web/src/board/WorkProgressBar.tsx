@@ -1,4 +1,5 @@
 import { Progress, Tooltip } from '@mantine/core'
+import { useUserTimezone } from '../auth/session-context.ts'
 import { formatEstimate } from '../lib/format.ts'
 import { useNow } from '../lib/use-now.ts'
 import { workProgress } from '../lib/work-progress.ts'
@@ -22,7 +23,13 @@ export function WorkProgressBar({
   estimateMinutes: number
 }) {
   const now = useNow(TICK_MS)
-  const { percent, overdue, elapsedMinutes } = workProgress(workStartedAt, estimateMinutes, now)
+  const timezone = useUserTimezone()
+  const { percent, overdue, elapsedMinutes } = workProgress(
+    workStartedAt,
+    estimateMinutes,
+    now,
+    timezone,
+  )
   const elapsed = formatEstimate(elapsedMinutes)
   const estimate = formatEstimate(estimateMinutes)
   return (

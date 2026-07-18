@@ -1,4 +1,4 @@
-import { setupAdminInputSchema } from '@rivian-kanban/core'
+import { setupAdminInputSchema, updateProfileInputSchema } from '@rivian-kanban/core'
 import { type FastifyInstance, type FastifyReply } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
@@ -152,6 +152,26 @@ export function authRoutes(deps: AppDeps) {
       (request) => {
         if (request.authUser === null) throw new UnauthenticatedError()
         return Promise.resolve(request.authUser)
+      },
+    )
+
+    // Self-service profile update (own row only). No `public` and no
+    // `allowWithPasswordChange`: it demands a fully-authenticated session that
+    // has already cleared any mandatory password change. The body is a
+    // strictObject of only `timezone`, and the service scopes the write to
+    // request.authUser.id — never a client-supplied id — so a user can only
+    // ever edit their own preferences, never escalate role/active/email.
+    r.patch(
+      '/auth/me',
+      {
+        schema: {
+          body: updateProfileInputSchema,
+          response: { 200: userResponseSchema },
+        },
+      },
+      (request) => {
+        if (request.authUser === null) throw new UnauthenticatedError()
+        return deps.services.auth.updateProfile(request.authUser.id, request.body)
       },
     )
   }

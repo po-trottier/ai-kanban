@@ -255,6 +255,81 @@ describe('must_change_password gate', () => {
     expect(boardAfter.statusCode).toBe(200)
     expect(user.id).toBeTruthy()
   })
+
+  it('blocks the self-service profile update until the temp password is changed', async () => {
+    const admin = await t.asRole('admin')
+    const created = await t.request(admin.cookie, {
+      method: 'POST',
+      url: '/api/v1/users',
+      payload: { email: 'fresh-tz@test.example', displayName: 'Fresh TZ', role: 'requester' },
+    })
+    const { tempPassword } = created.json<{ tempPassword: string }>()
+    const cookie = await t.login('fresh-tz@test.example', tempPassword)
+
+    // PATCH /auth/me is NOT allowWithPasswordChange — the locked session can't reach it.
+    const patch = await t.request(cookie, {
+      method: 'PATCH',
+      url: '/api/v1/auth/me',
+      payload: { timezone: 'UTC' },
+    })
+    expect(patch.statusCode).toBe(403)
+    expect(patch.json<{ type: string }>().type).toBe(
+      'urn:rivian-kanban:problem:password-change-required',
+    )
+  })
+})
+
+describe('PATCH /auth/me (self-service profile)', () => {
+  it('updates only the caller’s own time zone and persists it to the session', async () => {
+    const user = await t.asRole('technician')
+    const before = await t.request(user.cookie, { method: 'GET', url: '/api/v1/auth/me' })
+    // Fresh users default to PST (data-model.md#users).
+    expect(before.json<{ timezone: string }>().timezone).toBe('America/Los_Angeles')
+
+    const patched = await t.request(user.cookie, {
+      method: 'PATCH',
+      url: '/api/v1/auth/me',
+      payload: { timezone: 'America/New_York' },
+    })
+    expect(patched.statusCode).toBe(200)
+    expect(patched.json<{ timezone: string }>().timezone).toBe('America/New_York')
+
+    const after = await t.request(user.cookie, { method: 'GET', url: '/api/v1/auth/me' })
+    expect(after.json<{ timezone: string }>().timezone).toBe('America/New_York')
+  })
+
+  it('rejects an unknown IANA zone with a 400 validation problem', async () => {
+    const user = await t.asRole('technician')
+    const bad = await t.request(user.cookie, {
+      method: 'PATCH',
+      url: '/api/v1/auth/me',
+      payload: { timezone: 'Mars/Olympus_Mons' },
+    })
+    expect(bad.statusCode).toBe(400)
+  })
+
+  it('refuses any field other than the time zone — no privilege escalation via the profile route', async () => {
+    const user = await t.asRole('technician')
+    // strictObject body: the extra `role` is a 400, never a silent promotion.
+    const escalate = await t.request(user.cookie, {
+      method: 'PATCH',
+      url: '/api/v1/auth/me',
+      payload: { timezone: 'UTC', role: 'admin' },
+    })
+    expect(escalate.statusCode).toBe(400)
+
+    const after = await t.request(user.cookie, { method: 'GET', url: '/api/v1/auth/me' })
+    expect(after.json<{ role: string }>().role).toBe('technician')
+  })
+
+  it('rejects an unauthenticated request with 401', async () => {
+    const anon = await t.request(null, {
+      method: 'PATCH',
+      url: '/api/v1/auth/me',
+      payload: { timezone: 'UTC' },
+    })
+    expect(anon.statusCode).toBe(401)
+  })
 })
 
 describe('per-account login backoff', () => {

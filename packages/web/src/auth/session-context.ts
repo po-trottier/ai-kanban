@@ -9,3 +9,8 @@ export function useCurrentUser(): User {
   if (user === null) throw new Error('useCurrentUser called outside an authenticated session')
   return user
 }
+
+/** The signed-in user's IANA display time zone — the single source every date render reads. */
+export function useUserTimezone(): string {
+  return useCurrentUser().timezone
+}

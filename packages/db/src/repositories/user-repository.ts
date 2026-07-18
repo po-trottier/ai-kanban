@@ -21,6 +21,7 @@ export class SqliteUserRepository implements UserRepository {
         mustChangePassword: users.mustChangePassword,
         slackUserId: users.slackUserId,
         isActive: users.isActive,
+        timezone: users.timezone,
         createdAt: users.createdAt,
       })
       .from(users)

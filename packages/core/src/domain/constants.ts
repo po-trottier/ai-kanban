@@ -96,3 +96,11 @@ export const DEFAULT_BLOCKED_STALE_DAYS = 3
 
 /** Done cards archive this many days after entering Done (docs/product/workflow.md#archival). */
 export const DONE_ARCHIVAL_DAYS = 90
+
+/**
+ * Default per-user display time zone (IANA id) when none is auto-detected —
+ * PST/PDT (docs/architecture/data-model.md#users). New rows and admin/CLI
+ * created accounts fall back to this; the web signup auto-detects the browser
+ * zone instead.
+ */
+export const DEFAULT_TIMEZONE = 'America/Los_Angeles'

@@ -3,6 +3,7 @@ import {
   CANCEL_RESOLUTIONS,
   CARD_DESCRIPTION_MAX,
   CARD_TITLE_MAX,
+  DEFAULT_TIMEZONE,
   LOCATION_KINDS,
 } from './constants.ts'
 import {
@@ -11,6 +12,7 @@ import {
   prioritySchema,
   roleSchema,
   tagNameSchema,
+  timezoneSchema,
   tokenScopeSchema,
   waitingReasonSchema,
 } from './entities.ts'
@@ -197,6 +199,8 @@ export const setupAdminInputSchema = z.strictObject({
   email: createUserInputSchema.shape.email,
   displayName: createUserInputSchema.shape.displayName,
   password: z.string().min(1).max(1024),
+  /** Browser-auto-detected at signup; defaults to PST when the client omits it. */
+  timezone: timezoneSchema.default(DEFAULT_TIMEZONE),
 })
 export type SetupAdminInput = z.infer<typeof setupAdminInputSchema>
 
@@ -210,6 +214,18 @@ export const updateUserInputSchema = z
   })
   .refine((input) => Object.keys(input).length > 0, { message: 'no fields to update' })
 export type UpdateUserInput = z.infer<typeof updateUserInputSchema>
+
+/**
+ * Self-service profile update (`PATCH /auth/me`, rest-api.md#auth--users): the
+ * authenticated user editing THEIR OWN preferences. Deliberately a strictObject
+ * of only `timezone` — role, active state, and email stay admin-only, and a
+ * strictObject rejects any such extra key at the trust boundary, so this
+ * surface can never be used for privilege escalation or mass assignment.
+ */
+export const updateProfileInputSchema = z.strictObject({
+  timezone: timezoneSchema,
+})
+export type UpdateProfileInput = z.infer<typeof updateProfileInputSchema>
 
 /** Label and WIP limit only — lane keys/positions are structural (seeded). */
 export const updateLaneInputSchema = z

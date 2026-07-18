@@ -33,6 +33,18 @@ export const tokenScopeSchema = z.enum(TOKEN_SCOPES)
 /** Tag names: ≤ 50 chars, trimmed, case preserved, matched case-insensitively. */
 export const tagNameSchema = z.string().trim().min(1).max(TAG_NAME_MAX)
 
+/**
+ * An IANA time-zone id (e.g. `America/Los_Angeles`), validated against the
+ * runtime's own tz database. Every timestamp the web renders runs through
+ * `dayjs.tz(userTimezone)`, which THROWS on an unknown zone — so we reject a
+ * bad value at the trust boundary (a hand-crafted API body) rather than let it
+ * break every date render for that user.
+ */
+const SUPPORTED_TIME_ZONES: ReadonlySet<string> = new Set(Intl.supportedValuesOf('timeZone'))
+export const timezoneSchema = z
+  .string()
+  .refine((value) => SUPPORTED_TIME_ZONES.has(value), { message: 'unknown IANA time zone' })
+
 export const userSchema = z.strictObject({
   id: z.uuid(),
   email: z.email(),
@@ -41,6 +53,8 @@ export const userSchema = z.strictObject({
   mustChangePassword: z.boolean(),
   slackUserId: z.string().nullable(),
   isActive: z.boolean(),
+  /** The user's preferred display time zone (data-model.md#users). */
+  timezone: timezoneSchema,
   createdAt: isoDateTimeSchema,
 })
 export type User = z.infer<typeof userSchema>

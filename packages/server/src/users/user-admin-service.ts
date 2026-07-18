@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import {
   createUserInputSchema,
+  DEFAULT_TIMEZONE,
   ensureAdmin,
   NotFoundError,
   updateUserInputSchema,
@@ -74,6 +75,9 @@ export class UserAdminService {
       mustChangePassword: true,
       slackUserId: null,
       isActive: true,
+      // Admin-created accounts default to PST (no browser to auto-detect from);
+      // the user re-picks their own zone from account settings after signing in.
+      timezone: DEFAULT_TIMEZONE,
       createdAt: this.deps.clock.now().toISOString(),
     }
     await this.deps.uow.run((tx) => tx.userAccounts.insert(user, passwordHash))

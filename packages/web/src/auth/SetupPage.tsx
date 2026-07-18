@@ -1,4 +1,4 @@
-import { PASSWORD_MIN_LENGTH, type SetupAdminInput } from '@rivian-kanban/core'
+import { PASSWORD_MIN_LENGTH, timezoneSchema, type SetupAdminInput } from '@rivian-kanban/core'
 import {
   Button,
   Center,
@@ -16,6 +16,7 @@ import { useForm } from 'react-hook-form'
 import { Navigate, useNavigate } from 'react-router'
 import { z } from 'zod'
 import { useSetupAdmin, useSetupRequired } from '../api/auth.ts'
+import { detectBrowserTimezone } from '../settings/timezone-select-data.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
@@ -30,6 +31,9 @@ const setupFormSchema = z.object({
   email: z.email(strings.auth.emailInvalid),
   displayName: z.string().trim().min(1, strings.setup.displayNameRequired).max(100),
   password: z.string().min(PASSWORD_MIN_LENGTH, strings.auth.passwordMinLength),
+  // Auto-detected from the browser (no visible field); the server defaults it
+  // to PST if ever absent. Carried so the first admin's zone matches their machine.
+  timezone: timezoneSchema,
 })
 
 /**
@@ -88,7 +92,7 @@ function SetupAccountForm({ onCreated }: { onCreated: () => void }) {
   const setup = useSetupAdmin()
   const form = useForm<SetupAdminInput>({
     resolver: standardSchemaResolver(setupFormSchema),
-    defaultValues: { email: '', displayName: '', password: '' },
+    defaultValues: { email: '', displayName: '', password: '', timezone: detectBrowserTimezone() },
   })
 
   return (

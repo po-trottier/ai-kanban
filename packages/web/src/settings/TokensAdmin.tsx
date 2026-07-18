@@ -3,6 +3,7 @@ import { Badge, Button, Group, Modal, Select, Stack, Table, Text, TextInput } fr
 import { useState } from 'react'
 import { useCreateServiceToken, useRevokeServiceToken, useServiceTokens } from '../api/admin.ts'
 import { type ServiceTokenView } from '../api/schemas.ts'
+import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { ConfirmModal } from '../shell/ConfirmModal.tsx'
 import { strings } from '../strings.ts'
@@ -14,6 +15,7 @@ export function TokensAdmin() {
   const tokens = useServiceTokens()
   const createToken = useCreateServiceToken()
   const revokeToken = useRevokeServiceToken()
+  const timezone = useUserTimezone()
   const [createOpen, setCreateOpen] = useState(false)
   const [rawToken, setRawToken] = useState<string | null>(null)
   const [revokeTarget, setRevokeTarget] = useState<ServiceTokenView | null>(null)
@@ -70,7 +72,7 @@ export function TokensAdmin() {
                 <Text size="sm">
                   {token.lastUsedAt === null
                     ? strings.tokens.neverUsed
-                    : formatDateTime(token.lastUsedAt)}
+                    : formatDateTime(token.lastUsedAt, timezone)}
                 </Text>
               </Table.Td>
               <Table.Td>
