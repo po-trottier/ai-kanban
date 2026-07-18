@@ -1,4 +1,4 @@
-import { TOKEN_SCOPES, type Role, type TokenScope } from '@rivian-kanban/core'
+import { TOKEN_SCOPES, type TokenScope } from '@rivian-kanban/core'
 import { Badge, Button, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
 import { useState } from 'react'
 import { useCreateServiceToken, useRevokeServiceToken, useServiceTokens } from '../api/admin.ts'
@@ -8,7 +8,7 @@ import { formatDateTime } from '../lib/format.ts'
 import { ConfirmModal } from '../shell/ConfirmModal.tsx'
 import { strings } from '../strings.ts'
 import { RevealOnceModal } from './RevealOnceModal.tsx'
-import { ROLE_SELECT_DATA } from './role-select-data.ts'
+import { useRoleLabel, useRoleOptions } from './role-select-data.ts'
 
 /** MCP service tokens: create (raw `rkb_…` shown once) and revoke. */
 export function TokensAdmin() {
@@ -16,10 +16,12 @@ export function TokensAdmin() {
   const createToken = useCreateServiceToken()
   const revokeToken = useRevokeServiceToken()
   const timezone = useUserTimezone()
+  const roleOptions = useRoleOptions()
+  const roleLabel = useRoleLabel()
   const [createOpen, setCreateOpen] = useState(false)
   const [rawToken, setRawToken] = useState<string | null>(null)
   const [revokeTarget, setRevokeTarget] = useState<ServiceTokenView | null>(null)
-  const [draft, setDraft] = useState<{ name: string; role: Role; scope: TokenScope }>({
+  const [draft, setDraft] = useState<{ name: string; role: string; scope: TokenScope }>({
     name: '',
     role: 'user',
     scope: 'read',
@@ -63,7 +65,7 @@ export function TokensAdmin() {
                 <Text size="sm">{token.name}</Text>
               </Table.Td>
               <Table.Td>
-                <Text size="sm">{strings.users.roles[token.role]}</Text>
+                <Text size="sm">{roleLabel(token.role)}</Text>
               </Table.Td>
               <Table.Td>
                 <Text size="sm">{strings.tokens.scopes[token.scope]}</Text>
@@ -117,7 +119,7 @@ export function TokensAdmin() {
             />
             <Select
               label={strings.tokens.roleLabel}
-              data={ROLE_SELECT_DATA}
+              data={roleOptions}
               value={draft.role}
               allowDeselect={false}
               onChange={(role) => {

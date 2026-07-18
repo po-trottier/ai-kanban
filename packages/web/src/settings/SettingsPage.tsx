@@ -2,6 +2,7 @@ import { Alert, Container, Stack, Tabs, Title } from '@mantine/core'
 import { usePutPolicy } from '../api/admin.ts'
 import { useBoard } from '../api/board.ts'
 import { usePolicy } from '../api/meta.ts'
+import { isConflictError } from '../api/problem.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
 import { strings } from '../strings.ts'
 import { LanesAdmin } from './LanesAdmin.tsx'
@@ -10,14 +11,30 @@ import { PolicyEditorForm } from './PolicyEditorForm.tsx'
 import { TokensAdmin } from './TokensAdmin.tsx'
 import { UsersAdmin } from './UsersAdmin.tsx'
 
-/** App-wide admin settings — the only role-gated surface (ADR-013). */
+/** How the policy editor's last save can fail in a way the UI shows inline. */
+const MANAGE_PERMISSIONS = [
+  'manageUsers',
+  'manageRoles',
+  'manageLocations',
+  'manageLanes',
+  'managePolicy',
+  'manageTokens',
+] as const
+
+/** App-wide admin settings — visible to roles with any manage* grant (ADR-013). */
 export function SettingsPage() {
   const me = useCurrentUser()
   const policy = usePolicy()
   const board = useBoard()
   const putPolicy = usePutPolicy()
 
-  if (me.role !== 'admin') {
+  // Roles are data now: a user may open settings if their role grants any
+  // manage* permission in the active policy (default-deny otherwise).
+  const myRole = policy.data?.roles.find((role) => role.key === me.role)
+  const canManageAnything =
+    myRole !== undefined && MANAGE_PERMISSIONS.some((perm) => myRole.permissions[perm] === true)
+
+  if (policy.data !== undefined && !canManageAnything) {
     return (
       <Container size="sm" mt="xl">
         <Alert color="red">{strings.settings.adminsOnly}</Alert>
@@ -58,6 +75,7 @@ export function SettingsPage() {
                 value={policy.data}
                 laneLabels={laneLabels}
                 saving={putPolicy.isPending}
+                roleInUseError={isConflictError(putPolicy.error)}
                 onSave={(document) => {
                   putPolicy.mutate(document)
                 }}

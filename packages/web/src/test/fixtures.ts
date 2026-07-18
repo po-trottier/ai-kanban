@@ -134,6 +134,28 @@ export function makeBoard(cardsByLane: Partial<Record<LaneKey, Card[]>>): BoardR
 export const permissivePolicy: PolicyDocument = DEFAULT_POLICY_DOCUMENT
 
 /**
+ * The default policy with the `user` role's grant of each listed permission
+ * removed — a plain `user` is then denied it (default-deny) while `admin` keeps
+ * everything. Replaces the old `actionGates` fixtures (ADR-013: roles-as-data).
+ */
+export function policyDenyingUser(...perms: string[]): PolicyDocument {
+  const removed = new Set(perms)
+  return {
+    ...DEFAULT_POLICY_DOCUMENT,
+    roles: DEFAULT_POLICY_DOCUMENT.roles.map((role) =>
+      role.key === 'user'
+        ? {
+            ...role,
+            permissions: Object.fromEntries(
+              Object.entries(role.permissions).filter(([key]) => !removed.has(key)),
+            ),
+          }
+        : role,
+    ),
+  }
+}
+
+/**
  * The `GET`/`PUT /policy` response envelope: the server returns the stored
  * policy VERSION record, not the bare document (rest-api.md#admin).
  */

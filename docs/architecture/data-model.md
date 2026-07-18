@@ -27,7 +27,7 @@ sessions >── users        service_tokens (MCP)
 | id                   | TEXT PK                                     | UUIDv7                                                                                                                                                            |
 | email                | TEXT UNIQUE NOT NULL                        | lowercased; a `lower(email)` unique index enforces case-insensitive uniqueness                                                                                    |
 | display_name         | TEXT NOT NULL                               | ≤ 100 chars                                                                                                                                                       |
-| role                 | TEXT NOT NULL                               | `user \| admin` (User / Administrator)                                                                                                                            |
+| role                 | TEXT NOT NULL                               | a role KEY, not an enum — validated at write time against the active policy's `roles` (unknown → 400); stays `text`, no column migration (ADR-013)                |
 | password_hash        | TEXT NOT NULL                               | argon2id                                                                                                                                                          |
 | must_change_password | INTEGER NOT NULL DEFAULT 0                  | set on create/admin-reset; while set, the session may only call change-password                                                                                   |
 | slack_user_id        | TEXT NULL                                   | bound on first Slack use (matched by email once, then matched by id — never re-resolved)                                                                          |
@@ -37,7 +37,8 @@ sessions >── users        service_tokens (MCP)
 
 The structural seed includes a `system` user (display "Automation", no password, cannot log
 in) used as the reporter for MCP-created cards when no reporter is specified. The last active
-admin can never be demoted or deactivated (enforced invariant; see security.md).
+user whose role grants `manageUsers` (the admin-equivalent set) can never be demoted or
+deactivated (enforced invariant; see security.md).
 
 ### boards
 
@@ -75,8 +76,11 @@ free (see [ADR-013](decisions/ADR-013-configurable-permissions.md)).
 | created_by | TEXT FK NOT NULL | admin who applied it                                                                        |
 | created_at | TEXT NOT NULL    |                                                                                             |
 
-Seeded with the permissive default (`transitionEnforcement: false`, no gates) plus the
-7-lane workflow graph ready to activate. Index: `(board_id, created_at)`.
+Seeded with the `DEFAULT_POLICY_DOCUMENT` (ADR-013): `transitionEnforcement: false`, the 7-lane
+workflow graph (topology only, no `minRole`) ready to activate, and a `roles` array of two roles
+— `user` (permissive default minus `*.deleteOthers` and the manage\* surfaces) and `admin` (all
+permissions). Permissions are a sparse grant map: present+`true` = granted, absent = default-deny.
+Index: `(board_id, created_at)`.
 
 ### cards
 
@@ -187,8 +191,10 @@ role change, and deactivation revoke the user's other sessions.
 ### service_tokens
 
 MCP/automation credentials: `id, name, token_hash (sha256, UNIQUE — credential uniqueness is
-a schema invariant and the index behind the per-request bearer lookup), role, scope ('read' |
-'read_write'), created_by FK, created_at, last_used_at, revoked_at NULL`. Admin-managed; the
+a schema invariant and the index behind the per-request bearer lookup), role (a role KEY, `text`,
+validated against the active policy at write time — no enum), scope ('read' |
+'read_write'), created_by FK, created_at, last_used_at, revoked_at NULL`. Managed via
+`manageTokens`; the
 raw token (`rkb_` + 32 random bytes base64url, 256-bit CSPRNG — the prefix makes leaked tokens
 fingerprintable by secret scanners) is shown once at creation. Tokens never expire; revocation
 (`revoked_at`) is the only lifecycle end, and rows are never deleted so audit `actor_id`
@@ -215,10 +221,16 @@ override a concurrent edit). ([ADR-012](decisions/ADR-012-optimistic-locking.md)
 Two distinct layers (see deployment.md for the production bootstrap):
 
 - **Structural seed** — runs idempotently on every boot, all environments: the board, the 7
-  lanes (with the seeded WIP limits), the default permissive policy document + workflow graph,
-  and the `system` user. The app cannot function without these. It inserts **no locations**: a
-  fresh install (and production) starts with an empty locations table, so the first-boot "Add
-  your locations" setup step — and production — are never pre-populated.
+  lanes (with the seeded WIP limits), the `DEFAULT_POLICY_DOCUMENT` (enforcement off, the 7-lane
+  graph, and a `roles` array of `user` + `admin` — see ADR-013), and the `system` user. The app
+  cannot function without these. It inserts **no locations**: a fresh install (and production)
+  starts with an empty locations table, so the first-boot "Add your locations" setup step — and
+  production — are never pre-populated.
+
+  Caveat: an existing dev DB seeded under the OLD policy-document shape must be RESET — the old
+  JSON (`actionGates`, per-transition `minRole`, fixed `user | admin` enum) no longer parses
+  against the roles-as-data schema.
+
 - **Demo seed** — only when `SEED_DEMO_DATA=true` (refused outright in production mode): the
   sample location tree (buildings → floors → rooms), demo users for each role (printed
   credentials), sample cards in every lane including blocked, overdue-waiting, cancelled, and

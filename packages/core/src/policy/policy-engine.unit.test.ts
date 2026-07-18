@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { type Role } from '../domain/constants.ts'
 import { type Actor } from '../domain/entities.ts'
-import { DEFAULT_POLICY_DOCUMENT, type PolicyDocument } from '../domain/policy.ts'
+import { DEFAULT_POLICY_DOCUMENT, type Permission, type PolicyDocument } from '../domain/policy.ts'
 import { evaluatePolicy } from './policy-engine.ts'
 
 const USER_ID = '10000000-0000-7000-8000-000000000001'
 const OTHER_ID = '10000000-0000-7000-8000-000000000002'
 
-function userOf(role: Role, id = USER_ID): Actor {
+function userOf(role: string, id = USER_ID): Actor {
   return { kind: 'user', id, role }
 }
 
@@ -15,71 +14,94 @@ function enforced(overrides: Partial<PolicyDocument> = {}): PolicyDocument {
   return { ...DEFAULT_POLICY_DOCUMENT, transitionEnforcement: true, ...overrides }
 }
 
-describe('evaluatePolicy — permissive default posture', () => {
-  it('lets any authenticated user move any card to any lane', () => {
-    // Arrange
+/** A policy whose single `user` role grants exactly the listed permissions. */
+function withUserPerms(...perms: Permission[]): PolicyDocument {
+  return {
+    ...DEFAULT_POLICY_DOCUMENT,
+    roles: [
+      { key: 'user', name: 'User', permissions: Object.fromEntries(perms.map((p) => [p, true])) },
+      ...DEFAULT_POLICY_DOCUMENT.roles.filter((role) => role.key !== 'user'),
+    ],
+  }
+}
+
+describe('evaluatePolicy — grant lookup (default-deny)', () => {
+  it('ALLOWs when the actor’s role grants the permission', () => {
+    // Arrange — default `user` role grants card.create/update/move/etc.
     const actor = userOf('user')
 
     // Act
-    const decision = evaluatePolicy(
+    const create = evaluatePolicy(actor, { type: 'card.create' }, DEFAULT_POLICY_DOCUMENT)
+    const update = evaluatePolicy(actor, { type: 'card.update' }, DEFAULT_POLICY_DOCUMENT)
+    const move = evaluatePolicy(
       actor,
       { type: 'card.move', fromLane: 'intake', toLane: 'done' },
       DEFAULT_POLICY_DOCUMENT,
     )
-
-    // Assert
-    expect(decision).toEqual({ allowed: true })
-  })
-
-  it('lets any authenticated user cancel, reopen, and reorder ready when no gates are set', () => {
-    // Arrange
-    const actor = userOf('user')
-
-    // Act
     const cancel = evaluatePolicy(actor, { type: 'card.cancel' }, DEFAULT_POLICY_DOCUMENT)
-    const reopen = evaluatePolicy(actor, { type: 'card.reopen' }, DEFAULT_POLICY_DOCUMENT)
-    const reorder = evaluatePolicy(
-      actor,
-      { type: 'card.reorder', lane: 'ready' },
-      DEFAULT_POLICY_DOCUMENT,
-    )
 
     // Assert
+    expect(create).toEqual({ allowed: true })
+    expect(update).toEqual({ allowed: true })
+    expect(move).toEqual({ allowed: true })
     expect(cancel).toEqual({ allowed: true })
-    expect(reopen).toEqual({ allowed: true })
-    expect(reorder).toEqual({ allowed: true })
   })
 
-  it('lets a non-author delete another comment when the gate is absent', () => {
-    // Arrange
-    const actor = userOf('user')
+  it('DENIEs, naming permission:<perm>, when the role omits the grant', () => {
+    // Arrange — a role stripped of card.update
+    const policy = withUserPerms('card.create')
 
     // Act
-    const decision = evaluatePolicy(
-      actor,
-      { type: 'comment.delete', authorId: OTHER_ID },
-      DEFAULT_POLICY_DOCUMENT,
-    )
+    const decision = evaluatePolicy(userOf('user'), { type: 'card.update' }, policy)
 
     // Assert
-    expect(decision).toEqual({ allowed: true })
+    expect(decision).toEqual({ allowed: false, kind: 'denied', rule: 'permission:card.update' })
+  })
+
+  it('DENIEs an unknown role key entirely (default-deny)', () => {
+    // Arrange — no `ghost` role is defined in the default policy.
+    const actor = userOf('ghost')
+
+    // Act
+    const decision = evaluatePolicy(actor, { type: 'card.create' }, DEFAULT_POLICY_DOCUMENT)
+
+    // Assert
+    expect(decision).toEqual({ allowed: false, kind: 'denied', rule: 'permission:card.create' })
+  })
+
+  it('grants the manage* surfaces to admin, denies them to user by default', () => {
+    // Arrange
+    const admin = userOf('admin')
+    const user = userOf('user')
+
+    // Act
+    const adminUsers = evaluatePolicy(admin, { type: 'manageUsers' }, DEFAULT_POLICY_DOCUMENT)
+    const userUsers = evaluatePolicy(user, { type: 'manageUsers' }, DEFAULT_POLICY_DOCUMENT)
+    const adminRoles = evaluatePolicy(admin, { type: 'manageRoles' }, DEFAULT_POLICY_DOCUMENT)
+    const userPolicy = evaluatePolicy(user, { type: 'managePolicy' }, DEFAULT_POLICY_DOCUMENT)
+
+    // Assert
+    expect(adminUsers).toEqual({ allowed: true })
+    expect(adminRoles).toEqual({ allowed: true })
+    expect(userUsers).toEqual({ allowed: false, kind: 'denied', rule: 'permission:manageUsers' })
+    expect(userPolicy).toEqual({ allowed: false, kind: 'denied', rule: 'permission:managePolicy' })
   })
 })
 
-describe('evaluatePolicy — always-on identity rules', () => {
+describe('evaluatePolicy — always-on identity rules (UNCHANGED)', () => {
   it('denies every mutation to a read-scope token regardless of policy', () => {
-    // Arrange
+    // Arrange — an admin-role read token must still be denied all writes.
     const readToken: Actor = { kind: 'mcp', id: USER_ID, role: 'admin', scope: 'read' }
 
     // Act
     const update = evaluatePolicy(readToken, { type: 'card.update' }, DEFAULT_POLICY_DOCUMENT)
     const comment = evaluatePolicy(readToken, { type: 'comment.add' }, DEFAULT_POLICY_DOCUMENT)
-    const admin = evaluatePolicy(readToken, { type: 'admin' }, DEFAULT_POLICY_DOCUMENT)
+    const manage = evaluatePolicy(readToken, { type: 'manageUsers' }, DEFAULT_POLICY_DOCUMENT)
 
     // Assert
     expect(update).toEqual({ allowed: false, kind: 'denied', rule: 'token-scope-read' })
     expect(comment).toEqual({ allowed: false, kind: 'denied', rule: 'token-scope-read' })
-    expect(admin).toEqual({ allowed: false, kind: 'denied', rule: 'token-scope-read' })
+    expect(manage).toEqual({ allowed: false, kind: 'denied', rule: 'token-scope-read' })
   })
 
   it('lets a read_write token mutate under the permissive default', () => {
@@ -115,20 +137,6 @@ describe('evaluatePolicy — always-on identity rules', () => {
     expect(foreign).toEqual({ allowed: false, kind: 'denied', rule: 'comment-author-only' })
   })
 
-  it('restricts the admin surface to the admin role, always', () => {
-    // Arrange
-    const admin = userOf('admin')
-    const user = userOf('user')
-
-    // Act
-    const allowed = evaluatePolicy(admin, { type: 'admin' }, DEFAULT_POLICY_DOCUMENT)
-    const deniedDecision = evaluatePolicy(user, { type: 'admin' }, DEFAULT_POLICY_DOCUMENT)
-
-    // Assert
-    expect(allowed).toEqual({ allowed: true })
-    expect(deniedDecision).toEqual({ allowed: false, kind: 'denied', rule: 'admin-only' })
-  })
-
   it('lets the system actor do anything (scheduled jobs)', () => {
     // Arrange
     const system: Actor = { kind: 'system', id: USER_ID, role: 'admin' }
@@ -139,125 +147,66 @@ describe('evaluatePolicy — always-on identity rules', () => {
       { type: 'card.move', fromLane: 'intake', toLane: 'done' },
       enforced(),
     )
-    const admin = evaluatePolicy(system, { type: 'admin' }, DEFAULT_POLICY_DOCUMENT)
+    const manage = evaluatePolicy(system, { type: 'managePolicy' }, DEFAULT_POLICY_DOCUMENT)
 
     // Assert
     expect(move).toEqual({ allowed: true })
-    expect(admin).toEqual({ allowed: true })
+    expect(manage).toEqual({ allowed: true })
   })
 })
 
-describe('evaluatePolicy — action gates', () => {
-  it('applies the cancel gate by minimum role, exempt from the transition graph', () => {
-    // Arrange
-    const policy = enforced({ actionGates: { cancel: 'admin' } })
+describe('evaluatePolicy — ownership beats a missing delete-others grant', () => {
+  it('lets the author delete their own comment even when deleteOthers is absent', () => {
+    // Arrange — `user` role has no comment.deleteOthers grant.
+    const policy = withUserPerms('comment.add')
 
     // Act
-    const user = evaluatePolicy(userOf('user'), { type: 'card.cancel' }, policy)
-    const admin = evaluatePolicy(userOf('admin'), { type: 'card.cancel' }, policy)
-
-    // Assert
-    expect(user).toEqual({ allowed: false, kind: 'denied', rule: 'actionGates.cancel' })
-    expect(admin).toEqual({ allowed: true })
-  })
-
-  it('gates reordering of the ready lane only', () => {
-    // Arrange
-    const policy: PolicyDocument = {
-      ...DEFAULT_POLICY_DOCUMENT,
-      actionGates: { reorderReady: 'admin' },
-    }
-
-    // Act
-    const readyDenied = evaluatePolicy(
-      userOf('user'),
-      { type: 'card.reorder', lane: 'ready' },
-      policy,
-    )
-    const readyAllowed = evaluatePolicy(
-      userOf('admin'),
-      { type: 'card.reorder', lane: 'ready' },
-      policy,
-    )
-    const otherLane = evaluatePolicy(
-      userOf('user'),
-      { type: 'card.reorder', lane: 'in_progress' },
-      policy,
-    )
-
-    // Assert
-    expect(readyDenied).toEqual({
-      allowed: false,
-      kind: 'denied',
-      rule: 'actionGates.reorderReady',
-    })
-    expect(readyAllowed).toEqual({ allowed: true })
-    expect(otherLane).toEqual({ allowed: true })
-  })
-
-  it('applies the reopen gate with enforcement off, independent of the graph', () => {
-    // Arrange
-    const policy: PolicyDocument = {
-      ...DEFAULT_POLICY_DOCUMENT,
-      actionGates: { reopen: 'admin' },
-    }
-
-    // Act
-    const user = evaluatePolicy(userOf('user'), { type: 'card.reopen' }, policy)
-    const admin = evaluatePolicy(userOf('admin'), { type: 'card.reopen' }, policy)
-
-    // Assert
-    expect(user).toEqual({ allowed: false, kind: 'denied', rule: 'actionGates.reopen' })
-    expect(admin).toEqual({ allowed: true })
-  })
-
-  it('gates deleting others’ comments but never the author’s own', () => {
-    // Arrange
-    const policy: PolicyDocument = {
-      ...DEFAULT_POLICY_DOCUMENT,
-      actionGates: { deleteOthersComments: 'admin' },
-    }
-
-    // Act
-    const foreignDenied = evaluatePolicy(
-      userOf('user'),
-      { type: 'comment.delete', authorId: OTHER_ID },
-      policy,
-    )
-    const foreignAllowed = evaluatePolicy(
-      userOf('admin'),
-      { type: 'comment.delete', authorId: OTHER_ID },
-      policy,
-    )
     const own = evaluatePolicy(
       userOf('user'),
       { type: 'comment.delete', authorId: USER_ID },
       policy,
     )
+    const foreign = evaluatePolicy(
+      userOf('user'),
+      { type: 'comment.delete', authorId: OTHER_ID },
+      policy,
+    )
 
-    // Assert
-    expect(foreignDenied).toEqual({
+    // Assert — own short-circuits; foreign hits default-deny.
+    expect(own).toEqual({ allowed: true })
+    expect(foreign).toEqual({
       allowed: false,
       kind: 'denied',
-      rule: 'actionGates.deleteOthersComments',
+      rule: 'permission:comment.deleteOthers',
     })
-    expect(foreignAllowed).toEqual({ allowed: true })
-    expect(own).toEqual({ allowed: true })
   })
 
-  it('gates deleting others’ attachments but never the uploader’s own', () => {
+  it('grants deleting others’ comments/attachments when the permission is present', () => {
     // Arrange
-    const policy: PolicyDocument = {
-      ...DEFAULT_POLICY_DOCUMENT,
-      actionGates: { deleteOthersAttachments: 'admin' },
-    }
+    const policy = withUserPerms('comment.deleteOthers', 'attachment.deleteOthers')
 
     // Act
-    const foreign = evaluatePolicy(
+    const comment = evaluatePolicy(
+      userOf('user'),
+      { type: 'comment.delete', authorId: OTHER_ID },
+      policy,
+    )
+    const attachment = evaluatePolicy(
       userOf('user'),
       { type: 'attachment.remove', uploaderId: OTHER_ID },
       policy,
     )
+
+    // Assert
+    expect(comment).toEqual({ allowed: true })
+    expect(attachment).toEqual({ allowed: true })
+  })
+
+  it('lets the uploader remove their own attachment even without deleteOthers', () => {
+    // Arrange
+    const policy = withUserPerms()
+
+    // Act
     const own = evaluatePolicy(
       userOf('user'),
       { type: 'attachment.remove', uploaderId: USER_ID },
@@ -265,29 +214,24 @@ describe('evaluatePolicy — action gates', () => {
     )
 
     // Assert
-    expect(foreign).toEqual({
-      allowed: false,
-      kind: 'denied',
-      rule: 'actionGates.deleteOthersAttachments',
-    })
     expect(own).toEqual({ allowed: true })
   })
 })
 
-describe('evaluatePolicy — transition enforcement on', () => {
-  it('allows an ungated edge of the seeded graph to any role', () => {
+describe('evaluatePolicy — transition enforcement (topology only, no per-edge role)', () => {
+  it('allows any edge of the seeded graph to a role that has card.move', () => {
     // Arrange
     const policy = enforced()
 
-    // Act
-    const decision = evaluatePolicy(
+    // Act — waiting_approval→ready no longer carries a minRole gate.
+    const user = evaluatePolicy(
       userOf('user'),
-      { type: 'card.move', fromLane: 'intake', toLane: 'waiting_approval' },
+      { type: 'card.move', fromLane: 'waiting_approval', toLane: 'ready' },
       policy,
     )
 
     // Assert
-    expect(decision).toEqual({ allowed: true })
+    expect(user).toEqual({ allowed: true })
   })
 
   it('rejects a move with no matching edge as an illegal transition', () => {
@@ -310,66 +254,24 @@ describe('evaluatePolicy — transition enforcement on', () => {
     })
   })
 
-  it('applies the per-edge minRole gate (approval requires admin)', () => {
-    // Arrange
-    const policy = enforced()
-
-    // Act
-    const user = evaluatePolicy(
-      userOf('user'),
-      { type: 'card.move', fromLane: 'waiting_approval', toLane: 'ready' },
-      policy,
-    )
-    const admin = evaluatePolicy(
-      userOf('admin'),
-      { type: 'card.move', fromLane: 'waiting_approval', toLane: 'ready' },
-      policy,
-    )
-
-    // Assert
-    expect(user).toEqual({
-      allowed: false,
-      kind: 'denied',
-      rule: 'transition:waiting_approval->ready',
-    })
-    expect(admin).toEqual({ allowed: true })
-  })
-
-  it('subjects reopen to the done→ready edge gate', () => {
-    // Arrange
-    const policy = enforced()
-
-    // Act
-    const user = evaluatePolicy(userOf('user'), { type: 'card.reopen' }, policy)
-    const admin = evaluatePolicy(userOf('admin'), { type: 'card.reopen' }, policy)
-
-    // Assert
-    expect(user).toEqual({
-      allowed: false,
-      kind: 'denied',
-      rule: 'transition:done->ready',
-    })
-    expect(admin).toEqual({ allowed: true })
-  })
-
-  it('treats reopen as illegal when the graph has no done→ready edge', () => {
-    // Arrange
+  it('denies the move on a missing card.move grant BEFORE consulting topology', () => {
+    // Arrange — role can’t move at all; a legal edge must still be denied.
     const policy = enforced({
-      transitions: DEFAULT_POLICY_DOCUMENT.transitions.filter(
-        (edge) => !(edge.from === 'done' && edge.to === 'ready'),
-      ),
+      roles: [
+        { key: 'user', name: 'User', permissions: { 'card.create': true } },
+        ...DEFAULT_POLICY_DOCUMENT.roles.filter((role) => role.key !== 'user'),
+      ],
     })
 
     // Act
-    const decision = evaluatePolicy(userOf('admin'), { type: 'card.reopen' }, policy)
+    const decision = evaluatePolicy(
+      userOf('user'),
+      { type: 'card.move', fromLane: 'intake', toLane: 'waiting_approval' },
+      policy,
+    )
 
     // Assert
-    expect(decision).toEqual({
-      allowed: false,
-      kind: 'illegal-transition',
-      from: 'done',
-      to: 'ready',
-    })
+    expect(decision).toEqual({ allowed: false, kind: 'denied', rule: 'permission:card.move' })
   })
 
   it('leaves same-lane reorders outside the transition graph', () => {

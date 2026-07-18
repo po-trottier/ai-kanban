@@ -139,6 +139,10 @@ export function structuralSeed(db: BetterSQLite3Database): StructuralSeedResult 
   })
 }
 
+/** The two seeded demo-role keys — a concrete union so `demoUsers.user`/`.admin`
+ * stay statically known now that `Role` is a bare string (ADR-013). */
+type SeedRole = (typeof ROLES)[number]
+
 export function demoUserEmail(role: Role): string {
   return `${role}@demo.rivian-kanban.local`
 }
@@ -217,7 +221,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
           .run()
         return [role, user] as const
       }),
-    ) as Record<Role, User>
+    ) as Record<SeedRole, User>
 
     // Sample location tree (buildings → floors → rooms) is demo-only fixture
     // data: production and first-boot setup start empty (BUG 1). Seeded near

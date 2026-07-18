@@ -8,7 +8,6 @@ import {
   LOCATION_KINDS,
   PRIORITIES,
   RESOLUTIONS,
-  ROLES,
   TAG_NAME_MAX,
   TOKEN_SCOPES,
   WAITING_REASONS,
@@ -24,7 +23,13 @@ export const isoDateTimeSchema = z.iso.datetime()
 /** Date-only `YYYY-MM-DD` (waiting-lane resume dates). */
 export const isoDateSchema = z.iso.date()
 
-export const roleSchema = z.enum(ROLES)
+/**
+ * A role KEY, not a fixed enum: roles are data in the active policy document
+ * (ADR-013). Shape is validated here; that the key actually EXISTS in the
+ * active policy is checked at write time by the admin services and the policy
+ * engine (default-deny for an unknown key).
+ */
+export const roleSchema = z.string().min(1).max(40)
 export const laneKeySchema = z.enum(LANE_KEYS)
 export const prioritySchema = z.enum(PRIORITIES)
 export const waitingReasonSchema = z.enum(WAITING_REASONS)

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ZodError } from 'zod'
 import { ConflictError, IllegalTransitionError, PolicyDeniedError } from '../domain/errors.ts'
 import { DEFAULT_POLICY_DOCUMENT } from '../domain/policy.ts'
-import { createScenario } from '../testing/index.ts'
+import { createScenario, policyDenyingUser } from '../testing/index.ts'
 
 const ENFORCED = { ...DEFAULT_POLICY_DOCUMENT, transitionEnforcement: true }
 
@@ -253,11 +253,9 @@ describe('CardService.move — terminal semantics via drag', () => {
     expect(scenario.notifier.completedCards).toHaveLength(0)
   })
 
-  it('applies the reopen action gate to drags out of done (enforcement off)', async () => {
-    // Arrange
-    const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'admin' } },
-    })
+  it('applies the card.reopen grant to drags out of done (enforcement off)', async () => {
+    // Arrange — a drag out of done is reopen semantics, so it needs card.reopen.
+    const scenario = createScenario({ policy: policyDenyingUser('card.reopen') })
     const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'completed' })
 
     // Act
@@ -268,18 +266,16 @@ describe('CardService.move — terminal semantics via drag', () => {
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(PolicyDeniedError)
-    await expect(act).rejects.toMatchObject({ rule: 'actionGates.reopen' })
+    await expect(act).rejects.toMatchObject({ rule: 'permission:card.reopen' })
     expect(scenario.db.getCard(card.id)).toMatchObject({
       laneId: scenario.lanes.done.id,
       resolution: 'completed',
     })
   })
 
-  it('lets a supervisor drag out of done through the reopen gate', async () => {
+  it('lets an admin drag out of done when the user role is denied reopen', async () => {
     // Arrange
-    const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'admin' } },
-    })
+    const scenario = createScenario({ policy: policyDenyingUser('card.reopen') })
     const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'completed' })
 
     // Act
@@ -293,11 +289,9 @@ describe('CardService.move — terminal semantics via drag', () => {
     expect(moved.resolution).toBeNull()
   })
 
-  it('does not consult the reopen gate for moves that do not leave done', async () => {
+  it('does not consult the reopen grant for moves that do not leave done', async () => {
     // Arrange
-    const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'admin' } },
-    })
+    const scenario = createScenario({ policy: policyDenyingUser('card.reopen') })
     const card = scenario.seedCard({ laneId: scenario.lanes.ready.id })
 
     // Act
@@ -445,9 +439,26 @@ describe('CardService.move — transition enforcement on', () => {
     await expect(act).rejects.toMatchObject({ from: 'intake', to: 'ready' })
   })
 
-  it('applies the per-edge role gate to approval moves', async () => {
-    // Arrange
+  it('allows any card.move role along a legal edge (topology only, no per-edge role)', async () => {
+    // Arrange — enforcement on; waiting_approval→ready no longer carries a role gate.
     const scenario = createScenario({ policy: ENFORCED })
+    const card = scenario.seedCard({ laneId: scenario.lanes.waiting_approval.id })
+
+    // Act
+    const moved = await scenario.cards.move(scenario.actors.technician, card.id, {
+      toLane: 'ready',
+      expectedVersion: 1,
+    })
+
+    // Assert
+    expect(moved.laneId).toBe(scenario.lanes.ready.id)
+  })
+
+  it('denies a legal edge when the actor’s role lacks the card.move grant', async () => {
+    // Arrange — the grant is checked before topology.
+    const scenario = createScenario({
+      policy: { ...policyDenyingUser('card.move'), transitionEnforcement: true },
+    })
     const card = scenario.seedCard({ laneId: scenario.lanes.waiting_approval.id })
 
     // Act
@@ -458,22 +469,7 @@ describe('CardService.move — transition enforcement on', () => {
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(PolicyDeniedError)
-    await expect(act).rejects.toMatchObject({ rule: 'transition:waiting_approval->ready' })
-  })
-
-  it('allows a supervisor through the gated approval edge', async () => {
-    // Arrange
-    const scenario = createScenario({ policy: ENFORCED })
-    const card = scenario.seedCard({ laneId: scenario.lanes.waiting_approval.id })
-
-    // Act
-    const moved = await scenario.cards.move(scenario.actors.supervisor, card.id, {
-      toLane: 'ready',
-      expectedVersion: 1,
-    })
-
-    // Assert
-    expect(moved.laneId).toBe(scenario.lanes.ready.id)
+    await expect(act).rejects.toMatchObject({ rule: 'permission:card.move' })
   })
 })
 

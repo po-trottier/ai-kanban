@@ -1,17 +1,14 @@
-import { roleAtLeast, type LaneKey, type Role } from '../domain/constants.ts'
+import { type LaneKey } from '../domain/constants.ts'
 import { type Actor } from '../domain/entities.ts'
 import { PolicyDeniedError } from '../domain/errors.ts'
-import {
-  type PolicyActionGates,
-  type PolicyDocument,
-  type PolicyTransition,
-} from '../domain/policy.ts'
+import { type Permission, type PolicyDocument, type PolicyTransition } from '../domain/policy.ts'
 
 /**
  * One evaluation path for all three inbound surfaces (ADR-013): always-on
- * identity rules first, then the configurable policy document. Permissive by
- * default — nothing is role-gated until an admin configures a gate, except the
- * admin surface itself.
+ * identity rules first, then the configurable policy document. Roles are data —
+ * each defines a sparse permission grant map, and anything a role does not
+ * grant is DENIED (default-deny). Resource-ownership short-circuits (own
+ * comment, own attachment) still beat a missing delete-others grant.
  */
 
 /** A mutating action plus the context the rules need. Reads are never policy-checked. */
@@ -30,8 +27,13 @@ export type PolicyAction =
   | { type: 'comment.delete'; authorId: string }
   | { type: 'attachment.add' }
   | { type: 'attachment.remove'; uploaderId: string }
-  /** The admin surface — always role-restricted, cannot be opened up. */
-  | { type: 'admin' }
+  /** The manage* admin surfaces — each gated by its own permission. */
+  | { type: 'manageUsers' }
+  | { type: 'manageRoles' }
+  | { type: 'manageLocations' }
+  | { type: 'manageLanes' }
+  | { type: 'managePolicy' }
+  | { type: 'manageTokens' }
 
 export type PolicyDecision =
   /** Proceed. */
@@ -46,40 +48,36 @@ const ALLOW: PolicyDecision = { allowed: true }
 /** Always-on identity rule names (docs/architecture/security.md#authorization). */
 export const READ_SCOPE_RULE = 'token-scope-read'
 export const COMMENT_AUTHOR_RULE = 'comment-author-only'
-export const ADMIN_ONLY_RULE = 'admin-only'
 
 function denied(rule: string): PolicyDecision {
   return { allowed: false, kind: 'denied', rule }
 }
 
-/** The always-on admin identity rule, shared by `evaluatePolicy` and `ensureAdmin`. */
-function adminOnly(actor: Actor): PolicyDecision {
-  return actor.role === 'admin' ? ALLOW : denied(ADMIN_ONLY_RULE)
+/**
+ * The core grant lookup: does the actor's role (matched by key against the
+ * active policy) grant `perm`? An unknown role key, or a role that omits the
+ * permission, is denied — default-deny. The denial rule names the permission
+ * so problem+json and the SPA can explain it.
+ */
+function grant(actor: Actor, perm: Permission, policy: PolicyDocument): PolicyDecision {
+  const role = policy.roles.find((candidate) => candidate.key === actor.role)
+  // `perm` is a fixed Permission literal, not attacker-controlled — safe index.
+  // eslint-disable-next-line security/detect-object-injection
+  return role?.permissions[perm] === true ? ALLOW : denied(`permission:${perm}`)
 }
 
 /**
- * Throwing guard for the admin surface, used by the server's admin services —
- * they carry no policy document, and the admin rule is always-on identity
- * anyway (ADR-013). Mirrors `evaluatePolicy` exactly: system actors bypass
- * (scheduled jobs), everyone else needs the admin role.
+ * Throwing guard for a manage* surface, used by the server's admin services.
+ * Mirrors `evaluatePolicy` exactly: system actors bypass (scheduled jobs),
+ * read-scope tokens are denied every write, everyone else needs the grant.
  */
-export function ensureAdmin(actor: Actor): void {
+export function ensurePermission(actor: Actor, perm: Permission, policy: PolicyDocument): void {
   if (actor.kind === 'system') return
-  const decision = adminOnly(actor)
+  if (actor.scope === 'read') throw new PolicyDeniedError(READ_SCOPE_RULE)
+  const decision = grant(actor, perm, policy)
   if (!decision.allowed && decision.kind === 'denied') {
     throw new PolicyDeniedError(decision.rule)
   }
-}
-
-function checkGate(
-  gate: keyof PolicyActionGates,
-  minRole: Role | undefined,
-  role: Role,
-): PolicyDecision {
-  if (minRole !== undefined && !roleAtLeast(role, minRole)) {
-    return denied(`actionGates.${gate}`)
-  }
-  return ALLOW
 }
 
 function findTransition(
@@ -90,24 +88,22 @@ function findTransition(
   return policy.transitions.find((edge) => edge.from === from && edge.to === to)
 }
 
-function checkTransition(policy: PolicyDocument, actor: Actor, from: LaneKey, to: LaneKey) {
+/** Topology-only check when enforcement is on; no per-edge role gate anymore. */
+function checkTransition(policy: PolicyDocument, from: LaneKey, to: LaneKey): PolicyDecision {
   if (!policy.transitionEnforcement) return ALLOW
   const edge = findTransition(policy, from, to)
-  if (!edge) return { allowed: false, kind: 'illegal-transition', from, to } as const
-  if (edge.minRole !== undefined && !roleAtLeast(actor.role, edge.minRole)) {
-    return denied(`transition:${from}->${to}`)
-  }
+  if (!edge) return { allowed: false, kind: 'illegal-transition', from, to }
   return ALLOW
 }
 
 /**
  * Evaluates whether `actor` may perform `action` under `policy`.
  *
- * Rule order: system actors bypass everything (scheduled jobs); read-scope
- * tokens are denied every mutation (always-on identity rule); the admin
- * surface requires the admin role (always-on); comment editing is
- * author-only (always-on); then the configurable action gates and — when
- * transition enforcement is on — the workflow graph with per-edge minRole.
+ * Rule order (unchanged always-on prefixes): system actors bypass everything
+ * (scheduled jobs); read-scope tokens are denied every mutation; comment
+ * editing is author-only; resource-ownership short-circuits for delete-others.
+ * Then the role's permission grant, and — when transition enforcement is on —
+ * the workflow graph topology for moves.
  */
 export function evaluatePolicy(
   actor: Actor,
@@ -118,44 +114,52 @@ export function evaluatePolicy(
   if (actor.scope === 'read') return denied(READ_SCOPE_RULE)
 
   switch (action.type) {
-    case 'admin':
-      return adminOnly(actor)
     case 'comment.edit':
       return actor.id === action.authorId ? ALLOW : denied(COMMENT_AUTHOR_RULE)
     case 'comment.delete':
+      // Ownership beats a missing deleteOthers grant.
       if (actor.id === action.authorId) return ALLOW
-      return checkGate('deleteOthersComments', policy.actionGates.deleteOthersComments, actor.role)
+      return grant(actor, 'comment.deleteOthers', policy)
     case 'attachment.remove':
       if (actor.id === action.uploaderId) return ALLOW
-      return checkGate(
-        'deleteOthersAttachments',
-        policy.actionGates.deleteOthersAttachments,
-        actor.role,
-      )
+      return grant(actor, 'attachment.deleteOthers', policy)
     case 'card.cancel':
-      // Cancel is an explicit action, never a drag — exempt from the graph.
-      return checkGate('cancel', policy.actionGates.cancel, actor.role)
+      return grant(actor, 'card.cancel', policy)
+    case 'card.reopen':
+      return grant(actor, 'card.reopen', policy)
     case 'card.archive':
-      // Manual archive of a Done card — permissive by default, gate optional.
-      return checkGate('archive', policy.actionGates.archive, actor.role)
-    case 'card.reopen': {
-      const gate = checkGate('reopen', policy.actionGates.reopen, actor.role)
-      if (!gate.allowed) return gate
-      // Reopen is the done→ready edge when enforcement is on.
-      return checkTransition(policy, actor, 'done', 'ready')
-    }
+      return grant(actor, 'card.archive', policy)
     case 'card.reorder':
-      return action.lane === 'ready'
-        ? checkGate('reorderReady', policy.actionGates.reorderReady, actor.role)
-        : ALLOW
-    case 'card.move':
-      return checkTransition(policy, actor, action.fromLane, action.toLane)
+      // A same-lane reorder is part of the move permission, exempt from topology.
+      return grant(actor, 'card.move', policy)
+    case 'card.move': {
+      const permitted = grant(actor, 'card.move', policy)
+      if (!permitted.allowed) return permitted
+      return checkTransition(policy, action.fromLane, action.toLane)
+    }
     case 'card.create':
+      return grant(actor, 'card.create', policy)
     case 'card.update':
+      return grant(actor, 'card.update', policy)
     case 'card.block':
+      return grant(actor, 'card.block', policy)
     case 'card.unblock':
+      return grant(actor, 'card.unblock', policy)
     case 'comment.add':
+      return grant(actor, 'comment.add', policy)
     case 'attachment.add':
-      return ALLOW
+      return grant(actor, 'attachment.add', policy)
+    case 'manageUsers':
+      return grant(actor, 'manageUsers', policy)
+    case 'manageRoles':
+      return grant(actor, 'manageRoles', policy)
+    case 'manageLocations':
+      return grant(actor, 'manageLocations', policy)
+    case 'manageLanes':
+      return grant(actor, 'manageLanes', policy)
+    case 'managePolicy':
+      return grant(actor, 'managePolicy', policy)
+    case 'manageTokens':
+      return grant(actor, 'manageTokens', policy)
   }
 }

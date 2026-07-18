@@ -18,7 +18,11 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
   non-system user exists — see security.md#authentication), and the health endpoints.
 - **Authorization**: the Role column below shows the out-of-the-box default. Rows marked
   _policy_ consult the configurable permission policy, which defaults to "any authenticated
-  user" ([ADR-013](decisions/ADR-013-configurable-permissions.md)); admin rows are fixed.
+  user" ([ADR-013](decisions/ADR-013-configurable-permissions.md)). Roles are data: the manage\*
+  rows below check the caller's role for the matching permission (`manageUsers`, `manageLanes`,
+  `manageLocations`, `managePolicy`, `manageTokens`, `manageRoles`) against the active policy —
+  a denial is 403 naming `permission:<perm>`. The seeded `admin` role grants all of them; the
+  seeded `user` role grants none.
 - **Optimistic locking**: mutating card routes require `If-Match: "<version>"`; stale versions
   get `409 Conflict` with the current resource in the body.
 - **Pagination**: cursor-based (`?cursor=&limit=`), keyset on `(created_at, id)`. The cursor is
@@ -39,17 +43,17 @@ non-production; the JSON spec is always available at `/api/v1/openapi.json`.
 
 ### Auth & users
 
-| Method & path                 | Role  | Description                                                                                                                                                                                                                                                                                                                                                                         |
-| ----------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST /auth/login              | —     | email+password → fresh session cookie (never reuses an id)                                                                                                                                                                                                                                                                                                                          |
-| GET /setup                    | —     | `{ required: boolean }` — true iff ZERO non-system users exist of any status (first-boot probe; never flips back to true)                                                                                                                                                                                                                                                           |
-| POST /setup                   | —     | first boot only: `{ email, displayName, password, timezone? }` creates the initial admin (password through the change-password policy) and issues a session like login; `timezone` is the browser-auto-detected IANA zone (PST default if omitted); 409 `setup-already-complete` once any user exists (zero-check + insert commit in one transaction); shares the login rate bucket |
-| POST /auth/logout             | any   | destroy session                                                                                                                                                                                                                                                                                                                                                                     |
-| POST /auth/change-password    | any   | `{ currentPassword, newPassword }`; revokes the user's other sessions; clears `must_change_password`                                                                                                                                                                                                                                                                                |
-| GET /auth/me                  | any   | current user + role + `mustChangePassword` + `timezone`                                                                                                                                                                                                                                                                                                                             |
-| PATCH /auth/me                | any   | self-service profile update: `{ timezone }` ONLY (strictObject — role/active/email are rejected, so no privilege escalation) writing the caller's OWN row (id = session user, never a path param — no IDOR); touches no password/session state. Blocked while `must_change_password` is set                                                                                         |
-| GET /users                    | any   | active users (id, name, role) for pickers                                                                                                                                                                                                                                                                                                                                           |
-| POST /users, PATCH /users/:id | admin | manage users. Create and the PATCH `resetPassword` action return a one-time temp password (shown once, `must_change_password` set); PATCH can deactivate/change role — except the last active admin (409)                                                                                                                                                                           |
+| Method & path                 | Role          | Description                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST /auth/login              | —             | email+password → fresh session cookie (never reuses an id)                                                                                                                                                                                                                                                                                                                                                                |
+| GET /setup                    | —             | `{ required: boolean }` — true iff ZERO non-system users exist of any status (first-boot probe; never flips back to true)                                                                                                                                                                                                                                                                                                 |
+| POST /setup                   | —             | first boot only: `{ email, displayName, password, timezone? }` creates the initial admin (password through the change-password policy) and issues a session like login; `timezone` is the browser-auto-detected IANA zone (PST default if omitted); 409 `setup-already-complete` once any user exists (zero-check + insert commit in one transaction); shares the login rate bucket                                       |
+| POST /auth/logout             | any           | destroy session                                                                                                                                                                                                                                                                                                                                                                                                           |
+| POST /auth/change-password    | any           | `{ currentPassword, newPassword }`; revokes the user's other sessions; clears `must_change_password`                                                                                                                                                                                                                                                                                                                      |
+| GET /auth/me                  | any           | current user + role + `mustChangePassword` + `timezone`                                                                                                                                                                                                                                                                                                                                                                   |
+| PATCH /auth/me                | any           | self-service profile update: `{ timezone }` ONLY (strictObject — role/active/email are rejected, so no privilege escalation) writing the caller's OWN row (id = session user, never a path param — no IDOR); touches no password/session state. Blocked while `must_change_password` is set                                                                                                                               |
+| GET /users                    | any           | active users (id, name, role) for pickers                                                                                                                                                                                                                                                                                                                                                                                 |
+| POST /users, PATCH /users/:id | `manageUsers` | manage users (403 `permission:manageUsers` without the grant). Create and the PATCH `resetPassword` action return a one-time temp password (shown once, `must_change_password` set); PATCH can deactivate/change role — `role` is a bare role key validated against the active policy (unknown → 400) — except the last active admin-equivalent user (the last active user whose role grants `manageUsers`), which is 409 |
 
 While `must_change_password` is set, every route except change-password/logout/me returns 403 (including `PATCH /auth/me`).
 
@@ -87,21 +91,47 @@ While `must_change_password` is set, every route except change-password/logout/m
 
 ### History & metadata
 
-| Method & path         | Role | Description                                                                                                                                                                                                                                                                                                                   |
-| --------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET /cards/:id/events | any  | audit trail for a card, oldest-first; filter `type`; cursor-paginated                                                                                                                                                                                                                                                         |
-| GET /locations        | any  | tree; admin CRUD via POST/PATCH/DELETE. DELETE removes the location and its whole subtree (building → floors → rooms) in one transaction and clears `location_id` on any card that referenced a removed node (location is optional — the card survives); deleting a location with children never conflicts, missing id is 404 |
-| GET /tags             | any  | known tags for autocomplete                                                                                                                                                                                                                                                                                                   |
-| GET /stream           | any  | SSE: `{ type, cardId, version, eventId }` invalidation hints                                                                                                                                                                                                                                                                  |
+| Method & path         | Role | Description                                                                                                                                                                                                                                                                                                                                                                           |
+| --------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET /cards/:id/events | any  | audit trail for a card, oldest-first; filter `type`; cursor-paginated                                                                                                                                                                                                                                                                                                                 |
+| GET /locations        | any  | tree; CRUD via POST/PATCH/DELETE requires `manageLocations` (403 `permission:manageLocations`). DELETE removes the location and its whole subtree (building → floors → rooms) in one transaction and clears `location_id` on any card that referenced a removed node (location is optional — the card survives); deleting a location with children never conflicts, missing id is 404 |
+| GET /tags             | any  | known tags for autocomplete                                                                                                                                                                                                                                                                                                                                                           |
+| GET /stream           | any  | SSE: `{ type, cardId, version, eventId }` invalidation hints                                                                                                                                                                                                                                                                                                                          |
 
 ### Admin
 
-| Method & path                                                         | Role  | Description                                        |
-| --------------------------------------------------------------------- | ----- | -------------------------------------------------- |
-| PATCH /lanes/:id                                                      | admin | edit label / WIP limit                             |
-| GET /policy                                                           | any   | active permission policy (drives UI affordances)   |
-| PUT /policy                                                           | admin | apply a new policy version (append-only history)   |
-| POST /service-tokens, GET /service-tokens, DELETE /service-tokens/:id | admin | MCP credentials; raw token returned once on create |
+| Method & path                                                         | Role           | Description                                                                                                                                                  |
+| --------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PATCH /lanes/:id                                                      | `manageLanes`  | edit label / WIP limit (403 `permission:manageLanes`)                                                                                                        |
+| GET /policy                                                           | any            | active permission policy (drives UI affordances)                                                                                                             |
+| PUT /policy                                                           | `managePolicy` | apply a new policy version (append-only history); see body schema below                                                                                      |
+| POST /service-tokens, GET /service-tokens, DELETE /service-tokens/:id | `manageTokens` | MCP credentials (403 `permission:manageTokens`); raw token returned once on create; `role` is a role key validated against the active policy (unknown → 400) |
+
+#### PUT /policy body
+
+```jsonc
+{
+  "transitionEnforcement": false, // boolean; when true, moves are checked against `transitions`
+  "transitions": [
+    // workflow graph, topology only (no per-edge role gate)
+    { "from": "review", "to": "done" },
+  ],
+  "roles": [
+    // at least one role
+    {
+      "key": "user", // /^[a-z][a-z0-9_]*$/, ≤ 40, unique across roles
+      "name": "User", // 1–60 chars
+      "permissions": { "card.create": true, "card.move": true },
+      // sparse map; only `true` is legal, absent = default-deny
+    },
+  ],
+}
+```
+
+Refinements (400 on violation): role keys must be unique, and at least one role must grant
+`manageRoles`. Applying a document that DROPS a role key still assigned to any active user or
+live (non-revoked) service token is rejected with 409 `role-in-use`. Denied when the caller's
+role lacks `managePolicy` (403 `permission:managePolicy`).
 
 ### Operational (not under /api/v1)
 

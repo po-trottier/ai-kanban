@@ -34,7 +34,7 @@ describe('POST /service-tokens', () => {
     expect(body.token).not.toHaveProperty('tokenHash')
   })
 
-  it('validates the body and is admin-only', async () => {
+  it('validates the body (unknown role rejected) and requires manageTokens', async () => {
     const tech = await t.asRole('user')
 
     const invalid = await t.request(adminCookie, {
@@ -50,7 +50,7 @@ describe('POST /service-tokens', () => {
 
     expect(invalid.statusCode).toBe(400)
     expect(denied.statusCode).toBe(403)
-    expect(denied.json<{ rule: string }>().rule).toBe('admin-only')
+    expect(denied.json<{ rule: string }>().rule).toBe('permission:manageTokens')
   })
 })
 
@@ -74,7 +74,7 @@ describe('GET /service-tokens', () => {
     expect(response.body).not.toContain('rkb_')
   })
 
-  it('is admin-only', async () => {
+  it('requires manageTokens (403 for a plain user)', async () => {
     const requester = await t.asRole('user')
 
     const response = await t.request(requester.cookie, {

@@ -15,18 +15,15 @@ export const LANE_KEYS = [
 export type LaneKey = (typeof LANE_KEYS)[number]
 
 /**
- * Two assignable roles: `user` (everyone) and `admin` (Administrator). Kept a
- * fixed enum on purpose — code-free permission customization is the job of the
- * configurable policy document (ADR-013), which gates actions/transitions by
- * role without a schema change. Dynamic custom roles are a future concern.
+ * The SEED role keys (ADR-013): `user` and `admin` are the two roles the
+ * structural seed writes into the default policy document. Roles are DATA now —
+ * admins add custom roles and toggle per-role permissions from the dashboard —
+ * so this is only the bootstrap vocabulary, not the closed set. A role's
+ * validity is checked against the ACTIVE policy at write time, not against this
+ * list. `Role` stays a bare string key.
  */
 export const ROLES = ['user', 'admin'] as const
-export type Role = (typeof ROLES)[number]
-
-/** True when `role` sits at or above `minimum` in the ordered role ladder (ADR-013). */
-export function roleAtLeast(role: Role, minimum: Role): boolean {
-  return ROLES.indexOf(role) >= ROLES.indexOf(minimum)
-}
+export type Role = string
 
 export const PRIORITIES = ['P0', 'P1', 'P2'] as const
 export type Priority = (typeof PRIORITIES)[number]

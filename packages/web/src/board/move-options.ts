@@ -4,7 +4,6 @@ import {
   type BoardCard,
   type LaneKey,
   type PolicyAction,
-  type PolicyActionGates,
   type PolicyDocument,
   type Role,
 } from '@rivian-kanban/core'
@@ -46,22 +45,25 @@ export function canMoveToLane(
   return allowed(role, { type: 'card.move', fromLane: from, toLane: to }, policy)
 }
 
-/** The policy action each configurable gate protects (ADR-013). */
-const GATE_ACTIONS: Record<keyof PolicyActionGates, PolicyAction> = {
+/**
+ * The policy action behind each permission-gated affordance the board offers
+ * (ADR-013). Keyed by a stable UI name; the delete-others actions use a
+ * different author id so `evaluatePolicy` consults the deleteOthers permission
+ * rather than the ownership short-circuit (the caller decides own-vs-other).
+ */
+const GATE_ACTIONS = {
   cancel: { type: 'card.cancel' },
   reopen: { type: 'card.reopen' },
   archive: { type: 'card.archive' },
   reorderReady: { type: 'card.reorder', lane: 'ready' },
   deleteOthersComments: { type: 'comment.delete', authorId: OTHER_AUTHOR_ID },
   deleteOthersAttachments: { type: 'attachment.remove', uploaderId: OTHER_AUTHOR_ID },
-}
+} satisfies Record<string, PolicyAction>
 
-/** Actions behind the optional policy gates (ADR-013: absent = any authenticated user). */
-export function canPerformAction(
-  policy: PolicyDocument,
-  role: Role,
-  action: keyof PolicyActionGates,
-): boolean {
+export type GatedAction = keyof typeof GATE_ACTIONS
+
+/** Whether `role` may perform a permission-gated action (default-deny per role). */
+export function canPerformAction(policy: PolicyDocument, role: Role, action: GatedAction): boolean {
   return allowed(role, GATE_ACTIONS[action], policy)
 }
 

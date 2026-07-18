@@ -78,7 +78,9 @@ export function usePutPolicy() {
       notifySuccess(strings.policy.saved)
       void queryClient.invalidateQueries({ queryKey: queryKeys.policy })
     },
-    onError: notifyError,
+    // A 409 role-in-use is shown inline in the editor (mirrors the locations
+    // pattern); every other error toasts.
+    onError: notifyUnlessConflict,
   })
 }
 

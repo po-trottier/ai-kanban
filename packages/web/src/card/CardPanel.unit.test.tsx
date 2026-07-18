@@ -276,10 +276,7 @@ describe('CardPanel', () => {
     }
     const fake = panelApp({
       'GET /api/v1/auth/me': fixtureTech,
-      'GET /api/v1/policy': policyRecordOf({
-        ...permissivePolicy,
-        actionGates: { deleteOthersAttachments: 'admin' as const },
-      }),
+      'GET /api/v1/policy': policyRecordOf(permissivePolicy),
       [`GET /api/v1/cards/${card.id}`]: {
         card: card,
         tags: [],

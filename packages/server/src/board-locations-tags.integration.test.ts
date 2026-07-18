@@ -157,7 +157,7 @@ describe('PATCH /lanes/:id (admin)', () => {
     expect(cleared.json<{ wipLimit: number | null }>().wipLimit).toBeNull()
   })
 
-  it('is admin-only (403 with the always-on rule) and 404s unknown lanes', async () => {
+  it('requires manageLanes (403 named rule) and 404s unknown lanes', async () => {
     const technician = await t.asRole('user')
     const lane = await laneByKey('ready')
 
@@ -173,7 +173,7 @@ describe('PATCH /lanes/:id (admin)', () => {
     })
 
     expect(denied.statusCode).toBe(403)
-    expect(denied.json<{ rule: string }>().rule).toBe('admin-only')
+    expect(denied.json<{ rule: string }>().rule).toBe('permission:manageLanes')
     expect(missing.statusCode).toBe(404)
   })
 

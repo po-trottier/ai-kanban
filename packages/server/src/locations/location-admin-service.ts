@@ -1,7 +1,7 @@
 import {
   ConflictError,
   createLocationInputSchema,
-  ensureAdmin,
+  ensurePermission,
   NotFoundError,
   updateLocationInputSchema,
   type Actor,
@@ -11,6 +11,7 @@ import {
   type TransactionContext,
   type UnitOfWork,
 } from '@rivian-kanban/core'
+import { loadActivePolicy } from '../authz.ts'
 import { RequestValidationError } from '../errors.ts'
 
 /**
@@ -32,6 +33,7 @@ export interface LocationAdminServiceDeps {
   uow: UnitOfWork
   ids: IdGenerator
   eventBus: EventBus
+  boardId: string
 }
 
 export class LocationAdminService {
@@ -47,11 +49,10 @@ export class LocationAdminService {
   }
 
   /**
-   * Policy checks: admin only (always-on). Validates the parent exists and
+   * Policy checks: `manageLocations` grant. Validates the parent exists and
    * matches the kind hierarchy (400 via ZodError; missing parent 404).
    */
   async create(actor: Actor, rawInput: unknown): Promise<Location> {
-    ensureAdmin(actor)
     const input = createLocationInputSchema.parse(rawInput)
     const location: Location = {
       id: this.deps.ids.newId(),
@@ -60,6 +61,7 @@ export class LocationAdminService {
       name: input.name,
     }
     const created = await this.deps.uow.run(async (tx) => {
+      ensurePermission(actor, 'manageLocations', await loadActivePolicy(tx, this.deps.boardId))
       const requiredParent = REQUIRED_PARENT_KIND[input.kind]
       if (requiredParent === null) {
         if (input.parentId !== null) {
@@ -89,11 +91,11 @@ export class LocationAdminService {
     return created
   }
 
-  /** Rename only — reparenting would silently move every child. Admin only. */
+  /** Rename only — reparenting would silently move every child. `manageLocations`. */
   async update(actor: Actor, locationId: string, rawInput: unknown): Promise<Location> {
-    ensureAdmin(actor)
     const input = updateLocationInputSchema.parse(rawInput)
     const updated = await this.deps.uow.run(async (tx) => {
+      ensurePermission(actor, 'manageLocations', await loadActivePolicy(tx, this.deps.boardId))
       const found = await tx.locations.findById(locationId)
       if (found === null) throw new NotFoundError('location')
       await ensureUniqueSiblingName(tx, found.parentId, input.name, found.id)
@@ -110,11 +112,13 @@ export class LocationAdminService {
    * cards that referenced any removed node keep their row with `location_id`
    * cleared (location is optional). Deleting a building/floor with children
    * therefore succeeds — no 409; a missing id is the only failure (404). Admin
-   * only.
+   * only (`manageLocations`).
    */
   async delete(actor: Actor, locationId: string): Promise<void> {
-    ensureAdmin(actor)
-    await this.deps.uow.run((tx) => tx.locations.delete(locationId))
+    await this.deps.uow.run(async (tx) => {
+      ensurePermission(actor, 'manageLocations', await loadActivePolicy(tx, this.deps.boardId))
+      await tx.locations.delete(locationId)
+    })
     this.deps.eventBus.publish({ type: 'location.updated' })
   }
 }

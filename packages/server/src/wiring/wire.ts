@@ -213,10 +213,10 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     policies: new PolicyService({ ...shared, boardId }),
     auth: new AuthService({ uow, clock, hasher, backoff }),
     setup: new SetupService({ uow, clock, ids, hasher, systemUserId }),
-    users: new UserAdminService({ ...shared, hasher, systemUserId }),
+    users: new UserAdminService({ ...shared, hasher, boardId, systemUserId }),
     lanes: new LaneAdminService({ uow, eventBus, boardId }),
-    locations: new LocationAdminService(shared),
-    tokens: new ServiceTokenService({ uow, clock, ids }),
+    locations: new LocationAdminService({ ...shared, boardId }),
+    tokens: new ServiceTokenService({ uow, clock, ids, boardId }),
   }
 
   const config: AppConfig = {

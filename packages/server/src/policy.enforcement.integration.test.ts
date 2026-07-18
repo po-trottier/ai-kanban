@@ -1,12 +1,12 @@
-import { DEFAULT_POLICY_DOCUMENT } from '@rivian-kanban/core'
+import { DEFAULT_POLICY_DOCUMENT, type PolicyDocument } from '@rivian-kanban/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestApp, type TestApp } from './test/support.ts'
 
 /**
  * Both policy postures (ADR-013, docs/dev/testing.md): default-permissive —
- * anyone moves anywhere — and enforcement-on applied through the real
- * PUT /policy route, exercising 422 illegal transitions, per-edge minRole
- * gates, and action gates.
+ * anyone moves anywhere — and enforcement-on / tightened-role applied through
+ * the real PUT /policy route, exercising 422 illegal transitions and per-role
+ * permission grants (roles are data now, default-deny).
  */
 
 let t: TestApp
@@ -53,10 +53,29 @@ function putPolicy(document: Record<string, unknown>, cookie = adminCookie) {
   return t.request(cookie, { method: 'PUT', url: '/api/v1/policy', payload: document })
 }
 
+/** The default `user` role minus a set of permissions (default-deny). */
+function userDenying(...perms: string[]): PolicyDocument['roles'] {
+  const removed = new Set(perms)
+  return DEFAULT_POLICY_DOCUMENT.roles.map((role) =>
+    role.key === 'user'
+      ? {
+          ...role,
+          permissions: Object.fromEntries(
+            Object.entries(role.permissions).filter(([key]) => !removed.has(key)),
+          ),
+        }
+      : role,
+  )
+}
+
 const ENFORCED_POLICY = {
   ...DEFAULT_POLICY_DOCUMENT,
   transitionEnforcement: true,
-  actionGates: { cancel: 'admin', reopen: 'admin' },
+} as const
+
+const CANCEL_REOPEN_GATED = {
+  ...DEFAULT_POLICY_DOCUMENT,
+  roles: userDenying('card.cancel', 'card.reopen'),
 } as const
 
 const PERMISSIVE_POLICY = DEFAULT_POLICY_DOCUMENT as unknown as Record<string, unknown>
@@ -74,14 +93,14 @@ describe('GET /policy', () => {
 })
 
 describe('PUT /policy', () => {
-  it('is admin-only and validates the document', async () => {
+  it('requires managePolicy and validates the document', async () => {
     const tech = await t.asRole('user')
 
     const denied = await putPolicy(PERMISSIVE_POLICY, tech.cookie)
     const invalid = await putPolicy({ transitionEnforcement: 'yes' })
 
     expect(denied.statusCode).toBe(403)
-    expect(denied.json<{ rule: string }>().rule).toBe('admin-only')
+    expect(denied.json<{ rule: string }>().rule).toBe('permission:managePolicy')
     expect(invalid.statusCode).toBe(400)
   })
 
@@ -100,6 +119,18 @@ describe('PUT /policy', () => {
     // Restore the permissive default for the suites below.
     const restored = await putPolicy(PERMISSIVE_POLICY)
     expect(restored.statusCode).toBe(200)
+  })
+
+  it('rejects dropping a role key still assigned to an active user (409 role-in-use)', async () => {
+    const withoutUser = {
+      ...DEFAULT_POLICY_DOCUMENT,
+      roles: DEFAULT_POLICY_DOCUMENT.roles.filter((role) => role.key !== 'user'),
+    }
+
+    const response = await putPolicy(withoutUser)
+
+    expect(response.statusCode).toBe(409)
+    expect(response.json<{ detail?: string; title: string }>().detail).toContain('role-in-use')
   })
 })
 
@@ -128,6 +159,10 @@ describe('enforcement-on posture', () => {
     if (applied.statusCode !== 200) throw new Error(applied.body)
   })
 
+  afterAll(async () => {
+    await putPolicy(PERMISSIVE_POLICY)
+  })
+
   it('422s a move with no edge in the workflow graph, naming from and to', async () => {
     const tech = await t.asRole('user')
     const card = await createCard(tech.cookie, 'Illegal jump')
@@ -142,23 +177,29 @@ describe('enforcement-on posture', () => {
     })
   })
 
-  it('enforces per-edge minRole: user denied, admin allowed', async () => {
+  it('allows a legal edge to any role with card.move (topology only, no per-edge role)', async () => {
     const tech = await t.asRole('user')
-    const supervisor = await t.asRole('admin')
     const card = await createCard(tech.cookie, 'Approval path')
     const staged = await moveCard(tech.cookie, card, 'waiting_approval')
     expect(staged.statusCode).toBe(200)
-    const stagedCard = staged.json<CardBody>()
 
-    const denied = await moveCard(tech.cookie, stagedCard, 'ready')
-    expect(denied.statusCode).toBe(403)
-    expect(denied.json<{ rule: string }>().rule).toBe('transition:waiting_approval->ready')
+    // waiting_approval→ready no longer carries a per-edge role gate.
+    const promoted = await moveCard(tech.cookie, staged.json<CardBody>(), 'ready')
+    expect(promoted.statusCode).toBe(200)
+  })
+})
 
-    const allowed = await moveCard(supervisor.cookie, stagedCard, 'ready')
-    expect(allowed.statusCode).toBe(200)
+describe('per-role permission grants', () => {
+  beforeAll(async () => {
+    const applied = await putPolicy({ ...CANCEL_REOPEN_GATED })
+    if (applied.statusCode !== 200) throw new Error(applied.body)
   })
 
-  it('enforces the cancel action gate', async () => {
+  afterAll(async () => {
+    await putPolicy(PERMISSIVE_POLICY)
+  })
+
+  it('denies cancel to a role without the card.cancel grant, allows admin', async () => {
     const requester = await t.asRole('user')
     const supervisor = await t.asRole('admin')
     const card = await createCard(requester.cookie, 'Gated cancel')
@@ -170,7 +211,7 @@ describe('enforcement-on posture', () => {
       payload: { resolution: 'cancelled' },
     })
     expect(denied.statusCode).toBe(403)
-    expect(denied.json<{ rule: string }>().rule).toBe('actionGates.cancel')
+    expect(denied.json<{ rule: string }>().rule).toBe('permission:card.cancel')
 
     const allowed = await t.request(supervisor.cookie, {
       method: 'POST',
@@ -181,7 +222,7 @@ describe('enforcement-on posture', () => {
     expect(allowed.statusCode).toBe(200)
   })
 
-  it('enforces the reopen action gate on the done→ready edge', async () => {
+  it('denies reopen to a role without the card.reopen grant, allows admin', async () => {
     const supervisor = await t.asRole('admin')
     const requester = await t.asRole('user')
     const card = await createCard(supervisor.cookie, 'Gated reopen')
@@ -199,7 +240,7 @@ describe('enforcement-on posture', () => {
       headers: { 'if-match': `"${String(cancelledCard.version)}"` },
     })
     expect(denied.statusCode).toBe(403)
-    expect(denied.json<{ rule: string }>().rule).toBe('actionGates.reopen')
+    expect(denied.json<{ rule: string }>().rule).toBe('permission:card.reopen')
 
     const allowed = await t.request(supervisor.cookie, {
       method: 'POST',
@@ -207,14 +248,5 @@ describe('enforcement-on posture', () => {
       headers: { 'if-match': `"${String(cancelledCard.version)}"` },
     })
     expect(allowed.statusCode).toBe(200)
-  })
-
-  it('policy denials do not depend on card state: legal edges still work', async () => {
-    const tech = await t.asRole('user')
-    const card = await createCard(tech.cookie, 'Legal edge')
-
-    const response = await moveCard(tech.cookie, card, 'waiting_approval')
-
-    expect(response.statusCode).toBe(200)
   })
 })

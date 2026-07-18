@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { enforcedPolicy, makeBoard, makeCard, permissivePolicy } from '../test/fixtures.ts'
+import {
+  enforcedPolicy,
+  makeBoard,
+  makeCard,
+  permissivePolicy,
+  policyDenyingUser,
+} from '../test/fixtures.ts'
 import {
   canMoveToLane,
   canPerformAction,
@@ -30,33 +36,31 @@ describe('canMoveToLane', () => {
     expect(illegal).toBe(false)
   })
 
-  it('applies per-transition role gates when enforcement is on', () => {
-    // Arrange — waiting_approval → ready is admin-gated in the seed
+  it('allows any card.move role along a legal edge (topology only, no per-edge role)', () => {
+    // Arrange — waiting_approval → ready no longer carries a per-edge role gate.
     const policy = enforcedPolicy
     // Act
     const asUser = canMoveToLane(policy, 'user', 'waiting_approval', 'ready')
     const asAdmin = canMoveToLane(policy, 'admin', 'waiting_approval', 'ready')
     // Assert
-    expect(asUser).toBe(false)
+    expect(asUser).toBe(true)
     expect(asAdmin).toBe(true)
   })
 
-  it('gates within-Ready reorders behind reorderReady regardless of enforcement', () => {
-    // Arrange
-    const gated = { ...permissivePolicy, actionGates: { reorderReady: 'admin' as const } }
+  it('gates reorders behind the card.move permission (reorder folds into move)', () => {
+    // Arrange — a role without card.move can neither move nor reorder.
+    const gated = policyDenyingUser('card.move')
     // Act
     const asUser = canMoveToLane(gated, 'user', 'ready', 'ready')
     const asAdmin = canMoveToLane(gated, 'admin', 'ready', 'ready')
-    const otherLane = canMoveToLane(gated, 'user', 'intake', 'intake')
     // Assert
     expect(asUser).toBe(false)
     expect(asAdmin).toBe(true)
-    expect(otherLane).toBe(true)
   })
 
-  it('treats a drag out of done as reopen: the reopen gate applies (server parity)', () => {
+  it('treats a drag out of done as reopen: the reopen permission applies (server parity)', () => {
     // Arrange — CardService.move consults card.reopen for moves out of done
-    const gated = { ...permissivePolicy, actionGates: { reopen: 'admin' as const } }
+    const gated = policyDenyingUser('card.reopen')
     // Act
     const asUser = canMoveToLane(gated, 'user', 'done', 'ready')
     const asAdmin = canMoveToLane(gated, 'admin', 'done', 'ready')
@@ -67,9 +71,9 @@ describe('canMoveToLane', () => {
 })
 
 describe('canPerformAction', () => {
-  it('is permissive when the gate is absent and role-gated when present', () => {
+  it('reflects the role’s permission grant (default grants cancel, stripped denies it)', () => {
     // Arrange
-    const gated = { ...permissivePolicy, actionGates: { cancel: 'admin' as const } }
+    const gated = policyDenyingUser('card.cancel')
     // Act
     const ungated = canPerformAction(permissivePolicy, 'user', 'cancel')
     const denied = canPerformAction(gated, 'user', 'cancel')
@@ -80,39 +84,31 @@ describe('canPerformAction', () => {
     expect(allowed).toBe(true)
   })
 
-  it('applies the done→ready transition to the reopen affordance when enforcement is on', () => {
-    // Arrange — core's engine ties reopen to the done→ready edge (admin
-    // in the seeded graph); the UI must not offer a Reopen the server rejects.
-    const policy = enforcedPolicy
+  it('reflects the card.reopen grant for the reopen affordance', () => {
+    // Arrange
+    const gated = policyDenyingUser('card.reopen')
     // Act
-    const asUser = canPerformAction(policy, 'user', 'reopen')
-    const asAdmin = canPerformAction(policy, 'admin', 'reopen')
-    const enforcementOff = canPerformAction(permissivePolicy, 'user', 'reopen')
+    const defaultUser = canPerformAction(permissivePolicy, 'user', 'reopen')
+    const denied = canPerformAction(gated, 'user', 'reopen')
+    const admin = canPerformAction(gated, 'admin', 'reopen')
     // Assert
-    expect(asUser).toBe(false)
-    expect(asAdmin).toBe(true)
-    expect(enforcementOff).toBe(true)
+    expect(defaultUser).toBe(true)
+    expect(denied).toBe(false)
+    expect(admin).toBe(true)
   })
 
-  it('evaluates the delete-others gates for comments and attachments (ADR-013)', () => {
-    // Arrange
-    const gated = {
-      ...permissivePolicy,
-      actionGates: {
-        deleteOthersComments: 'admin' as const,
-        deleteOthersAttachments: 'admin' as const,
-      },
-    }
+  it('default-denies the delete-others affordances to user, grants them to admin (ADR-013)', () => {
+    // Arrange — the default `user` role does NOT grant either deleteOthers.
     // Act
-    const commentsUngated = canPerformAction(permissivePolicy, 'user', 'deleteOthersComments')
-    const commentsDenied = canPerformAction(gated, 'user', 'deleteOthersComments')
-    const commentsAllowed = canPerformAction(gated, 'admin', 'deleteOthersComments')
-    const attachmentsDenied = canPerformAction(gated, 'user', 'deleteOthersAttachments')
+    const commentsUser = canPerformAction(permissivePolicy, 'user', 'deleteOthersComments')
+    const commentsAdmin = canPerformAction(permissivePolicy, 'admin', 'deleteOthersComments')
+    const attachmentsUser = canPerformAction(permissivePolicy, 'user', 'deleteOthersAttachments')
+    const attachmentsAdmin = canPerformAction(permissivePolicy, 'admin', 'deleteOthersAttachments')
     // Assert
-    expect(commentsUngated).toBe(true)
-    expect(commentsDenied).toBe(false)
-    expect(commentsAllowed).toBe(true)
-    expect(attachmentsDenied).toBe(false)
+    expect(commentsUser).toBe(false)
+    expect(commentsAdmin).toBe(true)
+    expect(attachmentsUser).toBe(false)
+    expect(attachmentsAdmin).toBe(true)
   })
 })
 

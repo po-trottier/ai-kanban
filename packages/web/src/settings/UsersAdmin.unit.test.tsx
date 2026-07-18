@@ -2,14 +2,24 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { createFakeFetch } from '../test/fake-fetch.ts'
-import { fixtureAdmin, fixturePickerUsers, fixtureTech, nth } from '../test/fixtures.ts'
+import {
+  fixtureAdmin,
+  fixturePickerUsers,
+  fixtureTech,
+  nth,
+  permissivePolicy,
+  policyRecordOf,
+} from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import { UsersAdmin } from './UsersAdmin.tsx'
 
 describe('UsersAdmin', () => {
   it('lists active users with their emails and roles', async () => {
-    // Arrange
-    const fake = createFakeFetch({ 'GET /api/v1/users': fixturePickerUsers })
+    // Arrange — role options are derived from the active policy's roles.
+    const fake = createFakeFetch({
+      'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/policy': policyRecordOf(permissivePolicy),
+    })
     // Act
     renderWithProviders(<UsersAdmin />, { fetchFn: fake.fetch })
     // Assert

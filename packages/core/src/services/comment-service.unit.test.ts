@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { ArchivedError, NotFoundError, PolicyDeniedError } from '../domain/errors.ts'
-import { DEFAULT_POLICY_DOCUMENT } from '../domain/policy.ts'
 import { createScenario, type Scenario } from '../testing/index.ts'
 
 async function seedComment(scenario: Scenario, cardId: string, authorId: string) {
@@ -197,24 +196,22 @@ describe('CommentService.softDelete', () => {
     })
   })
 
-  it('lets a non-author delete under the permissive default', async () => {
-    // Arrange
+  it('lets a non-author with the comment.deleteOthers grant delete', async () => {
+    // Arrange — admin grants comment.deleteOthers by default.
     const scenario = createScenario()
     const card = scenario.seedCard()
     const comment = await seedComment(scenario, card.id, scenario.users.technician.id)
 
     // Act
-    const deleted = await scenario.comments.softDelete(scenario.actors.requester, comment.id)
+    const deleted = await scenario.comments.softDelete(scenario.actors.admin, comment.id)
 
     // Assert
     expect(deleted.deletedAt).not.toBeNull()
   })
 
-  it('applies the deleteOthersComments gate to non-authors only', async () => {
-    // Arrange
-    const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { deleteOthersComments: 'admin' } },
-    })
+  it('denies deleting others’ comments by default (user lacks comment.deleteOthers)', async () => {
+    // Arrange — the default `user` role does not grant comment.deleteOthers.
+    const scenario = createScenario()
     const card = scenario.seedCard()
     const comment = await seedComment(scenario, card.id, scenario.users.technician.id)
 
@@ -223,15 +220,13 @@ describe('CommentService.softDelete', () => {
 
     // Assert
     await expect(denied).rejects.toBeInstanceOf(PolicyDeniedError)
-    await expect(denied).rejects.toMatchObject({ rule: 'actionGates.deleteOthersComments' })
+    await expect(denied).rejects.toMatchObject({ rule: 'permission:comment.deleteOthers' })
     expect(scenario.db.getComment(comment.id).deletedAt).toBeNull()
   })
 
-  it('lets a supervisor through the gate', async () => {
+  it('lets an admin delete others’ comments (admin grants comment.deleteOthers)', async () => {
     // Arrange
-    const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { deleteOthersComments: 'admin' } },
-    })
+    const scenario = createScenario()
     const card = scenario.seedCard()
     const comment = await seedComment(scenario, card.id, scenario.users.technician.id)
 

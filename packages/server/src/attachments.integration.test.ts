@@ -230,33 +230,53 @@ describe('DELETE /attachments/:id', () => {
     expect(refill.statusCode).toBe(201)
   })
 
-  it('allows deleting others uploads by default; the gate denies it', async () => {
+  it('denies deleting others’ uploads by default (user lacks the grant); admin may', async () => {
     const admin = await t.asRole('admin')
     const requester = await t.asRole('user')
     const target = await newCard()
 
+    // Default policy: the `user` role does not grant attachment.deleteOthers.
     const first = await upload(cookie, target, 'mine-1.png', PNG_1X1)
+    const firstId = first.json<{ id: string }>().id
+    const denied = await t.request(requester.cookie, {
+      method: 'DELETE',
+      url: `/api/v1/attachments/${firstId}`,
+    })
+    expect(denied.statusCode).toBe(403)
+    expect(denied.json<{ rule: string }>().rule).toBe('permission:attachment.deleteOthers')
+
+    // An admin (grants attachment.deleteOthers) may remove another user’s upload.
+    const byAdmin = await t.request(admin.cookie, {
+      method: 'DELETE',
+      url: `/api/v1/attachments/${firstId}`,
+    })
+    expect(byAdmin.statusCode).toBe(204)
+
+    // Grant the user role the permission → any user may now delete others’.
+    await t.request(admin.cookie, {
+      method: 'PUT',
+      url: '/api/v1/policy',
+      payload: {
+        ...DEFAULT_POLICY_DOCUMENT,
+        roles: DEFAULT_POLICY_DOCUMENT.roles.map((role) =>
+          role.key === 'user'
+            ? { ...role, permissions: { ...role.permissions, 'attachment.deleteOthers': true } }
+            : role,
+        ),
+      },
+    })
+    const second = await upload(cookie, target, 'mine-2.png', PNG_1X1)
     const permissive = await t.request(requester.cookie, {
       method: 'DELETE',
-      url: `/api/v1/attachments/${first.json<{ id: string }>().id}`,
+      url: `/api/v1/attachments/${second.json<{ id: string }>().id}`,
     })
     expect(permissive.statusCode).toBe(204)
 
     await t.request(admin.cookie, {
       method: 'PUT',
       url: '/api/v1/policy',
-      payload: {
-        ...DEFAULT_POLICY_DOCUMENT,
-        actionGates: { deleteOthersAttachments: 'admin' },
-      },
+      payload: DEFAULT_POLICY_DOCUMENT,
     })
-    const second = await upload(cookie, target, 'mine-2.png', PNG_1X1)
-    const denied = await t.request(requester.cookie, {
-      method: 'DELETE',
-      url: `/api/v1/attachments/${second.json<{ id: string }>().id}`,
-    })
-    expect(denied.statusCode).toBe(403)
-    expect(denied.json<{ rule: string }>().rule).toBe('actionGates.deleteOthersAttachments')
   })
 })
 

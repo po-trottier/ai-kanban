@@ -1,7 +1,13 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { enforcedPolicy, makeBoard, makeCard, permissivePolicy } from '../test/fixtures.ts'
+import {
+  enforcedPolicy,
+  makeBoard,
+  makeCard,
+  permissivePolicy,
+  policyDenyingUser,
+} from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import { MoveCardModal, type MoveSelection } from './MoveCardModal.tsx'
 
@@ -138,7 +144,7 @@ describe('MoveCardModal', () => {
     // Arrange — reorderReady above the user role gates the current Ready lane
     const moving = makeCard('ready')
     const board = makeBoard({ ready: [moving] })
-    const gated = { ...permissivePolicy, actionGates: { reorderReady: 'admin' as const } }
+    const gated = policyDenyingUser('card.move')
     // Act
     renderWithProviders(
       <MoveCardModal

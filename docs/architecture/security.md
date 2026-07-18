@@ -43,24 +43,41 @@ Slack/Anthropic calls. Every control below is enforced by code or CI, not conven
 
 ## Authorization
 
-One policy engine in `core`, consulted by services (not adapters), so no REST route, MCP tool,
-or Slack listener can bypass it. The model — permissive by default, hierarchy as opt-in
-configuration — is defined once in
+One policy engine in `core` (a single `evaluatePolicy` path), consulted by services (not
+adapters), so no REST route, MCP tool, or Slack listener can bypass it. The model — permissive
+by default, roles-as-data — is defined once in
 [ADR-013](decisions/ADR-013-configurable-permissions.md) (canonical, including the policy
 document schema) and [workflow.md](../product/workflow.md#movement-policy-permissive-by-default).
 
+Roles are DATA, not a fixed enum: the policy document carries a `roles` array, each role a key +
+name + sparse permission grant map. A permission is granted only by the presence of `true` —
+absence is **default-deny**. `grant(actor, perm, policy)` matches the actor's `role` key against
+the active policy and checks `role.permissions[perm] === true`, else denies with the rule
+`permission:<perm>` (e.g. `permission:card.move`). There is no `admin` role and no `admin-only`
+rule anymore — the admin surface is gated by six manage\* permissions.
+
 What is security-relevant here:
 
-- **Always-on rules the policy cannot open**: the admin surface (users, lanes, policy,
-  locations, service tokens) is admin-role-only — it is where permissions are configured;
-  comment editing is author-only (impersonation prevention); `read`-scoped MCP tokens cannot
-  write; the last active admin can never be demoted or deactivated (409, named rule —
-  prevents lockout of the only restricted surface; break-glass recovery is the bootstrap CLI
-  in deployment.md).
+- **The manage\* permissions gate the settings surface**: users → `manageUsers`, lanes →
+  `manageLanes`, locations → `manageLocations`, policy → `managePolicy`, service tokens →
+  `manageTokens`, roles → `manageRoles`. Each server admin service loads the active policy and
+  requires the matching permission (`ensurePermission`, which mirrors the engine: system bypass,
+  read-scope denied, else grant). A user's / token's `role` is a bare key validated at write time
+  against the defined roles (unknown → 400).
+- **Always-on identity rules the policy cannot open**, applied before any grant lookup and in
+  order: system actors bypass; `read`-scoped MCP tokens cannot write (`token-scope-read`);
+  comment editing is author-only (`comment-author-only`, impersonation prevention); deleting your
+  own comment or attachment short-circuits before the `*.deleteOthers` grant. The schema also
+  refuses any policy where no role grants `manageRoles` (so role editing can never be locked out).
+- **Last active admin-equivalent**: the last active user whose role grants `manageUsers` (the
+  admin-equivalent set, computed from the active policy) can never be demoted below that or
+  deactivated (409, named rule — prevents lockout of the restricted surface; break-glass recovery
+  is the bootstrap CLI in deployment.md). `PUT /policy` likewise refuses (409 `role-in-use`) to
+  drop a role key still assigned to any active user or live service token.
 - Policy documents are Zod-validated, stored as append-only versions (configuration has an
   audit history), cached in-process, invalidated on update.
-- Denials: 403 with the failed gate named; illegal lane transitions (enforcement on) are 422.
-  Both are logged.
+- Denials: 403 with the failed rule named; illegal lane transitions (enforcement on, topology
+  only) are 422. Both are logged.
 
 ## Input & output
 

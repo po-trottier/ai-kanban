@@ -1,20 +1,20 @@
-import { type Role } from '@rivian-kanban/core'
 import { Button, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
 import { useState } from 'react'
 import { useCreateUser, usePatchUser } from '../api/admin.ts'
 import { useUsers } from '../api/meta.ts'
 import { strings } from '../strings.ts'
 import { RevealOnceModal } from './RevealOnceModal.tsx'
-import { ROLE_SELECT_DATA } from './role-select-data.ts'
+import { useRoleOptions } from './role-select-data.ts'
 
 /** User administration: create, role change, reset password, deactivate. */
 export function UsersAdmin() {
   const users = useUsers()
   const createUser = useCreateUser()
   const patchUser = usePatchUser()
+  const roleOptions = useRoleOptions()
   const [createOpen, setCreateOpen] = useState(false)
   const [tempPassword, setTempPassword] = useState<string | null>(null)
-  const [draft, setDraft] = useState({ email: '', displayName: '', role: 'user' as Role })
+  const [draft, setDraft] = useState({ email: '', displayName: '', role: 'user' })
   // Deactivation is one-way in the UI (GET /users lists only active users), so it confirms.
   const [deactivating, setDeactivating] = useState<{ id: string; name: string } | null>(null)
 
@@ -59,7 +59,7 @@ export function UsersAdmin() {
                 <Select
                   aria-label={`${strings.users.roleLabel}: ${user.displayName}`}
                   size="xs"
-                  data={ROLE_SELECT_DATA}
+                  data={roleOptions}
                   value={user.role}
                   allowDeselect={false}
                   onChange={(role) => {
@@ -131,7 +131,7 @@ export function UsersAdmin() {
             />
             <Select
               label={strings.users.roleLabel}
-              data={ROLE_SELECT_DATA}
+              data={roleOptions}
               value={draft.role}
               allowDeselect={false}
               onChange={(role) => {

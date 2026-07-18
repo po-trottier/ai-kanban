@@ -36,10 +36,9 @@ describe('SettingsPage', () => {
     await user.click(await screen.findByRole('tab', { name: 'Permissions' }))
     await user.click(await screen.findByRole('switch', { name: /Enforce workflow transitions/ }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    // Assert
+    // Assert — the new PUT body carries the enforcement flag (no more actionGates).
     expect(fake.lastBody('PUT', '/api/v1/policy')).toMatchObject({
       transitionEnforcement: true,
-      actionGates: {},
     })
     expect(await screen.findByText('Policy updated')).toBeInTheDocument()
   })

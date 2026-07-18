@@ -40,14 +40,14 @@ describe('toProblem — core domain errors', () => {
 
   it('maps PolicyDeniedError to 403 naming the rule', () => {
     // Arrange
-    const error = new PolicyDeniedError('actionGates.cancel')
+    const error = new PolicyDeniedError('permission:card.cancel')
 
     // Act
     const problem = toProblem(error)
 
     // Assert
     expect(problem.status).toBe(403)
-    expect(problem.body.rule).toBe('actionGates.cancel')
+    expect(problem.body.rule).toBe('permission:card.cancel')
   })
 
   it('maps IllegalTransitionError to 422 with from and to', () => {

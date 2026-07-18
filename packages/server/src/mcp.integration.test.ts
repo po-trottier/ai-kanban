@@ -524,9 +524,9 @@ describe('enforcement-on policy posture', () => {
     expect(problem.to).toBe('done')
   })
 
-  it('per-edge minRole denies the user token, naming the transition rule', async () => {
+  it('allows a legal edge to the user token (topology only, no per-edge role)', async () => {
     const client = await connect(writer.raw)
-    const card = await callOk<Card>(client, 'create_card', { title: 'Gated edge via MCP' })
+    const card = await callOk<Card>(client, 'create_card', { title: 'Legal edge via MCP' })
     const staged = await callOk<Card>(client, 'move_card', {
       cardId: card.id,
       toLane: 'waiting_approval',
@@ -534,14 +534,16 @@ describe('enforcement-on policy posture', () => {
       expectedVersion: 1,
     })
 
-    const problem = await callProblem(client, 'move_card', {
+    // waiting_approval→ready no longer carries a per-edge role gate — a plain
+    // user token that has card.move may traverse it under enforcement.
+    const promoted = await callOk<Card>(client, 'move_card', {
       cardId: card.id,
       toLane: 'ready',
+      nextCardId: await laneTopId(client, 'ready'),
       expectedVersion: staged.version,
     })
 
-    expect(problem.type).toBe('urn:rivian-kanban:problem:policy-denied')
-    expect(problem.rule).toBe('transition:waiting_approval->ready')
+    expect(promoted.laneId).not.toBe(staged.laneId)
   })
 })
 

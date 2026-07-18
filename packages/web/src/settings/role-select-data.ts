@@ -1,8 +1,24 @@
-import { ROLES } from '@rivian-kanban/core'
-import { strings } from '../strings.ts'
+import { usePolicy } from '../api/meta.ts'
 
-/** Mantine Select data for every role picker (user row/create, token create). */
-export const ROLE_SELECT_DATA = ROLES.map((role) => ({
-  value: role,
-  label: strings.users.roles[role],
-}))
+/**
+ * Role picker options derived from the ACTIVE POLICY's defined roles (ADR-013 —
+ * roles are data now), not a static enum. Every role picker (user row/create,
+ * token create) and role-label lookup reads from here so custom roles appear
+ * automatically. Falls back to an empty list until the policy loads.
+ */
+export interface RoleOption {
+  value: string
+  label: string
+}
+
+export function useRoleOptions(): RoleOption[] {
+  const policy = usePolicy()
+  // policyResponseSchema unwraps the version record to the bare document.
+  return (policy.data?.roles ?? []).map((role) => ({ value: role.key, label: role.name }))
+}
+
+/** Human name for a role key from the active policy; falls back to the key. */
+export function useRoleLabel(): (roleKey: string) => string {
+  const options = useRoleOptions()
+  return (roleKey: string) => options.find((option) => option.value === roleKey)?.label ?? roleKey
+}

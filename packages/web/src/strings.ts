@@ -3,9 +3,9 @@ import {
   type CancelResolution,
   type LaneKey,
   type LocationKind,
+  type Permission,
   type Priority,
   type Resolution,
-  type Role,
   type TokenScope,
   type WaitingReason,
 } from '@rivian-kanban/core'
@@ -442,10 +442,6 @@ export const strings = {
       'Share this password securely. It is shown only once; the user must change it at first sign-in.',
     userCreated: 'User created',
     userUpdated: 'User updated',
-    roles: {
-      user: 'User',
-      admin: 'Administrator',
-    } satisfies Record<Role, string>,
   },
 
   lanes: {
@@ -460,29 +456,68 @@ export const strings = {
   },
 
   policy: {
+    matrixTitle: 'Roles & permissions',
+    matrixHint:
+      'Each role grants the permissions ticked below. Unticked = not allowed (nothing is granted unless you tick it). Add roles and assign them to people and tokens from the Users and Service tokens tabs.',
+    /** Accessible name for the whole matrix table. */
+    matrixLabel: 'Roles and permissions matrix',
+    /** Sticky header cell over the permission-label column. */
+    permissionColumnHeader: 'Permission',
+    /** Per (role, permission) checkbox accessible name. */
+    cellLabel: (role: string, permission: string) => `${permission} for ${role}`,
+    addRole: 'Add role',
+    addRoleTitle: 'Add role',
+    roleKeyLabel: 'Key',
+    roleKeyHint: 'Lowercase letters, numbers, and underscores. Cannot be changed later.',
+    roleKeyInvalid: 'Use lowercase letters, numbers, and underscores; start with a letter.',
+    roleKeyTaken: 'A role with this key already exists.',
+    roleNameLabel: 'Display name',
+    roleNameRequired: 'Enter a role name',
+    roleMenuLabel: (role: string) => `Options for ${role}`,
+    renameRole: 'Rename',
+    renameRoleTitle: 'Rename role',
+    deleteRole: 'Delete role',
+    deleteRoleTitle: 'Delete role',
+    deleteRoleConfirm: (role: string) => `Delete the “${role}” role?`,
+    /** Inline error when the server rejects deleting a role still assigned (409). */
+    roleInUse: 'This role is still assigned to a user or token. Reassign them first.',
+    /** Guardrail: the last role that can manage roles cannot lose that power. */
+    lastManageRoles: 'At least one role must be able to manage roles & permissions.',
     enforcementLabel: 'Enforce workflow transitions',
-    enforcementHint:
-      'When on, cards may only move along the workflow graph below, and role gates apply.',
+    enforcementHint: 'When on, cards may only move between columns along the workflow graph below.',
     transitionsTitle: 'Workflow graph',
     /** Plain-language help under each heading (dense admin screen). */
     transitionsHint:
       'The allowed moves between columns. When enforcement is off, every move is allowed and these have no effect.',
-    disabledWhenOff: 'Turn on enforcement above to use these settings.',
+    disabledWhenOff: 'Turn on enforcement above for this to take effect.',
     transitionRowLabel: (from: string, to: string) => `${from} to ${to}`,
-    minRoleLabel: 'Minimum role',
-    anyRole: 'Any role',
-    actionGatesTitle: 'Action gates',
-    actionGatesHint:
-      'The minimum role for each sensitive action. When enforcement is off, any signed-in user may do all of these.',
-    gates: {
-      cancel: 'Cancel cards',
-      reopen: 'Reopen cards',
-      archive: 'Archive Done cards',
-      reorderReady: 'Reorder the Ready column',
-      deleteOthersComments: "Delete others' comments",
-      deleteOthersAttachments: "Delete others' attachments",
-    },
     saved: 'Policy updated',
+    /** Human labels for each permission, grouped into admin-legible sections. */
+    sections: {
+      cards: 'Work cards',
+      commentsFiles: 'Comments & files',
+      administration: 'Administration',
+    },
+    permissions: {
+      'card.create': 'Create cards',
+      'card.update': 'Edit cards',
+      'card.move': 'Move cards between columns',
+      'card.block': 'Block cards',
+      'card.unblock': 'Unblock cards',
+      'card.cancel': 'Cancel cards',
+      'card.reopen': 'Reopen cards',
+      'card.archive': 'Archive cards',
+      'comment.add': 'Add comments',
+      'comment.deleteOthers': 'Delete others’ comments',
+      'attachment.add': 'Upload files',
+      'attachment.deleteOthers': 'Delete others’ files',
+      manageUsers: 'Manage users',
+      manageRoles: 'Manage roles & permissions',
+      manageLocations: 'Manage locations',
+      manageLanes: 'Manage columns',
+      managePolicy: 'Edit workflow policy',
+      manageTokens: 'Manage API tokens',
+    } satisfies Record<Permission, string>,
   },
 
   locations: {

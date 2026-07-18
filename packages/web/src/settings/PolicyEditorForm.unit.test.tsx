@@ -1,5 +1,5 @@
 import { type PolicyDocument } from '@rivian-kanban/core'
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { permissivePolicy } from '../test/fixtures.ts'
@@ -16,99 +16,102 @@ const laneLabels = {
   done: 'Done',
 }
 
-describe('PolicyEditorForm', () => {
-  it('renders the seeded graph with its suggested role gates', () => {
+function render(onSave: (document: PolicyDocument) => void = () => undefined) {
+  renderWithProviders(
+    <PolicyEditorForm
+      value={permissivePolicy}
+      laneLabels={laneLabels}
+      saving={false}
+      onSave={onSave}
+    />,
+  )
+}
+
+describe('PolicyEditorForm — roles × permissions matrix', () => {
+  it('renders a checkbox per (role, permission) reflecting the grant map', () => {
     // Arrange
-    const policy = permissivePolicy
+    const onSave = () => undefined
+
     // Act
-    renderWithProviders(
-      <PolicyEditorForm
-        value={policy}
-        laneLabels={laneLabels}
-        saving={false}
-        onSave={() => undefined}
-      />,
-    )
-    // Assert
-    expect(screen.getByRole('switch', { name: /Enforce workflow transitions/ })).not.toBeChecked()
-    const approvalGate = screen.getByRole('combobox', {
-      name: 'Minimum role: Waiting for Approval to Ready',
+    render(onSave)
+
+    // Assert — the default user grants "Create cards", admin grants everything.
+    const userCreate = screen.getByRole('checkbox', { name: 'Create cards for User' })
+    const adminManageUsers = screen.getByRole('checkbox', {
+      name: 'Manage users for Administrator',
     })
-    expect(approvalGate).toHaveValue('Administrator')
-    expect(screen.getAllByRole('row')).toHaveLength(11)
+    const userManageUsers = screen.getByRole('checkbox', { name: 'Manage users for User' })
+    expect(userCreate).toBeChecked()
+    expect(adminManageUsers).toBeChecked()
+    expect(userManageUsers).not.toBeChecked()
+    // Enforcement is off by default.
+    expect(screen.getByRole('switch', { name: /Enforce workflow transitions/ })).not.toBeChecked()
   })
 
-  it('saves a document with enforcement toggled on', async () => {
+  it('toggling a cell then saving PUTs the expected document', async () => {
     // Arrange
     const user = userEvent.setup()
     const saved: PolicyDocument[] = []
-    renderWithProviders(
-      <PolicyEditorForm
-        value={permissivePolicy}
-        laneLabels={laneLabels}
-        saving={false}
-        onSave={(document) => saved.push(document)}
-      />,
-    )
-    // Act
-    await user.click(screen.getByRole('switch', { name: /Enforce workflow transitions/ }))
+    render((document) => saved.push(document))
+
+    // Act — grant the user role "Delete others’ comments", then save.
+    await user.click(screen.getByRole('checkbox', { name: 'Delete others’ comments for User' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
+
     // Assert
     expect(saved).toHaveLength(1)
+    const userRole = saved[0]?.roles.find((role) => role.key === 'user')
+    expect(userRole?.permissions['comment.deleteOthers']).toBe(true)
+    // Untouched grants stay put; admin still has everything.
+    expect(userRole?.permissions['card.create']).toBe(true)
+  })
+
+  it('saves the enforcement toggle without touching the roles', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const saved: PolicyDocument[] = []
+    render((document) => saved.push(document))
+
+    // Act
+    await user.click(screen.getByRole('switch', { name: /Enforce workflow transitions/ }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    // Assert
     expect(saved[0]?.transitionEnforcement).toBe(true)
-    expect(saved[0]?.transitions).toEqual(permissivePolicy.transitions)
+    expect(saved[0]?.roles).toEqual(permissivePolicy.roles)
   })
 
-  it('saves an edited per-transition role gate', async () => {
-    // Arrange
-    const user = userEvent.setup()
-    const saved: PolicyDocument[] = []
-    renderWithProviders(
-      <PolicyEditorForm
-        value={permissivePolicy}
-        laneLabels={laneLabels}
-        saving={false}
-        onSave={(document) => saved.push(document)}
-      />,
-    )
-    // Act — the transition gates are inert (and disabled) until enforcement is
-    // on, so an admin enables it first, then sets the role gate.
-    await user.click(screen.getByRole('switch', { name: /Enforce workflow transitions/ }))
-    await user.click(
-      screen.getByRole('combobox', { name: 'Minimum role: Intake to Waiting for Approval' }),
-    )
-    await user.click(screen.getByRole('option', { name: 'User' }))
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-    // Assert
-    expect(saved[0]?.transitions[0]).toEqual({
-      from: 'intake',
-      to: 'waiting_approval',
-      minRole: 'user',
+  it('locks manageRoles on the last role that grants it', () => {
+    // Arrange — admin is the only role with manageRoles in the seed.
+    const onSave = () => undefined
+
+    // Act
+    render(onSave)
+
+    // Assert — its manageRoles cell is disabled so it can never be unticked.
+    const adminManageRoles = screen.getByRole('checkbox', {
+      name: 'Manage roles & permissions for Administrator',
     })
+    expect(adminManageRoles).toBeDisabled()
+    expect(adminManageRoles).toBeChecked()
   })
 
-  it('saves an action gate and removes it when reset to any role', async () => {
+  it('adds a new role via the Add role modal', async () => {
     // Arrange
     const user = userEvent.setup()
     const saved: PolicyDocument[] = []
-    renderWithProviders(
-      <PolicyEditorForm
-        value={permissivePolicy}
-        laneLabels={laneLabels}
-        saving={false}
-        onSave={(document) => saved.push(document)}
-      />,
-    )
-    // Act — action gates are disabled until enforcement is on; enable it first.
-    await user.click(screen.getByRole('switch', { name: /Enforce workflow transitions/ }))
-    await user.click(screen.getByRole('combobox', { name: 'Cancel cards' }))
-    await user.click(screen.getByRole('option', { name: 'Administrator' }))
+    render((document) => saved.push(document))
+
+    // Act
+    await user.click(screen.getByRole('button', { name: 'Add role' }))
+    const dialog = screen.getByRole('dialog')
+    await user.type(within(dialog).getByLabelText('Key'), 'lead')
+    await user.type(within(dialog).getByLabelText('Display name'), 'Team Lead')
+    await user.click(within(dialog).getByRole('button', { name: 'Create' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    await user.click(screen.getByRole('combobox', { name: 'Cancel cards' }))
-    await user.click(screen.getByRole('option', { name: 'Any role' }))
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-    // Assert
-    expect(saved[0]?.actionGates).toEqual({ cancel: 'admin' })
-    expect(saved[1]?.actionGates).toEqual({})
+
+    // Assert — the new role appears as a column with an empty grant map.
+    const lead = saved[0]?.roles.find((role) => role.key === 'lead')
+    expect(lead).toEqual({ key: 'lead', name: 'Team Lead', permissions: {} })
   })
 })

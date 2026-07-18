@@ -14,6 +14,7 @@ import {
   nth,
   makeCard,
   permissivePolicy,
+  policyDenyingUser,
   policyRecordOf,
 } from '../test/fixtures.ts'
 import { renderApp } from '../test/render.tsx'
@@ -323,7 +324,7 @@ describe('BoardPage card actions', () => {
     // Arrange
     const user = userEvent.setup()
     const card = makeCard('intake', { title: 'Gated card' })
-    const gatedPolicy = { ...permissivePolicy, actionGates: { cancel: 'admin' as const } }
+    const gatedPolicy = policyDenyingUser('card.cancel')
     const fake = createFakeFetch({
       'GET /api/v1/auth/me': { ...fixtureAdmin, role: 'user' },
       'GET /api/v1/board': makeBoard({ intake: [card] }),

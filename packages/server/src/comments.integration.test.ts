@@ -167,37 +167,65 @@ describe('DELETE /comments/:id', () => {
     expect(again.statusCode).toBe(404)
   })
 
-  it('allows deleting others comments by default, denies once the gate is set', async () => {
+  it('denies deleting others’ comments by default (user lacks the grant), admin may', async () => {
     const admin = await t.asRole('admin')
     const requester = await t.asRole('user')
 
-    const freeGame = await addComment(cookie, 'Delete me, default policy')
-    const permissive = await t.request(requester.cookie, {
-      method: 'DELETE',
-      url: `/api/v1/comments/${freeGame.id}`,
-    })
-    expect(permissive.statusCode).toBe(204)
-
-    const gated = await t.request(admin.cookie, {
-      method: 'PUT',
-      url: '/api/v1/policy',
-      payload: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { deleteOthersComments: 'admin' } },
-    })
-    expect(gated.statusCode).toBe(200)
-
-    const target = await addComment(cookie, 'Protected now')
+    // Default policy: the `user` role does not grant comment.deleteOthers.
+    const target = await addComment(cookie, 'Protected by default')
     const denied = await t.request(requester.cookie, {
       method: 'DELETE',
       url: `/api/v1/comments/${target.id}`,
     })
     expect(denied.statusCode).toBe(403)
-    expect(denied.json<{ rule: string }>().rule).toBe('actionGates.deleteOthersComments')
+    expect(denied.json<{ rule: string }>().rule).toBe('permission:comment.deleteOthers')
 
-    // The author always may — identity, not hierarchy.
-    const own = await t.request(cookie, {
+    // An admin (grants comment.deleteOthers) may delete another author’s comment.
+    const byAdmin = await t.request(admin.cookie, {
       method: 'DELETE',
       url: `/api/v1/comments/${target.id}`,
     })
-    expect(own.statusCode).toBe(204)
+    expect(byAdmin.statusCode).toBe(204)
+
+    // The author always may — identity, not hierarchy.
+    const own = await addComment(cookie, 'My own comment')
+    const ownDelete = await t.request(cookie, {
+      method: 'DELETE',
+      url: `/api/v1/comments/${own.id}`,
+    })
+    expect(ownDelete.statusCode).toBe(204)
+  })
+
+  it('grants deleting others’ comments once the user role is given the permission', async () => {
+    const admin = await t.asRole('admin')
+    const requester = await t.asRole('user')
+
+    const granted = await t.request(admin.cookie, {
+      method: 'PUT',
+      url: '/api/v1/policy',
+      payload: {
+        ...DEFAULT_POLICY_DOCUMENT,
+        roles: DEFAULT_POLICY_DOCUMENT.roles.map((role) =>
+          role.key === 'user'
+            ? { ...role, permissions: { ...role.permissions, 'comment.deleteOthers': true } }
+            : role,
+        ),
+      },
+    })
+    expect(granted.statusCode).toBe(200)
+
+    const target = await addComment(cookie, 'Now deletable by any user')
+    const permissive = await t.request(requester.cookie, {
+      method: 'DELETE',
+      url: `/api/v1/comments/${target.id}`,
+    })
+    expect(permissive.statusCode).toBe(204)
+
+    // Restore the default so later suites see the permissive baseline.
+    await t.request(admin.cookie, {
+      method: 'PUT',
+      url: '/api/v1/policy',
+      payload: DEFAULT_POLICY_DOCUMENT,
+    })
   })
 })

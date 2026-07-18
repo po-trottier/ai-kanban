@@ -8,4 +8,5 @@
 export * from './defaults.ts'
 export * from './fakes.ts'
 export * from './in-memory-db.ts'
+export * from './policy-helpers.ts'
 export * from './scenario.ts'

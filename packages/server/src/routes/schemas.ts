@@ -11,8 +11,7 @@ import {
   locationSchema,
   pageSchemaOf,
   pickerUserSchema as corePickerUserSchema,
-  policyActionGatesSchema,
-  policyDocumentSchema,
+  roleDefinitionSchema,
   policyTransitionSchema,
   redactedCommentSchema,
   serviceTokenSchema,
@@ -36,12 +35,15 @@ export const tagResponseSchema = z.object(tagSchema.shape)
 export const attachmentResponseSchema = z.object(attachmentSchema.shape)
 // Derived from the canonical core shapes (docs/dev/standards.md single-schema
 // rule) — only the strictObject wrappers are swapped for stripping z.objects.
+// `policyDocumentSchema` carries .refine() effects, so it has no `.shape`; the
+// response config is rebuilt field-by-field from the same canonical part
+// schemas (single-schema rule) as stripping z.objects.
 export const boardPolicyResponseSchema = z.object({
   ...boardPolicySchema.shape,
   config: z.object({
-    ...policyDocumentSchema.shape,
+    transitionEnforcement: z.boolean(),
     transitions: z.array(z.object(policyTransitionSchema.shape)),
-    actionGates: z.object(policyActionGatesSchema.shape),
+    roles: z.array(z.object(roleDefinitionSchema.shape)),
   }),
 })
 

@@ -5,8 +5,7 @@ import {
   IllegalTransitionError,
   PolicyDeniedError,
 } from '../domain/errors.ts'
-import { DEFAULT_POLICY_DOCUMENT } from '../domain/policy.ts'
-import { createScenario } from '../testing/index.ts'
+import { createScenario, policyDenyingUser } from '../testing/index.ts'
 
 describe('CardService.cancel', () => {
   it('moves the card to the bottom of done with the cancel resolution', async () => {
@@ -87,11 +86,9 @@ describe('CardService.cancel', () => {
     await expect(act).rejects.toBeInstanceOf(ConflictError)
   })
 
-  it('applies the cancel action gate', async () => {
-    // Arrange
-    const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { cancel: 'admin' } },
-    })
+  it('denies cancel when the actor’s role lacks the card.cancel grant', async () => {
+    // Arrange — strip card.cancel from the `user` role.
+    const scenario = createScenario({ policy: policyDenyingUser('card.cancel') })
     const card = scenario.seedCard()
 
     // Act
@@ -102,7 +99,7 @@ describe('CardService.cancel', () => {
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(PolicyDeniedError)
-    await expect(act).rejects.toMatchObject({ rule: 'actionGates.cancel' })
+    await expect(act).rejects.toMatchObject({ rule: 'permission:card.cancel' })
     expect(scenario.db.getCard(card.id).laneId).toBe(scenario.lanes.intake.id)
   })
 })
@@ -147,11 +144,9 @@ describe('CardService.reopen', () => {
     await expect(act).rejects.toMatchObject({ from: 'review', to: 'ready' })
   })
 
-  it('applies the reopen action gate independently of the transition graph', async () => {
-    // Arrange
-    const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'admin' } },
-    })
+  it('denies reopen when the actor’s role lacks the card.reopen grant', async () => {
+    // Arrange — strip card.reopen from the `user` role.
+    const scenario = createScenario({ policy: policyDenyingUser('card.reopen') })
     const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'completed' })
 
     // Act
@@ -161,15 +156,13 @@ describe('CardService.reopen', () => {
 
     // Assert
     await expect(denied).rejects.toBeInstanceOf(PolicyDeniedError)
-    await expect(denied).rejects.toMatchObject({ rule: 'actionGates.reopen' })
+    await expect(denied).rejects.toMatchObject({ rule: 'permission:card.reopen' })
     expect(scenario.db.getCard(card.id).laneId).toBe(scenario.lanes.done.id)
   })
 
-  it('lets a supervisor through the reopen action gate with enforcement off', async () => {
+  it('lets an admin reopen when the user role is denied it', async () => {
     // Arrange
-    const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { reopen: 'admin' } },
-    })
+    const scenario = createScenario({ policy: policyDenyingUser('card.reopen') })
     const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'cancelled' })
 
     // Act
@@ -180,23 +173,6 @@ describe('CardService.reopen', () => {
     // Assert
     expect(reopened.laneId).toBe(scenario.lanes.ready.id)
     expect(reopened.resolution).toBeNull()
-  })
-
-  it('applies the done→ready edge gate when enforcement is on', async () => {
-    // Arrange
-    const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, transitionEnforcement: true },
-    })
-    const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'completed' })
-
-    // Act
-    const denied = scenario.cards.reopen(scenario.actors.technician, card.id, {
-      expectedVersion: 1,
-    })
-
-    // Assert
-    await expect(denied).rejects.toBeInstanceOf(PolicyDeniedError)
-    await expect(denied).rejects.toMatchObject({ rule: 'transition:done->ready' })
   })
 })
 
@@ -286,11 +262,9 @@ describe('CardService.archive', () => {
     expect(scenario.db.getCard(card.id).archivedAt).toBeNull()
   })
 
-  it('applies the archive action gate when configured', async () => {
-    // Arrange
-    const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { archive: 'admin' } },
-    })
+  it('denies archive when the actor’s role lacks the card.archive grant', async () => {
+    // Arrange — strip card.archive from the `user` role.
+    const scenario = createScenario({ policy: policyDenyingUser('card.archive') })
     const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'completed' })
 
     // Act
@@ -300,7 +274,7 @@ describe('CardService.archive', () => {
 
     // Assert
     await expect(denied).rejects.toBeInstanceOf(PolicyDeniedError)
-    await expect(denied).rejects.toMatchObject({ rule: 'actionGates.archive' })
+    await expect(denied).rejects.toMatchObject({ rule: 'permission:card.archive' })
     expect(scenario.db.getCard(card.id).archivedAt).toBeNull()
   })
 

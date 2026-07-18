@@ -77,7 +77,7 @@ describe('POST /users', () => {
     expect(cookie).toBeTruthy()
   })
 
-  it('is admin-only (403, named rule) and validates the body (400)', async () => {
+  it('requires manageUsers (403, named rule) and validates the body (400)', async () => {
     const tech = await t.asRole('user')
     const admin = await t.asRole('admin')
 
@@ -93,7 +93,7 @@ describe('POST /users', () => {
     })
 
     expect(denied.statusCode).toBe(403)
-    expect(denied.json<{ rule: string }>().rule).toBe('admin-only')
+    expect(denied.json<{ rule: string }>().rule).toBe('permission:manageUsers')
     expect(invalid.statusCode).toBe(400)
   })
 
@@ -175,7 +175,7 @@ describe('PATCH /users/:id', () => {
     expect(empty.statusCode).toBe(400)
   })
 
-  it('is admin-only', async () => {
+  it('requires manageUsers (403 for a plain user)', async () => {
     const tech = await t.asRole('user')
 
     const response = await t.request(tech.cookie, {

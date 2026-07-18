@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ZodError } from 'zod'
-import { NotFoundError, PolicyDeniedError } from '../domain/errors.ts'
+import { ConflictError, NotFoundError, PolicyDeniedError } from '../domain/errors.ts'
 import { DEFAULT_POLICY_DOCUMENT } from '../domain/policy.ts'
 import { createScenario } from '../testing/index.ts'
 
@@ -64,8 +64,8 @@ describe('PolicyService.apply', () => {
     await expect(act).rejects.toMatchObject({ from: 'intake', to: 'ready' })
   })
 
-  it('denies non-admins (admin-only is always-on)', async () => {
-    // Arrange
+  it('denies a role without managePolicy (default-deny)', async () => {
+    // Arrange — the technician is a plain `user`, no managePolicy grant.
     const scenario = createScenario()
 
     // Act
@@ -73,7 +73,25 @@ describe('PolicyService.apply', () => {
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(PolicyDeniedError)
-    await expect(act).rejects.toMatchObject({ rule: 'admin-only' })
+    await expect(act).rejects.toMatchObject({ rule: 'permission:managePolicy' })
+    expect(scenario.db.policyVersionCount()).toBe(1)
+  })
+
+  it('rejects dropping a role key still assigned to an active user (role-in-use)', async () => {
+    // Arrange — every seeded fixture user is `user` or `admin`; a document that
+    // omits `user` orphans the requester/technician.
+    const scenario = createScenario()
+    const withoutUserRole = {
+      ...DEFAULT_POLICY_DOCUMENT,
+      roles: DEFAULT_POLICY_DOCUMENT.roles.filter((role) => role.key !== 'user'),
+    }
+
+    // Act
+    const act = scenario.policies.apply(scenario.actors.admin, withoutUserRole)
+
+    // Assert
+    await expect(act).rejects.toBeInstanceOf(ConflictError)
+    await expect(act).rejects.toThrow('role-in-use')
     expect(scenario.db.policyVersionCount()).toBe(1)
   })
 
@@ -95,9 +113,9 @@ describe('PolicyService.apply', () => {
   })
 
   it('rejects a document that fails the canonical schema', async () => {
-    // Arrange
+    // Arrange — no roles array is a schema violation (roles are required now).
     const scenario = createScenario()
-    const invalid = { transitionEnforcement: true, transitions: [], actionGates: { cancel: 'god' } }
+    const invalid = { transitionEnforcement: true, transitions: [] }
 
     // Act
     const act = scenario.policies.apply(scenario.actors.admin, invalid)

@@ -6,7 +6,6 @@ import {
   NotFoundError,
   PolicyDeniedError,
 } from '../domain/errors.ts'
-import { DEFAULT_POLICY_DOCUMENT } from '../domain/policy.ts'
 import { createScenario, fixtureId, type Scenario } from '../testing/index.ts'
 
 const SHA = 'a'.repeat(64)
@@ -209,11 +208,9 @@ describe('AttachmentService.remove', () => {
     expect(scenario.eventBus.published.at(-1)?.type).toBe('attachment.removed')
   })
 
-  it('applies the deleteOthersAttachments gate to non-uploaders only', async () => {
-    // Arrange
-    const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { deleteOthersAttachments: 'admin' } },
-    })
+  it('denies deleting others’ files by default (user lacks attachment.deleteOthers)', async () => {
+    // Arrange — the default `user` role does not grant attachment.deleteOthers.
+    const scenario = createScenario()
     const card = scenario.seedCard()
     const attachment = await scenario.attachments.add(
       scenario.actors.technician,
@@ -221,20 +218,18 @@ describe('AttachmentService.remove', () => {
       uploadInput(),
     )
 
-    // Act — a different non-uploader below the gate (both are role `user`)
+    // Act — a different non-uploader (both are role `user`)
     const denied = scenario.attachments.remove(scenario.actors.requester, attachment.id)
 
     // Assert
     await expect(denied).rejects.toBeInstanceOf(PolicyDeniedError)
-    await expect(denied).rejects.toMatchObject({ rule: 'actionGates.deleteOthersAttachments' })
+    await expect(denied).rejects.toMatchObject({ rule: 'permission:attachment.deleteOthers' })
     expect(scenario.db.getAttachment(attachment.id).deletedAt).toBeNull()
   })
 
-  it('lets the uploader remove their own file despite the gate', async () => {
+  it('lets the uploader remove their own file without the deleteOthers grant', async () => {
     // Arrange
-    const scenario = createScenario({
-      policy: { ...DEFAULT_POLICY_DOCUMENT, actionGates: { deleteOthersAttachments: 'admin' } },
-    })
+    const scenario = createScenario()
     const card = scenario.seedCard()
     const attachment = await scenario.attachments.add(
       scenario.actors.technician,
