@@ -177,4 +177,37 @@ describe('CommentsThread', () => {
       { body: 'A reply', parentCommentId: parent.id },
     ])
   })
+
+  it('spins the composer submit while an add is pending and keeps the delete confirm open', async () => {
+    // Arrange — a pending add + pending delete; the composer submit and the
+    // confirm dialog's button should both show their loading affordance.
+    const user = userEvent.setup()
+    const cardId = makeCard('intake').id
+    const mine = makeComment({ id: uid(70), cardId, authorId: fixtureAdmin.id })
+    renderWithProviders(
+      <CommentsThread
+        comments={[mine]}
+        currentUserId={fixtureAdmin.id}
+        userNames={userNames}
+        canDeleteOthers={false}
+        addPending
+        deletePending
+        onAdd={noop}
+        onEdit={noop}
+        onDelete={noop}
+      />,
+    )
+    // Act — submit a comment (marks this composer as the one submitting), then
+    // open the delete confirm without confirming it away.
+    await user.type(screen.getByRole('textbox', { name: 'Add a comment' }), 'Please wait')
+    await user.click(screen.getByRole('button', { name: 'Comment' }))
+    await user.click(screen.getByRole('button', { name: 'Delete comment' }))
+    // Assert — the composer submit spins and the confirm dialog stays open with
+    // a spinning confirm (a slow delete can't be re-clicked or lost).
+    expect(screen.getByRole('button', { name: 'Comment' })).toHaveAttribute('data-loading', 'true')
+    expect(screen.getByRole('button', { name: 'Delete it' })).toHaveAttribute(
+      'data-loading',
+      'true',
+    )
+  })
 })

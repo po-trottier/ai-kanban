@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { createFakeFetch, problemResponse, type FakeFetch } from '../test/fake-fetch.ts'
@@ -97,6 +97,31 @@ describe('CardPanel', () => {
     })
     const patch = fake.calls.find((c) => c.method === 'PATCH')
     expect(new Headers(patch?.init?.headers).get('If-Match')).toBe('"4"')
+  })
+
+  it('spins the comment submit while the post is in flight', async () => {
+    // Arrange — the comment POST hangs, keeping the add mutation pending.
+    const user = userEvent.setup()
+    const fake = panelApp()
+    const fetchFn = (input: string, init?: RequestInit) =>
+      (init?.method ?? 'GET').toUpperCase() === 'POST' &&
+      input.split('?')[0] === `/api/v1/cards/${String(card.id)}/comments`
+        ? new Promise<Response>(() => undefined)
+        : fake.fetch(input, init)
+    renderApp({ fetchFn, route: `/cards/${String(card.id)}` })
+    await screen.findByRole('textbox', { name: /Title/ })
+    // Act — type a comment and submit it (the POST never resolves).
+    await user.click(screen.getByRole('tab', { name: 'Comments' }))
+    await user.type(await screen.findByRole('textbox', { name: 'Add a comment' }), 'Once only')
+    await user.click(screen.getByRole('button', { name: 'Comment' }))
+    // Assert — the submit shows the loading spinner while the request is pending
+    // (re-query: Mantine re-renders the button when the loading state flips).
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Comment' })).toHaveAttribute(
+        'data-loading',
+        'true',
+      )
+    })
   })
 
   it('posts, edits, and deletes comments in the thread tab', async () => {

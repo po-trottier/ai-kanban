@@ -1,7 +1,7 @@
 import { type Comment } from '@rivian-kanban/core'
 import { Group, Paper, Stack, Text, Textarea } from '@mantine/core'
 import { Pencil, Reply, Save, Trash2, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { buildCommentThread } from '../lib/comments.ts'
 import { formatDateTime } from '../lib/format.ts'
@@ -19,10 +19,18 @@ export interface CommentsThreadProps {
   canDeleteOthers: boolean
   /** Archived cards are read-only except reopen (workflow.md#terminal-states). */
   readOnly?: boolean
+  /** True while an add/reply POST is in flight — spins the active composer. */
+  addPending?: boolean
+  /** True while an edit PATCH is in flight — spins the open editor's Save. */
+  editPending?: boolean
+  /** True while a delete is in flight — spins the confirm dialog's button. */
+  deletePending?: boolean
   /** `onPosted` fires on success so the composer keeps its draft on failure. */
   onAdd: (body: string, parentCommentId: string | null, onPosted: () => void) => void
-  onEdit: (commentId: string, body: string) => void
-  onDelete: (commentId: string) => void
+  /** `onEdited` fires on success so the editor closes (and keeps the draft) only then. */
+  onEdit: (commentId: string, body: string, onEdited: () => void) => void
+  /** `onDeleted` fires on success so the confirm dialog closes only then. */
+  onDelete: (commentId: string, onDeleted: () => void) => void
 }
 
 /** Threaded discussion: one nesting level, edit-own, soft-delete placeholders. */
@@ -32,6 +40,9 @@ export function CommentsThread({
   userNames,
   canDeleteOthers,
   readOnly = false,
+  addPending = false,
+  editPending = false,
+  deletePending = false,
   onAdd,
   onEdit,
   onDelete,
@@ -48,9 +59,13 @@ export function CommentsThread({
           title={strings.comments.deleteConfirmTitle}
           body={strings.comments.deleteConfirmBody}
           confirmLabel={strings.comments.deleteConfirm}
+          loading={deletePending}
           onConfirm={() => {
-            onDelete(confirmDeleteId)
-            setConfirmDeleteId(null)
+            // Stay open (with a spinning confirm) until the delete settles, so
+            // a slow round-trip can't be re-clicked and errors keep the dialog.
+            onDelete(confirmDeleteId, () => {
+              setConfirmDeleteId(null)
+            })
           }}
           onClose={() => {
             setConfirmDeleteId(null)
@@ -70,6 +85,7 @@ export function CommentsThread({
               userNames={userNames}
               canDeleteOthers={canDeleteOthers}
               readOnly={readOnly}
+              editPending={editPending}
               onEdit={onEdit}
               onDelete={setConfirmDeleteId}
               onReply={() => {
@@ -85,6 +101,7 @@ export function CommentsThread({
                   userNames={userNames}
                   canDeleteOthers={canDeleteOthers}
                   readOnly={readOnly}
+                  editPending={editPending}
                   onEdit={onEdit}
                   onDelete={setConfirmDeleteId}
                   onReply={() => {
@@ -97,6 +114,7 @@ export function CommentsThread({
                   label={strings.comments.replyComposerLabel}
                   submitLabel={strings.comments.postReplyButton}
                   submitHint={strings.tooltips.postReply}
+                  pending={addPending}
                   onSubmit={(body, onPosted) => {
                     onAdd(body, comment.id, () => {
                       onPosted()
@@ -114,6 +132,7 @@ export function CommentsThread({
           label={strings.comments.composerLabel}
           submitLabel={strings.comments.postButton}
           submitHint={strings.tooltips.comment}
+          pending={addPending}
           onSubmit={(body, onPosted) => {
             onAdd(body, null, onPosted)
           }}
@@ -129,7 +148,9 @@ interface CommentItemProps {
   userNames: Map<string, string>
   canDeleteOthers: boolean
   readOnly: boolean
-  onEdit: (commentId: string, body: string) => void
+  /** True while an edit PATCH is in flight — spins this Save if it submitted. */
+  editPending: boolean
+  onEdit: (commentId: string, body: string, onEdited: () => void) => void
   onDelete: (commentId: string) => void
   onReply: () => void
 }
@@ -140,13 +161,30 @@ function CommentItem({
   userNames,
   canDeleteOthers,
   readOnly,
+  editPending,
   onEdit,
   onDelete,
   onReply,
 }: CommentItemProps) {
   const [editing, setEditing] = useState(false)
+  // Tracks that THIS item's Save was clicked, so a shared editPending spins
+  // only the submitting editor — never another comment's open editor.
+  const [submitted, setSubmitted] = useState(false)
   const [draft, setDraft] = useState(comment.body)
   const timezone = useUserTimezone()
+
+  // A shared editPending spins the Save only while THIS editor is the one
+  // submitting. Clear the flag on the pending true→false edge (the request
+  // settled) — not on a bare `!editPending`, which would fire in the same
+  // commit as the click (before the parent's isPending has propagated) and
+  // cancel the spinner immediately. Success closes via onEdited; a failed Save
+  // just stops spinning without losing the draft.
+  const wasEditPending = useRef(editPending)
+  useEffect(() => {
+    if (wasEditPending.current && !editPending) setSubmitted(false)
+    wasEditPending.current = editPending
+  }, [editPending])
+
   const deleted = comment.deletedAt !== null
   // Editing is identity, not policy (ADR-013); deleting others' is gated.
   const own = comment.authorId === currentUserId
@@ -189,10 +227,15 @@ function CommentItem({
               size="xs"
               tooltip={strings.tooltips.saveCommentEdit}
               leftSection={<Save size={14} aria-hidden />}
+              loading={submitted && editPending}
               onClick={() => {
                 if (draft.trim() === '') return
-                onEdit(comment.id, draft.trim())
-                setEditing(false)
+                // Stay open with a spinning Save; close only once the PATCH
+                // succeeds (onEdited), so a failed edit keeps the draft.
+                setSubmitted(true)
+                onEdit(comment.id, draft.trim(), () => {
+                  setEditing(false)
+                })
               }}
             >
               {strings.comments.saveEdit}
@@ -269,6 +312,7 @@ function Composer({
   label,
   submitLabel,
   submitHint,
+  pending,
   onSubmit,
 }: {
   label: string
@@ -277,9 +321,22 @@ function Composer({
   submitLabel: string
   /** Always-on hint for the submit button, distinct per composer. */
   submitHint: string
+  /** True while any add/reply POST is in flight (the hook is shared). */
+  pending: boolean
   onSubmit: (body: string, onPosted: () => void) => void
 }) {
   const [body, setBody] = useState('')
+  // The add hook is shared by the top-level and reply composers, so `pending`
+  // is global; `submitted` scopes the spinner to the composer that fired.
+  // Clear it on the pending true→false edge (the request settled), not on a
+  // bare `!pending` — that fires in the same commit as the click, before the
+  // parent's isPending has propagated, and would cancel the spinner at once.
+  const [submitted, setSubmitted] = useState(false)
+  const wasPending = useRef(pending)
+  useEffect(() => {
+    if (wasPending.current && !pending) setSubmitted(false)
+    wasPending.current = pending
+  }, [pending])
   return (
     <Stack gap="xs">
       <Textarea
@@ -297,7 +354,9 @@ function Composer({
           size="xs"
           tooltip={submitHint}
           disabledReason={body.trim() === '' ? strings.tooltips.disabledEmptyComment : undefined}
+          loading={submitted && pending}
           onClick={() => {
+            setSubmitted(true)
             // Cleared only once the POST succeeds — a failure keeps the draft.
             onSubmit(body.trim(), () => {
               setBody('')

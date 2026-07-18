@@ -304,6 +304,9 @@ function CardPanelBody({ cardId }: { cardId: string }) {
             userNames={userNames}
             canDeleteOthers={canDeleteOthersComments}
             readOnly={archived}
+            addPending={addComment.isPending}
+            editPending={editComment.isPending}
+            deletePending={deleteComment.isPending}
             onAdd={(body, parentCommentId, onPosted) => {
               addComment.mutate(
                 {
@@ -313,11 +316,11 @@ function CardPanelBody({ cardId }: { cardId: string }) {
                 { onSuccess: onPosted },
               )
             }}
-            onEdit={(commentId, body) => {
-              editComment.mutate({ commentId, input: { body } })
+            onEdit={(commentId, body, onEdited) => {
+              editComment.mutate({ commentId, input: { body } }, { onSuccess: onEdited })
             }}
-            onDelete={(commentId) => {
-              deleteComment.mutate(commentId)
+            onDelete={(commentId, onDeleted) => {
+              deleteComment.mutate(commentId, { onSuccess: onDeleted })
             }}
           />
         </Tabs.Panel>
