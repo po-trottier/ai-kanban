@@ -61,9 +61,6 @@ export const SIZES = {
   cardPanelMinBoardVisible: 140,
 } as const
 
-/** The viewport below which the card panel goes full-screen (matches <=62em). */
-export const CARD_PANEL_FULLSCREEN_BREAKPOINT = '62em'
-
 export const theme = createTheme({
   primaryColor: 'indigo',
   // Mantine 9 defaults, pinned explicitly as the screenshot-audit baseline.

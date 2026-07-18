@@ -9,6 +9,7 @@ import {
 import { announce } from '@atlaskit/pragmatic-drag-and-drop-live-region'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useCallback, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Outlet, useNavigate } from 'react-router'
 import { isEmptyFilter, useBoard, useCardAction } from '../api/board.ts'
 import { isWaitingLane, laneKeyOfCard, type MoveIntent } from '../api/board-cache.ts'
@@ -18,6 +19,7 @@ import { useUndoableBoard } from '../undo/use-undoable-board.ts'
 import { utcToday } from '../lib/format.ts'
 import { BoardSkeleton } from '../shell/BoardSkeleton.tsx'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
+import { useFilterBarSlot } from '../shell/filter-bar-slot.ts'
 import { strings } from '../strings.ts'
 import { Board } from './Board.tsx'
 import { FilterBar } from './FilterBar.tsx'
@@ -43,6 +45,8 @@ type ModalState =
 export function BoardPage() {
   const navigate = useNavigate()
   const me = useCurrentUser()
+  // The shell's full-width strip the filter bar portals into (#128).
+  const filterSlot = useFilterBarSlot()
   // The live filter the bar edits; the DEBOUNCED value drives the fetch so a
   // burst of facet/text edits collapses into one `POST /board/query`.
   const [filter, setFilter] = useState<BoardFilter>(EMPTY_BOARD_FILTER)
@@ -195,14 +199,24 @@ export function BoardPage() {
 
   return (
     <>
-      <FilterBar
-        filter={filter}
-        onChange={setFilter}
-        users={usersQuery.data}
-        tags={(tagsQuery.data ?? []).map((tag) => tag.name)}
-        locations={locationsQuery.data ?? []}
-        currentUserId={me.id}
-      />
+      {/* The filter bar renders into the shell's full-width strip ABOVE the
+          board+detail-panel row (#128), so opening/resizing the panel squeezes
+          only the board below it, never the bar. It stays in BoardPage's render
+          tree (a portal, not a lifted element) so `filter` state flows normally.
+          Until AppLayout's slot node attaches, there is nowhere to portal yet. */}
+      {filterSlot !== null
+        ? createPortal(
+            <FilterBar
+              filter={filter}
+              onChange={setFilter}
+              users={usersQuery.data}
+              tags={(tagsQuery.data ?? []).map((tag) => tag.name)}
+              locations={locationsQuery.data ?? []}
+              currentUserId={me.id}
+            />,
+            filterSlot,
+          )
+        : null}
       {board === undefined || boardQuery.error !== null ? (
         boardQuery.error !== null ? (
           <ErrorAlert error={boardQuery.error} fallbackMessage={strings.board.loadFailed} />

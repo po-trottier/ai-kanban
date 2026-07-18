@@ -154,24 +154,35 @@ The SPA renders the filter as a **filter bar** below the header and above the bo
 `/search` page (both removed). It holds no server state of its own — it is a controlled view of one
 `BoardFilter` in `BoardPage` state.
 
+- **Placement (#128).** The bar sits in a **full-width strip ABOVE the board+detail-panel row**, not
+  inside the region the resizable detail panel squeezes. The shell (`shell/AppLayout.tsx`) lays
+  `AppShell.Main` out as a column: a fixed `filterSlot` strip on top, then a flex row of the board
+  (flexible) + the docked detail panel (a fixed, draggable-width `aside`). `BoardPage` renders its
+  `<FilterBar>` into that strip via a **React portal** (`shell/filter-bar-slot.ts` bridges the mount
+  node; the bar stays in `BoardPage`'s render tree so `filter` state flows normally). Because only the
+  board row is a flex sibling of the panel, opening or resizing the panel squeezes the board — the
+  filter bar above never shrinks or reflows. The panel goes full-screen below the `62em` breakpoint
+  (CSS media query on `.panelColumn`).
 - **Layout.** The bar is a single wrapping row laid out in **three zones**: the text search (left) ·
-  the facet group **centered** in the flexible middle (a `flex:1` wrapper with
-  `justify-content:center`) · right-aligned **presets + Reset**. The centered facet group keeps its
-  deliberately ordered, `Divider`-separated sections: **attributes** (Status, Priority) · **people**
-  (Assignee, Reporter) · **classification** (Tags, Location) · **scope** (Scope, Overdue). The
-  section-divider height is a theme token (`filterSectionHeight`), the field widths are
-  `filterQueryWidth`/`filterPillWidth` (ADR-016 rule 1). Each pill facet uses a **fixed** width (plus a
-  single-row, overflow-clipped `pillsList` via the Styles API) so selecting or clearing values never
-  resizes the control or reflows the bar.
-- **Controls.** Every any-of facet — Status, Priority, and the high-cardinality assignee / reporter /
-  tags / location — is a `MultiSelect` pill combobox (selected values render as compact pills,
-  keeping the bar dense); the Priority options render each code + plain-language name + P0/P1/P2
-  description via `renderOption` (the same `strings.priorityOptions` the card priority Select shows).
-  The single-value facets (`scope`, the `overdue` toggle) are `SegmentedControl`s; a text `q` input
-  and a text **"Reset filters"** `Button` (subtle, leading `RotateCcw` glyph, at the far right after
-  the presets) complete the bar. The bar is **placeholder-only** — no visible
-  field labels — so every control carries a `placeholder` for the visible cue and an `aria-label` for
-  its accessible name (convention #104), plus a `Tooltip`, per the repo convention.
+  the facet group **centered** in the flexible middle (a `flex:1` wrapper with `justify-content:center`
+  and `min-width:0` so it wraps rather than overflows) · right-aligned **presets + Reset**. The
+  centered facet group keeps its deliberately ordered, `Divider`-separated sections: **attributes**
+  (Priority) · **people** (Assignee, Reporter) · **classification** (Tags, Location) · **scope**
+  (Scope, Overdue). The section-divider height is a theme token (`filterSectionHeight`), the field
+  widths are `filterQueryWidth`/`filterPillWidth` (ADR-016 rule 1). Each pill facet uses a **fixed**
+  width (plus a single-row, overflow-clipped `pillsList` via the Styles API) so selecting or clearing
+  values never resizes the control or reflows the bar. The bar is **responsive** across desktop
+  widths: the inner `Group` wraps (`wrap="wrap"`) and the strip caps to `max-inline-size:100%`, so
+  there is no horizontal overflow/clipping at common resolutions (1280–2560); mobile is out of scope.
+- **Controls.** Every any-of facet — Priority and the high-cardinality assignee / reporter / tags /
+  location — is a `MultiSelect` pill combobox (selected values render as compact pills, keeping the
+  bar dense); the Priority options render each code + plain-language name + P0/P1/P2 description via
+  `renderOption` (the same `strings.priorityOptions` the card priority Select shows). The single-value
+  facets (`scope`, the `overdue` toggle) are `SegmentedControl`s; a text `q` input and a text **"Reset
+  filters"** `Button` (subtle, leading `RotateCcw` glyph, at the far right after the presets) complete
+  the bar. The bar is **placeholder-only** — no visible field labels — so every control carries a
+  `placeholder` for the visible cue and an `aria-label` for its accessible name (convention #104),
+  plus a `Tooltip`, per the repo convention.
 - **Fetching.** `BoardPage` debounces the live filter (`useDebouncedValue`, 300 ms) and drives
   `useBoard(filter)` (`api/board.ts`): the empty filter takes the hot `GET /board` path, any non-empty
   filter posts to `POST /board/query`. Each filter is its own TanStack query, keyed

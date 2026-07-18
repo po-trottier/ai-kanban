@@ -1,6 +1,12 @@
 /* The board filter bar: three zones (search · facets · presets) on one wrapping
-   row between the header and the board. Token-only values (ADR-016 rule 1). */
+   row. It renders into the shell's FULL-WIDTH strip above the board+detail-panel
+   row (#128), so it spans the whole width and is unaffected by the panel. Its
+   inner Group wraps across desktop widths (no horizontal overflow at 1280–2560).
+   Token-only values (ADR-016 rule 1). */
 .bar {
+  /* Never let the fixed-width zones force a horizontal scrollbar: cap to the
+     strip width and let the inner Group wrap instead. */
+  max-inline-size: 100%;
   padding-block-end: var(--mantine-spacing-sm);
   border-bottom: 1px solid var(--mantine-color-default-border);
   margin-block-end: var(--mantine-spacing-sm);
@@ -18,6 +24,9 @@
    read as centered rather than left-hugging. Wraps gracefully on narrow widths. */
 .center {
   flex: 1 1 auto;
+  /* min-width:0 lets this flex child shrink below its content so the inner facet
+     Group WRAPS instead of overflowing the strip on narrower desktops. */
+  min-width: 0;
   display: flex;
   justify-content: center;
 }

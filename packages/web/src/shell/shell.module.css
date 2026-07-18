@@ -31,7 +31,8 @@
   filter: none;
 }
 
-/* The board page owns its scrolling; the main area pins to the viewport. */
+/* The main area pins to the viewport as a column: a full-width filter-bar strip
+   on top, then the board+detail-panel row that fills the rest. */
 .main {
   height: 100vh;
   display: flex;
@@ -43,13 +44,51 @@
   min-height: 0;
 }
 
-/* The docked card panel: no padding (the panel owns its own), full height so
-   its body can scroll independently of the board (Main) beside it. Mantine's
-   Aside is already position:fixed — DO NOT override it (that drops it out of
-   the dock into normal flow, below the board). The fixed Aside is itself the
-   positioning context the resize handle pins to. */
-.aside {
-  padding: 0;
+/* Full-width filter-bar strip (#128): the board's filter bar portals in here, so
+   it spans the whole width ABOVE the board+panel row and never shrinks/reflows
+   when the panel opens or is resized (the panel squeezes the board row, not this).
+   Fixed height (its own content), so the board row owns the remaining space. */
+.filterSlot {
+  flex: 0 0 auto;
+}
+
+/* The board + detail-panel row: the board fills the flexible left, the panel
+   docks to its right. Only THIS row is squeezed by the panel. */
+.boardRow {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* The board area owns its own horizontal/vertical scrolling; it shrinks as the
+   panel widens (min-width:0 lets a flex child shrink below its content width). */
+.boardArea {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The docked card panel column: a fixed (draggable) width on the right, full
+   height so its body scrolls independently of the board beside it. Its own
+   positioning context for the absolutely-pinned resize handle. */
+.panelColumn {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: 0;
+  border-left: 1px solid var(--mantine-color-default-border);
+  overflow: hidden;
+}
+
+/* Below the breakpoint the panel goes FULL-SCREEN (the board row is too narrow
+   to share): it takes the whole board row and the board hides behind it. Matches
+   the resize handle's hidden state below. */
+@media (max-width: 62em) {
+  .panelColumn {
+    flex: 1 1 100%;
+    width: 100% !important;
+    border-left: none;
+  }
 }
 
 /* Drag handle on the panel's left edge: a thin grab strip that highlights on
@@ -71,8 +110,8 @@
   outline: none;
 }
 
-/* Matches CARD_PANEL_FULLSCREEN_BREAKPOINT (theme.ts): the panel is full-width
-   below it, so there is nothing to resize. */
+/* Below the full-screen breakpoint the panel is full-width, so there is nothing
+   to resize (mirrors the .panelColumn full-screen rule above). */
 @media (max-width: 62em) {
   .resizeHandle {
     display: none;
