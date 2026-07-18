@@ -14,6 +14,15 @@ import { renderWithProviders } from '../test/render.tsx'
 import { UsersAdmin } from './UsersAdmin.tsx'
 
 describe('UsersAdmin', () => {
+  it('shows skeleton rows while the users list is still loading', () => {
+    // Arrange — a fetch that never resolves keeps the query pending.
+    const hangingFetch = () => new Promise<Response>(() => undefined)
+    // Act
+    renderWithProviders(<UsersAdmin />, { fetchFn: hangingFetch })
+    // Assert — the ghost rows announce loading instead of a blank table body.
+    expect(screen.getByRole('status', { name: 'Loading…' })).toBeInTheDocument()
+  })
+
   it('lists active users with their emails and roles', async () => {
     // Arrange — role options are derived from the active policy's roles.
     const fake = createFakeFetch({

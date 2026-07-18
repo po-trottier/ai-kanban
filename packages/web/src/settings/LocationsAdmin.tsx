@@ -1,5 +1,15 @@
 import { LOCATION_KINDS, type Location, type LocationKind } from '@rivian-kanban/core'
-import { ActionIcon, Box, Group, Modal, Stack, Text, TextInput, Tooltip } from '@mantine/core'
+import {
+  ActionIcon,
+  Box,
+  Group,
+  Modal,
+  Skeleton,
+  Stack,
+  Text,
+  TextInput,
+  Tooltip,
+} from '@mantine/core'
 import { DoorClosed, Layers, Pencil, Plus, Save, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useCreateLocation, useDeleteLocation, useRenameLocation } from '../api/admin.ts'
@@ -105,7 +115,15 @@ export function LocationsAdmin() {
         ) : null}
       </Group>
 
-      {tree.length === 0 ? (
+      {locations.isPending ? (
+        // Ghost rows preserve the tree's layout instead of flashing the
+        // "no locations yet" empty state before the fetch settles.
+        <Stack gap="sm" role="status" aria-label={strings.common.loading} aria-busy>
+          <Skeleton height="1.75rem" radius="sm" />
+          <Skeleton height="1.75rem" radius="sm" w="90%" ml="lg" />
+          <Skeleton height="1.75rem" radius="sm" w="80%" ml="xl" />
+        </Stack>
+      ) : tree.length === 0 ? (
         <EmptyState
           onAdd={() => {
             openAdd(null)

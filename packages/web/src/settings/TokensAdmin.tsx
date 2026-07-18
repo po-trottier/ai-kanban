@@ -14,6 +14,7 @@ import { formatDateTime } from '../lib/format.ts'
 import { ConfirmModal } from '../shell/ConfirmModal.tsx'
 import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { HintButton } from '../shell/HintButton.tsx'
+import { SkeletonRows } from '../shell/SkeletonRows.tsx'
 import { strings } from '../strings.ts'
 import { RevealOnceModal } from './RevealOnceModal.tsx'
 import { useRoleLabel, useRoleOptions } from './role-select-data.ts'
@@ -63,6 +64,7 @@ export function TokensAdmin() {
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
+          {tokens.isPending ? <SkeletonRows cols={5} /> : null}
           {tokens.data?.length === 0 ? (
             <Table.Tr>
               <Table.Td colSpan={5}>

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useCreateUser, usePatchUser } from '../api/admin.ts'
 import { useUsers } from '../api/meta.ts'
 import { HintButton } from '../shell/HintButton.tsx'
+import { SkeletonRows } from '../shell/SkeletonRows.tsx'
 import { strings } from '../strings.ts'
 import { RevealOnceModal } from './RevealOnceModal.tsx'
 import { useRoleOptions } from './role-select-data.ts'
@@ -48,6 +49,7 @@ export function UsersAdmin() {
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
+          {users.isPending ? <SkeletonRows cols={4} /> : null}
           {(users.data ?? []).map((user) => (
             <Table.Tr key={user.id}>
               <Table.Td>

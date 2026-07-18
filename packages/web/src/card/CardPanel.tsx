@@ -4,8 +4,8 @@ import {
   Badge,
   Divider,
   Group,
-  Loader,
   Select,
+  Skeleton,
   Stack,
   Tabs,
   Text,
@@ -199,11 +199,7 @@ function CardPanelBody({ cardId }: { cardId: string }) {
   const deleteAttachment = useDeleteAttachment(cardId)
 
   if (detailQuery.isPending) {
-    return (
-      <Group justify="center" p="xl" aria-label={strings.common.loading} aria-busy>
-        <Loader />
-      </Group>
-    )
+    return <CardPanelSkeleton />
   }
   if (detailQuery.data === undefined) {
     return <ErrorAlert error={detailQuery.error} fallbackMessage={strings.detail.loadFailed} />
@@ -337,6 +333,27 @@ function CardPanelBody({ cardId }: { cardId: string }) {
           />
         </Tabs.Panel>
       </Tabs>
+    </Stack>
+  )
+}
+
+/**
+ * Ghosts the panel body's eventual shape — a status row, the three tabs, and a
+ * few field rows — so opening a card shows its layout instead of a bare spinner
+ * that blanks the whole Aside while the detail/comments/events load.
+ */
+function CardPanelSkeleton() {
+  return (
+    <Stack gap="md" role="status" aria-label={strings.common.loading} aria-busy>
+      <Skeleton height="1.5rem" width="40%" radius="sm" />
+      <Group gap="xs">
+        <Skeleton height="2rem" width="8rem" radius="sm" />
+        <Skeleton height="2rem" width="8rem" radius="sm" />
+        <Skeleton height="2rem" width="8rem" radius="sm" />
+      </Group>
+      <Skeleton height="2.25rem" radius="sm" />
+      <Skeleton height="6rem" radius="sm" />
+      <Skeleton height="2.25rem" radius="sm" />
     </Stack>
   )
 }

@@ -6,6 +6,7 @@ import { useBoard } from '../api/board.ts'
 import { type LaneSnapshot } from '../api/schemas.ts'
 import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { HintButton } from '../shell/HintButton.tsx'
+import { SkeletonRows } from '../shell/SkeletonRows.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
 
@@ -28,6 +29,7 @@ export function LanesAdmin() {
         </Table.Tr>
       </Table.Thead>
       <Table.Tbody>
+        {board.isPending ? <SkeletonRows rows={7} cols={3} /> : null}
         {(board.data?.lanes ?? []).map((snapshot) => (
           <LaneRow key={snapshot.lane.id} snapshot={snapshot} />
         ))}

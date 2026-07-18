@@ -39,6 +39,22 @@ function panelApp(extra: Record<string, unknown> = {}): FakeFetch {
 }
 
 describe('CardPanel', () => {
+  it('shows a skeleton body while the card detail is still loading', async () => {
+    // Arrange — the board/policy resolve, but the card detail fetch hangs so
+    // the panel body stays pending (its skeleton, not a blank Aside).
+    const fake = panelApp()
+    const fetchFn = (input: string, init?: RequestInit) =>
+      input.split('?')[0] === `/api/v1/cards/${String(card.id)}`
+        ? new Promise<Response>(() => undefined)
+        : fake.fetch(input, init)
+    // Act
+    renderApp({ fetchFn, route: `/cards/${String(card.id)}` })
+    // Assert — the panel opened and its body announces loading via the skeleton.
+    await screen.findByRole('dialog', { name: /Card details/ })
+    expect(screen.getByRole('status', { name: 'Loading…' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: /Title/ })).not.toBeInTheDocument()
+  })
+
   it('titles the drawer with the card title and its priority badge', async () => {
     // Arrange
     const fake = panelApp()
