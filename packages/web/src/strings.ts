@@ -547,6 +547,12 @@ export const strings = {
     waitingOverdueNote: 'This card is overdue — pick a new expected resume date.',
   },
 
+  /** The async assignee/reporter pickers (search the server, never load all users). */
+  userPicker: {
+    /** Shown in the dropdown when a search returns no matching users. */
+    nothingFound: 'No matching users',
+  },
+
   estimateUnits: {
     minutes: 'Minutes',
     hours: 'Hours',

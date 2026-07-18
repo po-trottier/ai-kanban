@@ -1,30 +1,50 @@
 import { EMPTY_BOARD_FILTER, type BoardFilter } from '@rivian-kanban/core'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { createFakeFetch } from '../test/fake-fetch.ts'
-import { fixturePickerUsers, fixtureTech, uid } from '../test/fixtures.ts'
+import { createFakeFetch, type FakeRouteResult } from '../test/fake-fetch.ts'
+import { fixtureAdmin, fixturePickerUsers, fixtureTech, uid } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import { FilterBar } from './FilterBar.tsx'
 
-/** The presets combobox inside the bar fetches on mount; give it an empty list. */
-const presetRoutes = { 'GET /api/v1/filter-presets': [] }
+/**
+ * The presets combobox fetches on mount, and the assignee/reporter pickers are
+ * ASYNC — they hit `GET /users/search` (`?q=` free-text, `?ids=` to resolve the
+ * already-selected pills). The fake fetch keys on path only, so one handler
+ * splits the two search legs by inspecting the URL's query string.
+ */
+function userSearchHandler(_init: RequestInit | undefined, url: string): FakeRouteResult {
+  const query = new URLSearchParams(url.split('?')[1] ?? '')
+  const ids = query.get('ids')
+  if (ids !== null) {
+    // `?ids=` resolves an explicit set — return exactly the requested users.
+    const wanted = new Set(ids.split(','))
+    return fixturePickerUsers.filter((user) => wanted.has(user.id))
+  }
+  // `?q=` free-text: case-insensitive substring over the display name.
+  const q = (query.get('q') ?? '').toLowerCase()
+  return fixturePickerUsers.filter((user) => user.displayName.toLowerCase().includes(q))
+}
+
+const baseRoutes = {
+  'GET /api/v1/filter-presets': [],
+  'GET /api/v1/users/search': userSearchHandler,
+}
 
 function renderBar(filter: BoardFilter = EMPTY_BOARD_FILTER) {
   const onChange = vi.fn()
-  const fake = createFakeFetch(presetRoutes)
+  const fake = createFakeFetch(baseRoutes)
   renderWithProviders(
     <FilterBar
       filter={filter}
       onChange={onChange}
-      users={fixturePickerUsers}
       tags={['HVAC', 'urgent']}
       locations={[{ id: uid(300), parentId: null, name: 'Building A', kind: 'building' }]}
       currentUserId={fixtureTech.id}
     />,
     { fetchFn: fake.fetch },
   )
-  return { onChange }
+  return { onChange, fake }
 }
 
 describe('FilterBar', () => {
@@ -62,17 +82,49 @@ describe('FilterBar', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ overdue: true }))
   })
 
-  it('adds an assignee through the multi-select combobox', async () => {
+  it('async-searches the server for an assignee and picks a match', async () => {
     // Arrange
     const user = userEvent.setup()
-    const { onChange } = renderBar()
-    // Act — open the Assignee multi-select and pick a user.
+    const { onChange, fake } = renderBar()
+    // Act — open the Assignee picker and TYPE: this queries `/users/search?q=`
+    // (never loading the whole roster) and shows the matching option.
     await user.click(screen.getByRole('combobox', { name: 'Assignee' }))
+    await user.type(screen.getByRole('combobox', { name: 'Assignee' }), 'Terry')
+    // The 275ms debounce fires the `q=Terry` request AFTER typing stops; the
+    // option list is meanwhile already populated by the empty-`q` search, so
+    // wait for the specific request rather than racing the debounce.
+    await waitFor(() => {
+      expect(
+        fake.calls.some(
+          (call) => call.url.includes('/users/search') && call.url.includes('q=Terry'),
+        ),
+      ).toBe(true)
+    })
     await user.click(await screen.findByRole('option', { name: fixtureTech.displayName }))
-    // Assert
+    // Assert — the pick updated the filter to the matched assignee.
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ assigneeIds: [fixtureTech.id] }),
     )
+  })
+
+  it('resolves a pre-selected assignee id to its name via the ids endpoint', async () => {
+    // Arrange — a filter with an assignee already selected (its pill must show a
+    // NAME even though nothing has been searched: the picker resolves it by id).
+    const filter = { ...EMPTY_BOARD_FILTER, assigneeIds: [fixtureAdmin.id] }
+    // Act — render the bar with that pre-selected id.
+    const { fake } = renderBar(filter)
+    // Assert — the resolve leg (`?ids=`) fired and the pill carries the name.
+    await waitFor(() => {
+      expect(
+        fake.calls.some(
+          (call) =>
+            call.url.includes('/users/search') && call.url.includes(`ids=${fixtureAdmin.id}`),
+        ),
+      ).toBe(true)
+    })
+    // The resolved name renders (as the selected pill, and possibly a dropdown
+    // option) — a NAME, never the raw id. `findAll` since it can appear twice.
+    expect((await screen.findAllByText(fixtureAdmin.displayName)).length).toBeGreaterThan(0)
   })
 
   it('adds a tag through the multi-select combobox (any-of)', async () => {

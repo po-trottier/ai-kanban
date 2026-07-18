@@ -19,6 +19,7 @@ function settingsApp(extra: Record<string, unknown> = {}) {
     'GET /api/v1/board': makeBoard({}),
     'GET /api/v1/policy': policyRecordOf(permissivePolicy),
     'GET /api/v1/users': fixturePickerUsers,
+    'GET /api/v1/users/search': fixturePickerUsers,
     'GET /api/v1/locations': [],
     'GET /api/v1/tags': [],
     'GET /api/v1/service-tokens': [],

@@ -6,6 +6,7 @@ import {
   jsonResponse,
   problemResponse,
   type FakeFetch,
+  type FakeRouteResult,
 } from '../test/fake-fetch.ts'
 import {
   fixtureAdmin,
@@ -20,6 +21,18 @@ import {
 import { renderApp } from '../test/render.tsx'
 import { type Card } from '@rivian-kanban/core'
 
+/** The filter bar's async assignee/reporter pickers hit `GET /users/search`. */
+function userSearchHandler(_init: RequestInit | undefined, url: string): FakeRouteResult {
+  const query = new URLSearchParams(url.split('?')[1] ?? '')
+  const ids = query.get('ids')
+  if (ids !== null) {
+    const wanted = new Set(ids.split(','))
+    return fixturePickerUsers.filter((user) => wanted.has(user.id))
+  }
+  const q = (query.get('q') ?? '').toLowerCase()
+  return fixturePickerUsers.filter((user) => user.displayName.toLowerCase().includes(q))
+}
+
 function boardApp(
   cards: { ready?: Card[]; intake?: Card[] },
   extra: Record<string, unknown> = {},
@@ -29,6 +42,7 @@ function boardApp(
     'GET /api/v1/board': makeBoard(cards),
     'GET /api/v1/policy': policyRecordOf(permissivePolicy),
     'GET /api/v1/users': fixturePickerUsers,
+    'GET /api/v1/users/search': userSearchHandler,
     'GET /api/v1/locations': [],
     'GET /api/v1/tags': [],
     'GET /api/v1/filter-presets': [],
@@ -279,6 +293,7 @@ describe('BoardPage card actions', () => {
       'GET /api/v1/board': makeBoard({ done: [done], intake: [live] }),
       'GET /api/v1/policy': policyRecordOf(permissivePolicy),
       'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': userSearchHandler,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
       [`POST /api/v1/cards/${String(done.id)}/archive`]: jsonResponse({
@@ -308,6 +323,7 @@ describe('BoardPage card actions', () => {
       'GET /api/v1/board': () => problemResponse(500, { title: 'Database unavailable' }),
       'GET /api/v1/policy': policyRecordOf(permissivePolicy),
       'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': userSearchHandler,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
     })
@@ -349,6 +365,7 @@ describe('BoardPage card actions', () => {
       'GET /api/v1/board': makeBoard({ intake: [card] }),
       'GET /api/v1/policy': policyRecordOf(gatedPolicy),
       'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': userSearchHandler,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
     })

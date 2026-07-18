@@ -11,7 +11,7 @@ describe('NewCardButton', () => {
     // Arrange
     const user = userEvent.setup()
     const fake = createFakeFetch({
-      'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': fixturePickerUsers,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
       'POST /api/v1/cards': makeCard('intake', { title: 'Broken door' }),
@@ -49,7 +49,7 @@ describe('NewCardButton', () => {
       deletedAt: null,
     }
     const fake = createFakeFetch({
-      'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': fixturePickerUsers,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
       'POST /api/v1/cards': card,
@@ -81,7 +81,7 @@ describe('NewCardButton', () => {
     // Arrange
     const user = userEvent.setup()
     const fake = createFakeFetch({
-      'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': fixturePickerUsers,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
     })

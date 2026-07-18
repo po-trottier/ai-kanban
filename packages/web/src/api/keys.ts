@@ -16,6 +16,10 @@ export const queryKeys = {
   boardQuery: (filter: BoardFilter) => ['board', filter] as const,
   policy: ['policy'] as const,
   users: ['users'] as const,
+  /** Async user-picker search: one entry per query text (short-lived cache). */
+  userSearch: (q: string) => ['users', 'search', q] as const,
+  /** Resolve an explicit set of ids to picker shapes (selected-value labels). */
+  userResolve: (ids: readonly string[]) => ['users', 'resolve', [...ids].sort()] as const,
   locations: ['locations'] as const,
   tags: ['tags'] as const,
   filterPresets: ['filter-presets'] as const,

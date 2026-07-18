@@ -5,7 +5,6 @@ import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { type z } from 'zod'
-import { type PickerUser } from '../api/schemas.ts'
 import { cardFieldsControl } from '../card/card-fields.ts'
 import { CardFieldInputs } from '../card/CardFieldInputs.tsx'
 import { HintButton } from '../shell/HintButton.tsx'
@@ -15,7 +14,6 @@ import { NewCardAttachments } from './NewCardAttachments.tsx'
 type NewCardValues = z.input<typeof createCardInputSchema>
 
 export interface NewCardModalProps {
-  users: PickerUser[]
   locations: Location[]
   knownTags: string[]
   submitting: boolean
@@ -26,7 +24,6 @@ export interface NewCardModalProps {
 
 /** "New card" — lands in Intake; validated by the shared core schema. */
 export function NewCardModal({
-  users,
   locations,
   knownTags,
   submitting,
@@ -57,7 +54,6 @@ export function NewCardModal({
               title: form.formState.errors.title?.message,
               estimateMinutes: form.formState.errors.estimateMinutes?.message,
             }}
-            users={users}
             locations={locations}
             knownTags={knownTags}
             // The create command omits cleared optionals (core schema `.optional()`).

@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useCreateCard } from '../api/board.ts'
 import { useUploadNewCardAttachment } from '../api/card.ts'
-import { useLocations, useTags, useUsers } from '../api/meta.ts'
+import { useLocations, useTags } from '../api/meta.ts'
 import { notifyError } from '../api/notify.ts'
 import { NewCardModal } from '../board/NewCardModal.tsx'
 import { HintButton } from './HintButton.tsx'
@@ -13,7 +13,6 @@ import { strings } from '../strings.ts'
 export function NewCardButton() {
   const [open, setOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const users = useUsers()
   const locations = useLocations()
   const tags = useTags()
   const createCard = useCreateCard()
@@ -58,7 +57,6 @@ export function NewCardButton() {
       </HintButton>
       {open ? (
         <NewCardModal
-          users={users.data ?? []}
           locations={locations.data ?? []}
           knownTags={(tags.data ?? []).map((tag) => tag.name)}
           submitting={createCard.isPending || uploading}

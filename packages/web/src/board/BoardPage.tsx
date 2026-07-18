@@ -209,7 +209,6 @@ export function BoardPage() {
             <FilterBar
               filter={filter}
               onChange={setFilter}
-              users={usersQuery.data}
               tags={(tagsQuery.data ?? []).map((tag) => tag.name)}
               locations={locationsQuery.data ?? []}
               currentUserId={me.id}

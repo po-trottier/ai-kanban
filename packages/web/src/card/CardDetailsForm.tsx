@@ -5,7 +5,7 @@ import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { type z } from 'zod'
-import { type CardDetailResponse, type PickerUser } from '../api/schemas.ts'
+import { type CardDetailResponse } from '../api/schemas.ts'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { HintButton } from '../shell/HintButton.tsx'
@@ -20,7 +20,6 @@ export type CardFieldChanges = Omit<UpdateCardInput, 'expectedVersion'>
 
 export interface CardDetailsFormProps {
   detail: CardDetailResponse
-  users: PickerUser[]
   locations: Location[]
   knownTags: string[]
   saving: boolean
@@ -32,7 +31,6 @@ export interface CardDetailsFormProps {
 /** In-place field editing with the shared core schema as the resolver. */
 export function CardDetailsForm({
   detail,
-  users,
   locations,
   knownTags,
   saving,
@@ -75,7 +73,6 @@ export function CardDetailsForm({
             title: form.formState.errors.title?.message,
             estimateMinutes: form.formState.errors.estimateMinutes?.message,
           }}
-          users={users}
           reporterId={card.reporterId}
           locations={locations}
           knownTags={knownTags}

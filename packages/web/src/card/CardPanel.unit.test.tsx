@@ -1,7 +1,12 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { createFakeFetch, problemResponse, type FakeFetch } from '../test/fake-fetch.ts'
+import {
+  createFakeFetch,
+  problemResponse,
+  type FakeFetch,
+  type FakeRouteResult,
+} from '../test/fake-fetch.ts'
 import {
   fixtureAdmin,
   fixturePickerUsers,
@@ -18,12 +23,25 @@ import { renderApp } from '../test/render.tsx'
 
 const card = makeCard('ready', { title: 'Fix pump', description: 'It leaks', version: 4 })
 
+/** The async assignee/reporter pickers hit `GET /users/search` (`?q=`/`?ids=`). */
+function userSearchHandler(_init: RequestInit | undefined, url: string): FakeRouteResult {
+  const query = new URLSearchParams(url.split('?')[1] ?? '')
+  const ids = query.get('ids')
+  if (ids !== null) {
+    const wanted = new Set(ids.split(','))
+    return fixturePickerUsers.filter((user) => wanted.has(user.id))
+  }
+  const q = (query.get('q') ?? '').toLowerCase()
+  return fixturePickerUsers.filter((user) => user.displayName.toLowerCase().includes(q))
+}
+
 function panelApp(extra: Record<string, unknown> = {}): FakeFetch {
   return createFakeFetch({
     'GET /api/v1/auth/me': fixtureAdmin,
     'GET /api/v1/board': makeBoard({ ready: [card] }),
     'GET /api/v1/policy': policyRecordOf(permissivePolicy),
     'GET /api/v1/users': fixturePickerUsers,
+    'GET /api/v1/users/search': userSearchHandler,
     'GET /api/v1/locations': [],
     'GET /api/v1/tags': [{ id: uid(110), name: 'plumbing' }],
     [`GET /api/v1/cards/${String(card.id)}`]: {
@@ -259,6 +277,7 @@ describe('CardPanel', () => {
       'GET /api/v1/board': makeBoard({}),
       'GET /api/v1/policy': policyRecordOf(permissivePolicy),
       'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': userSearchHandler,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
       [`GET /api/v1/cards/${String(archived.id)}`]: {
@@ -391,6 +410,7 @@ describe('CardPanel', () => {
       'GET /api/v1/board': makeBoard({ in_progress: [blocked] }),
       'GET /api/v1/policy': policyRecordOf(permissivePolicy),
       'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': userSearchHandler,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
       [`GET /api/v1/cards/${String(blocked.id)}`]: {
@@ -425,6 +445,7 @@ describe('CardPanel', () => {
       'GET /api/v1/board': makeBoard({ done: [cancelled] }),
       'GET /api/v1/policy': policyRecordOf(permissivePolicy),
       'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': userSearchHandler,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
       [`GET /api/v1/cards/${String(cancelled.id)}`]: {
@@ -456,6 +477,7 @@ describe('CardPanel', () => {
       'GET /api/v1/board': makeBoard({ done: [duplicate] }),
       'GET /api/v1/policy': policyRecordOf(permissivePolicy),
       'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': userSearchHandler,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
       [`GET /api/v1/cards/${String(duplicate.id)}`]: {
@@ -487,6 +509,7 @@ describe('CardPanel', () => {
       'GET /api/v1/board': makeBoard({ waiting_parts_vendor: [waiting] }),
       'GET /api/v1/policy': policyRecordOf(permissivePolicy),
       'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': userSearchHandler,
       'GET /api/v1/locations': [],
       'GET /api/v1/tags': [],
       [`GET /api/v1/cards/${String(waiting.id)}`]: {

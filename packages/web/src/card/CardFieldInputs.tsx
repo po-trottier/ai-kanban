@@ -1,7 +1,7 @@
 import { PRIORITIES, type Location } from '@rivian-kanban/core'
 import { Select, Stack, TagsInput, Text, TextInput } from '@mantine/core'
 import { Controller, type Control, type UseFormRegisterReturn } from 'react-hook-form'
-import { type PickerUser } from '../api/schemas.ts'
+import { AsyncUserSelect, ResolvedUserSelect } from '../shell/AsyncUserPicker.tsx'
 import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { strings } from '../strings.ts'
 import { type CardFieldValues } from './card-fields.ts'
@@ -15,11 +15,11 @@ export interface CardFieldInputsProps {
   /** `form.register('title')` — registration props are not form-generic. */
   titleField: UseFormRegisterReturn
   errors: { title?: string | undefined; estimateMinutes?: string | undefined }
-  users: PickerUser[]
   /**
    * When set (the edit form), a disabled Reporter picker renders directly below
    * Assignee — identical to it, showing who filed the card (never editable here).
-   * Omitted by the create modal (a new card's reporter is the current user).
+   * Its name resolves via `?ids=` (deactivated reporters still render). Omitted
+   * by the create modal (a new card's reporter is the current user).
    */
   reporterId?: string | undefined
   locations: Location[]
@@ -35,15 +35,6 @@ export interface CardFieldInputsProps {
   disabled?: boolean
 }
 
-/** Assignee-style options guaranteed to include the reporter, so the disabled
- *  Reporter picker resolves a name even if the reporter is no longer assignable. */
-function reporterOptions(users: PickerUser[], reporterId: string) {
-  const options = users.map((user) => ({ value: user.id, label: user.displayName }))
-  return options.some((option) => option.value === reporterId)
-    ? options
-    : [...options, { value: reporterId, label: strings.history.unknownUser }]
-}
-
 /**
  * The seven-field card roster (title, description, priority, estimate,
  * assignee, location, tags), rendered once for both the create modal and the
@@ -55,7 +46,6 @@ export function CardFieldInputs({
   control,
   titleField,
   errors,
-  users,
   reporterId,
   locations,
   knownTags,
@@ -136,13 +126,13 @@ export function CardFieldInputs({
         control={control}
         name="assigneeId"
         render={({ field }) => (
-          <Select
+          // Async searchable: searches the server as the user types and keeps the
+          // current assignee id resolved to a name (never loads the whole roster).
+          <AsyncUserSelect
             label={
               <FieldLabel label={strings.detail.assigneeLabel} help={strings.fieldHelp.assignee} />
             }
-            data={users.map((user) => ({ value: user.id, label: user.displayName }))}
             value={field.value ?? null}
-            clearable
             disabled={disabled}
             onChange={(value) => {
               field.onChange(value ?? cleared)
@@ -151,17 +141,14 @@ export function CardFieldInputs({
         )}
       />
       {reporterId === undefined ? null : (
-        <Select
+        // Identical to Assignee but always disabled: who filed the card, shown
+        // here and never editable. Its name resolves via `?ids=` so even a
+        // deactivated reporter (absent from search) still renders.
+        <ResolvedUserSelect
+          userId={reporterId}
           label={
             <FieldLabel label={strings.detail.reporterLabel} help={strings.fieldHelp.reporter} />
           }
-          // Identical to Assignee but always disabled: who filed the card, shown
-          // here and never editable. The reporter is guaranteed an option (even
-          // if no longer an assignable user) so the name resolves.
-          data={reporterOptions(users, reporterId)}
-          value={reporterId}
-          disabled
-          onChange={() => undefined}
         />
       )}
       <Controller

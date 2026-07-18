@@ -2,27 +2,38 @@ import { type CreateCardInput } from '@rivian-kanban/core'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
+import { createFakeFetch } from '../test/fake-fetch.ts'
 import { fixturePickerUsers, fixtureTech } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import { NewCardModal } from './NewCardModal.tsx'
 
 const noop = () => undefined
 
+/** The Assignee picker is async: it hits `GET /users/search` (`?q=` free-text). */
+const userSearchRoutes = { 'GET /api/v1/users/search': fixturePickerUsers }
+
+function renderModal(props: Partial<Parameters<typeof NewCardModal>[0]> = {}) {
+  const fake = createFakeFetch(userSearchRoutes)
+  renderWithProviders(
+    <NewCardModal
+      locations={[]}
+      knownTags={[]}
+      submitting={false}
+      onSubmit={noop}
+      onClose={noop}
+      {...props}
+    />,
+    { fetchFn: fake.fetch },
+  )
+  return fake
+}
+
 describe('NewCardModal', () => {
   it('requires a title (core createCard schema)', async () => {
     // Arrange
     const user = userEvent.setup()
     const created: CreateCardInput[] = []
-    renderWithProviders(
-      <NewCardModal
-        users={fixturePickerUsers}
-        locations={[]}
-        knownTags={[]}
-        submitting={false}
-        onSubmit={(input) => created.push(input)}
-        onClose={noop}
-      />,
-    )
+    renderModal({ onSubmit: (input) => created.push(input) })
     // Act
     await user.click(screen.getByRole('button', { name: 'Create' }))
     // Assert
@@ -33,16 +44,7 @@ describe('NewCardModal', () => {
   it('describes each priority in plain language in the dropdown (ITEM 3)', async () => {
     // Arrange
     const user = userEvent.setup()
-    renderWithProviders(
-      <NewCardModal
-        users={fixturePickerUsers}
-        locations={[]}
-        knownTags={[]}
-        submitting={false}
-        onSubmit={noop}
-        onClose={noop}
-      />,
-    )
+    renderModal()
     // Act
     await user.click(screen.getByRole('combobox', { name: 'Priority' }))
     // Assert — the labels and the dimmed descriptions both render so a
@@ -57,24 +59,16 @@ describe('NewCardModal', () => {
     // Arrange
     const user = userEvent.setup()
     const created: CreateCardInput[] = []
-    renderWithProviders(
-      <NewCardModal
-        users={fixturePickerUsers}
-        locations={[]}
-        knownTags={['plumbing']}
-        submitting={false}
-        onSubmit={(input) => created.push(input)}
-        onClose={noop}
-      />,
-    )
+    renderModal({ knownTags: ['plumbing'], onSubmit: (input) => created.push(input) })
     // Act
     await user.type(screen.getByRole('textbox', { name: /Title/ }), 'Broken window')
     await user.click(screen.getByRole('combobox', { name: 'Priority' }))
     // Each priority option now carries a plain-language description (ITEM 3),
     // so its accessible name is "P1 — High" plus the "Do soon" hint.
     await user.click(screen.getByRole('option', { name: /P1 — High/ }))
+    // The Assignee picker is async — opening it fetches `/users/search`.
     await user.click(screen.getByRole('combobox', { name: 'Assignee' }))
-    await user.click(screen.getByRole('option', { name: 'Terry Tech' }))
+    await user.click(await screen.findByRole('option', { name: 'Terry Tech' }))
     await user.click(screen.getByRole('button', { name: 'Create' }))
     // Assert
     expect(created).toEqual([
@@ -92,18 +86,11 @@ describe('NewCardModal', () => {
     // Arrange
     const user = userEvent.setup()
     const submitted: File[][] = []
-    renderWithProviders(
-      <NewCardModal
-        users={fixturePickerUsers}
-        locations={[]}
-        knownTags={[]}
-        submitting={false}
-        onSubmit={(_input, files) => {
-          submitted.push(files)
-        }}
-        onClose={noop}
-      />,
-    )
+    renderModal({
+      onSubmit: (_input, files) => {
+        submitted.push(files)
+      },
+    })
     // Act — title + pick a file (which lists in the pending section), then create
     await user.type(screen.getByRole('textbox', { name: /Title/ }), 'Leaky faucet')
     const file = new File(['png-bytes'], 'leak.png', { type: 'image/png' })

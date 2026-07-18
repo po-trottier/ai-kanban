@@ -273,7 +273,6 @@ function CardPanelBody({ cardId }: { cardId: string }) {
           <Stack gap="xl">
             <CardDetailsForm
               detail={detail}
-              users={users}
               locations={locationsQuery.data ?? []}
               knownTags={(tagsQuery.data ?? []).map((tag) => tag.name)}
               saving={updateCard.isPending}

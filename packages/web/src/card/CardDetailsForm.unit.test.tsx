@@ -3,9 +3,28 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
 import { type CardDetailResponse } from '../api/schemas.ts'
+import { createFakeFetch, type FakeRouteResult } from '../test/fake-fetch.ts'
 import { fixturePickerUsers, makeCard, uid } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import { CardDetailsForm, type CardFieldChanges } from './CardDetailsForm.tsx'
+
+/**
+ * The Assignee picker searches (`?q=`) and the read-only Reporter resolves its
+ * id to a name (`?ids=`) — both hit `GET /users/search`. One handler splits the
+ * legs by query string, so a pre-populated reporter still renders its name.
+ */
+function userSearchHandler(_init: RequestInit | undefined, url: string): FakeRouteResult {
+  const query = new URLSearchParams(url.split('?')[1] ?? '')
+  const ids = query.get('ids')
+  if (ids !== null) {
+    const wanted = new Set(ids.split(','))
+    return fixturePickerUsers.filter((user) => wanted.has(user.id))
+  }
+  const q = (query.get('q') ?? '').toLowerCase()
+  return fixturePickerUsers.filter((user) => user.displayName.toLowerCase().includes(q))
+}
+
+const userSearchRoutes = { 'GET /api/v1/users/search': userSearchHandler }
 
 function makeDetail(): CardDetailResponse {
   return {
@@ -14,6 +33,22 @@ function makeDetail(): CardDetailResponse {
     location: null,
     attachments: [],
   }
+}
+
+function renderForm(props: Partial<Parameters<typeof CardDetailsForm>[0]> = {}) {
+  const fake = createFakeFetch(userSearchRoutes)
+  renderWithProviders(
+    <CardDetailsForm
+      detail={makeDetail()}
+      locations={[]}
+      knownTags={[]}
+      saving={false}
+      onSave={() => undefined}
+      {...props}
+    />,
+    { fetchFn: fake.fetch },
+  )
+  return fake
 }
 
 /** Swaps the detail prop like a TanStack refetch would (SSE hint, upload). */
@@ -29,7 +64,6 @@ function RefetchHarness({
     <>
       <CardDetailsForm
         detail={detail}
-        users={fixturePickerUsers}
         locations={[]}
         knownTags={[]}
         saving={false}
@@ -52,16 +86,7 @@ describe('CardDetailsForm', () => {
     // Arrange
     const user = userEvent.setup()
     const saved: CardFieldChanges[] = []
-    renderWithProviders(
-      <CardDetailsForm
-        detail={makeDetail()}
-        users={fixturePickerUsers}
-        locations={[]}
-        knownTags={[]}
-        saving={false}
-        onSave={(changes) => saved.push(changes)}
-      />,
-    )
+    renderForm({ onSave: (changes) => saved.push(changes) })
     // Act
     await user.clear(screen.getByRole('textbox', { name: /Title/ }))
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -72,18 +97,8 @@ describe('CardDetailsForm', () => {
 
   it('keeps Save disabled until a field is edited', () => {
     // Arrange
-    const detail = makeDetail()
     // Act
-    renderWithProviders(
-      <CardDetailsForm
-        detail={detail}
-        users={fixturePickerUsers}
-        locations={[]}
-        knownTags={[]}
-        saving={false}
-        onSave={() => undefined}
-      />,
-    )
+    renderForm()
     // Assert — the Save button shows disabled via `data-disabled` (so its
     // "nothing to save" tooltip stays hoverable), not the native disabled prop.
     expect(screen.getByRole('button', { name: 'Save changes' })).toHaveAttribute(
@@ -96,16 +111,7 @@ describe('CardDetailsForm', () => {
     // Arrange
     const user = userEvent.setup()
     const saved: CardFieldChanges[] = []
-    renderWithProviders(
-      <CardDetailsForm
-        detail={makeDetail()}
-        users={fixturePickerUsers}
-        locations={[]}
-        knownTags={[]}
-        saving={false}
-        onSave={(changes) => saved.push(changes)}
-      />,
-    )
+    renderForm({ onSave: (changes) => saved.push(changes) })
     // Act
     const title = screen.getByRole('textbox', { name: /Title/ })
     await user.clear(title)
@@ -123,7 +129,10 @@ describe('CardDetailsForm', () => {
       ...initial,
       card: { ...initial.card, estimateMinutes: 90, version: 5 },
     }
-    renderWithProviders(<RefetchHarness initial={initial} refreshed={refreshed} />)
+    const fake = createFakeFetch(userSearchRoutes)
+    renderWithProviders(<RefetchHarness initial={initial} refreshed={refreshed} />, {
+      fetchFn: fake.fetch,
+    })
     const title = screen.getByRole('textbox', { name: /Title/ })
     await user.clear(title)
     await user.type(title, 'Replace pump seal')
@@ -136,45 +145,25 @@ describe('CardDetailsForm', () => {
 
   it('renders every field disabled and hides Save when the card is read-only', () => {
     // Arrange
-    const detail = makeDetail()
     // Act
-    renderWithProviders(
-      <CardDetailsForm
-        detail={detail}
-        users={fixturePickerUsers}
-        locations={[]}
-        knownTags={[]}
-        saving={false}
-        disabled
-        onSave={() => undefined}
-      />,
-    )
+    renderForm({ disabled: true })
     // Assert
     expect(screen.getByRole('textbox', { name: /Title/ })).toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
   })
 
-  it('shows the reporter read-only and both Created and Updated datetimes', () => {
+  it('resolves the read-only reporter id to its name and both datetimes', async () => {
     // Arrange — a distinct updatedAt proves the Updated row reads the right field.
     const detail = makeDetail()
     detail.card.updatedAt = '2026-07-05T18:30:00.000Z'
     // Act
-    renderWithProviders(
-      <CardDetailsForm
-        detail={detail}
-        users={fixturePickerUsers}
-        locations={[]}
-        knownTags={[]}
-        saving={false}
-        onSave={() => undefined}
-      />,
-    )
+    renderForm({ detail })
     // Assert — Reporter looks EXACTLY like Assignee: a combobox directly below
-    // it, but disabled and pre-populated with the card's reporter (Ada Admin);
-    // Assignee stays an enabled combobox.
+    // it, but disabled and resolved (via `?ids=`) to the card's reporter (Ada
+    // Admin); Assignee stays an enabled combobox.
     const reporterField = screen.getByRole('combobox', { name: 'Reporter' })
     expect(reporterField).toBeDisabled()
-    expect(reporterField).toHaveValue('Ada Admin')
+    expect(await screen.findByDisplayValue('Ada Admin')).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Assignee' })).toBeEnabled()
     // Both datetimes render in the viewer's zone (America/Los_Angeles): the
     // created T0 (10:00Z → 03:00) and the distinct updatedAt (18:30Z → 11:30).
@@ -186,16 +175,7 @@ describe('CardDetailsForm', () => {
     // Arrange
     const user = userEvent.setup()
     const saved: CardFieldChanges[] = []
-    renderWithProviders(
-      <CardDetailsForm
-        detail={makeDetail()}
-        users={fixturePickerUsers}
-        locations={[]}
-        knownTags={[]}
-        saving={false}
-        onSave={(changes) => saved.push(changes)}
-      />,
-    )
+    renderForm({ onSave: (changes) => saved.push(changes) })
     // Act
     const estimate = screen.getByRole('textbox', { name: /Estimate/ })
     await user.type(estimate, '0')
@@ -206,20 +186,10 @@ describe('CardDetailsForm', () => {
 
   it('explains the fields with an info tooltip on the label', () => {
     // Arrange
-    const detail = makeDetail()
     // Act — render the form; priority, estimate, location, and the description
     // editor each carry a FieldLabel info button whose accessible name is the
     // help text.
-    renderWithProviders(
-      <CardDetailsForm
-        detail={detail}
-        users={fixturePickerUsers}
-        locations={[]}
-        knownTags={[]}
-        saving={false}
-        onSave={() => undefined}
-      />,
-    )
+    renderForm()
     // Assert — the info buttons are reachable by their help copy.
     expect(screen.getByRole('button', { name: /P0 Critical/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /target completion time/ })).toBeInTheDocument()

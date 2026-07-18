@@ -21,6 +21,7 @@ function authedRoutes(overrides: Record<string, unknown> = {}): FakeFetch {
     'GET /api/v1/board': makeBoard({ ready: [card] }),
     'GET /api/v1/policy': policyRecordOf(permissivePolicy),
     'GET /api/v1/users': fixturePickerUsers,
+    'GET /api/v1/users/search': fixturePickerUsers,
     'GET /api/v1/locations': [],
     'GET /api/v1/tags': [],
     'GET /api/v1/filter-presets': [],

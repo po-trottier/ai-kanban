@@ -32,6 +32,7 @@ function app(
     'GET /api/v1/board': makeBoard(cards),
     'GET /api/v1/policy': policyRecordOf(policy),
     'GET /api/v1/users': fixturePickerUsers,
+    'GET /api/v1/users/search': fixturePickerUsers,
     'GET /api/v1/locations': [],
     'GET /api/v1/tags': [],
     ...routes,

@@ -27,6 +27,18 @@ the board's drag-and-drop is **Pragmatic drag-and-drop**
   `@rivian-kanban/core` (`api/schemas.ts`); request bodies are the core command schemas minus
   `expectedVersion`, which rides as `If-Match: "<version>"` (ADR-012).
 - **TanStack Query** owns all server state; `api/keys.ts` is the one query-key vocabulary.
+- **User pickers are async, never the whole roster.** The assignee/reporter pickers
+  (`shell/AsyncUserPicker.tsx`, used by the board `FilterBar` and the card `CardFieldInputs`)
+  search the server as the user types instead of loading every user, so they scale to a 10k-user
+  roster. `useUserSearch(q)` debounces the input (~275 ms) and hits `GET /users/search?q=` (empty
+  `q` returns the first page so the dropdown shows something before typing); `useResolveUsers(ids)`
+  hits `GET /users/search?ids=` to resolve the already-selected ids (a card's assignee/reporter, a
+  filter pill) to their names — including deactivated users the free-text search omits. Both are
+  merged into the Mantine `Select`/`MultiSelect` controlled `data` (we own fetching, so a
+  pass-through `filter` shows every returned option; `searchValue`/`onSearchChange` drive the query).
+  The read-only Reporter field resolves its id the same way. `useUsers()` (the full `GET /users`
+  roster) survives only for name/avatar lookups on already-rendered data — board card avatars and the
+  comment/history author maps — never for a picker.
 - **Moves** send only `{ toLane, prevCardId, nextCardId }` (ADR-006) with the official
   optimistic pattern: `onMutate` snapshot (`api/board-cache.ts` recomputes lanes + soft WIP) →
   rollback `onError` → invalidate `onSettled`. A 409 rolls back, refetches, and shows the

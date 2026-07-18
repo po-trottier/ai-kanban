@@ -21,7 +21,7 @@ import {
 } from '@mantine/core'
 import { RotateCcw } from 'lucide-react'
 import { locationPath } from '../lib/location-tree.ts'
-import { type PickerUser } from '../api/schemas.ts'
+import { AsyncUserMultiSelect } from '../shell/AsyncUserPicker.tsx'
 import { CloseIcon, SearchIcon } from '../shell/icons.tsx'
 import { strings } from '../strings.ts'
 import { FilterPresets } from './FilterPresets.tsx'
@@ -30,7 +30,6 @@ import classes from './filter-bar.module.css'
 export interface FilterBarProps {
   filter: BoardFilter
   onChange: (filter: BoardFilter) => void
-  users: PickerUser[]
   tags: string[]
   locations: Location[]
   /** The current user's id — fills the "My Cards" built-in preset. */
@@ -52,19 +51,11 @@ export interface FilterBarProps {
  * + controlled: it holds no state, just renders `filter` and calls `onChange`
  * with the next `BoardFilter`.
  */
-export function FilterBar({
-  filter,
-  onChange,
-  users,
-  tags,
-  locations,
-  currentUserId,
-}: FilterBarProps) {
+export function FilterBar({ filter, onChange, tags, locations, currentUserId }: FilterBarProps) {
   const set = <K extends keyof BoardFilter>(key: K, value: BoardFilter[K]) => {
     onChange({ ...filter, [key]: value })
   }
 
-  const userOptions = users.map((user) => ({ value: user.id, label: user.displayName }))
   const tagOptions = tags.map((tag) => ({ value: tag, label: tag }))
   const locationOptions = locations
     .map((location) => ({ value: location.id, label: locationPath(locations, location.id) }))
@@ -142,23 +133,22 @@ export function FilterBar({
 
             <Divider orientation="vertical" className={classes.divider} />
 
-            {/* People: assignee · reporter. */}
-            <PillFacet
+            {/* People: assignee · reporter — ASYNC searchable (never load the
+                whole roster); selected ids stay resolved so pills show names. */}
+            <UserPillFacet
               label={strings.filterBar.assigneeLabel}
               placeholder={strings.filterBar.assigneePlaceholder}
               tooltip={strings.filterBar.tooltips.assignee}
-              data={userOptions}
               value={filter.assigneeIds}
               onChange={(next) => {
                 set('assigneeIds', next)
               }}
             />
 
-            <PillFacet
+            <UserPillFacet
               label={strings.filterBar.reporterLabel}
               placeholder={strings.filterBar.reporterPlaceholder}
               tooltip={strings.filterBar.tooltips.reporter}
-              data={userOptions}
               value={filter.reporterIds}
               onChange={(next) => {
                 set('reporterIds', next)
@@ -269,6 +259,36 @@ function SegmentedFacet({
         data={data}
         onChange={onChange}
         aria-label={groupLabel}
+      />
+    </Tooltip>
+  )
+}
+
+/** The async assignee/reporter facet: an `AsyncUserMultiSelect` with the same
+ *  fixed footprint (pill width + single-row pills) and section tooltip the
+ *  enumerable `PillFacet`s carry, so the bar never reflows as chips are added. */
+function UserPillFacet({
+  label,
+  placeholder,
+  tooltip,
+  value,
+  onChange,
+}: {
+  label: string
+  placeholder: string
+  tooltip: string
+  value: string[]
+  onChange: (next: string[]) => void
+}) {
+  return (
+    <Tooltip label={tooltip} withArrow>
+      <AsyncUserMultiSelect
+        value={value}
+        onChange={onChange}
+        ariaLabel={label}
+        placeholder={placeholder}
+        className={classes.pill}
+        classNames={{ pillsList: classes.pillsList }}
       />
     </Tooltip>
   )
