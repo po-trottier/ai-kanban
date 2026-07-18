@@ -238,4 +238,7 @@ function invalidateCard(queryClient: QueryClient, cardId: number): void {
   void queryClient.invalidateQueries({ queryKey: queryKeys.board })
   void queryClient.invalidateQueries({ queryKey: queryKeys.card(key) })
   void queryClient.invalidateQueries({ queryKey: queryKeys.events(key) })
+  // A card edit can mint a new free-form tag, so refresh the tags list that
+  // feeds the filter-bar Tags facet and the card's tag autocomplete.
+  void queryClient.invalidateQueries({ queryKey: queryKeys.tags })
 }
