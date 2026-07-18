@@ -621,6 +621,16 @@ class InMemoryServiceTokenRepository implements ServiceTokenRepository {
     token.revokedAt = token.revokedAt ?? revokedAt
     return Promise.resolve()
   }
+
+  rotateHash(id: string, tokenHash: string): Promise<ServiceToken> {
+    const token = this.state.serviceTokens.find((candidate) => candidate.id === id)
+    if (!token) return Promise.reject(new NotFoundError('service token'))
+    if (token.revokedAt !== null) {
+      return Promise.reject(new ConflictError('service token is revoked'))
+    }
+    token.tokenHash = tokenHash
+    return Promise.resolve(clone(token))
+  }
 }
 
 class InMemoryLaneRepository implements LaneRepository {

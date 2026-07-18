@@ -211,6 +211,12 @@ export interface ServiceTokenRepository {
   insert(token: ServiceToken): Promise<void>
   /** Sets revokedAt (idempotent); NotFoundError when the id does not exist. */
   revoke(id: string, revokedAt: string): Promise<void>
+  /**
+   * Swaps in a fresh tokenHash for an active token (rotation), returning the
+   * updated row. NotFoundError for an unknown id; ConflictError for a revoked
+   * one (a dead credential cannot be revived).
+   */
+  rotateHash(id: string, tokenHash: string): Promise<ServiceToken>
 }
 
 export interface LaneRepository {

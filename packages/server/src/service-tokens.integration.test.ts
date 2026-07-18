@@ -54,6 +54,82 @@ describe('POST /service-tokens', () => {
   })
 })
 
+describe('POST /service-tokens/:id/rotate', () => {
+  it('mints a new secret, keeps name/role/scope, and retires the old token', async () => {
+    const created = await t.request(adminCookie, {
+      method: 'POST',
+      url: '/api/v1/service-tokens',
+      payload: { name: 'rotate-me', role: 'user', scope: 'read_write' },
+    })
+    const { rawToken: oldRaw, token } = created.json<{
+      rawToken: string
+      token: { id: string }
+    }>()
+
+    const rotated = await t.request(adminCookie, {
+      method: 'POST',
+      url: `/api/v1/service-tokens/${token.id}/rotate`,
+    })
+
+    expect(rotated.statusCode).toBe(200)
+    const body = rotated.json<{ rawToken: string; token: Record<string, unknown> }>()
+    // New secret, same metadata (name/role/scope), hash never leaks.
+    expect(body.rawToken).toMatch(/^rkb_[A-Za-z0-9_-]{43}$/)
+    expect(body.rawToken).not.toBe(oldRaw)
+    expect(body.token).toMatchObject({
+      id: token.id,
+      name: 'rotate-me',
+      role: 'user',
+      scope: 'read_write',
+    })
+    expect(body.token).not.toHaveProperty('tokenHash')
+
+    // The old secret no longer authenticates; the new one does.
+    const withOld = await t.app.inject({
+      method: 'POST',
+      url: '/mcp',
+      headers: { authorization: `Bearer ${oldRaw}`, 'content-type': 'application/json' },
+      payload: {},
+    })
+    const withNew = await t.app.inject({
+      method: 'POST',
+      url: '/mcp',
+      headers: { authorization: `Bearer ${body.rawToken}`, 'content-type': 'application/json' },
+      payload: {},
+    })
+    expect(withOld.statusCode).toBe(401)
+    expect(withNew.statusCode).not.toBe(401)
+  })
+
+  it('409s a revoked token, 404s an unknown one, and denies non-admins', async () => {
+    const tech = await t.asRole('user')
+    const created = await t.request(adminCookie, {
+      method: 'POST',
+      url: '/api/v1/service-tokens',
+      payload: { name: 'doomed', role: 'user', scope: 'read' },
+    })
+    const id = created.json<{ token: { id: string } }>().token.id
+    await t.request(adminCookie, { method: 'DELETE', url: `/api/v1/service-tokens/${id}` })
+
+    const revoked = await t.request(adminCookie, {
+      method: 'POST',
+      url: `/api/v1/service-tokens/${id}/rotate`,
+    })
+    const missing = await t.request(adminCookie, {
+      method: 'POST',
+      url: '/api/v1/service-tokens/00000000-0000-7000-8000-00000000dead/rotate',
+    })
+    const denied = await t.request(tech.cookie, {
+      method: 'POST',
+      url: `/api/v1/service-tokens/${id}/rotate`,
+    })
+
+    expect(revoked.statusCode).toBe(409)
+    expect(missing.statusCode).toBe(404)
+    expect(denied.statusCode).toBe(403)
+  })
+})
+
 describe('GET /service-tokens', () => {
   it('lists metadata only — never a raw token or hash', async () => {
     await t.request(adminCookie, {

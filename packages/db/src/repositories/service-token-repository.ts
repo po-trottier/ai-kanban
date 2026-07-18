@@ -76,4 +76,14 @@ export class SqliteServiceTokenRepository implements ServiceTokenRepository {
       .run()
     return Promise.resolve()
   }
+
+  rotateHash(id: string, tokenHash: string): Promise<ServiceToken> {
+    // Read first (like revoke): a dead credential cannot be revived, and an
+    // unknown id and a revoked one need different errors.
+    const row = this.db.select().from(serviceTokens).where(eq(serviceTokens.id, id)).get()
+    if (row === undefined) return Promise.reject(new NotFoundError('service token'))
+    if (row.revokedAt !== null) return Promise.reject(new ConflictError('service token is revoked'))
+    this.db.update(serviceTokens).set({ tokenHash }).where(eq(serviceTokens.id, id)).run()
+    return Promise.resolve({ ...row, tokenHash })
+  }
 }

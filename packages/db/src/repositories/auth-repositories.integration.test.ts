@@ -287,6 +287,29 @@ describe('SqliteServiceTokenRepository', () => {
       NotFoundError,
     )
   })
+
+  it('rotateHash swaps the hash in place, 404s unknown ids, and 409s revoked ones', async () => {
+    const admin = insertUser(db.connection, { role: 'admin' })
+    const token = makeToken(admin.id)
+    await run((tx) => tx.serviceTokens.insert(token))
+
+    const rotated = await run((tx) => tx.serviceTokens.rotateHash(token.id, 'sha-rotated'))
+
+    // Metadata is untouched, only the hash changed — old hash no longer resolves.
+    expect(rotated).toMatchObject({ id: token.id, name: token.name, tokenHash: 'sha-rotated' })
+    await expect(run((tx) => tx.serviceTokens.findByHash(token.tokenHash))).resolves.toBeNull()
+    await expect(run((tx) => tx.serviceTokens.findByHash('sha-rotated'))).resolves.toMatchObject({
+      id: token.id,
+    })
+    await expect(run((tx) => tx.serviceTokens.rotateHash(newId(), 'x'))).rejects.toBeInstanceOf(
+      NotFoundError,
+    )
+
+    await run((tx) => tx.serviceTokens.revoke(token.id, T0))
+    await expect(
+      run((tx) => tx.serviceTokens.rotateHash(token.id, 'sha-again')),
+    ).rejects.toBeInstanceOf(ConflictError)
+  })
 })
 
 describe('SqliteLocationRepository admin surface', () => {

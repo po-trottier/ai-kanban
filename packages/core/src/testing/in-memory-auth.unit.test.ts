@@ -246,6 +246,30 @@ describe('InMemoryServiceTokenRepository', () => {
     ).rejects.toBeInstanceOf(NotFoundError)
     await expect(scenario.db.run((tx) => tx.serviceTokens.findByHash('gone'))).resolves.toBeNull()
   })
+
+  it('rotateHash swaps the hash in place, and rejects unknown or revoked ids', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const token = makeToken(scenario.users.admin.id, { id: fixtureId(706), tokenHash: 'sha-orig' })
+    await scenario.db.run((tx) => tx.serviceTokens.insert(token))
+
+    // Act
+    const rotated = await scenario.db.run((tx) =>
+      tx.serviceTokens.rotateHash(token.id, 'sha-fresh'),
+    )
+
+    // Assert — same metadata, new hash resolves and the old one is gone.
+    expect(rotated).toMatchObject({ id: token.id, name: token.name, tokenHash: 'sha-fresh' })
+    expect(scenario.db.getServiceToken(token.id).tokenHash).toBe('sha-fresh')
+    await expect(
+      scenario.db.run((tx) => tx.serviceTokens.rotateHash(fixtureId(707), 'x')),
+    ).rejects.toBeInstanceOf(NotFoundError)
+
+    await scenario.db.run((tx) => tx.serviceTokens.revoke(token.id, 'x'))
+    await expect(
+      scenario.db.run((tx) => tx.serviceTokens.rotateHash(token.id, 'y')),
+    ).rejects.toBeInstanceOf(ConflictError)
+  })
 })
 
 describe('InMemoryLocationRepository admin surface', () => {

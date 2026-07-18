@@ -586,6 +586,12 @@ export const strings = {
     revokeConfirmBody: (name: string) =>
       `Revoke "${name}"? Any integration using it will stop working immediately. This cannot be undone.`,
     revokeConfirm: 'Revoke token',
+    rotate: 'Rotate',
+    /** Confirmation before rotating (the old secret dies immediately). */
+    rotateConfirmTitle: 'Rotate token',
+    rotateConfirmBody: (name: string) =>
+      `Rotate "${name}"? Its current token stops working immediately — any integration using it must be updated with the new one.`,
+    rotateConfirm: 'Rotate token',
     revoked: 'Revoked',
     active: 'Active',
     tokenTitle: 'Service token created',

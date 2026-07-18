@@ -33,6 +33,12 @@ export interface CreatedServiceToken {
   rawToken: string
 }
 
+/** Raw `rkb_…` credential paired with the sha256 that is all we ever store. */
+function mintRawToken(): { rawToken: string; tokenHash: string } {
+  const rawToken = `rkb_${randomBytes(32).toString('base64url')}`
+  return { rawToken, tokenHash: hashServiceToken(rawToken) }
+}
+
 export class ServiceTokenService {
   private readonly deps: ServiceTokenServiceDeps
 
@@ -47,11 +53,11 @@ export class ServiceTokenService {
    */
   async create(actor: Actor, rawInput: unknown): Promise<CreatedServiceToken> {
     const input = createServiceTokenInputSchema.parse(rawInput)
-    const rawToken = `rkb_${randomBytes(32).toString('base64url')}`
+    const { rawToken, tokenHash } = mintRawToken()
     const token: ServiceToken = {
       id: this.deps.ids.newId(),
       name: input.name,
-      tokenHash: hashServiceToken(rawToken),
+      tokenHash,
       role: input.role,
       scope: input.scope,
       createdBy: actor.id,
@@ -66,6 +72,22 @@ export class ServiceTokenService {
         throw new RequestValidationError('role', `unknown role "${input.role}"`)
       }
       await tx.serviceTokens.insert(token)
+    })
+    return { token, rawToken }
+  }
+
+  /**
+   * Policy checks: `manageTokens` grant. Mints a fresh secret via the same
+   * generator as create, swapping the stored hash in place (name/role/scope
+   * unchanged) so the old raw token stops authenticating at once and the new
+   * one starts. Unknown ids are 404; a revoked token is 409 (dead, not
+   * revivable).
+   */
+  async rotate(actor: Actor, tokenId: string): Promise<CreatedServiceToken> {
+    const { rawToken, tokenHash } = mintRawToken()
+    const token = await this.deps.uow.run(async (tx) => {
+      ensurePermission(actor, 'manageTokens', await loadActivePolicy(tx, this.deps.boardId))
+      return tx.serviceTokens.rotateHash(tokenId, tokenHash)
     })
     return { token, rawToken }
   }

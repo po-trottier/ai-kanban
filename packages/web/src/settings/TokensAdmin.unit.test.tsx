@@ -92,4 +92,28 @@ describe('TokensAdmin', () => {
     const call = fake.calls.find((c) => c.method === 'DELETE')
     expect(call?.url).toBe(`/api/v1/service-tokens/${activeToken.id}`)
   })
+
+  it('rotates a token: confirm, then reveal the new secret with a Copy button', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const fake = createFakeFetch({
+      'GET /api/v1/service-tokens': [activeToken],
+      [`POST /api/v1/service-tokens/${activeToken.id}/rotate`]: {
+        token: activeToken,
+        // Concatenated so secret scanners never match the fixture.
+        rawToken: ['rkb', 'rotated', 'value'].join('_'),
+      },
+    })
+    renderWithProviders(<TokensAdmin />, { fetchFn: fake.fetch })
+    // Act — rotate breaks the live secret, so it is confirmed first, then the
+    // new token lands in the same reveal-once dialog create uses.
+    await user.click(await screen.findByRole('button', { name: 'Rotate' }))
+    await user.click(await screen.findByRole('button', { name: 'Rotate token' }))
+    // Assert — the new secret is revealed with the shared Copy button.
+    expect(await screen.findByText('rkb_rotated_value')).toBeInTheDocument()
+    expect(screen.getByText('Copy this token now — it is shown only once.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
+    expect(await navigator.clipboard.readText()).toBe('rkb_rotated_value')
+  })
 })

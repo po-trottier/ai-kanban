@@ -1,7 +1,13 @@
 import { TOKEN_SCOPES, type TokenScope } from '@rivian-kanban/core'
 import { Badge, Button, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
+import { RefreshCw } from 'lucide-react'
 import { useState } from 'react'
-import { useCreateServiceToken, useRevokeServiceToken, useServiceTokens } from '../api/admin.ts'
+import {
+  useCreateServiceToken,
+  useRevokeServiceToken,
+  useRotateServiceToken,
+  useServiceTokens,
+} from '../api/admin.ts'
 import { type ServiceTokenView } from '../api/schemas.ts'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDateTime } from '../lib/format.ts'
@@ -10,17 +16,20 @@ import { strings } from '../strings.ts'
 import { RevealOnceModal } from './RevealOnceModal.tsx'
 import { useRoleLabel, useRoleOptions } from './role-select-data.ts'
 
-/** MCP service tokens: create (raw `rkb_…` shown once) and revoke. */
+/** MCP service tokens: create (raw `rkb_…` shown once), rotate, and revoke. */
 export function TokensAdmin() {
   const tokens = useServiceTokens()
   const createToken = useCreateServiceToken()
   const revokeToken = useRevokeServiceToken()
+  const rotateToken = useRotateServiceToken()
   const timezone = useUserTimezone()
   const roleOptions = useRoleOptions()
   const roleLabel = useRoleLabel()
   const [createOpen, setCreateOpen] = useState(false)
+  // `rawToken` is the shared reveal-once state — create AND rotate both feed it.
   const [rawToken, setRawToken] = useState<string | null>(null)
   const [revokeTarget, setRevokeTarget] = useState<ServiceTokenView | null>(null)
+  const [rotateTarget, setRotateTarget] = useState<ServiceTokenView | null>(null)
   const [draft, setDraft] = useState<{ name: string; role: string; scope: TokenScope }>({
     name: '',
     role: 'user',
@@ -83,16 +92,28 @@ export function TokensAdmin() {
                     {strings.tokens.revoked}
                   </Badge>
                 ) : (
-                  <Button
-                    size="compact-xs"
-                    variant="light"
-                    color="red"
-                    onClick={() => {
-                      setRevokeTarget(token)
-                    }}
-                  >
-                    {strings.tokens.revoke}
-                  </Button>
+                  <Group gap="xs" justify="flex-end" wrap="nowrap">
+                    <Button
+                      size="compact-xs"
+                      variant="light"
+                      leftSection={<RefreshCw size={14} aria-hidden />}
+                      onClick={() => {
+                        setRotateTarget(token)
+                      }}
+                    >
+                      {strings.tokens.rotate}
+                    </Button>
+                    <Button
+                      size="compact-xs"
+                      variant="light"
+                      color="red"
+                      onClick={() => {
+                        setRevokeTarget(token)
+                      }}
+                    >
+                      {strings.tokens.revoke}
+                    </Button>
+                  </Group>
                 )}
               </Table.Td>
             </Table.Tr>
@@ -185,6 +206,28 @@ export function TokensAdmin() {
           }}
           onClose={() => {
             setRevokeTarget(null)
+          }}
+        />
+      ) : null}
+
+      {rotateTarget !== null ? (
+        <ConfirmModal
+          title={strings.tokens.rotateConfirmTitle}
+          body={strings.tokens.rotateConfirmBody(rotateTarget.name)}
+          confirmLabel={strings.tokens.rotateConfirm}
+          loading={rotateToken.isPending}
+          onConfirm={() => {
+            rotateToken.mutate(rotateTarget.id, {
+              // Reuse the create reveal flow: the new secret lands in the
+              // same reveal-once dialog (Copy button included).
+              onSuccess: (rotated) => {
+                setRotateTarget(null)
+                setRawToken(rotated.rawToken)
+              },
+            })
+          }}
+          onClose={() => {
+            setRotateTarget(null)
           }}
         />
       ) : null}

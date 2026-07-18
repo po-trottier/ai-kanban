@@ -32,6 +32,23 @@ export function serviceTokenRoutes(deps: AppDeps) {
       },
     )
 
+    r.post(
+      '/service-tokens/:id/rotate',
+      {
+        config: { bodyless: true },
+        schema: {
+          params: idParamsSchema,
+          response: {
+            200: z.object({ token: serviceTokenResponseSchema, rawToken: z.string() }),
+          },
+        },
+      },
+      async (request, reply) => {
+        const rotated = await tokens.rotate(actorOf(request), request.params.id)
+        return reply.code(200).send(rotated)
+      },
+    )
+
     r.get(
       '/service-tokens',
       { schema: { response: { 200: z.array(serviceTokenResponseSchema) } } },

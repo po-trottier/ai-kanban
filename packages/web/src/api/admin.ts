@@ -162,3 +162,17 @@ export function useRevokeServiceToken() {
     onError: notifyError,
   })
 }
+
+/** Mints a fresh secret in place (same reveal-once response as create). */
+export function useRotateServiceToken() {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (tokenId: string) =>
+      api.post(`/service-tokens/${tokenId}/rotate`, createdServiceTokenSchema),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.serviceTokens })
+    },
+    onError: notifyError,
+  })
+}
