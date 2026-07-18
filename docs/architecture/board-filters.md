@@ -164,5 +164,8 @@ The SPA renders the filter as a **filter bar** below the header and above the bo
 - **Presets** (`FilterPresets.tsx`). The combobox lists the two core built-ins
   (`BUILTIN_FILTER_PRESETS` — "My Cards" fills `assigneeIds` with the current user id client-side,
   "Overdue" sets `overdue:true`) plus the user's custom presets from `GET /filter-presets`. Selecting
-  any preset applies its COMPLETE `BoardFilter` (never a partial overlay). Save/rename/delete wire to
-  the CRUD API with loading states and toasts.
+  any preset applies its COMPLETE `BoardFilter` (never a partial overlay). The combobox shows a preset
+  as selected ONLY while the live filter still equals its saved filter — once any facet drifts (an
+  edit, or "Clear filters" resetting the bar) the selection clears, so the combobox never lies and
+  re-picking the SAME preset re-applies it (Mantine's `Select` no-ops on re-selecting the current
+  value). Save/rename/delete wire to the CRUD API with loading states and toasts.

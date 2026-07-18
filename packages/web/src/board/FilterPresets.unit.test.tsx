@@ -75,6 +75,20 @@ describe('FilterPresets', () => {
     expect(onApply).toHaveBeenCalledWith(preset.filter)
   })
 
+  it('hides the rename/delete affordances once the live filter drifts from the applied preset', async () => {
+    // Arrange — the bar's live filter has drifted from the preset (as it does
+    // after an edit or "Clear filters"), so the combobox reflects NO selection
+    // even after a pick — which is what lets re-picking the same option re-fire
+    // onApply (Mantine's Select no-ops on re-selecting the already-current value).
+    const preset = customPreset()
+    const user = userEvent.setup()
+    renderPresets([preset], {}, EMPTY_BOARD_FILTER)
+    // Act — pick the preset while the live filter does not match it.
+    await pickPreset(user, preset.name)
+    // Assert — no selection is shown, so the delete affordance never appears.
+    expect(screen.queryByRole('button', { name: 'Delete this preset' })).not.toBeInTheDocument()
+  })
+
   it('saves the current filter as a new named preset (POST)', async () => {
     // Arrange — the bar holds a non-empty filter to save.
     const user = userEvent.setup()
@@ -108,12 +122,18 @@ describe('FilterPresets', () => {
     // Arrange
     const preset = customPreset()
     const user = userEvent.setup()
-    const { fake } = renderPresets([preset], {
-      [`PATCH /api/v1/filter-presets/${preset.id}`]: jsonResponse({
-        ...preset,
-        name: 'Renamed',
-      }),
-    })
+    // The bar's live filter equals the preset's (as it does once applied), so the
+    // combobox stays selected and the rename/delete affordances show.
+    const { fake } = renderPresets(
+      [preset],
+      {
+        [`PATCH /api/v1/filter-presets/${preset.id}`]: jsonResponse({
+          ...preset,
+          name: 'Renamed',
+        }),
+      },
+      preset.filter,
+    )
     // Select it so the rename affordance appears.
     await pickPreset(user, preset.name)
     // Act
@@ -133,9 +153,14 @@ describe('FilterPresets', () => {
     // Arrange
     const preset = customPreset()
     const user = userEvent.setup()
-    const { fake } = renderPresets([preset], {
-      [`DELETE /api/v1/filter-presets/${preset.id}`]: jsonResponse(null, 204),
-    })
+    // The live filter equals the preset's (the applied state), so it stays selected.
+    const { fake } = renderPresets(
+      [preset],
+      {
+        [`DELETE /api/v1/filter-presets/${preset.id}`]: jsonResponse(null, 204),
+      },
+      preset.filter,
+    )
     await pickPreset(user, preset.name)
     // Act
     await user.click(screen.getByRole('button', { name: 'Delete this preset' }))

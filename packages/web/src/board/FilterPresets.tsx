@@ -29,6 +29,32 @@ const BUILTIN_LABELS: Record<(typeof BUILTIN_FILTER_PRESETS)[number]['key'], str
 }
 
 /**
+ * Field-wise equality for a `BoardFilter` (flat scalars + string arrays, no
+ * nesting), order-insensitive on the any-of arrays. Used to tell whether the
+ * live filter still matches the applied preset. ponytail: hand-rolled over a
+ * deep-equal dep — the shape is fixed and flat.
+ */
+function boardFilterEquals(a: BoardFilter, b: BoardFilter): boolean {
+  const sameSet = (x: string[], y: string[]) => {
+    if (x.length !== y.length) return false
+    const sx = [...x].sort()
+    const sy = [...y].sort()
+    return sx.every((value, index) => value === sy[index])
+  }
+  return (
+    a.q === b.q &&
+    a.scope === b.scope &&
+    a.overdue === b.overdue &&
+    sameSet(a.priorities, b.priorities) &&
+    sameSet(a.laneKeys, b.laneKeys) &&
+    sameSet(a.assigneeIds, b.assigneeIds) &&
+    sameSet(a.reporterIds, b.reporterIds) &&
+    sameSet(a.tags, b.tags) &&
+    sameSet(a.locationIds, b.locationIds)
+  )
+}
+
+/**
  * The presets combobox + the save / rename / delete affordances. Built-ins
  * (My Cards, Overdue) render from core constants; custom presets come from
  * `GET /filter-presets`. Selecting any preset applies its COMPLETE `BoardFilter`
@@ -48,7 +74,16 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
   >(null)
 
   const customPresets = presets.data ?? []
-  const selectedPreset = customPresets.find((preset) => preset.id === selectedId) ?? null
+  // The combobox reflects the selected preset ONLY while the live filter still
+  // equals its saved filter. Once any facet drifts (an edit, or "Clear filters"
+  // resetting the bar), the selection clears — so the combobox never lies, and
+  // re-picking the SAME preset changes the Select value and re-fires onApply
+  // (Mantine's Select no-ops when re-selecting the already-current value).
+  const selectedPreset =
+    customPresets.find(
+      (preset) => preset.id === selectedId && boardFilterEquals(preset.filter, filter),
+    ) ?? null
+  const selectedValue = selectedPreset?.id ?? null
 
   const builtinData = BUILTIN_FILTER_PRESETS.map((preset) => ({
     value: `${BUILTIN_PREFIX}${preset.key}`,
@@ -92,7 +127,7 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
             label={strings.filterBar.presetsLabel}
             placeholder={strings.filterBar.presetsPlaceholder}
             data={data}
-            value={selectedId}
+            value={selectedValue}
             onChange={applyValue}
             clearable
             comboboxProps={{ withinPortal: true }}

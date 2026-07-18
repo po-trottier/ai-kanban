@@ -44,12 +44,18 @@ export async function filterBoard(page: Page, text: string): Promise<void> {
   await page.getByRole('textbox', { name: 'Filter cards' }).fill(text)
 }
 
-/** Sets the filter bar's archived-scope segmented control (Active/Archived/All). */
+/**
+ * Sets the filter bar's archived-scope segmented control (Active/Archived/All).
+ * Mantine's SegmentedControl renders a VISUALLY-HIDDEN radio `<input>` behind a
+ * clickable `<label>`, so click the label (the radio itself is unclickable and
+ * times out). The label is aria-hidden, hence text (not role) selection.
+ */
 export async function setBoardScope(
   page: Page,
   scope: 'Active' | 'Archived' | 'All',
 ): Promise<void> {
-  await page.getByRole('radio', { name: scope, exact: true }).click()
+  const control = page.getByRole('radiogroup', { name: 'Active, archived, or all cards' })
+  await control.getByText(scope, { exact: true }).click()
 }
 
 export function boardCard(page: Page, title: string): Locator {
