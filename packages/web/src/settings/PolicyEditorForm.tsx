@@ -16,6 +16,7 @@ import {
 import { Plus, Save } from 'lucide-react'
 import { useState } from 'react'
 import { strings } from '../strings.ts'
+import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { HintButton } from '../shell/HintButton.tsx'
 import { DotsIcon } from '../shell/icons.tsx'
 import classes from './policy-editor.module.css'
@@ -161,7 +162,10 @@ export function PolicyEditorForm({
           <Table.Thead>
             <Table.Tr>
               <Table.Th style={{ position: 'sticky', left: 0 }}>
-                {strings.policy.permissionColumnHeader}
+                <FieldLabel
+                  label={strings.policy.permissionColumnHeader}
+                  help={strings.fieldHelp.permissionCell}
+                />
               </Table.Th>
               {document.roles.map((role, roleIndex) => (
                 <Table.Th key={role.key} className={classes.roleColumn}>
@@ -425,6 +429,7 @@ function AddRoleModal({
         />
         <TextInput
           label={strings.policy.roleNameLabel}
+          description={strings.fieldHelp.roleName}
           value={name}
           onChange={(event) => {
             setName(event.currentTarget.value)
@@ -465,6 +470,7 @@ function RenameRoleModal({
       <Stack gap="md">
         <TextInput
           label={strings.policy.roleNameLabel}
+          description={strings.fieldHelp.roleName}
           data-autofocus
           value={name}
           error={name.trim() === '' ? strings.policy.roleNameRequired : null}

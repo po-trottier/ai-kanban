@@ -21,6 +21,7 @@ import {
   type EstimateUnit,
 } from '../lib/format.ts'
 import { minutesUntilTargetDate } from '../lib/work-progress.ts'
+import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { strings } from '../strings.ts'
 
 export interface EstimateInputProps {
@@ -124,7 +125,9 @@ export function EstimateInput({
       {mode === 'duration' ? (
         <Group grow align="flex-start" gap="sm">
           <NumberInput
-            label={strings.detail.estimateLabel}
+            label={
+              <FieldLabel label={strings.detail.estimateLabel} help={strings.fieldHelp.estimate} />
+            }
             min={0}
             value={value}
             disabled={disabled}
@@ -167,7 +170,12 @@ export function EstimateInput({
         </Group>
       ) : (
         <DatePickerInput
-          label={strings.detail.estimateDateLabel}
+          label={
+            <FieldLabel
+              label={strings.detail.estimateDateLabel}
+              help={strings.fieldHelp.estimate}
+            />
+          }
           value={targetDate}
           error={error}
           disabled={disabled}

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { usePatchLane } from '../api/admin.ts'
 import { useBoard } from '../api/board.ts'
 import { type LaneSnapshot } from '../api/schemas.ts'
+import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
@@ -20,7 +21,9 @@ export function LanesAdmin() {
       <Table.Thead>
         <Table.Tr>
           <Table.Th>{strings.lanes.labelHeader}</Table.Th>
-          <Table.Th>{strings.lanes.wipLimitLabel}</Table.Th>
+          <Table.Th>
+            <FieldLabel label={strings.lanes.wipLimitLabel} help={strings.fieldHelp.wipLimit} />
+          </Table.Th>
           <Table.Th />
         </Table.Tr>
       </Table.Thead>

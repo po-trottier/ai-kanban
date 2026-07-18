@@ -2,6 +2,7 @@ import { PRIORITIES, type Location } from '@rivian-kanban/core'
 import { Select, Stack, TagsInput, Text, TextInput } from '@mantine/core'
 import { Controller, type Control, type UseFormRegisterReturn } from 'react-hook-form'
 import { type PickerUser } from '../api/schemas.ts'
+import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { strings } from '../strings.ts'
 import { type CardFieldValues } from './card-fields.ts'
 import { DescriptionEditor } from './DescriptionEditor.tsx'
@@ -64,7 +65,7 @@ export function CardFieldInputs({
   return (
     <>
       <TextInput
-        label={strings.detail.titleLabel}
+        label={<FieldLabel label={strings.detail.titleLabel} help={strings.fieldHelp.title} />}
         withAsterisk
         disabled={disabled}
         error={errors.title}
@@ -86,7 +87,9 @@ export function CardFieldInputs({
         name="priority"
         render={({ field }) => (
           <Select
-            label={strings.detail.priorityLabel}
+            label={
+              <FieldLabel label={strings.detail.priorityLabel} help={strings.fieldHelp.priority} />
+            }
             data={PRIORITIES.map((priority) => ({
               value: priority,
               label: `${priority} — ${strings.priorityOptions[priority].name}`,
@@ -133,7 +136,9 @@ export function CardFieldInputs({
         name="assigneeId"
         render={({ field }) => (
           <Select
-            label={strings.detail.assigneeLabel}
+            label={
+              <FieldLabel label={strings.detail.assigneeLabel} help={strings.fieldHelp.assignee} />
+            }
             data={users.map((user) => ({ value: user.id, label: user.displayName }))}
             value={field.value ?? null}
             clearable
@@ -146,7 +151,9 @@ export function CardFieldInputs({
       />
       {reporterId === undefined ? null : (
         <Select
-          label={strings.detail.reporterLabel}
+          label={
+            <FieldLabel label={strings.detail.reporterLabel} help={strings.fieldHelp.reporter} />
+          }
           // Identical to Assignee but always disabled: who filed the card, shown
           // here and never editable. The reporter is guaranteed an option (even
           // if no longer an assignable user) so the name resolves.
@@ -175,7 +182,7 @@ export function CardFieldInputs({
         name="tags"
         render={({ field }) => (
           <TagsInput
-            label={strings.detail.tagsLabel}
+            label={<FieldLabel label={strings.detail.tagsLabel} help={strings.fieldHelp.tags} />}
             data={knownTags}
             value={field.value ?? []}
             disabled={disabled}

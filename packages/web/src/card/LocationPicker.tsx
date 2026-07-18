@@ -1,6 +1,7 @@
 import { type Location } from '@rivian-kanban/core'
 import { TreeSelect } from '@mantine/core'
 import { buildLocationTree, type LocationTreeNode } from '../lib/location-tree.ts'
+import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { strings } from '../strings.ts'
 
 export interface LocationPickerProps {
@@ -28,7 +29,13 @@ export function LocationPicker({
   const data = buildLocationTree(locations).map(toTreeNode)
   return (
     <TreeSelect
-      label={label ?? strings.detail.locationLabel}
+      // The card form (no label override) gets the explanatory info tooltip;
+      // the search filter passes its own plain "Location" label.
+      label={
+        label ?? (
+          <FieldLabel label={strings.detail.locationLabel} help={strings.fieldHelp.location} />
+        )
+      }
       data={data}
       value={value}
       onChange={onChange}

@@ -12,6 +12,7 @@ import { type ServiceTokenView } from '../api/schemas.ts'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { ConfirmModal } from '../shell/ConfirmModal.tsx'
+import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { RevealOnceModal } from './RevealOnceModal.tsx'
@@ -138,14 +139,18 @@ export function TokensAdmin() {
         >
           <Stack gap="md">
             <TextInput
-              label={strings.tokens.nameLabel}
+              label={
+                <FieldLabel label={strings.tokens.nameLabel} help={strings.fieldHelp.tokenName} />
+              }
               value={draft.name}
               onChange={(event) => {
                 setDraft({ ...draft, name: event.currentTarget.value })
               }}
             />
             <Select
-              label={strings.tokens.roleLabel}
+              label={
+                <FieldLabel label={strings.tokens.roleLabel} help={strings.fieldHelp.tokenRole} />
+              }
               data={roleOptions}
               value={draft.role}
               allowDeselect={false}
@@ -154,7 +159,9 @@ export function TokensAdmin() {
               }}
             />
             <Select
-              label={strings.tokens.scopeLabel}
+              label={
+                <FieldLabel label={strings.tokens.scopeLabel} help={strings.fieldHelp.tokenScope} />
+              }
               data={TOKEN_SCOPES.map((scope) => ({
                 value: scope,
                 label: strings.tokens.scopes[scope],
