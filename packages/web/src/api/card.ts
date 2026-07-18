@@ -10,6 +10,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
 } from '@tanstack/react-query'
 import { useApi } from './api-context.ts'
 import { API_BASE } from './client.ts'
@@ -94,6 +95,27 @@ export function useCardSearch(filters: CardSearchFilters) {
   })
 }
 
+/**
+ * Every comment write appends a card event (comment.added/edited/deleted —
+ * comment-service.ts), so refetch BOTH the thread and the history: an open
+ * detail panel's History tab must update live, not only on close/reopen (#88).
+ */
+function invalidateThreadAndHistory(queryClient: QueryClient, cardId: string): void {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.comments(cardId) })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.events(cardId) })
+}
+
+/**
+ * Attachment writes append a card event too (attachment.added/removed —
+ * attachment-service.ts) and live on the detail payload, so refetch the detail
+ * AND the history — matching the SSE attachment-hint fan-out (sse.ts) so the
+ * open panel's History tab is live (#88).
+ */
+function invalidateDetailAndHistory(queryClient: QueryClient, cardId: string): void {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.card(cardId) })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.events(cardId) })
+}
+
 export function useAddComment(cardId: string) {
   const api = useApi()
   const queryClient = useQueryClient()
@@ -102,7 +124,7 @@ export function useAddComment(cardId: string) {
       api.post(`/cards/${cardId}/comments`, commentResponseSchema, { body: input }),
     onError: notifyError,
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.comments(cardId) })
+      invalidateThreadAndHistory(queryClient, cardId)
     },
   })
 }
@@ -115,7 +137,7 @@ export function useEditComment(cardId: string) {
       api.patch(`/comments/${commentId}`, commentResponseSchema, { body: input }),
     onError: notifyError,
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.comments(cardId) })
+      invalidateThreadAndHistory(queryClient, cardId)
     },
   })
 }
@@ -127,7 +149,7 @@ export function useDeleteComment(cardId: string) {
     mutationFn: (commentId: string) => api.deleteVoid(`/comments/${commentId}`),
     onError: notifyError,
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.comments(cardId) })
+      invalidateThreadAndHistory(queryClient, cardId)
     },
   })
 }
@@ -146,7 +168,7 @@ export function useUploadAttachment(cardId: string) {
     // 409 attachment-limit (docs/architecture/rest-api.md#attachments).
     onError: notifyError,
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.card(cardId) })
+      invalidateDetailAndHistory(queryClient, cardId)
     },
   })
 }
@@ -177,7 +199,7 @@ export function useDeleteAttachment(cardId: string) {
     mutationFn: (attachmentId: string) => api.deleteVoid(`/attachments/${attachmentId}`),
     onError: notifyError,
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.card(cardId) })
+      invalidateDetailAndHistory(queryClient, cardId)
     },
   })
 }

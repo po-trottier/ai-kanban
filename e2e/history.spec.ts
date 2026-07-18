@@ -35,6 +35,38 @@ test('renders history oldest-first after a move and an edit', async ({ page, con
   await expect(items.nth(2)).toContainText('changed priority')
 })
 
+test('updates the History tab live after a move and an edit without reopening (#88)', async ({
+  page,
+  context,
+}) => {
+  await signIn(context)
+  const title = `History live ${randomUUID()}`
+  const card = await createCard(context.request, title)
+
+  // Open the panel straight on History (creation event only), and keep it open.
+  await page.goto(`/cards/${card.id}`)
+  await page.getByRole('tab', { name: 'History' }).click()
+  const items = page.getByRole('list', { name: 'History' }).getByRole('listitem')
+  await expect(items).toHaveCount(1)
+
+  // Move the card via the board menu BEHIND the non-modal panel — History grows
+  // live (before the fix it stayed at 1 until the panel was reopened).
+  await openCardMenu(page, title, 'Move to…')
+  await selectOption(page, 'Column', 'Ready')
+  await page.getByRole('button', { name: 'Move', exact: true }).click()
+  await expect(items).toHaveCount(2)
+  await expect(items.nth(1)).toContainText('moved the card from Intake to Ready')
+
+  // Edit a field in the same open panel — History grows again, still live.
+  await page.getByRole('tab', { name: 'Details' }).click()
+  await selectOption(page, 'Priority', 'P1')
+  await page.getByRole('button', { name: 'Save changes' }).click()
+  await expect(page.getByText('Card updated')).toBeVisible()
+  await page.getByRole('tab', { name: 'History' }).click()
+  await expect(items).toHaveCount(3)
+  await expect(items.nth(2)).toContainText('changed priority')
+})
+
 test('pages older events behind Load more', async ({ page, context }) => {
   await signIn(context)
   const title = `History paging ${randomUUID()}`

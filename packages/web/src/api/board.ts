@@ -89,8 +89,16 @@ export function useMoveCard(onMoved?: (args: MoveCardArgs) => void) {
           .catch(notifyError)
       }
     },
-    onSettled: () => {
+    onSettled: (_card, _error, { card }) => {
+      // A move appends a card.status_changed event and shifts the board: refetch
+      // the board AND the moved card's detail + history, so an open detail panel's
+      // History tab updates live instead of only on close/reopen (#88). The
+      // detail-edit path already does this via invalidateCard; a move went
+      // through only the board key before.
       void queryClient.invalidateQueries({ queryKey: queryKeys.board })
+      const key = String(card.id)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.card(key) })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.events(key) })
     },
   })
 }
