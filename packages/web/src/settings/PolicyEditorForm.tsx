@@ -1,9 +1,4 @@
-import {
-  PERMISSIONS,
-  type Permission,
-  type PolicyDocument,
-  type RoleDefinition,
-} from '@rivian-kanban/core'
+import { type Permission, type PolicyDocument, type RoleDefinition } from '@rivian-kanban/core'
 import {
   Button,
   Checkbox,
@@ -459,6 +454,3 @@ function RenameRoleModal({
     </Modal>
   )
 }
-
-/** Re-export used by tests to assert the full permission roster is rendered. */
-export const ALL_PERMISSIONS = PERMISSIONS
