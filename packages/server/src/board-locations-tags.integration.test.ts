@@ -540,4 +540,36 @@ describe('GET /events (board-wide activity feed)', () => {
     expect(response.statusCode).toBe(400)
     expect(response.json<{ type: string }>().type).toBe('urn:rivian-kanban:problem:validation')
   })
+
+  it('gates the cross-user feed: admin sees + names another user’s activity; a user is self-scoped', async () => {
+    const before = new Date().toISOString()
+    const { cookie: otherCookie, user: other } = await t.asRole('user')
+    const { cookie: viewerCookie } = await t.asRole('user')
+    const created = await t.request(otherCookie, {
+      method: 'POST',
+      url: '/api/v1/cards',
+      payload: { title: 'Gated activity subject' },
+    })
+    const otherCardId = created.json<{ id: number }>().id
+
+    const url = `/api/v1/events?since=${encodeURIComponent(before)}&limit=200`
+    const asAdmin = await t.request(adminCookie, { method: 'GET', url })
+    const asViewer = await t.request(viewerCookie, { method: 'GET', url })
+
+    // Admin holds viewAllActivity: sees the other user's event, with the actor
+    // name on the item and the full users map ({id, displayName, email}).
+    const adminBody = asAdmin.json<{
+      items: { cardId: number; actorId: string | null; actorDisplayName?: string }[]
+      users: Record<string, { id: string; displayName: string; email: string }>
+    }>()
+    const adminHit = adminBody.items.find((event) => event.cardId === otherCardId)
+    expect(adminHit?.actorDisplayName).toBe(other.displayName)
+    expect(adminBody.users[other.id]).toMatchObject({ id: other.id, email: other.email })
+
+    // A plain user (no viewAllActivity) never sees another user's activity.
+    const viewerIds = asViewer
+      .json<{ items: { cardId: number }[] }>()
+      .items.map((event) => event.cardId)
+    expect(viewerIds).not.toContain(otherCardId)
+  })
 })

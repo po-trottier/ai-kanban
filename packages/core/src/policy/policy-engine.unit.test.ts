@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { type Actor } from '../domain/entities.ts'
 import { DEFAULT_POLICY_DOCUMENT, type Permission, type PolicyDocument } from '../domain/policy.ts'
-import { evaluatePolicy } from './policy-engine.ts'
+import { evaluatePolicy, hasPermission } from './policy-engine.ts'
 
 const USER_ID = '10000000-0000-7000-8000-000000000001'
 const OTHER_ID = '10000000-0000-7000-8000-000000000002'
@@ -85,6 +85,48 @@ describe('evaluatePolicy — grant lookup (default-deny)', () => {
     expect(adminRoles).toEqual({ allowed: true })
     expect(userUsers).toEqual({ allowed: false, kind: 'denied', rule: 'permission:manageUsers' })
     expect(userPolicy).toEqual({ allowed: false, kind: 'denied', rule: 'permission:managePolicy' })
+  })
+})
+
+describe('hasPermission — read-capability predicate (viewAllActivity gate)', () => {
+  it('grants viewAllActivity to admin, denies it to a plain user (default-deny)', () => {
+    // Arrange — the seeded admin role grants viewAllActivity; the user role does not.
+    const admin = userOf('admin')
+    const user = userOf('user')
+
+    // Act
+    const forAdmin = hasPermission(admin, 'viewAllActivity', DEFAULT_POLICY_DOCUMENT)
+    const forUser = hasPermission(user, 'viewAllActivity', DEFAULT_POLICY_DOCUMENT)
+
+    // Assert
+    expect(forAdmin).toBe(true)
+    expect(forUser).toBe(false)
+  })
+
+  it('does NOT blanket-deny a read-scope token — a read gate is exactly its job', () => {
+    // Arrange — the always-on read-scope rule blocks WRITES; a read gate must
+    // not inherit it, so an admin-role read token still holds viewAllActivity.
+    const readAdminToken: Actor = { kind: 'mcp', id: USER_ID, role: 'admin', scope: 'read' }
+    const readUserToken: Actor = { kind: 'mcp', id: OTHER_ID, role: 'user', scope: 'read' }
+
+    // Act
+    const adminGranted = hasPermission(readAdminToken, 'viewAllActivity', DEFAULT_POLICY_DOCUMENT)
+    const userDenied = hasPermission(readUserToken, 'viewAllActivity', DEFAULT_POLICY_DOCUMENT)
+
+    // Assert
+    expect(adminGranted).toBe(true)
+    expect(userDenied).toBe(false)
+  })
+
+  it('system actors bypass (scheduled jobs)', () => {
+    // Arrange — a system actor against a policy whose user role grants nothing.
+    const system: Actor = { kind: 'system', id: USER_ID, role: 'admin' }
+
+    // Act
+    const granted = hasPermission(system, 'viewAllActivity', withUserPerms())
+
+    // Assert
+    expect(granted).toBe(true)
   })
 })
 

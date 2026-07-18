@@ -2,6 +2,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { type CallToolResult, type ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import {
   activityFeedRequestSchema,
+  activityFeedSchemaOf,
+  activityUserSchema,
   addCommentInputSchema,
   archiveCardInputSchema,
   attachmentSchema,
@@ -89,8 +91,25 @@ const archiveCardToolSchema = archiveCardInputSchema.extend(cardIdShape)
 const blockCardToolSchema = blockCardInputSchema.extend(cardIdShape)
 const unblockCardToolSchema = unblockCardInputSchema.extend(cardIdShape)
 
-/** The board-wide activity feed shares the same enriched-event page as history. */
-const activityOutputSchema = cardHistoryOutputSchema
+/**
+ * The board-wide activity feed: enriched events (mcp attribution PLUS the
+ * user/slack `actorDisplayName` and the mcp `onBehalfOfDisplayName` companions)
+ * and a top-level `users` map resolving every referenced id (mcp.md). Defined
+ * once in core (`activityFeedSchemaOf`); the strict `activityUserSchema` keeps
+ * the map values to {id, displayName, email}.
+ */
+const activityOutputSchema = activityFeedSchemaOf({
+  event: z.intersection(
+    cardEventSchema,
+    z.object({
+      actorLabel: z.string().optional(),
+      onBehalfOfUserId: z.uuid().optional(),
+      actorDisplayName: z.string().optional(),
+      onBehalfOfDisplayName: z.string().optional(),
+    }),
+  ),
+  user: activityUserSchema,
+})
 
 /** whoami exposes the calling token's metadata — the hash is structurally omitted. */
 const whoamiOutputSchema = z.object(serviceTokenSchema.omit({ tokenHash: true }).shape)
@@ -397,12 +416,15 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
         'The board-wide activity feed: card events across ALL cards since a timestamp, ' +
         'newest-first, cursor-paginated. Filters (all optional): sinceIso (ISO datetime; ' +
         'defaults to 24 hours ago), type (event type), cardId, actorKind (user/mcp/slack/' +
-        'system). mcp events carry actorLabel (token name) + onBehalfOfUserId (its creator).',
+        'system). Requires the viewAllActivity permission to see the cross-user feed; ' +
+        'without it a token is scoped to its own creator’s activity. Each item carries ' +
+        'actorDisplayName / onBehalfOfDisplayName, and the top-level users map resolves every ' +
+        'referenced user id ({id, displayName, email}).',
       inputSchema: activityFeedRequestSchema,
       outputSchema: activityOutputSchema,
     },
     async (args: z.output<typeof activityFeedRequestSchema>) =>
-      jsonResult(await queries.eventsSince(args)),
+      jsonResult(await queries.eventsSince(actor, args)),
   )
 
   readTool(

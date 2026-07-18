@@ -1,5 +1,7 @@
 import {
   ACTOR_KINDS,
+  activityFeedSchemaOf,
+  activityUserSchema,
   attachmentSchema,
   boardCardSchema,
   boardPolicySchema,
@@ -94,6 +96,22 @@ export const cardEventResponseSchema = z.object({
   createdAt: z.string(),
   actorLabel: z.string().optional(),
   onBehalfOfUserId: z.uuid().optional(),
+})
+
+/**
+ * `GET /events` board-wide activity feed — the enriched envelope (single-schema
+ * `activityFeedSchemaOf`): each event additionally carries the resolved
+ * `actorDisplayName` / `onBehalfOfDisplayName`, and the top-level `users` map
+ * resolves every referenced user id. The per-card `GET /cards/:id/events` shape
+ * (`cardEventResponseSchema`) is deliberately NOT extended — the card panel
+ * owns that payload.
+ */
+export const activityFeedResponseSchema = activityFeedSchemaOf({
+  event: cardEventResponseSchema.extend({
+    actorDisplayName: z.string().optional(),
+    onBehalfOfDisplayName: z.string().optional(),
+  }),
+  user: z.object(activityUserSchema.shape),
 })
 
 export const emptyBodySchema = z.null()

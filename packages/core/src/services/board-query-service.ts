@@ -13,6 +13,8 @@ import { decodeCursor, encodeCursor, type CursorKey } from '../domain/cursor.ts'
 import { isOverdueResume, utcDayOf } from '../domain/dates.ts'
 import {
   isoDateTimeSchema,
+  userSchema,
+  type Actor,
   type Attachment,
   type Card,
   type Comment,
@@ -22,13 +24,14 @@ import {
 } from '../domain/entities.ts'
 import { boardCardOf, type BoardCard } from '../domain/envelopes.ts'
 import { CARD_EVENT_TYPES, type CardEvent } from '../domain/events.ts'
+import { hasPermission } from '../policy/policy-engine.ts'
 import {
   type CardQueryFilter,
   type TransactionContext,
   type UnitOfWork,
 } from '../ports/repositories.ts'
 import { type Clock } from '../ports/runtime.ts'
-import { DAY_MS, laneByKey, redactDeletedComments, requireFound } from './internal.ts'
+import { activePolicy, DAY_MS, laneByKey, redactDeletedComments, requireFound } from './internal.ts'
 
 export interface BoardQueryServiceDeps {
   uow: UnitOfWork
@@ -84,6 +87,54 @@ export type EnrichedCardEvent = CardEvent & {
   onBehalfOfUserId?: string
 }
 
+/**
+ * A feed event's read-time name resolution ON TOP of the mcp attribution:
+ * `actorDisplayName` for user/slack actors, and an `onBehalfOfDisplayName`
+ * companion to `onBehalfOfUserId` (mcp). Both derived from the same page-wide
+ * user batch that fills the feed's `users` map — companions for rendering, the
+ * map is the authoritative lookup covering ids the companions don't (snapshot
+ * reporter/assignee). Absent when the referenced user can't be resolved.
+ */
+export type EnrichedActivityEvent = EnrichedCardEvent & {
+  actorDisplayName?: string
+  onBehalfOfDisplayName?: string
+}
+
+/**
+ * The users-map value: id + displayName + email for every user id the feed
+ * references (actors, on-behalf, and each `card.created` snapshot's
+ * reporter/assignee). Email rides along like the admin users table — the
+ * cross-user feed is gated behind `viewAllActivity`, and a self-scoped caller
+ * only ever sees their own ids.
+ */
+export const activityUserSchema = userSchema.pick({ id: true, displayName: true, email: true })
+export type ActivityUser = z.infer<typeof activityUserSchema>
+
+/**
+ * The board-wide activity feed envelope (`GET /events`, MCP `list_activity`):
+ * the cursor page of enriched events PLUS a top-level `users` map resolving
+ * every referenced id in one place. Parameterized by the event-item and user
+ * schemas (single-schema rule) so REST supplies stripping wrappers and MCP the
+ * strict core schemas.
+ */
+export function activityFeedSchemaOf<E extends z.ZodType, U extends z.ZodType>(parts: {
+  event: E
+  user: U
+}) {
+  return z.object({
+    items: z.array(parts.event),
+    nextCursor: z.string().nullable(),
+    users: z.record(z.uuid(), parts.user),
+  })
+}
+
+/** Core's `Page<EnrichedActivityEvent>` plus the resolved `users` map. */
+export interface ActivityFeed {
+  items: EnrichedActivityEvent[]
+  nextCursor: string | null
+  users: Record<string, ActivityUser>
+}
+
 export const STALE_REASONS = ['overdue_resume', 'stale_review', 'stale_blocked'] as const
 export type StaleReason = (typeof STALE_REASONS)[number]
 
@@ -118,8 +169,10 @@ export const activityFeedRequestSchema = pageRequestSchema.extend({
 })
 
 /**
- * Read-side queries. Reads are never policy-checked (every authenticated user
- * may see every card, ADR-008); no audit events are written.
+ * Read-side queries. Card reads are never policy-checked (every authenticated
+ * user may see every card, ADR-008); no audit events are written. The sole
+ * exception is `eventsSince`: the cross-user activity feed is gated on
+ * `viewAllActivity`, self-scoping callers who lack it (see the method).
  */
 export class BoardQueryService {
   private readonly deps: BoardQueryServiceDeps
@@ -227,19 +280,35 @@ export class BoardQueryService {
    * Board-wide activity feed: card events across ALL cards since `sinceIso`
    * (default 24h before now, resolved via the injected Clock), newest-first,
    * cursor-paginated on (createdAt, id) exactly like `listCards`. Filters
-   * (type/cardId/actorKind) are all optional. mcp actors are enriched with
-   * `actorLabel`/`onBehalfOfUserId` like `cardHistory`.
+   * (type/cardId/actorKind) are all optional.
+   *
+   * ACCESS (docs/architecture/mcp.md): the CROSS-USER feed is gated behind the
+   * `viewAllActivity` permission. A caller without it is scoped to their OWN
+   * activity — events where `actorId` is the caller OR an mcp token they minted
+   * (the "on behalf of" line). For an mcp actor the on-behalf user is the
+   * token's `createdBy`. Scoping is pushed into the query (`actorIds`), never
+   * filtered in memory, so pagination stays correct.
+   *
+   * NAMES: every returned item resolves user/slack actor names and an mcp
+   * `onBehalfOf` companion, and a top-level `users` map covers every referenced
+   * id (actors, on-behalf, each `card.created` snapshot's reporter/assignee) —
+   * batch-resolved with ONE users read per page (no N+1).
    */
-  async eventsSince(rawRequest?: unknown): Promise<Page<EnrichedCardEvent>> {
+  async eventsSince(actor: Actor, rawRequest?: unknown): Promise<ActivityFeed> {
     const request = activityFeedRequestSchema.parse(rawRequest ?? {})
     const sinceIso =
       request.sinceIso ?? new Date(this.deps.clock.now().getTime() - DAY_MS).toISOString()
     const after = request.cursor !== undefined ? decodeCursor(request.cursor) : undefined
     return this.deps.uow.read(async (tx) => {
+      const policy = await activePolicy(tx, this.deps.boardId)
+      const actorIds = hasPermission(actor, 'viewAllActivity', policy)
+        ? undefined
+        : await selfActorIds(tx, actor)
       const events = await tx.events.listBoardSince(sinceIso, {
         ...(request.type !== undefined ? { types: [request.type] } : {}),
         ...(request.cardId !== undefined ? { cardId: request.cardId } : {}),
         ...(request.actorKind !== undefined ? { actorKind: request.actorKind } : {}),
+        ...(actorIds !== undefined ? { actorIds } : {}),
         ...(after !== undefined ? { after } : {}),
         limit: request.limit + 1,
       })
@@ -247,7 +316,8 @@ export class BoardQueryService {
         createdAt: event.createdAt,
         id: event.id,
       }))
-      return { ...page, items: await enrichMcpActors(tx, page.items) }
+      const items = await enrichMcpActors(tx, page.items)
+      return resolveActivityNames(tx, items, page.nextCursor)
     })
   }
 
@@ -409,6 +479,81 @@ async function enrichMcpActors(
     if (!token) return event
     return { ...event, actorLabel: token.name, onBehalfOfUserId: token.createdBy }
   })
+}
+
+/**
+ * The user ids that count as the caller's OWN activity for the self-scoped
+ * feed: the caller's user id plus every service-token id they minted (their
+ * events land as `actorId = <tokenId>`). For an mcp actor the caller IS a
+ * token — the on-behalf user is its `createdBy`, and that user's own tokens
+ * include this one. One `serviceTokens.list()` (tokens are few, admin-managed).
+ * An unknown/revoked token with no resolvable creator scopes to just itself.
+ */
+async function selfActorIds(tx: TransactionContext, actor: Actor): Promise<string[]> {
+  const tokens = await tx.serviceTokens.list()
+  const userId =
+    actor.kind === 'mcp' ? tokens.find((token) => token.id === actor.id)?.createdBy : actor.id
+  if (userId === undefined) return [actor.id]
+  const mintedTokenIds = tokens
+    .filter((token) => token.createdBy === userId)
+    .map((token) => token.id)
+  return [userId, ...mintedTokenIds]
+}
+
+/**
+ * Every user id a feed item references: the user/slack actor, the mcp
+ * on-behalf user, and each `card.created` snapshot's reporter + assignee (the
+ * task's named set). mcp/system `actorId`s are token/null and excluded.
+ */
+function referencedUserIds(event: EnrichedActivityEvent): string[] {
+  const ids: string[] = []
+  if ((event.actorKind === 'user' || event.actorKind === 'slack') && event.actorId !== null) {
+    ids.push(event.actorId)
+  }
+  if (event.onBehalfOfUserId !== undefined) ids.push(event.onBehalfOfUserId)
+  if (event.eventType === 'card.created') {
+    ids.push(event.payload.snapshot.reporterId)
+    if (event.payload.snapshot.assigneeId !== null) ids.push(event.payload.snapshot.assigneeId)
+  }
+  return ids
+}
+
+/**
+ * Resolves the page's user ids to display names in ONE users read: fills the
+ * top-level `users` map (id → {id, displayName, email}) covering every
+ * referenced id, and stamps the `actorDisplayName` / `onBehalfOfDisplayName`
+ * render companions on each item. Ids that don't resolve are simply absent.
+ */
+async function resolveActivityNames(
+  tx: TransactionContext,
+  events: EnrichedActivityEvent[],
+  nextCursor: string | null,
+): Promise<ActivityFeed> {
+  const referenced = new Set(events.flatMap(referencedUserIds))
+  const users: Record<string, ActivityUser> = {}
+  if (referenced.size > 0) {
+    for (const user of await tx.userAccounts.list()) {
+      if (referenced.has(user.id)) {
+        // Project to the map value (id/displayName/email); the full User row
+        // carries strictObject-rejected extras, so pick rather than parse.
+        users[user.id] = { id: user.id, displayName: user.displayName, email: user.email }
+      }
+    }
+  }
+  const items = events.map((event) => {
+    const actorName =
+      (event.actorKind === 'user' || event.actorKind === 'slack') && event.actorId !== null
+        ? users[event.actorId]?.displayName
+        : undefined
+    const onBehalfName =
+      event.onBehalfOfUserId !== undefined ? users[event.onBehalfOfUserId]?.displayName : undefined
+    return {
+      ...event,
+      ...(actorName !== undefined ? { actorDisplayName: actorName } : {}),
+      ...(onBehalfName !== undefined ? { onBehalfOfDisplayName: onBehalfName } : {}),
+    }
+  })
+  return { items, nextCursor, users }
 }
 
 /** Fetch limit+1 rows, then slice and derive the opaque nextCursor. */

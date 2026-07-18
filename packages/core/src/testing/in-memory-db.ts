@@ -147,6 +147,11 @@ export class InMemoryDb implements UnitOfWork {
     this.state.sessions.push(clone(session))
   }
 
+  /** Seeds a service token directly (mcp-actor attribution, self-scope tests). */
+  seedServiceToken(token: ServiceToken): void {
+    this.state.serviceTokens.push(clone(token))
+  }
+
   /** Committed sessions for a user (asserting revocation behavior). */
   sessionsFor(userId: string): Session[] {
     return clone(this.state.sessions.filter((session) => session.userId === userId))
@@ -846,6 +851,7 @@ class InMemoryEventRepository implements EventRepository {
       types?: readonly CardEventType[]
       cardId?: number
       actorKind?: ActorKind
+      actorIds?: readonly string[]
       after?: CursorKey
       limit?: number
     },
@@ -855,6 +861,11 @@ class InMemoryEventRepository implements EventRepository {
       .filter((event) => options?.types === undefined || options.types.includes(event.eventType))
       .filter((event) => options?.cardId === undefined || event.cardId === options.cardId)
       .filter((event) => options?.actorKind === undefined || event.actorKind === options.actorKind)
+      .filter(
+        (event) =>
+          options?.actorIds === undefined ||
+          (event.actorId !== null && options.actorIds.includes(event.actorId)),
+      )
       // Newest-first (createdAt DESC, id DESC) — mirrors the SQL adapter.
       .sort((a, b) =>
         a.createdAt === b.createdAt

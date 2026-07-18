@@ -299,7 +299,9 @@ export interface EventRepository {
    * `(createdAt, id) < (after.createdAt, after.id)` under that ordering —
    * mirroring `CardRepository.query` exactly (tie-break direction AND strict
    * inequality), which `BoardQueryService.eventsSince` pagination depends on.
-   * Optional filters: event type, a single card id, and actor kind.
+   * Optional filters: event type, a single card id, actor kind, and `actorIds`
+   * (an `actorId IN (…)` allowlist — the self-scoped activity feed's gate,
+   * pushed into SQL so pagination stays correct; an empty array matches nothing).
    */
   listBoardSince(
     sinceIso: string,
@@ -307,6 +309,7 @@ export interface EventRepository {
       types?: readonly CardEventType[]
       cardId?: number
       actorKind?: ActorKind
+      actorIds?: readonly string[]
       after?: CursorKey
       limit?: number
     },

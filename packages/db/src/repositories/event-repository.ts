@@ -101,11 +101,15 @@ export class SqliteEventRepository implements EventRepository {
       types?: readonly CardEventType[]
       cardId?: number
       actorKind?: ActorKind
+      actorIds?: readonly string[]
       after?: CursorKey
       limit?: number
     },
   ): Promise<CardEvent[]> {
-    if (options?.types?.length === 0) return Promise.resolve([])
+    // Empty allowlists match nothing (self-scoped feed with no ids to itself).
+    if (options?.types?.length === 0 || options?.actorIds?.length === 0) {
+      return Promise.resolve([])
+    }
     const conditions: (SQL | undefined)[] = [gte(cardEvents.createdAt, sinceIso)]
     if (options?.types !== undefined) {
       conditions.push(inArray(cardEvents.eventType, [...options.types]))
@@ -113,6 +117,9 @@ export class SqliteEventRepository implements EventRepository {
     if (options?.cardId !== undefined) conditions.push(eq(cardEvents.cardId, options.cardId))
     if (options?.actorKind !== undefined) {
       conditions.push(eq(cardEvents.actorKind, options.actorKind))
+    }
+    if (options?.actorIds !== undefined) {
+      conditions.push(inArray(cardEvents.actorId, [...options.actorIds]))
     }
     const after = options?.after
     if (after !== undefined) {

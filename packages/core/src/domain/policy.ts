@@ -26,6 +26,12 @@ export const PERMISSIONS = [
   'comment.deleteOthers',
   'attachment.add',
   'attachment.deleteOthers',
+  /**
+   * See the CROSS-USER activity feed (`GET /events`, MCP `list_activity`) — a
+   * read gate, unlike the mutating capabilities above. Without it a caller is
+   * scoped to their own activity; the admin/audit roles grant it.
+   */
+  'viewAllActivity',
   'manageUsers',
   'manageRoles',
   'manageLocations',

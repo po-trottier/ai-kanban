@@ -563,6 +563,7 @@ export const strings = {
       'comment.deleteOthers': 'Delete others’ comments',
       'attachment.add': 'Upload files',
       'attachment.deleteOthers': 'Delete others’ files',
+      viewAllActivity: 'View all activity',
       manageUsers: 'Manage users',
       manageRoles: 'Manage roles & permissions',
       manageLocations: 'Manage locations',

@@ -67,6 +67,19 @@ function grant(actor: Actor, perm: Permission, policy: PolicyDocument): PolicyDe
 }
 
 /**
+ * Read-capability predicate: does the actor's role grant `perm`? Unlike the
+ * write path (`evaluatePolicy`/`ensurePermission`), it does NOT deny read-scope
+ * tokens — a scope-`read` summarizer token is exactly who may hold a read gate
+ * like `viewAllActivity`. System actors bypass (scheduled jobs); everyone else
+ * needs the grant (default-deny). No throw, no rule string — a plain boolean
+ * the caller uses to widen or scope a read.
+ */
+export function hasPermission(actor: Actor, perm: Permission, policy: PolicyDocument): boolean {
+  if (actor.kind === 'system') return true
+  return grant(actor, perm, policy).allowed
+}
+
+/**
  * Throwing guard for a manage* surface, used by the server's admin services.
  * Mirrors `evaluatePolicy` exactly: system actors bypass (scheduled jobs),
  * read-scope tokens are denied every write, everyone else needs the grant.

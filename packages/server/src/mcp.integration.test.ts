@@ -681,6 +681,40 @@ describe('board-wide read tools', () => {
     expect(mcpOnly.items.every((event) => event.actorLabel === 'writer agent')).toBe(true)
   })
 
+  it('list_activity gates the cross-user feed: admin token sees all, a user token self-scopes', async () => {
+    // A separate REST user creates a card — activity NOT attributable to the
+    // reader token's creator (the admin who minted it).
+    const { cookie, user } = await t.asRole('user')
+    const before = new Date().toISOString()
+    const created = await t.request(cookie, {
+      method: 'POST',
+      url: '/api/v1/cards',
+      payload: { title: 'Someone else’s activity' },
+    })
+    const otherCardId = created.json<{ id: number }>().id
+
+    const adminToken = await mintToken('audit agent', 'admin', 'read')
+    const adminClient = await connect(adminToken.raw)
+    const readerClient = await connect(reader.raw)
+
+    const seenByAdmin = await callOk<{
+      items: (CardEvent & { actorDisplayName?: string })[]
+      users: Record<string, { id: string; displayName: string; email: string }>
+    }>(adminClient, 'list_activity', { sinceIso: before, limit: 200 })
+    const seenByReader = await callOk<{ items: CardEvent[] }>(readerClient, 'list_activity', {
+      sinceIso: before,
+      limit: 200,
+    })
+
+    // Admin (viewAllActivity) sees the other user's event and resolves its name;
+    // the reader (plain user role) is scoped to its own creator's activity.
+    const adminHit = seenByAdmin.items.find((event) => event.cardId === otherCardId)
+    expect(adminHit).toBeDefined()
+    expect(adminHit?.actorDisplayName).toBe(user.displayName)
+    expect(seenByAdmin.users[user.id]).toMatchObject({ id: user.id, email: user.email })
+    expect(seenByReader.items.some((event) => event.cardId === otherCardId)).toBe(false)
+  })
+
   it('list_blocked_cards returns only currently-blocked cards, cursor-paginated', async () => {
     const writeClient = await connect(writer.raw)
     // Two fresh blocked cards guarantee a second page at limit 1.

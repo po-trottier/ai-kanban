@@ -352,5 +352,19 @@ describe('SqliteEventRepository', () => {
       expect(mcpOnly.map((e) => e.actorKind)).toEqual(['mcp'])
       expect(none).toEqual([])
     })
+
+    it('filters by actorIds (self-scoped feed); an empty allowlist matches nothing', async () => {
+      const byAuthor = await run((tx) =>
+        tx.events.listBoardSince('2026-07-16T00:00:00.000Z', { actorIds: [authorId] }),
+      )
+      const empty = await run((tx) =>
+        tx.events.listBoardSince('2026-07-16T00:00:00.000Z', { actorIds: [] }),
+      )
+
+      // Only the user-actor events; the null-actor mcp/system rows are excluded.
+      expect(byAuthor.length).toBeGreaterThan(0)
+      expect(byAuthor.every((e) => e.actorId === authorId)).toBe(true)
+      expect(empty).toEqual([])
+    })
   })
 })

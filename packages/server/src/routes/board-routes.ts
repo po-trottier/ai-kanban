@@ -14,14 +14,13 @@ import { z } from 'zod'
 import { type AppDeps } from '../types.ts'
 import { actorOf } from './user-routes.ts'
 import {
+  activityFeedResponseSchema,
   boardPolicyResponseSchema,
   boardResponseSchema,
-  cardEventResponseSchema,
   laneResponseSchema,
   locationResponseSchema,
   emptyBodySchema,
   idParamsSchema,
-  pageResponseOf,
   tagResponseSchema,
 } from './schemas.ts'
 
@@ -185,12 +184,14 @@ export function boardRoutes(deps: AppDeps) {
       {
         schema: {
           querystring: activityQuerySchema,
-          response: { 200: pageResponseOf(cardEventResponseSchema) },
+          response: { 200: activityFeedResponseSchema },
         },
       },
       async (request) => {
         const { since, type, cardId, actorKind, cursor, limit } = request.query
-        return queries.eventsSince({
+        // The cross-user feed is gated on `viewAllActivity`; a caller without it
+        // is scoped to their own activity inside the service (query layer).
+        return queries.eventsSince(actorOf(request), {
           ...(since !== undefined ? { sinceIso: since } : {}),
           ...(type !== undefined ? { type } : {}),
           ...(cardId !== undefined ? { cardId } : {}),

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { type Actor, type ServiceToken } from '../domain/entities.ts'
 import { NotFoundError } from '../domain/errors.ts'
 import { createScenario, fixtureId, type Scenario } from '../testing/index.ts'
 
@@ -376,9 +377,10 @@ describe('BoardQueryService.eventsSince', () => {
       expectedVersion: 1,
     })
 
-    // Act — the fixed clock is now day+1; the 24h default window still spans both.
-    const pageOne = await scenario.queries.eventsSince({ limit: 1 })
-    const pageTwo = await scenario.queries.eventsSince({
+    // Act — the fixed clock is now day+1; the 24h default window still spans
+    // both. An admin actor holds viewAllActivity, so the feed is unscoped.
+    const pageOne = await scenario.queries.eventsSince(scenario.actors.admin, { limit: 1 })
+    const pageTwo = await scenario.queries.eventsSince(scenario.actors.admin, {
       limit: 1,
       cursor: pageOne.nextCursor ?? '',
     })
@@ -400,8 +402,8 @@ describe('BoardQueryService.eventsSince', () => {
     scenario.clock.advanceDays(2)
 
     // Act — no sinceIso: the service derives (now − 24h) from the injected clock.
-    const defaulted = await scenario.queries.eventsSince()
-    const explicit = await scenario.queries.eventsSince({
+    const defaulted = await scenario.queries.eventsSince(scenario.actors.admin)
+    const explicit = await scenario.queries.eventsSince(scenario.actors.admin, {
       sinceIso: '2026-07-01T00:00:00.000Z',
     })
 
@@ -425,14 +427,104 @@ describe('BoardQueryService.eventsSince', () => {
     })
 
     // Act
-    const byType = await scenario.queries.eventsSince({ type: 'card.blocked' })
-    const byUserKind = await scenario.queries.eventsSince({ actorKind: 'user' })
-    const byMcpKind = await scenario.queries.eventsSince({ actorKind: 'mcp' })
+    const byType = await scenario.queries.eventsSince(scenario.actors.admin, {
+      type: 'card.blocked',
+    })
+    const byUserKind = await scenario.queries.eventsSince(scenario.actors.admin, {
+      actorKind: 'user',
+    })
+    const byMcpKind = await scenario.queries.eventsSince(scenario.actors.admin, {
+      actorKind: 'mcp',
+    })
 
     // Assert
     expect(byType.items.map((event) => event.eventType)).toEqual(['card.blocked'])
     expect(byUserKind.items.length).toBeGreaterThanOrEqual(2)
     expect(byMcpKind.items).toHaveLength(0)
+  })
+
+  it('scopes a non-privileged caller to their OWN activity (events they + their tokens produced)', async () => {
+    // Arrange — two users each block a card; a service token the requester
+    // minted also acts. The technician (user role, no viewAllActivity) should
+    // see only their own event, NOT the requester's or the token's.
+    const scenario = createScenario()
+    const own = scenario.seedCard({ laneId: scenario.lanes.ready.id })
+    const other = scenario.seedCard({ laneId: scenario.lanes.ready.id })
+    await scenario.cards.block(scenario.actors.technician, own.id, {
+      reason: 'mine',
+      expectedVersion: 1,
+    })
+    await scenario.cards.block(scenario.actors.requester, other.id, {
+      reason: 'theirs',
+      expectedVersion: 1,
+    })
+
+    // Act
+    const scoped = await scenario.queries.eventsSince(scenario.actors.technician)
+    const all = await scenario.queries.eventsSince(scenario.actors.admin)
+
+    // Assert — the admin sees both cards; the technician only their own.
+    expect(new Set(all.items.map((event) => event.cardId))).toEqual(new Set([own.id, other.id]))
+    expect(scoped.items.every((event) => event.cardId === own.id)).toBe(true)
+    expect(scoped.items.some((event) => event.cardId === other.id)).toBe(false)
+  })
+
+  it('scopes an mcp token to its creator, and enriches on-behalf attribution', async () => {
+    // Arrange — a read-scope token minted BY the technician; its mcp events
+    // count as the technician's own activity (on-behalf-of), so a technician
+    // caller sees them even though actorId is the token id.
+    const scenario = createScenario()
+    const token: ServiceToken = {
+      id: fixtureId(500),
+      name: 'summarizer',
+      tokenHash: 'hash-500',
+      role: 'user',
+      scope: 'read_write',
+      createdBy: scenario.users.technician.id,
+      createdAt: '2026-07-16T00:00:00.000Z',
+      lastUsedAt: null,
+      revokedAt: null,
+    }
+    scenario.db.seedServiceToken(token)
+    const tokenActor: Actor = { kind: 'mcp', id: token.id, role: 'user', scope: 'read_write' }
+    const card = scenario.seedCard({ laneId: scenario.lanes.ready.id })
+    await scenario.cards.block(tokenActor, card.id, { reason: 'agent', expectedVersion: 1 })
+
+    // Act — the technician (who minted the token) sees the token's event.
+    const scoped = await scenario.queries.eventsSince(scenario.actors.technician)
+    const mcpEvent = scoped.items.find((event) => event.actorKind === 'mcp')
+
+    // Assert — on-behalf attribution resolves to the technician's name + id.
+    expect(mcpEvent?.actorLabel).toBe('summarizer')
+    expect(mcpEvent?.onBehalfOfUserId).toBe(scenario.users.technician.id)
+    expect(mcpEvent?.onBehalfOfDisplayName).toBe(scenario.users.technician.displayName)
+    expect(scoped.users[scenario.users.technician.id]?.displayName).toBe(
+      scenario.users.technician.displayName,
+    )
+  })
+
+  it('resolves user-actor names and a users map covering snapshot reporter/assignee', async () => {
+    // Arrange — a card created (snapshot carries reporterId) by a user actor.
+    const scenario = createScenario()
+    const card = await scenario.cards.create(scenario.actors.technician, {
+      title: 'Named subject',
+      assigneeId: scenario.users.requester.id,
+    })
+
+    // Act — an admin sees the whole feed with names resolved.
+    const feed = await scenario.queries.eventsSince(scenario.actors.admin, {
+      type: 'card.created',
+      cardId: card.id,
+    })
+    const created = feed.items.at(0)
+
+    // Assert — actor name on the item; the users map covers the actor,
+    // the reporter, and the assignee referenced by the creation snapshot.
+    expect(created?.actorDisplayName).toBe(scenario.users.technician.displayName)
+    expect(feed.users[scenario.users.technician.id]?.displayName).toBe(
+      scenario.users.technician.displayName,
+    )
+    expect(feed.users[scenario.users.requester.id]).toBeDefined()
   })
 })
 
