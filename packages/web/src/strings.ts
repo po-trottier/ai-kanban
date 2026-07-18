@@ -489,7 +489,8 @@ export const strings = {
     tabHistory: 'History',
     titleLabel: 'Title',
     descriptionLabel: 'Description',
-    descriptionHelp: 'Rich text — bold, headings, lists, and links. Stored as markdown.',
+    descriptionHelp:
+      'The full details of the work — what needs doing, where, and any useful context. Rich text with headings, lists, and links; stored as markdown.',
     priorityLabel: 'Priority',
     /** Unmistakable that this is the estimated time to finish the work (ITEM 3). */
     estimateLabel: 'Estimated time to completion',
@@ -554,6 +555,9 @@ export const strings = {
 
   attachments: {
     sectionTitle: 'Attachments',
+    // Mirrors the enforced upload caps (core: ALLOWED_ATTACHMENT_MIME_TYPES,
+    // MAX_ATTACHMENT_BYTES, MAX_ACTIVE_ATTACHMENTS_PER_CARD).
+    sectionHelp: 'Photos and PDFs of the work — up to 25 MB each, 10 files per card.',
     dropzoneLabel: 'Attachment dropzone',
     dropHint: 'Drop images or PDFs here, or',
     browseButton: 'Browse files',

@@ -282,6 +282,9 @@ function CardPanelBody({ cardId }: { cardId: string }) {
                 updateCard.mutate({ card: detail.card, changes })
               }}
             />
+            {/* The edit block above (fields → Created/Updated → Save) is one
+                unit; the divider sets Attachments apart as its own section. */}
+            <Divider />
             <AttachmentsSection
               attachments={detail.attachments}
               currentUserId={me.id}

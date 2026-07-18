@@ -16,6 +16,15 @@ describe('DescriptionEditor', () => {
     expect(screen.getByText('bold')).toBeInTheDocument()
   })
 
+  it('explains the field with an info tooltip on the label', () => {
+    // Arrange
+    const onChange = () => undefined
+    // Act
+    renderWithProviders(<DescriptionEditor value="" onChange={onChange} />)
+    // Assert — the FieldLabel info button carries the help copy as its name.
+    expect(screen.getByRole('button', { name: /full details of the work/ })).toBeInTheDocument()
+  })
+
   it('offers formatting controls in the toolbar', async () => {
     // Arrange
     const onChange = () => undefined

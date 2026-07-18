@@ -49,6 +49,24 @@ describe('AttachmentsSection', () => {
     expect(screen.getByText('quote.pdf')).toBeInTheDocument()
   })
 
+  it('explains what can be attached with an info tooltip on the section label', () => {
+    // Arrange
+    const attachments: Attachment[] = []
+    // Act
+    renderWithProviders(
+      <AttachmentsSection
+        attachments={attachments}
+        currentUserId={fixtureAdmin.id}
+        canDeleteOthers={false}
+        uploading={false}
+        onUpload={noop}
+        onDelete={noop}
+      />,
+    )
+    // Assert — the FieldLabel info button carries the caps as its accessible name.
+    expect(screen.getByRole('button', { name: /25 MB each/ })).toBeInTheDocument()
+  })
+
   it('shows the empty state without attachments', () => {
     // Arrange
     const attachments: Attachment[] = []

@@ -332,6 +332,23 @@ describe('CardPanel', () => {
     expect(screen.queryByRole('button', { name: 'Delete their-photo.png' })).not.toBeInTheDocument()
   })
 
+  it('groups the edit block (Save) before a separate Attachments section with its own info tooltip', async () => {
+    // Arrange
+    const fake = panelApp()
+    // Act
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
+    await screen.findByRole('textbox', { name: /Title/ })
+    // Assert — Attachments carries a FieldLabel info button (its help copy names
+    // the enforced 25 MB / 10-file caps), and it renders AFTER the edit block's
+    // Save button, keeping the two as distinct sections.
+    const attachmentsHelp = screen.getByRole('button', { name: /25 MB each/ })
+    expect(attachmentsHelp).toBeInTheDocument()
+    const save = screen.getByRole('button', { name: 'Save changes' })
+    // Siblings in different subtrees, so the mask is exactly FOLLOWING (4) when
+    // Save precedes Attachments — the intended section order.
+    expect(save.compareDocumentPosition(attachmentsHelp)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
   it('uploads an attachment as multipart with a single `file` part', async () => {
     // Arrange
     const user = userEvent.setup()

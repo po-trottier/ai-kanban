@@ -1,9 +1,10 @@
-import { Input, Stack, Text } from '@mantine/core'
+import { Input, Stack } from '@mantine/core'
 import { RichTextEditor } from '@mantine/tiptap'
 import { useEditor, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useEffect, useRef } from 'react'
 import { Markdown } from 'tiptap-markdown'
+import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { strings } from '../strings.ts'
 
 /** `tiptap-markdown` adds this to the editor storage but doesn't augment the
@@ -64,10 +65,9 @@ export function DescriptionEditor({ value, disabled = false, onChange }: Descrip
 
   return (
     <Stack gap="xs">
-      <Input.Label>{strings.detail.descriptionLabel}</Input.Label>
-      <Text size="xs" c="dimmed">
-        {strings.detail.descriptionHelp}
-      </Text>
+      <Input.Label>
+        <FieldLabel label={strings.detail.descriptionLabel} help={strings.detail.descriptionHelp} />
+      </Input.Label>
       <RichTextEditor editor={editor}>
         <RichTextEditor.Toolbar sticky>
           <RichTextEditor.ControlsGroup>

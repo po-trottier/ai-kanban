@@ -13,6 +13,7 @@ import {
 import { Trash2, Upload } from 'lucide-react'
 import { useState, type DragEvent } from 'react'
 import { attachmentUrl } from '../api/card.ts'
+import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { strings } from '../strings.ts'
 import { cx } from '../lib/cx.ts'
 import classes from './card.module.css'
@@ -50,7 +51,10 @@ export function AttachmentsSection({
   return (
     <Stack gap="sm">
       <Title order={4} size="sm">
-        {strings.attachments.sectionTitle}
+        <FieldLabel
+          label={strings.attachments.sectionTitle}
+          help={strings.attachments.sectionHelp}
+        />
       </Title>
       {attachments.length === 0 ? (
         <Text size="sm" c="dimmed">

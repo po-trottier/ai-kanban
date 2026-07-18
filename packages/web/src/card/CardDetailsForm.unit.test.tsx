@@ -204,11 +204,12 @@ describe('CardDetailsForm', () => {
     expect(saved).toEqual([])
   })
 
-  it('explains the PO-flagged fields with an info tooltip on the label', () => {
+  it('explains the fields with an info tooltip on the label', () => {
     // Arrange
     const detail = makeDetail()
-    // Act — render the form; each of priority, estimate, and location carries a
-    // FieldLabel info button whose accessible name is the help text.
+    // Act — render the form; priority, estimate, location, and the description
+    // editor each carry a FieldLabel info button whose accessible name is the
+    // help text.
     renderWithProviders(
       <CardDetailsForm
         detail={detail}
@@ -223,5 +224,6 @@ describe('CardDetailsForm', () => {
     expect(screen.getByRole('button', { name: /P0 Critical/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /target completion time/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /building, floor, or room/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /full details of the work/ })).toBeInTheDocument()
   })
 })
