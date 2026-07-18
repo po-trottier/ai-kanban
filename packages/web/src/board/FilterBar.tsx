@@ -10,18 +10,18 @@ import {
 } from '@rivian-kanban/core'
 import {
   ActionIcon,
-  Chip,
+  Divider,
   Group,
   MultiSelect,
+  type MultiSelectProps,
   SegmentedControl,
   Stack,
+  Text,
   TextInput,
   Tooltip,
 } from '@mantine/core'
 import { locationPath } from '../lib/location-tree.ts'
 import { type PickerUser } from '../api/schemas.ts'
-import { FieldLabel } from '../shell/FieldLabel.tsx'
-import { HintButton } from '../shell/HintButton.tsx'
 import { CloseIcon, SearchIcon } from '../shell/icons.tsx'
 import { strings } from '../strings.ts'
 import { FilterPresets } from './FilterPresets.tsx'
@@ -39,11 +39,16 @@ export interface FilterBarProps {
 
 /**
  * The board filter bar (below the header, above the board): every facet of the
- * shared `BoardFilter` as one row of controls. Enumerable facets (priority,
- * status, scope, overdue) are split segmented controls; high-cardinality ones
- * (assignee, reporter, tags, location) are multi-select pill comboboxes; plus a
- * text query and the presets combobox. Presentational + controlled: it holds no
- * state, just renders `filter` and calls `onChange` with the next `BoardFilter`.
+ * shared `BoardFilter` as one centered, section-grouped row. The bar is
+ * placeholder-only — no visible field labels — so each control carries an
+ * `aria-label` for its accessible name (convention #104). The any-of facets
+ * (Status, Priority, assignee, reporter, tags, location) are `MultiSelect` pill
+ * comboboxes (compact selected pills); the single-value facets (scope, overdue)
+ * are `SegmentedControl`s; plus the text query, the presets combobox, and a
+ * Clear reset. Facets are grouped by kind (attributes · people · classification
+ * · scope) with vertical `Divider`s between groups. Presentational + controlled:
+ * it holds no state, just renders `filter` and calls `onChange` with the next
+ * `BoardFilter`.
  */
 export function FilterBar({
   filter,
@@ -63,11 +68,26 @@ export function FilterBar({
     .map((location) => ({ value: location.id, label: locationPath(locations, location.id) }))
     .toSorted((a, b) => a.label.localeCompare(b.label))
 
+  // Each priority option shows its code + plain-language name + description (the
+  // same content the card priority Select renders) so a non-technical user
+  // understands what P0/P1/P2 mean, not just the codes.
+  const renderPriorityOption: MultiSelectProps['renderOption'] = ({ option }) => {
+    const priority = option.value as Priority
+    return (
+      <Stack gap={0}>
+        <Text size="sm">{`${priority} — ${strings.priorityOptions[priority].name}`}</Text>
+        <Text size="xs" c="dimmed">
+          {strings.priorityOptions[priority].description}
+        </Text>
+      </Stack>
+    )
+  }
+
   return (
     <div className={classes.bar} role="region" aria-label={strings.filterBar.regionLabel}>
-      <Group gap="sm" align="flex-end" wrap="wrap">
-        <FilterPresets filter={filter} onApply={onChange} currentUserId={currentUserId} />
-
+      {/* align="center" vertically centers every control incl. Clear (ITEM 4);
+          Dividers separate the facet groups (ITEM 1). */}
+      <Group gap="sm" align="center" wrap="wrap">
         <Tooltip label={strings.filterBar.tooltips.query} withArrow>
           <TextInput
             className={classes.query}
@@ -98,57 +118,35 @@ export function FilterBar({
           />
         </Tooltip>
 
-        <ChipFacet
-          label={strings.filterBar.priorityLabel}
-          groupLabel={strings.filterBar.priorityGroupLabel}
-          tooltip={strings.filterBar.tooltips.priority}
-          value={filter.priorities}
-          options={PRIORITIES.map((p) => ({ value: p, label: strings.priorities[p] }))}
-          onChange={(next) => {
-            set('priorities', next as Priority[])
-          }}
-        />
+        <Divider orientation="vertical" className={classes.divider} />
 
-        <ChipFacet
+        {/* Card attributes: status · priority. */}
+        <PillFacet
           label={strings.filterBar.laneLabel}
-          groupLabel={strings.filterBar.laneGroupLabel}
+          placeholder={strings.filterBar.lanePlaceholder}
           tooltip={strings.filterBar.tooltips.lane}
+          data={LANE_KEYS.map((key) => ({ value: key, label: strings.laneNames[key] }))}
           value={filter.laneKeys}
-          options={LANE_KEYS.map((key) => ({ value: key, label: strings.laneNames[key] }))}
           onChange={(next) => {
             set('laneKeys', next as LaneKey[])
           }}
         />
 
-        <SegmentedFacet
-          label={strings.filterBar.scopeLabel}
-          groupLabel={strings.filterBar.scopeGroupLabel}
-          tooltip={strings.filterBar.tooltips.scope}
-          value={filter.scope}
-          data={[
-            { value: 'active', label: strings.filterBar.scopeActive },
-            { value: 'archived', label: strings.filterBar.scopeArchived },
-            { value: 'all', label: strings.filterBar.scopeAll },
-          ]}
+        <PillFacet
+          label={strings.filterBar.priorityLabel}
+          placeholder={strings.filterBar.priorityPlaceholder}
+          tooltip={strings.filterBar.tooltips.priority}
+          data={PRIORITIES.map((p) => ({ value: p, label: strings.priorities[p] }))}
+          value={filter.priorities}
           onChange={(next) => {
-            set('scope', next as FilterScope)
+            set('priorities', next as Priority[])
           }}
+          renderOption={renderPriorityOption}
         />
 
-        <SegmentedFacet
-          label={strings.filterBar.overdueLabel}
-          groupLabel={strings.filterBar.tooltips.overdue}
-          tooltip={strings.filterBar.tooltips.overdue}
-          value={filter.overdue ? 'overdue' : 'any'}
-          data={[
-            { value: 'any', label: strings.filterBar.overdueAny },
-            { value: 'overdue', label: strings.filterBar.overdueOnly },
-          ]}
-          onChange={(next) => {
-            set('overdue', next === 'overdue')
-          }}
-        />
+        <Divider orientation="vertical" className={classes.divider} />
 
+        {/* People: assignee · reporter. */}
         <PillFacet
           label={strings.filterBar.assigneeLabel}
           placeholder={strings.filterBar.assigneePlaceholder}
@@ -171,6 +169,9 @@ export function FilterBar({
           }}
         />
 
+        <Divider orientation="vertical" className={classes.divider} />
+
+        {/* Classification: tags · location. */}
         <PillFacet
           label={strings.filterBar.tagsLabel}
           placeholder={strings.filterBar.tagsPlaceholder}
@@ -193,64 +194,67 @@ export function FilterBar({
           }}
         />
 
-        <HintButton
-          tooltip={strings.filterBar.tooltips.clearAll}
-          variant="subtle"
-          color="gray"
-          size="compact-sm"
-          onClick={() => {
-            onChange(EMPTY_BOARD_FILTER)
+        <Divider orientation="vertical" className={classes.divider} />
+
+        {/* Scope + overdue toggles. */}
+        <SegmentedFacet
+          groupLabel={strings.filterBar.scopeGroupLabel}
+          tooltip={strings.filterBar.tooltips.scope}
+          value={filter.scope}
+          data={[
+            { value: 'active', label: strings.filterBar.scopeActive },
+            { value: 'archived', label: strings.filterBar.scopeArchived },
+            { value: 'all', label: strings.filterBar.scopeAll },
+          ]}
+          onChange={(next) => {
+            set('scope', next as FilterScope)
           }}
-        >
-          {strings.filterBar.clearAll}
-        </HintButton>
+        />
+
+        <SegmentedFacet
+          groupLabel={strings.filterBar.overdueLabel}
+          tooltip={strings.filterBar.tooltips.overdue}
+          value={filter.overdue ? 'overdue' : 'any'}
+          data={[
+            { value: 'any', label: strings.filterBar.overdueAny },
+            { value: 'overdue', label: strings.filterBar.overdueOnly },
+          ]}
+          onChange={(next) => {
+            set('overdue', next === 'overdue')
+          }}
+        />
+
+        {/* Right-aligned: presets + clear (ITEM 1). */}
+        <Group gap="sm" align="center" wrap="nowrap" ml="auto">
+          <FilterPresets filter={filter} onApply={onChange} currentUserId={currentUserId} />
+
+          <Tooltip label={strings.filterBar.tooltips.clearAll} withArrow>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              aria-label={strings.filterBar.clearAll}
+              onClick={() => {
+                onChange(EMPTY_BOARD_FILTER)
+              }}
+            >
+              <CloseIcon size={16} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
       </Group>
     </div>
   )
 }
 
-/** An any-of segmented facet rendered as a Chip.Group of split toggle segments. */
-function ChipFacet({
-  label,
-  groupLabel,
-  tooltip,
-  value,
-  options,
-  onChange,
-}: {
-  label: string
-  groupLabel: string
-  tooltip: string
-  value: string[]
-  options: { value: string; label: string }[]
-  onChange: (next: string[]) => void
-}) {
-  return (
-    <Stack gap={4}>
-      <FieldLabel label={label} help={tooltip} />
-      <Chip.Group multiple value={value} onChange={onChange}>
-        <Group gap={4} wrap="nowrap" role="group" aria-label={groupLabel}>
-          {options.map((option) => (
-            <Chip key={option.value} value={option.value} size="sm" variant="outline">
-              {option.label}
-            </Chip>
-          ))}
-        </Group>
-      </Chip.Group>
-    </Stack>
-  )
-}
-
-/** A single-value segmented facet (scope, overdue). */
+/** A single-value segmented facet (scope, overdue). Placeholder-only bar, so the
+ *  visible label is dropped and the group's accessible name rides on aria-label. */
 function SegmentedFacet({
-  label,
   groupLabel,
   tooltip,
   value,
   data,
   onChange,
 }: {
-  label: string
   groupLabel: string
   tooltip: string
   value: string
@@ -258,22 +262,20 @@ function SegmentedFacet({
   onChange: (next: string) => void
 }) {
   return (
-    <Stack gap={4}>
-      <FieldLabel label={label} help={tooltip} />
-      <Tooltip label={tooltip} withArrow>
-        <SegmentedControl
-          size="sm"
-          value={value}
-          data={data}
-          onChange={onChange}
-          aria-label={groupLabel}
-        />
-      </Tooltip>
-    </Stack>
+    <Tooltip label={tooltip} withArrow>
+      <SegmentedControl
+        size="sm"
+        value={value}
+        data={data}
+        onChange={onChange}
+        aria-label={groupLabel}
+      />
+    </Tooltip>
   )
 }
 
-/** A high-cardinality any-of facet rendered as a multi-select pill combobox. */
+/** An any-of facet as a multi-select pill combobox (compact selected pills).
+ *  Label-less: `label` is the control's accessible name (aria-label). */
 function PillFacet({
   label,
   placeholder,
@@ -281,6 +283,7 @@ function PillFacet({
   data,
   value,
   onChange,
+  renderOption,
 }: {
   label: string
   placeholder: string
@@ -288,17 +291,20 @@ function PillFacet({
   data: { value: string; label: string }[]
   value: string[]
   onChange: (next: string[]) => void
+  renderOption?: MultiSelectProps['renderOption']
 }) {
   return (
     <Tooltip label={tooltip} withArrow>
       <MultiSelect
         className={classes.pill}
-        label={label}
         aria-label={label}
         placeholder={value.length === 0 ? placeholder : undefined}
         data={data}
         value={value}
         onChange={onChange}
+        // Only spread renderOption when set — exactOptionalPropertyTypes rejects
+        // an explicit `renderOption={undefined}`.
+        {...(renderOption ? { renderOption } : {})}
         searchable
         clearable
         hidePickedOptions

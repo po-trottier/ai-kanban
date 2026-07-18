@@ -27,6 +27,9 @@ const other: MantineThemeOther = {
   /** Filter-bar field widths (filter-bar.module.css). */
   filterQueryWidth: '16rem',
   filterPillWidth: '11rem',
+  /** Height of the vertical section dividers in the filter bar (matches the
+   * Mantine `sm` input height so the separators align with the controls). */
+  filterSectionHeight: '2.25rem',
 }
 
 /** The one emphasis weight (card titles, comment authors, history actors) — matches headings. */
@@ -83,6 +86,7 @@ export const cssVariablesResolver: CSSVariablesResolver = (resolved) => ({
     '--app-panel-resize-handle-width': String(resolved.other.panelResizeHandleWidth),
     '--app-filter-query-width': String(resolved.other.filterQueryWidth),
     '--app-filter-pill-width': String(resolved.other.filterPillWidth),
+    '--app-filter-section-height': String(resolved.other.filterSectionHeight),
   },
   light: {},
   dark: {},

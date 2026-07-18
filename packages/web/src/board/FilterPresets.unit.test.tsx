@@ -43,6 +43,12 @@ async function pickPreset(user: ReturnType<typeof userEvent.setup>, name: string
   await user.click(await screen.findByRole('option', { name }))
 }
 
+/** Opens the presets dropdown and selects the trailing "Create new preset"
+ *  entry, which opens the save-preset dialog (the Save icon button is gone). */
+async function openCreatePreset(user: ReturnType<typeof userEvent.setup>) {
+  await pickPreset(user, 'Create new preset')
+}
+
 describe('FilterPresets', () => {
   it('applies the "My Cards" built-in with the current user filled into assigneeIds', async () => {
     // Arrange
@@ -62,6 +68,20 @@ describe('FilterPresets', () => {
     await pickPreset(user, 'Overdue')
     // Assert
     expect(onApply).toHaveBeenCalledWith({ ...EMPTY_BOARD_FILTER, overdue: true })
+  })
+
+  it('opens the save dialog from the dropdown "Create new preset" entry without applying a filter', async () => {
+    // Arrange — no separate Save icon button exists any more.
+    const user = userEvent.setup()
+    const { onApply } = renderPresets([])
+    expect(
+      screen.queryByRole('button', { name: 'Save current filters as a preset' }),
+    ).not.toBeInTheDocument()
+    // Act — pick the trailing "Create new preset" entry.
+    await openCreatePreset(user)
+    // Assert — the save dialog opens; selecting the action never applies a filter.
+    expect(screen.getByRole('textbox', { name: 'Preset name' })).toBeInTheDocument()
+    expect(onApply).not.toHaveBeenCalled()
   })
 
   it('applies a custom preset as the COMPLETE saved filter (every facet)', async () => {
@@ -99,8 +119,8 @@ describe('FilterPresets', () => {
       { 'POST /api/v1/filter-presets': jsonResponse(created, 201) },
       filter,
     )
-    // Act — open the save dialog, name it, confirm.
-    await user.click(screen.getByRole('button', { name: 'Save current filters as a preset' }))
+    // Act — open the save dialog via the dropdown's "Create new preset" entry.
+    await openCreatePreset(user)
     await user.type(screen.getByRole('textbox', { name: 'Preset name' }), 'Boiler P1')
     await user.click(screen.getByRole('button', { name: 'Save preset' }))
     // Assert — the POST body carries the name + the current filter, and a toast fires.
@@ -112,8 +132,8 @@ describe('FilterPresets', () => {
     // Arrange
     const user = userEvent.setup()
     renderPresets([])
-    // Act
-    await user.click(screen.getByRole('button', { name: 'Save current filters as a preset' }))
+    // Act — open the save dialog via the dropdown's "Create new preset" entry.
+    await openCreatePreset(user)
     // Assert — the confirm button is shown disabled (data-disabled) with a reason.
     expect(screen.getByRole('button', { name: 'Save preset' })).toHaveAttribute('data-disabled')
   })

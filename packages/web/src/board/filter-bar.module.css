@@ -6,9 +6,10 @@
   margin-block-end: var(--mantine-spacing-sm);
 }
 
-/* The free-text query grows to a readable width but never dominates the row. */
+/* The free-text query has a readable fixed width; it does NOT grow, so the
+   right-aligned presets + clear group (ml="auto") reaches the row's edge. */
 .query {
-  flex: 1 1 var(--app-filter-query-width);
+  flex: 0 0 var(--app-filter-query-width);
   min-width: var(--app-filter-query-width);
 }
 
@@ -16,4 +17,12 @@
    rather than jumping widths as chips are added. */
 .pill {
   min-width: var(--app-filter-pill-width);
+}
+
+/* Vertical group separators between facet sections. In a center-aligned wrap
+   row a vertical Divider would collapse to zero height, so pin it to the input
+   height token to read as a deliberate section break. */
+.divider {
+  align-self: center;
+  height: var(--app-filter-section-height);
 }

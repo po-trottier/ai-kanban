@@ -149,11 +149,19 @@ The SPA renders the filter as a **filter bar** below the header and above the bo
 `/search` page (both removed). It holds no server state of its own — it is a controlled view of one
 `BoardFilter` in `BoardPage` state.
 
-- **Controls.** Enumerable, any-of facets (priority, status/lane) are `Chip.Group multiple` split
-  toggles; the single-value facets (`scope`, the `overdue` toggle) are `SegmentedControl`s; the
-  high-cardinality facets (assignee, reporter, tags, location) are `MultiSelect` pill comboboxes; a
-  text `q` input and a "Clear filters" reset complete the bar. Every control carries a tooltip
-  (`FieldLabel`/`Tooltip`), per the repo convention.
+- **Layout.** The bar is a single centered (`align="center"`) wrapping row grouped into deliberately
+  ordered, `Divider`-separated sections: text search · **attributes** (Status, Priority) · **people**
+  (Assignee, Reporter) · **classification** (Tags, Location) · **scope** (Scope, Overdue) ·
+  right-aligned **presets + Clear**. The section-divider height is a theme token
+  (`filterSectionHeight`), the field widths are `filterQueryWidth`/`filterPillWidth` (ADR-016 rule 1).
+- **Controls.** Every any-of facet — Status, Priority, and the high-cardinality assignee / reporter /
+  tags / location — is a `MultiSelect` pill combobox (selected values render as compact pills,
+  keeping the bar dense); the Priority options render each code + plain-language name + P0/P1/P2
+  description via `renderOption` (the same `strings.priorityOptions` the card priority Select shows).
+  The single-value facets (`scope`, the `overdue` toggle) are `SegmentedControl`s; a text `q` input
+  and an icon "Clear filters" reset complete the bar. The bar is **placeholder-only** — no visible
+  field labels — so every control carries a `placeholder` for the visible cue and an `aria-label` for
+  its accessible name (convention #104), plus a `Tooltip`, per the repo convention.
 - **Fetching.** `BoardPage` debounces the live filter (`useDebouncedValue`, 300 ms) and drives
   `useBoard(filter)` (`api/board.ts`): the empty filter takes the hot `GET /board` path, any non-empty
   filter posts to `POST /board/query`. Each filter is its own TanStack query, keyed
@@ -168,4 +176,7 @@ The SPA renders the filter as a **filter bar** below the header and above the bo
   as selected ONLY while the live filter still equals its saved filter — once any facet drifts (an
   edit, or "Clear filters" resetting the bar) the selection clears, so the combobox never lies and
   re-picking the SAME preset re-applies it (Mantine's `Select` no-ops on re-selecting the current
-  value). Save/rename/delete wire to the CRUD API with loading states and toasts.
+  value). Creating a preset is a trailing **"Create new preset"** entry at the bottom of the same
+  dropdown (there is no separate Save icon button): selecting it opens the name dialog and `POST`s the
+  live filter. Rename/delete stay as icon affordances beside the combobox, shown only while a custom
+  preset is the applied selection. All three wire to the CRUD API with loading states and toasts.

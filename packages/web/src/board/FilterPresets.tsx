@@ -1,6 +1,6 @@
 import { BUILTIN_FILTER_PRESETS, type BoardFilter, type FilterPreset } from '@rivian-kanban/core'
 import { ActionIcon, Group, Modal, Select, Stack, TextInput, Tooltip } from '@mantine/core'
-import { Pencil, Save, Trash2 } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import {
   useCreateFilterPreset,
@@ -22,6 +22,13 @@ export interface FilterPresetsProps {
 
 /** Prefix distinguishing a built-in option value from a custom preset id. */
 const BUILTIN_PREFIX = 'builtin:'
+
+/**
+ * Sentinel value for the trailing "Create new preset" dropdown entry. Selecting
+ * it opens the save-preset flow instead of applying a filter (ITEM 3) — the
+ * save trigger lives inside the dropdown, not as a separate icon button.
+ */
+const CREATE_VALUE = 'action:create'
 
 const BUILTIN_LABELS: Record<(typeof BUILTIN_FILTER_PRESETS)[number]['key'], string> = {
   my_cards: strings.filterBar.builtinMyCards,
@@ -55,11 +62,13 @@ function boardFilterEquals(a: BoardFilter, b: BoardFilter): boolean {
 }
 
 /**
- * The presets combobox + the save / rename / delete affordances. Built-ins
- * (My Cards, Overdue) render from core constants; custom presets come from
+ * The presets combobox + the rename / delete affordances. Built-ins (My Cards,
+ * Overdue) render from core constants; custom presets come from
  * `GET /filter-presets`. Selecting any preset applies its COMPLETE `BoardFilter`
  * — every facet, not an overlay. "My Cards" fills its assignee with the current
- * user id client-side (only the client knows "me").
+ * user id client-side (only the client knows "me"). A trailing "Create new
+ * preset" entry at the bottom of the dropdown opens the save-preset flow
+ * (ITEM 3) — there is no separate Save icon button.
  */
 export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsProps) {
   const presets = useFilterPresets()
@@ -95,11 +104,22 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
     ...(customData.length > 0
       ? [{ group: strings.filterBar.presetsCustomGroup, items: customData }]
       : []),
+    // The trailing "Create new preset" action (its own group renders as a
+    // separated footer entry) opens the save dialog (ITEM 3).
+    {
+      group: strings.filterBar.presetsCreateGroup,
+      items: [{ value: CREATE_VALUE, label: strings.filterBar.presetsCreate }],
+    },
   ]
 
   const applyValue = (value: string | null) => {
     if (value === null) {
       setSelectedId(null)
+      return
+    }
+    if (value === CREATE_VALUE) {
+      // Open the save flow; do NOT change the applied preset/selection.
+      setDialog({ kind: 'save' })
       return
     }
     if (value.startsWith(BUILTIN_PREFIX)) {
@@ -121,10 +141,10 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
 
   return (
     <>
-      <Group gap={4} align="flex-end" wrap="nowrap">
+      <Group gap={4} align="center" wrap="nowrap">
         <Tooltip label={strings.filterBar.tooltips.presets} withArrow>
           <Select
-            label={strings.filterBar.presetsLabel}
+            aria-label={strings.filterBar.presetsLabel}
             placeholder={strings.filterBar.presetsPlaceholder}
             data={data}
             value={selectedValue}
@@ -132,18 +152,6 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
             clearable
             comboboxProps={{ withinPortal: true }}
           />
-        </Tooltip>
-        <Tooltip label={strings.filterBar.tooltips.savePreset} withArrow>
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            aria-label={strings.filterBar.savePreset}
-            onClick={() => {
-              setDialog({ kind: 'save' })
-            }}
-          >
-            <Save size={16} aria-hidden />
-          </ActionIcon>
         </Tooltip>
         {selectedPreset !== null ? (
           <>

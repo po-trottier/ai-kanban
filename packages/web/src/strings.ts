@@ -346,15 +346,21 @@ export const strings = {
   filterBar: {
     /** Accessible name for the whole bar region. */
     regionLabel: 'Board filters',
-    /** Free-text query over title + description. */
+    /**
+     * The bar is placeholder-only (no visible field labels), so every control
+     * carries an `aria-label` (the `*Label` strings) for its accessible name
+     * (convention #104) plus a `placeholder` for the visible cue.
+     */
     queryLabel: 'Filter cards',
-    queryPlaceholder: 'Filter by title or description…',
+    queryPlaceholder: 'Search cards…',
     queryClear: 'Clear the text filter',
-    /** Enumerable facet group labels (each group is a split segmented control). */
+    /** Any-of enumerable facets, rendered as MultiSelect pill dropdowns. */
     priorityLabel: 'Priority',
     priorityGroupLabel: 'Filter by priority',
+    priorityPlaceholder: 'Priority',
     laneLabel: 'Status',
     laneGroupLabel: 'Filter by status',
+    lanePlaceholder: 'Status',
     scopeLabel: 'Scope',
     scopeGroupLabel: 'Active, archived, or all cards',
     scopeActive: 'Active',
@@ -366,13 +372,13 @@ export const strings = {
     overdueOnly: 'Overdue',
     /** High-cardinality facet multi-selects (any-of). */
     assigneeLabel: 'Assignee',
-    assigneePlaceholder: 'Any assignee',
+    assigneePlaceholder: 'Assignee',
     reporterLabel: 'Reporter',
-    reporterPlaceholder: 'Any reporter',
+    reporterPlaceholder: 'Reporter',
     tagsLabel: 'Tags',
-    tagsPlaceholder: 'Any tag',
+    tagsPlaceholder: 'Tags',
     locationsLabel: 'Location',
-    locationsPlaceholder: 'Any location',
+    locationsPlaceholder: 'Location',
     /** Clears every facet back to the empty filter (today's full board). */
     clearAll: 'Clear filters',
     /** Presets combobox: built-ins + the user's saved filters. */
@@ -380,6 +386,9 @@ export const strings = {
     presetsPlaceholder: 'Choose a preset',
     presetsBuiltInGroup: 'Built-in',
     presetsCustomGroup: 'My presets',
+    /** Trailing dropdown action that opens the save-preset flow. */
+    presetsCreateGroup: 'Actions',
+    presetsCreate: 'Create new preset',
     /** Built-in preset display names (mirror core BUILTIN_FILTER_PRESETS). */
     builtinMyCards: 'My Cards',
     builtinOverdue: 'Overdue',

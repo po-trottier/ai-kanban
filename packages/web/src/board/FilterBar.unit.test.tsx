@@ -1,5 +1,5 @@
 import { EMPTY_BOARD_FILTER, type BoardFilter } from '@rivian-kanban/core'
-import { screen, within } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { createFakeFetch } from '../test/fake-fetch.ts'
@@ -28,26 +28,27 @@ function renderBar(filter: BoardFilter = EMPTY_BOARD_FILTER) {
 }
 
 describe('FilterBar', () => {
-  it('toggles a priority chip on (any-of) and reports the next filter', async () => {
+  it('adds a priority through the multi-select (any-of) and reports the next filter', async () => {
     // Arrange
     const user = userEvent.setup()
     const { onChange } = renderBar()
-    const group = screen.getByRole('group', { name: 'Filter by priority' })
-    // Act — pick P0.
-    await user.click(within(group).getByText('P0'))
+    // Act — open the Priority multi-select and pick P0 (options carry the code +
+    // plain-language name in their accessible text).
+    await user.click(screen.getByRole('combobox', { name: 'Priority' }))
+    await user.click(await screen.findByRole('option', { name: /P0 — Critical/ }))
     // Assert — onChange gets the full filter with priorities narrowed to [P0].
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ priorities: ['P0'], scope: 'active' }),
     )
   })
 
-  it('toggles a status (lane) chip on', async () => {
+  it('adds a status (lane) through the multi-select', async () => {
     // Arrange
     const user = userEvent.setup()
     const { onChange } = renderBar()
-    const group = screen.getByRole('group', { name: 'Filter by status' })
     // Act
-    await user.click(within(group).getByText('In Progress'))
+    await user.click(screen.getByRole('combobox', { name: 'Status' }))
+    await user.click(await screen.findByRole('option', { name: 'In Progress' }))
     // Assert
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ laneKeys: ['in_progress'] }))
   })
@@ -100,7 +101,7 @@ describe('FilterBar', () => {
     // Arrange
     const user = userEvent.setup()
     const { onChange } = renderBar()
-    // Act
+    // Act — the query input is label-less; its accessible name is the aria-label.
     await user.type(screen.getByRole('textbox', { name: 'Filter cards' }), 'p')
     // Assert
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'p' }))
@@ -117,19 +118,19 @@ describe('FilterBar', () => {
       q: 'pump',
     }
     const { onChange } = renderBar(filter)
-    // Act
+    // Act — Clear filters is an icon button (accessible name from its aria-label).
     await user.click(screen.getByRole('button', { name: 'Clear filters' }))
     // Assert — the empty filter (today's full board).
     expect(onChange).toHaveBeenCalledWith(EMPTY_BOARD_FILTER)
   })
 
-  it('shows a checked chip for an already-selected facet value', () => {
+  it('renders a pill for an already-selected facet value', () => {
     // Arrange — a filter with P1 pre-selected.
     const filter = { ...EMPTY_BOARD_FILTER, priorities: ['P1' as const] }
     // Act — render the bar with that filter.
     renderBar(filter)
-    // Assert — the P1 chip's checkbox input is checked (reflects the filter state).
-    const group = screen.getByRole('group', { name: 'Filter by priority' })
-    expect(within(group).getByRole('checkbox', { name: 'P1' })).toBeChecked()
+    // Assert — the Priority multi-select shows a "P1" pill reflecting the filter
+    // (the dropdown is closed, so "P1" only appears as the selected pill).
+    expect(screen.getByText('P1')).toBeInTheDocument()
   })
 })
