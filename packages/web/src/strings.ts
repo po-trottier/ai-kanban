@@ -34,6 +34,8 @@ export const strings = {
     create: 'Create',
     delete: 'Delete',
     edit: 'Edit',
+    copy: 'Copy',
+    copied: 'Copied',
     reply: 'Reply',
     close: 'Close',
     loadMore: 'Load more',

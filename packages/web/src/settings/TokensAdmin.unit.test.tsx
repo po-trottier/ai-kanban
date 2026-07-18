@@ -70,6 +70,11 @@ describe('TokensAdmin', () => {
       role: 'user',
       scope: 'read',
     })
+    // The one-time secret has a 1-click Copy button: it writes the raw token to
+    // the clipboard and confirms by flipping its label to "Copied".
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
+    expect(await navigator.clipboard.readText()).toBe('rkb_fixture_value')
   })
 
   it('revokes a token via DELETE', async () => {
