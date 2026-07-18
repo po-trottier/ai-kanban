@@ -28,3 +28,12 @@ Thumbs.db
 .tmp/
 
 e2e/screenshots/
+
+# Agent tooling — committed: CLAUDE.md, AGENTS.md, .mcp.json, .codex/, .agents/,
+# .claude/settings.json, .claude/skills/. Transient/personal state is not:
+.claude/worktrees/
+.claude/settings.local.json
+
+# Throwaway local QA captures (the canonical capture tool is e2e/scripts/screenshots.mjs)
+scripts/qa-*
+scripts/shot*

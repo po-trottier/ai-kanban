@@ -1,0 +1,14 @@
+# Project-scoped Codex config. Codex loads this only for TRUSTED projects — trust
+# this directory on first run. Canonical agent instructions live in
+# .agents/INSTRUCTIONS.md (also pointed to by AGENTS.md at the repo root).
+#
+# Mirrors the MCP servers in .mcp.json (which Claude Code reads) so both harnesses
+# expose the same tools: a real browser (Playwright) and Mantine docs/props.
+
+[mcp_servers.playwright]
+command = "npx"
+args = ["-y", "@playwright/mcp@latest"]
+
+[mcp_servers.mantine]
+command = "npx"
+args = ["-y", "@mantine/mcp-server"]
