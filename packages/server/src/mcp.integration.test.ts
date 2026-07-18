@@ -192,6 +192,72 @@ describe('handshake and discovery', () => {
     expect(stale?.description).toContain('default 7')
     expect(stale?.description).toContain('default 3')
   })
+
+  it('tags reads read-only and writes non-read-only (not the pessimistic SDK defaults)', async () => {
+    const client = await connect(reader.raw)
+    const { tools } = await client.listTools()
+    const hintsOf = (name: string) => tools.find((tool) => tool.name === name)?.annotations
+
+    // Every read tool: read-only, non-destructive, idempotent, closed-world.
+    const readTools = [
+      'get_board_snapshot',
+      'list_cards',
+      'get_card',
+      'get_card_history',
+      'list_stale_cards',
+      'list_activity',
+      'list_lanes',
+      'list_locations',
+      'list_tags',
+      'list_blocked_cards',
+      'whoami',
+    ]
+    for (const name of readTools) {
+      expect(hintsOf(name), `${name} hints`).toMatchObject({
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      })
+    }
+
+    // Every write tool is non-read-only and closed-world.
+    const writeTools = [
+      'create_card',
+      'update_card',
+      'move_card',
+      'comment_on_card',
+      'cancel_card',
+      'reopen_card',
+      'archive_card',
+      'block_card',
+      'unblock_card',
+    ]
+    for (const name of writeTools) {
+      expect(hintsOf(name), `${name} hints`).toMatchObject({
+        readOnlyHint: false,
+        openWorldHint: false,
+      })
+    }
+  })
+
+  it('flags destructive lifecycle actions and non-idempotent appends per tool', async () => {
+    const client = await connect(reader.raw)
+    const { tools } = await client.listTools()
+    const hintsOf = (name: string) => tools.find((tool) => tool.name === name)?.annotations
+
+    // Destructive/lifecycle terminal actions are flagged destructive; a plain
+    // field update is not.
+    expect(hintsOf('cancel_card')).toMatchObject({ destructiveHint: true })
+    expect(hintsOf('archive_card')).toMatchObject({ destructiveHint: true })
+    expect(hintsOf('update_card')).toMatchObject({ destructiveHint: false })
+
+    // Append actions each add a row (non-idempotent); set-to-value updates converge.
+    expect(hintsOf('create_card')).toMatchObject({ idempotentHint: false })
+    expect(hintsOf('comment_on_card')).toMatchObject({ idempotentHint: false })
+    expect(hintsOf('update_card')).toMatchObject({ idempotentHint: true })
+    expect(hintsOf('block_card')).toMatchObject({ idempotentHint: true })
+  })
 })
 
 describe('read tools against the demo seed', () => {

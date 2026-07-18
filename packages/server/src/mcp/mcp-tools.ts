@@ -1,5 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { type CallToolResult } from '@modelcontextprotocol/sdk/types.js'
+import { type CallToolResult, type ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import {
   activityFeedRequestSchema,
   addCommentInputSchema,
@@ -166,6 +166,35 @@ function jsonResult(value: object): CallToolResult {
 }
 
 /**
+ * MCP behaviour hints (MCP spec `ToolAnnotations` — hints, not guarantees).
+ * The SDK defaults them to the pessimistic `readOnly:false, destructive:true,
+ * idempotent:false`, so every registered tool declares its own: reads are
+ * read-only, non-destructive, idempotent, closed-world; writes flip
+ * `readOnlyHint` off and set destructive/idempotent per the individual action
+ * (audited tool-by-tool). `openWorldHint` is false everywhere — every tool
+ * acts only on this board, never an external system.
+ */
+const READ_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+}
+
+/**
+ * Write default: a set-to-value mutation — not read-only, not destructive, and
+ * idempotent (re-applying the same target value converges). Per-tool overrides
+ * flip `destructiveHint` for lifecycle/deletes and `idempotentHint` for the
+ * append actions (create/comment each add a new row).
+ */
+const WRITE_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+}
+
+/**
  * Scope is an always-on identity rule owned by core's policy engine; the
  * mount pre-checks it so read tokens never reach a service (belt and braces).
  */
@@ -244,21 +273,23 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
    * itself, so call sites keep the SDK's schema↔handler generic checking.
    */
   const registerVia =
-    (wrap: typeof guarded): McpServer['registerTool'] =>
+    (wrap: typeof guarded, defaultAnnotations: ToolAnnotations): McpServer['registerTool'] =>
     (name, config, handler) =>
       // The casts bridge the SDK's conditional ToolCallback type through the
       // uniform wrapper, which passes arguments and results through untouched;
-      // the registerVia signature keeps every call site fully checked.
+      // the registerVia signature keeps every call site fully checked. Behaviour
+      // hints default per registrar (read vs write); a call's own `annotations`
+      // spread last, so per-tool overrides win.
       server.registerTool(
         name,
-        config,
+        { ...config, annotations: { ...defaultAnnotations, ...config.annotations } },
         wrap(
           name,
           handler as unknown as (...args: unknown[]) => Promise<CallToolResult>,
         ) as typeof handler,
       )
-  const readTool = registerVia(guarded)
-  const writeTool = registerVia(mutating)
+  const readTool = registerVia(guarded, READ_ANNOTATIONS)
+  const writeTool = registerVia(mutating, WRITE_ANNOTATIONS)
 
   /**
    * Resolves `reporterEmail` to an ACTIVE user id, else the seeded system
@@ -457,6 +488,8 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
         'read_write token.',
       inputSchema: createCardToolSchema,
       outputSchema: cardSchema,
+      // Each call appends a new card — not idempotent.
+      annotations: { idempotentHint: false },
     },
     async (args: z.output<typeof createCardToolSchema>) => {
       const { reporterEmail, ...input } = args
@@ -507,6 +540,8 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
         'identity); parentCommentId threads a reply. Requires a read_write token.',
       inputSchema: commentToolSchema,
       outputSchema: commentSchema,
+      // Each call appends a new comment — not idempotent.
+      annotations: { idempotentHint: false },
     },
     async (args) => {
       const { cardId, ...input } = args
@@ -522,6 +557,8 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
         'resolution (no requester notification). Requires expectedVersion and a read_write token.',
       inputSchema: cancelCardToolSchema,
       outputSchema: cardSchema,
+      // Lifecycle terminal action — flag it destructive (reversible via reopen).
+      annotations: { destructiveHint: true },
     },
     async (args) => {
       const { cardId, ...input } = args
@@ -553,6 +590,8 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
         'the board. Reopen reverses it. Requires expectedVersion and a read_write token.',
       inputSchema: archiveCardToolSchema,
       outputSchema: cardSchema,
+      // Lifecycle terminal action — flag it destructive (reversible via reopen).
+      annotations: { destructiveHint: true },
     },
     async (args) => {
       const { cardId, ...input } = args
