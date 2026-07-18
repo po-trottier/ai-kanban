@@ -1,6 +1,7 @@
 import '@mantine/core/styles.css'
 import '@mantine/dates/styles.css'
 import '@mantine/notifications/styles.css'
+import '@mantine/tiptap/styles.css'
 import './index.css'
 
 import { MantineProvider } from '@mantine/core'

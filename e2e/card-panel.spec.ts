@@ -126,16 +126,28 @@ test('edits title and priority through the If-Match happy path', async ({ page, 
   await expect(boardCard(page, newTitle).getByText('P0', { exact: true })).toBeVisible()
 })
 
-test('previews the markdown description', async ({ page, context }) => {
+test('formats the description in the rich-text editor and round-trips it as markdown', async ({
+  page,
+  context,
+}) => {
   await signIn(context)
   const title = `Markdown ${randomUUID()}`
   const card = await createCard(context.request, title)
   await page.goto(`/cards/${card.id}`)
 
-  await page.getByLabel('Description').fill('A **bold** claim')
-  await page.getByText('Preview', { exact: true }).click()
+  // Bold text via the toolbar, WYSIWYG.
+  const editor = page.getByRole('textbox', { name: 'Description' })
+  await editor.click()
+  await page.getByRole('button', { name: 'Bold', exact: true }).click()
+  await page.keyboard.type('Important')
+  await expect(editor.locator('strong')).toHaveText('Important')
 
-  const panel = page.getByRole('dialog')
-  await expect(panel.locator('strong')).toHaveText('bold')
-  await expect(panel.getByText('A bold claim')).toBeVisible()
+  await page.getByRole('button', { name: 'Save changes' }).click()
+  await expect(page.getByText('Card updated')).toBeVisible()
+
+  // Reload: the bold survives, having round-tripped through stored markdown.
+  await page.reload()
+  await expect(page.getByRole('textbox', { name: 'Description' }).locator('strong')).toHaveText(
+    'Important',
+  )
 })

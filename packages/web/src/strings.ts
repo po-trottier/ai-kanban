@@ -290,10 +290,7 @@ export const strings = {
     tabHistory: 'History',
     titleLabel: 'Title',
     descriptionLabel: 'Description',
-    descriptionWrite: 'Write',
-    descriptionPreview: 'Preview',
-    descriptionEmpty: 'Nothing to preview',
-    descriptionHelp: 'Supports simple formatting — use Preview to check it.',
+    descriptionHelp: 'Rich text — bold, headings, lists, and links. Stored as markdown.',
     priorityLabel: 'Priority',
     /** Unmistakable that this is the estimated time to finish the work (ITEM 3). */
     estimateLabel: 'Estimated time to completion',
