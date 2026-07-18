@@ -381,6 +381,7 @@ export const strings = {
     actorSystem: 'System',
     actorSlack: 'Slack',
     actorAgent: 'AI agent',
+    actorOnBehalfOf: (token: string, user: string) => `${token} on behalf of ${user}`,
     unknownUser: 'Someone',
     event: {
       created: 'created the card',

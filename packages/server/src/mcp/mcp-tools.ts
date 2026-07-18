@@ -52,6 +52,21 @@ const cardIdShape = { cardId: z.uuid() }
 const listCardsToolSchema = listCardsFilterSchema.extend(pageRequestSchema.shape)
 const getCardToolSchema = z.strictObject(cardIdShape)
 const cardHistoryToolSchema = cardHistoryRequestSchema.extend(cardIdShape)
+
+/**
+ * History output carries read-time attribution for mcp actors: `actorLabel`
+ * (service-token name) + `onBehalfOfUserId` (its creator), derived by the read
+ * path (mcp.md). The intersection keeps core's discriminated payload union.
+ */
+const cardHistoryOutputSchema = pageSchemaOf(
+  z.intersection(
+    cardEventSchema,
+    z.object({
+      actorLabel: z.string().optional(),
+      onBehalfOfUserId: z.uuid().optional(),
+    }),
+  ),
+)
 const createCardToolSchema = createCardInputSchema.extend({
   /** MCP-only attribution (mcp.md): resolved server-side, never client-trusted. */
   reporterEmail: z.email().optional(),
@@ -302,7 +317,7 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
         "A card's audit trail (who did what, from which surface), oldest-first, optionally " +
         'filtered by event type — cursor-paginated.',
       inputSchema: cardHistoryToolSchema,
-      outputSchema: pageSchemaOf(cardEventSchema),
+      outputSchema: cardHistoryOutputSchema,
     },
     async (args: z.output<typeof cardHistoryToolSchema>) => {
       const { cardId, ...request } = args

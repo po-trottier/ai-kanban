@@ -66,6 +66,19 @@ export interface Page<T> {
   nextCursor: string | null
 }
 
+/**
+ * Read-time attribution for service-token (mcp) actors: the stored `actorId`
+ * is the token id (audit integrity, ADR-005), so the read path resolves it to
+ * the token's `name` (`actorLabel`) and its creator (`onBehalfOfUserId`) — the
+ * "<token> on behalf of <user>" line. Both are absent for non-mcp actors and
+ * derived, never stored (docs/architecture/rest-api.md). Distributed over the
+ * discriminated union so each variant keeps its narrowed `eventType`/`payload`.
+ */
+export type EnrichedCardEvent = CardEvent & {
+  actorLabel?: string
+  onBehalfOfUserId?: string
+}
+
 export const STALE_REASONS = ['overdue_resume', 'stale_review', 'stale_blocked'] as const
 export type StaleReason = (typeof STALE_REASONS)[number]
 
@@ -168,7 +181,7 @@ export class BoardQueryService {
   }
 
   /** Per-card audit history, oldest-first, filterable by event type. */
-  async cardHistory(cardId: string, rawRequest?: unknown): Promise<Page<CardEvent>> {
+  async cardHistory(cardId: string, rawRequest?: unknown): Promise<Page<EnrichedCardEvent>> {
     const request = cardHistoryRequestSchema.parse(rawRequest ?? {})
     const after = request.cursor !== undefined ? decodeCursor(request.cursor) : undefined
     return this.deps.uow.read(async (tx) => {
@@ -178,10 +191,11 @@ export class BoardQueryService {
         ...(after !== undefined ? { after } : {}),
         limit: request.limit + 1,
       })
-      return paginate(events, request.limit, (event) => ({
+      const page = paginate(events, request.limit, (event) => ({
         createdAt: event.createdAt,
         id: event.id,
       }))
+      return { ...page, items: await enrichMcpActors(tx, page.items) }
     })
   }
 
@@ -322,6 +336,27 @@ async function reviewEnteredAt(tx: TransactionContext, card: Card): Promise<stri
     return newest.createdAt
   }
   return card.createdAt
+}
+
+/**
+ * Read-time attribution for mcp events: the stored actorId is the service-token
+ * id, resolved here to the token name + its creator. One `list()` covers every
+ * distinct token in the page (tokens are few, admin-managed), so no N+1 and no
+ * new port method. Revoked tokens still have a row, so their name still resolves.
+ */
+async function enrichMcpActors(
+  tx: TransactionContext,
+  events: CardEvent[],
+): Promise<EnrichedCardEvent[]> {
+  const hasMcp = events.some((event) => event.actorKind === 'mcp')
+  if (!hasMcp) return events
+  const tokensById = new Map((await tx.serviceTokens.list()).map((row) => [row.id, row]))
+  return events.map((event) => {
+    const token =
+      event.actorKind === 'mcp' && event.actorId !== null && tokensById.get(event.actorId)
+    if (!token) return event
+    return { ...event, actorLabel: token.name, onBehalfOfUserId: token.createdBy }
+  })
 }
 
 /** Fetch limit+1 rows, then slice and derive the opaque nextCursor. */

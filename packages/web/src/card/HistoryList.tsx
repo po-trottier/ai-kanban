@@ -1,5 +1,5 @@
-import { type CardEvent } from '@rivian-kanban/core'
 import { Button, List, Stack, Text } from '@mantine/core'
+import { type CardEventResponse } from '../api/schemas.ts'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { describeActor, describeEvent, type HistoryContext } from '../lib/history.ts'
@@ -7,7 +7,7 @@ import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
 
 export interface HistoryListProps {
-  events: CardEvent[]
+  events: CardEventResponse[]
   context: HistoryContext
   hasMore: boolean
   loadingMore: boolean

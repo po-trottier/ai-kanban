@@ -34,6 +34,7 @@ const MCP_TOOL_NAMES = [
 let t: TestApp
 let baseUrl: string
 let adminCookie: string
+let adminId: string
 let writer: { id: string; raw: string }
 let reader: { id: string; raw: string }
 const openClients: Client[] = []
@@ -146,7 +147,9 @@ beforeAll(async () => {
   t = await createTestApp({ seedDemoData: true })
   const address = await t.app.listen({ port: 0, host: '127.0.0.1' })
   baseUrl = address
-  ;({ cookie: adminCookie } = await t.asRole('admin'))
+  const admin = await t.asRole('admin')
+  adminCookie = admin.cookie
+  adminId = admin.user.id
   writer = await mintToken('writer agent', 'user', 'read_write')
   reader = await mintToken('reporting agent', 'user', 'read')
 })
@@ -668,7 +671,13 @@ describe('audit trail', () => {
     })
 
     const events = response.json<{
-      items: { eventType: string; actorKind: string; actorId: string }[]
+      items: {
+        eventType: string
+        actorKind: string
+        actorId: string
+        actorLabel?: string
+        onBehalfOfUserId?: string
+      }[]
     }>()
     expect(events.items.map((event) => event.eventType)).toEqual([
       'card.created',
@@ -676,8 +685,12 @@ describe('audit trail', () => {
       'comment.added',
     ])
     for (const event of events.items) {
+      // Stored attribution is unchanged: kind mcp + the token id (audit integrity).
       expect(event.actorKind).toBe('mcp')
       expect(event.actorId).toBe(writer.id)
+      // Read-time enrichment: the token name + the user who minted it.
+      expect(event.actorLabel).toBe('writer agent')
+      expect(event.onBehalfOfUserId).toBe(adminId)
     }
   })
 })

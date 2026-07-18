@@ -28,6 +28,11 @@ sha256-hashed at rest, revocable, and audited (`actor_kind: 'mcp'`, `actor_id: <
 Missing/invalid tokens get `401` + `WWW-Authenticate: Bearer`. Rate-limited **per token id**
 (agents often share egress IPs).
 
+The stored `actor_id` stays the token id (audit integrity), but read paths that return events —
+`get_card_history` and the REST `GET /cards/:id/events` — enrich each `mcp` event at read time
+with two derived, optional fields: `actorLabel` (the token name) and `onBehalfOfUserId` (the
+token's `createdBy`), so surfaces render "<token> on behalf of <user>" instead of an opaque id.
+
 Each token carries:
 
 - a **scope** — `read` (default in the admin UI) or `read_write`. Scope is an always-on

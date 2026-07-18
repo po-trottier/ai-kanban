@@ -45,7 +45,21 @@ export const cardDetailResponseSchema = cardDetailSchemaOf({
 })
 export type CardDetailResponse = z.infer<typeof cardDetailResponseSchema>
 
-export const cardEventsPageSchema = pageSchemaOf(cardEventSchema)
+/**
+ * Card events carry read-time attribution for mcp actors: `actorLabel` (the
+ * service-token name) and `onBehalfOfUserId` (its creator), derived by the
+ * server (rest-api.md). The stored event never has them, so they are optional;
+ * the intersection keeps core's discriminated payload union intact.
+ */
+export const cardEventResponseSchema = z.intersection(
+  cardEventSchema,
+  z.object({
+    actorLabel: z.string().optional(),
+    onBehalfOfUserId: z.uuid().optional(),
+  }),
+)
+export type CardEventResponse = z.infer<typeof cardEventResponseSchema>
+export const cardEventsPageSchema = pageSchemaOf(cardEventResponseSchema)
 
 /** `GET /cards` — the filterable list (`q`, `includeArchived`, …), newest-first. */
 export const cardsPageSchema = pageSchemaOf(cardSchema)

@@ -79,7 +79,11 @@ export const boardResponseSchema = boardSnapshotSchemaOf({
   card: z.object(boardCardSchema.shape),
 })
 
-/** Card audit events — the payload union is validated at write time (ADR-005). */
+/**
+ * Card audit events — the payload union is validated at write time (ADR-005).
+ * `actorLabel`/`onBehalfOfUserId` are read-time derivations for mcp actors
+ * (service-token name + its creator); the stored `actorId` stays the token id.
+ */
 export const cardEventResponseSchema = z.object({
   id: z.uuid(),
   cardId: z.uuid(),
@@ -88,6 +92,8 @@ export const cardEventResponseSchema = z.object({
   eventType: z.enum(CARD_EVENT_TYPES),
   payload: z.record(z.string(), z.unknown()),
   createdAt: z.string(),
+  actorLabel: z.string().optional(),
+  onBehalfOfUserId: z.uuid().optional(),
 })
 
 export const emptyBodySchema = z.null()

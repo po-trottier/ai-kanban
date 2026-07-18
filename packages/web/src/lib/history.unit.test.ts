@@ -152,6 +152,35 @@ describe('describeActor', () => {
     expect(systemActor).toBe('System')
   })
 
+  it('renders "<token> on behalf of <user>" for an enriched mcp event', () => {
+    // Arrange
+    const base = makeStatusChangedEvent(card, 5, 'ready', 'in_progress')
+    const mcpEvent = {
+      ...base,
+      actorKind: 'mcp' as const,
+      actorLabel: 'writer agent',
+      onBehalfOfUserId: fixtureAdmin.id,
+    }
+    // Act
+    const actor = describeActor(mcpEvent, context)
+    // Assert
+    expect(actor).toBe(`writer agent on behalf of ${fixtureAdmin.displayName}`)
+  })
+
+  it('falls back to the token label, then the agent label, without a resolvable creator', () => {
+    // Arrange
+    const base = makeStatusChangedEvent(card, 6, 'ready', 'in_progress')
+    const labelOnly = { ...base, actorKind: 'mcp' as const, actorLabel: 'writer agent' }
+    const bare = { ...base, actorKind: 'mcp' as const }
+    // Act
+    const labelOnlyActor = describeActor(labelOnly, context)
+    const bareActor = describeActor(bare, context)
+    // Assert — token name when the creator is not in the directory,
+    // generic agent label when no derived fields arrived at all.
+    expect(labelOnlyActor).toBe('writer agent')
+    expect(bareActor).toBe('AI agent')
+  })
+
   it('falls back to "Slack" for slack actors without a directory entry', () => {
     // Arrange
     const base = makeStatusChangedEvent(card, 4, 'ready', 'in_progress')

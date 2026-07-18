@@ -1,4 +1,5 @@
 import { type CardEvent } from '@rivian-kanban/core'
+import { type CardEventResponse } from '../api/schemas.ts'
 import { strings } from '../strings.ts'
 
 export interface HistoryContext {
@@ -8,13 +9,26 @@ export interface HistoryContext {
   laneLabels?: Partial<Record<string, string>>
 }
 
-/** The actor part of a history line ("Dana", "Slack", "AI agent", "System"). */
-export function describeActor(event: CardEvent, context: HistoryContext): string {
+/**
+ * The actor part of a history line ("Dana", "Slack", "System"). For mcp events
+ * the server derives `actorLabel` (token name) + `onBehalfOfUserId` (its
+ * creator): render "<token> on behalf of <user>", falling back to the token
+ * name, then the generic agent label when neither resolves.
+ */
+export function describeActor(event: CardEventResponse, context: HistoryContext): string {
   switch (event.actorKind) {
     case 'system':
       return strings.history.actorSystem
-    case 'mcp':
-      return strings.history.actorAgent
+    case 'mcp': {
+      const user =
+        event.onBehalfOfUserId !== undefined
+          ? context.userNames.get(event.onBehalfOfUserId)
+          : undefined
+      if (event.actorLabel !== undefined && user !== undefined) {
+        return strings.history.actorOnBehalfOf(event.actorLabel, user)
+      }
+      return event.actorLabel ?? strings.history.actorAgent
+    }
     case 'slack':
     case 'user': {
       const name = event.actorId === null ? undefined : context.userNames.get(event.actorId)
