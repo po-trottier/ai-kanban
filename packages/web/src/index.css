@@ -5,3 +5,13 @@ body,
 #root {
   height: 100%;
 }
+
+/* Toasts are portaled to <body> and anchor at top:16px — INSIDE the fixed
+   AppShell header — so they overlap the header controls, and on a narrow window
+   a top-right toast stretches left across the brand ("rectangle under the
+   logo"). Drop every top-anchored notifications group below the header. This
+   rule is loaded after @mantine/notifications/styles.css (see main.tsx), so it
+   wins on equal specificity without !important. */
+.mantine-Notifications-root[data-position^='top'] {
+  top: calc(var(--app-shell-header-height, 3.5rem) + var(--mantine-spacing-md));
+}
