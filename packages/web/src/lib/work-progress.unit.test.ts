@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   businessMinutesBetween,
   isBusinessHours,
+  minutesUntilTargetDate,
   timerState,
   workProgress,
 } from './work-progress.ts'
@@ -153,6 +154,44 @@ describe('timerState', () => {
     const state = timerState(at, 'UTC', { waiting: true, blocked: true })
     // Assert — off-hours wins: the clock is genuinely paused
     expect(state).toEqual({ running: false, reason: 'off_hours' })
+  })
+})
+
+describe('minutesUntilTargetDate', () => {
+  it('counts remaining business time to the end of the target day', () => {
+    // Arrange — now Thu 09:00 UTC, target the SAME day: a full 8h business day.
+    const now = utc(2026, 1, 1, 9)
+    // Act
+    const minutes = minutesUntilTargetDate('2026-01-01', now, 'UTC')
+    // Assert — 09:00 to 17:00 = 480 business minutes
+    expect(minutes).toBe(480)
+  })
+
+  it('sums whole business days and skips the weekend', () => {
+    // Arrange — now Fri 09:00, target the next Monday: Fri (8h) + Mon (8h), Sat/Sun skipped.
+    const now = utc(2026, 1, 2, 9)
+    // Act
+    const minutes = minutesUntilTargetDate('2026-01-05', now, 'UTC')
+    // Assert — two full 8h days
+    expect(minutes).toBe(960)
+  })
+
+  it('is zero when no business time remains before the target end (already after 17:00)', () => {
+    // Arrange — now Thu 18:00, target today: the window already closed.
+    const now = utc(2026, 1, 1, 18)
+    // Act
+    const minutes = minutesUntilTargetDate('2026-01-01', now, 'UTC')
+    // Assert
+    expect(minutes).toBe(0)
+  })
+
+  it('anchors the target end to the viewer zone', () => {
+    // Arrange — now 2026-01-01 20:00 UTC = 12:00 local in LA (UTC-8); target same LA day.
+    const now = utc(2026, 1, 1, 20)
+    // Act
+    const minutes = minutesUntilTargetDate('2026-01-01', now, 'America/Los_Angeles')
+    // Assert — 12:00 to 17:00 local = 300 business minutes
+    expect(minutes).toBe(300)
   })
 })
 

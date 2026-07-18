@@ -1,6 +1,8 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import dayjs from '../lib/dayjs.ts'
+import { nth } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import { EstimateInput } from './EstimateInput.tsx'
 
@@ -43,5 +45,35 @@ describe('EstimateInput', () => {
     await user.clear(screen.getByRole('textbox', { name: 'Estimated time to completion' }))
     // Assert
     expect(emitted.at(-1)).toBeNull()
+  })
+
+  describe('target-date mode', () => {
+    // Pin the clock to Wed 2026-07-15 09:00 in the fixture user's zone (LA) so
+    // picking "today" leaves a full 8h business window (480 min) to derive from.
+    const NOW = new Date('2026-07-15T16:00:00.000Z') // 09:00 America/Los_Angeles
+
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      vi.setSystemTime(NOW)
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('derives the estimate minutes from a picked target date (business hours)', async () => {
+      // Arrange — today is always selectable (>= minDate); its label is D MMMM YYYY.
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+      const todayLabel = dayjs().tz('America/Los_Angeles').format('D MMMM YYYY')
+      const emitted: (number | null | undefined)[] = []
+      renderWithProviders(
+        <EstimateInput minutes={null} cleared={null} onChange={(m) => emitted.push(m)} />,
+      )
+      // Act — switch to the date mode, open the picker, pick today
+      await user.click(screen.getByRole('radio', { name: 'Target date' }))
+      await user.click(screen.getByRole('button', { name: 'Target completion date' }))
+      await user.click(nth(screen.getAllByRole('button', { name: todayLabel }), 0))
+      // Assert — 09:00 → 17:00 local = 480 business minutes
+      expect(emitted.at(-1)).toBe(480)
+    })
   })
 })

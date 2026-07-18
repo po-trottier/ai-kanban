@@ -70,6 +70,20 @@ export function timerState(
   return { running: true, reason: 'working' }
 }
 
+/**
+ * Business minutes of work between `now` and the end of the target day's
+ * business window (17:00 local in `timezone`) — the estimate a user is
+ * committing to when they pick a target completion DATE instead of typing
+ * minutes. Uses the same `businessMinutesBetween` accrual as the burn-down, so
+ * a date-derived estimate burns down to exactly 0 at end-of-business on that
+ * day. Rounds to a whole minute (the stored unit); a target with no business
+ * time left (e.g. today after 17:00) yields 0, which the form flags as invalid.
+ */
+export function minutesUntilTargetDate(targetDate: string, now: Date, timezone: string): number {
+  const end = dayjs.tz(targetDate, timezone).hour(BUSINESS_END_HOUR).minute(0).second(0).toDate()
+  return Math.round(businessMinutesBetween(now, end, timezone))
+}
+
 export interface WorkProgress {
   /** Elapsed / estimate as a 0–100 (capped) percentage for the bar. */
   percent: number

@@ -332,6 +332,14 @@ export const strings = {
     estimateUnitHelp:
       'Enter the estimate in minutes, hours, or days. One day means 8 working hours.',
     estimateOptional: 'How long the work should take. Optional until Ready.',
+    /** Toggle between typing a duration and picking a target completion date. */
+    estimateModeDuration: 'Enter time',
+    estimateModeDate: 'Target date',
+    estimateModeLabel: 'How to set the estimate',
+    estimateDateLabel: 'Target completion date',
+    /** Derived-estimate hint under the date picker (business-hours conversion). */
+    estimateDateHelp:
+      'The estimate is the working time (Mon–Fri, 9am–5pm) between now and this date.',
     assigneeLabel: 'Assignee',
     locationLabel: 'Location',
     tagsLabel: 'Tags',
