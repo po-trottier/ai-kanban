@@ -1,11 +1,12 @@
 import { type Comment } from '@rivian-kanban/core'
-import { Button, Group, Paper, Stack, Text, Textarea } from '@mantine/core'
+import { Group, Paper, Stack, Text, Textarea } from '@mantine/core'
 import { Pencil, Reply, Save, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { buildCommentThread } from '../lib/comments.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { ConfirmModal } from '../shell/ConfirmModal.tsx'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
 import classes from './card.module.css'
@@ -95,6 +96,7 @@ export function CommentsThread({
                 <Composer
                   label={strings.comments.replyComposerLabel}
                   submitLabel={strings.comments.postReplyButton}
+                  submitHint={strings.tooltips.postReply}
                   onSubmit={(body, onPosted) => {
                     onAdd(body, comment.id, () => {
                       onPosted()
@@ -111,6 +113,7 @@ export function CommentsThread({
         <Composer
           label={strings.comments.composerLabel}
           submitLabel={strings.comments.postButton}
+          submitHint={strings.tooltips.comment}
           onSubmit={(body, onPosted) => {
             onAdd(body, null, onPosted)
           }}
@@ -182,8 +185,9 @@ function CommentItem({
             }}
           />
           <Group gap="xs">
-            <Button
+            <HintButton
               size="xs"
+              tooltip={strings.tooltips.saveCommentEdit}
               leftSection={<Save size={14} aria-hidden />}
               onClick={() => {
                 if (draft.trim() === '') return
@@ -192,10 +196,11 @@ function CommentItem({
               }}
             >
               {strings.comments.saveEdit}
-            </Button>
-            <Button
+            </HintButton>
+            <HintButton
               size="xs"
               variant="default"
+              tooltip={strings.tooltips.cancelDialog}
               leftSection={<X size={14} aria-hidden />}
               onClick={() => {
                 setEditing(false)
@@ -203,7 +208,7 @@ function CommentItem({
               }}
             >
               {strings.common.cancel}
-            </Button>
+            </HintButton>
           </Group>
         </Stack>
       ) : (
@@ -213,18 +218,20 @@ function CommentItem({
       )}
       {!deleted && !editing && !readOnly ? (
         <Group gap="xs" mt="xs">
-          <Button
+          <HintButton
             size="compact-xs"
             variant="subtle"
+            tooltip={strings.tooltips.replyComment}
             leftSection={<Reply size={14} aria-hidden />}
             onClick={onReply}
           >
             {strings.common.reply}
-          </Button>
+          </HintButton>
           {own ? (
-            <Button
+            <HintButton
               size="compact-xs"
               variant="subtle"
+              tooltip={strings.tooltips.editComment}
               leftSection={<Pencil size={14} aria-hidden />}
               // Short visible label; the accessible name stays 'Edit comment'.
               aria-label={strings.comments.editLabel}
@@ -233,12 +240,13 @@ function CommentItem({
               }}
             >
               {strings.common.edit}
-            </Button>
+            </HintButton>
           ) : null}
           {canDelete ? (
-            <Button
+            <HintButton
               size="compact-xs"
               variant="subtle"
+              tooltip={strings.tooltips.deleteComment}
               leftSection={<Trash2 size={14} aria-hidden />}
               // Muted, not alarming red; accessible name stays 'Delete comment'.
               color="gray"
@@ -249,7 +257,7 @@ function CommentItem({
               }}
             >
               {strings.common.delete}
-            </Button>
+            </HintButton>
           ) : null}
         </Group>
       ) : null}
@@ -260,12 +268,15 @@ function CommentItem({
 function Composer({
   label,
   submitLabel,
+  submitHint,
   onSubmit,
 }: {
   label: string
   /** Distinct per composer ('Comment' vs 'Post reply') so the two submit
    * buttons are never ambiguous to assistive tech or role-based tests. */
   submitLabel: string
+  /** Always-on hint for the submit button, distinct per composer. */
+  submitHint: string
   onSubmit: (body: string, onPosted: () => void) => void
 }) {
   const [body, setBody] = useState('')
@@ -282,9 +293,10 @@ function Composer({
         }}
       />
       <Group justify="flex-end">
-        <Button
+        <HintButton
           size="xs"
-          disabled={body.trim() === ''}
+          tooltip={submitHint}
+          disabledReason={body.trim() === '' ? strings.tooltips.disabledEmptyComment : undefined}
           onClick={() => {
             // Cleared only once the POST succeeds — a failure keeps the draft.
             onSubmit(body.trim(), () => {
@@ -293,7 +305,7 @@ function Composer({
           }}
         >
           {submitLabel}
-        </Button>
+        </HintButton>
       </Group>
     </Stack>
   )

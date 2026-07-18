@@ -1,7 +1,6 @@
 import { type Permission, type PolicyDocument, type RoleDefinition } from '@rivian-kanban/core'
 import {
   ActionIcon,
-  Button,
   Checkbox,
   Group,
   Menu,
@@ -17,6 +16,7 @@ import {
 import { Plus, Save } from 'lucide-react'
 import { useState } from 'react'
 import { strings } from '../strings.ts'
+import { HintButton } from '../shell/HintButton.tsx'
 import { DotsIcon } from '../shell/icons.tsx'
 import classes from './policy-editor.module.css'
 
@@ -186,22 +186,36 @@ export function PolicyEditorForm({
                         </Tooltip>
                       </Menu.Target>
                       <Menu.Dropdown>
-                        <Menu.Item
-                          onClick={() => {
-                            setRenaming(roleIndex)
-                          }}
+                        <Tooltip label={strings.tooltips.renameRole} position="left" withArrow>
+                          <Menu.Item
+                            onClick={() => {
+                              setRenaming(roleIndex)
+                            }}
+                          >
+                            {strings.policy.renameRole}
+                          </Menu.Item>
+                        </Tooltip>
+                        {/* Disabled Menu.Item keeps `data-disabled` (hoverable),
+                            so the "why you can't delete" reason still shows. */}
+                        <Tooltip
+                          label={
+                            canDeleteRole(roleIndex)
+                              ? strings.tooltips.deleteRole
+                              : strings.tooltips.disabledDeleteRoleLast
+                          }
+                          position="left"
+                          withArrow
                         >
-                          {strings.policy.renameRole}
-                        </Menu.Item>
-                        <Menu.Item
-                          color="red"
-                          disabled={!canDeleteRole(roleIndex)}
-                          onClick={() => {
-                            deleteRole(roleIndex)
-                          }}
-                        >
-                          {strings.policy.deleteRole}
-                        </Menu.Item>
+                          <Menu.Item
+                            color="red"
+                            disabled={!canDeleteRole(roleIndex)}
+                            onClick={() => {
+                              deleteRole(roleIndex)
+                            }}
+                          >
+                            {strings.policy.deleteRole}
+                          </Menu.Item>
+                        </Tooltip>
                       </Menu.Dropdown>
                     </Menu>
                   </Group>
@@ -211,7 +225,8 @@ export function PolicyEditorForm({
                 {/* Right-align at content width so the button hugs the header's
                     right edge instead of filling this trailing column. */}
                 <Group justify="flex-end">
-                  <Button
+                  <HintButton
+                    tooltip={strings.tooltips.addRole}
                     size="sm"
                     variant="light"
                     leftSection={<Plus size={16} aria-hidden />}
@@ -220,7 +235,7 @@ export function PolicyEditorForm({
                     }}
                   >
                     {strings.policy.addRole}
-                  </Button>
+                  </HintButton>
                 </Group>
               </Table.Th>
             </Table.Tr>
@@ -280,7 +295,8 @@ export function PolicyEditorForm({
       </Stack>
 
       <Group justify="flex-end">
-        <Button
+        <HintButton
+          tooltip={strings.tooltips.savePolicy}
           loading={saving}
           leftSection={<Save size={16} aria-hidden />}
           onClick={() => {
@@ -288,7 +304,7 @@ export function PolicyEditorForm({
           }}
         >
           {strings.common.save}
-        </Button>
+        </HintButton>
       </Group>
 
       {addOpen ? (
@@ -415,18 +431,19 @@ function AddRoleModal({
           }}
         />
         <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>
+          <HintButton tooltip={strings.tooltips.cancelDialog} variant="default" onClick={onClose}>
             {strings.common.cancel}
-          </Button>
-          <Button
+          </HintButton>
+          <HintButton
+            tooltip={strings.tooltips.createRole}
+            disabledReason={!canSubmit ? strings.tooltips.disabledRoleFields : undefined}
             leftSection={<Plus size={16} aria-hidden />}
-            disabled={!canSubmit}
             onClick={() => {
               onAdd(key, name.trim())
             }}
           >
             {strings.common.create}
-          </Button>
+          </HintButton>
         </Group>
       </Stack>
     </Modal>
@@ -456,18 +473,21 @@ function RenameRoleModal({
           }}
         />
         <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>
+          <HintButton tooltip={strings.tooltips.cancelDialog} variant="default" onClick={onClose}>
             {strings.common.cancel}
-          </Button>
-          <Button
+          </HintButton>
+          <HintButton
+            tooltip={strings.tooltips.renameRole}
+            disabledReason={
+              name.trim() === '' ? strings.tooltips.disabledRoleNameRequired : undefined
+            }
             leftSection={<Save size={16} aria-hidden />}
-            disabled={name.trim() === ''}
             onClick={() => {
               onRename(name.trim())
             }}
           >
             {strings.common.save}
-          </Button>
+          </HintButton>
         </Group>
       </Stack>
     </Modal>

@@ -1,10 +1,11 @@
-import { Button, Center, Input, SegmentedControl, Select, Stack } from '@mantine/core'
+import { Center, Input, SegmentedControl, Select, Stack } from '@mantine/core'
 import { Monitor, Moon, Save, Sun } from 'lucide-react'
 import { THEMES, type Theme } from '@rivian-kanban/core'
 import { useState } from 'react'
 import { useUpdateProfile } from '../api/auth.ts'
 import { notifyError, notifySuccess } from '../api/notify.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { TIMEZONE_SELECT_DATA } from './timezone-select-data.ts'
 
@@ -76,14 +77,15 @@ export function PreferencesTab() {
         allowDeselect={false}
         nothingFoundMessage={strings.profile.timezoneNothingFound}
       />
-      <Button
+      <HintButton
+        tooltip={strings.tooltips.savePreferences}
         onClick={save}
         loading={update.isPending}
         leftSection={<Save size={16} aria-hidden />}
         w="fit-content"
       >
         {strings.common.save}
-      </Button>
+      </HintButton>
     </Stack>
   )
 }

@@ -1,5 +1,4 @@
 import { type CreateCardInput } from '@rivian-kanban/core'
-import { Button } from '@mantine/core'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useCreateCard } from '../api/board.ts'
@@ -7,6 +6,7 @@ import { useUploadNewCardAttachment } from '../api/card.ts'
 import { useLocations, useTags, useUsers } from '../api/meta.ts'
 import { notifyError } from '../api/notify.ts'
 import { NewCardModal } from '../board/NewCardModal.tsx'
+import { HintButton } from './HintButton.tsx'
 import { strings } from '../strings.ts'
 
 /** Header "New card" button + its modal (cards land in Intake). */
@@ -46,15 +46,16 @@ export function NewCardButton() {
 
   return (
     <>
-      <Button
+      <HintButton
         size="sm"
+        tooltip={strings.tooltips.newCard}
         leftSection={<Plus size={16} aria-hidden />}
         onClick={() => {
           setOpen(true)
         }}
       >
         {strings.board.newCard}
-      </Button>
+      </HintButton>
       {open ? (
         <NewCardModal
           users={users.data ?? []}

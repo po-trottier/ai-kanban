@@ -1,5 +1,5 @@
 import { TOKEN_SCOPES, type TokenScope } from '@rivian-kanban/core'
-import { Badge, Button, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
+import { Badge, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
 import { Ban, Plus, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import {
@@ -12,6 +12,7 @@ import { type ServiceTokenView } from '../api/schemas.ts'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { ConfirmModal } from '../shell/ConfirmModal.tsx'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { RevealOnceModal } from './RevealOnceModal.tsx'
 import { useRoleLabel, useRoleOptions } from './role-select-data.ts'
@@ -39,7 +40,8 @@ export function TokensAdmin() {
   return (
     <Stack gap="md">
       <Group justify="flex-end">
-        <Button
+        <HintButton
+          tooltip={strings.tooltips.newToken}
           size="sm"
           leftSection={<Plus size={16} aria-hidden />}
           onClick={() => {
@@ -47,7 +49,7 @@ export function TokensAdmin() {
           }}
         >
           {strings.tokens.createButton}
-        </Button>
+        </HintButton>
       </Group>
       <Table>
         <Table.Thead>
@@ -94,7 +96,8 @@ export function TokensAdmin() {
                   </Badge>
                 ) : (
                   <Group gap="xs" justify="flex-end" wrap="nowrap">
-                    <Button
+                    <HintButton
+                      tooltip={strings.tooltips.rotateToken}
                       size="compact-xs"
                       variant="light"
                       leftSection={<RefreshCw size={14} aria-hidden />}
@@ -103,8 +106,9 @@ export function TokensAdmin() {
                       }}
                     >
                       {strings.tokens.rotate}
-                    </Button>
-                    <Button
+                    </HintButton>
+                    <HintButton
+                      tooltip={strings.tooltips.revokeToken}
                       size="compact-xs"
                       variant="light"
                       color="red"
@@ -114,7 +118,7 @@ export function TokensAdmin() {
                       }}
                     >
                       {strings.tokens.revoke}
-                    </Button>
+                    </HintButton>
                   </Group>
                 )}
               </Table.Td>
@@ -162,10 +166,13 @@ export function TokensAdmin() {
               }}
             />
             <Group justify="flex-end">
-              <Button
+              <HintButton
+                tooltip={strings.tooltips.createToken}
+                disabledReason={
+                  draft.name.trim() === '' ? strings.tooltips.disabledEmptyName : undefined
+                }
                 loading={createToken.isPending}
                 leftSection={<Plus size={16} aria-hidden />}
-                disabled={draft.name.trim() === ''}
                 onClick={() => {
                   createToken.mutate(draft, {
                     onSuccess: (created) => {
@@ -177,7 +184,7 @@ export function TokensAdmin() {
                 }}
               >
                 {strings.common.create}
-              </Button>
+              </HintButton>
             </Group>
           </Stack>
         </Modal>

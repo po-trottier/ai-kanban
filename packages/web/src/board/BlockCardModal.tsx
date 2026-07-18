@@ -1,6 +1,7 @@
-import { Button, Group, Modal, Stack, Textarea } from '@mantine/core'
+import { Group, Modal, Stack, Textarea } from '@mantine/core'
 import { Ban } from 'lucide-react'
 import { useState } from 'react'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 
 export interface BlockCardModalProps {
@@ -29,11 +30,12 @@ export function BlockCardModal({ onSubmit, onClose }: BlockCardModalProps) {
           }}
         />
         <Group justify="flex-end" gap="sm">
-          <Button variant="default" onClick={onClose}>
+          <HintButton tooltip={strings.tooltips.cancelDialog} variant="default" onClick={onClose}>
             {strings.common.cancel}
-          </Button>
+          </HintButton>
           {/* Blocking is a routine, non-destructive flag — primary, not red. */}
-          <Button
+          <HintButton
+            tooltip={strings.tooltips.block}
             leftSection={<Ban size={16} aria-hidden />}
             onClick={() => {
               setTouched(true)
@@ -43,7 +45,7 @@ export function BlockCardModal({ onSubmit, onClose }: BlockCardModalProps) {
             }}
           >
             {strings.blockAction.confirm}
-          </Button>
+          </HintButton>
         </Group>
       </Stack>
     </Modal>

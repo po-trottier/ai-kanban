@@ -1,9 +1,10 @@
 import { WAITING_REASONS, type WaitingReason } from '@rivian-kanban/core'
-import { Button, Group, Modal, Select, Stack, Text, Textarea } from '@mantine/core'
+import { Group, Modal, Select, Stack, Text, Textarea } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
 import { useState } from 'react'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { todayInTimezone } from '../lib/format.ts'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 
 export interface WaitingLaneModalProps {
@@ -68,10 +69,11 @@ export function WaitingLaneModal({ onSubmit, onClose }: WaitingLaneModalProps) {
           maxRows={5}
         />
         <Group justify="flex-end" gap="sm">
-          <Button variant="default" onClick={onClose}>
+          <HintButton tooltip={strings.tooltips.cancelDialog} variant="default" onClick={onClose}>
             {strings.common.cancel}
-          </Button>
-          <Button
+          </HintButton>
+          <HintButton
+            tooltip={strings.tooltips.move}
             onClick={() => {
               setTouched(true)
               if (reason === null || resumeAt === null) return
@@ -84,7 +86,7 @@ export function WaitingLaneModal({ onSubmit, onClose }: WaitingLaneModalProps) {
             }}
           >
             {strings.waiting.confirm}
-          </Button>
+          </HintButton>
         </Group>
       </Stack>
     </Modal>

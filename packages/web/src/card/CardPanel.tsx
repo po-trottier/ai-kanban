@@ -2,7 +2,6 @@ import {
   ActionIcon,
   Alert,
   Badge,
-  Button,
   Divider,
   Group,
   Loader,
@@ -37,6 +36,7 @@ import { formatTicketNumber, todayInTimezone, utcToday } from '../lib/format.ts'
 import { CloseIcon } from '../shell/icons.tsx'
 import { useCardPanelSlot } from '../shell/card-panel-slot.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import {
   BLOCKED_COLOR,
@@ -240,18 +240,19 @@ function CardPanelBody({ cardId }: { cardId: string }) {
           <Text size="sm" c="dimmed">
             {strings.detail.archivedNotice}
           </Text>
-          <Button
+          <HintButton
             size="xs"
             variant="light"
+            tooltip={strings.tooltips.reopen}
+            disabledReason={canReopen ? undefined : strings.tooltips.disabledReopenNoPermission}
             leftSection={<RotateCcw size={14} aria-hidden />}
-            disabled={!canReopen}
             loading={cardAction.isPending}
             onClick={() => {
               cardAction.mutate({ card: detail.card, action: 'reopen' })
             }}
           >
             {strings.card.reopen}
-          </Button>
+          </HintButton>
         </Group>
       ) : null}
       <Tabs defaultValue="details" keepMounted={false}>
@@ -359,17 +360,18 @@ function StateBanner({
         <Stack gap="sm">
           <Text size="sm">{card.blockedReason ?? strings.detail.blockedBannerNoReason}</Text>
           <Group>
-            <Button
+            <HintButton
               size="xs"
               variant="white"
               color={BLOCKED_COLOR}
+              tooltip={strings.tooltips.unblock}
+              disabledReason={canUnblock ? undefined : strings.tooltips.disabledUnblockNotBlocked}
               leftSection={<ShieldOff size={14} aria-hidden />}
-              disabled={!canUnblock || acting}
               loading={acting}
               onClick={onUnblock}
             >
               {strings.card.unblock}
-            </Button>
+            </HintButton>
           </Group>
         </Stack>
       </Alert>
@@ -381,16 +383,17 @@ function StateBanner({
         <Stack gap="sm">
           <Text size="sm">{strings.detail.cancelledBannerBody}</Text>
           <Group>
-            <Button
+            <HintButton
               size="xs"
               variant="light"
+              tooltip={strings.tooltips.reopen}
+              disabledReason={canReopen ? undefined : strings.tooltips.disabledReopenNoPermission}
               leftSection={<RotateCcw size={14} aria-hidden />}
-              disabled={!canReopen || acting}
               loading={acting}
               onClick={onReopen}
             >
               {strings.card.reopen}
-            </Button>
+            </HintButton>
           </Group>
         </Stack>
       </Alert>
@@ -470,12 +473,13 @@ function WaitingBanner({
           highlightToday
         />
         <Group justify="flex-end">
-          <Button
+          <HintButton
             size="xs"
             variant="white"
             color={WAITING_COLOR}
+            tooltip={strings.tooltips.saveWaiting}
+            disabledReason={dirty ? undefined : strings.tooltips.disabledNoChanges}
             leftSection={<Save size={14} aria-hidden />}
-            disabled={!dirty || saving}
             loading={saving}
             onClick={() => {
               if (reason === null || resumeAt === null) return
@@ -483,7 +487,7 @@ function WaitingBanner({
             }}
           >
             {strings.detail.waitingSave}
-          </Button>
+          </HintButton>
         </Group>
       </Stack>
     </Alert>

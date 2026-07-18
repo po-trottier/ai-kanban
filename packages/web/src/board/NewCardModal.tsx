@@ -1,5 +1,5 @@
 import { createCardInputSchema, type CreateCardInput, type Location } from '@rivian-kanban/core'
-import { Button, Group, Modal, Stack } from '@mantine/core'
+import { Group, Modal, Stack } from '@mantine/core'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
@@ -8,6 +8,7 @@ import { type z } from 'zod'
 import { type PickerUser } from '../api/schemas.ts'
 import { cardFieldsControl } from '../card/card-fields.ts'
 import { CardFieldInputs } from '../card/CardFieldInputs.tsx'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { NewCardAttachments } from './NewCardAttachments.tsx'
 
@@ -72,12 +73,17 @@ export function NewCardModal({
             }}
           />
           <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={onClose}>
+            <HintButton tooltip={strings.tooltips.cancelDialog} variant="default" onClick={onClose}>
               {strings.common.cancel}
-            </Button>
-            <Button type="submit" loading={submitting} leftSection={<Plus size={16} aria-hidden />}>
+            </HintButton>
+            <HintButton
+              tooltip={strings.tooltips.createCard}
+              type="submit"
+              loading={submitting}
+              leftSection={<Plus size={16} aria-hidden />}
+            >
               {strings.common.create}
-            </Button>
+            </HintButton>
           </Group>
         </Stack>
       </form>

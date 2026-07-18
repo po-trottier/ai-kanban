@@ -450,7 +450,9 @@ describe('CardPanel', () => {
     // lane label of the same name behind the non-modal panel.
     await screen.findByRole('textbox', { name: /Title/ })
     const save = screen.getByRole('button', { name: 'Save' })
-    expect(save).toBeDisabled()
+    // Shown disabled via `data-disabled` so its "nothing to save" tooltip stays
+    // hoverable (a native disabled button fires no hover events).
+    expect(save).toHaveAttribute('data-disabled', 'true')
     // The banner reason is a Mantine Select (combobox); change it to Vendor.
     await user.click(screen.getByRole('combobox', { name: 'Waiting reason' }))
     await user.click(await screen.findByRole('option', { name: 'Vendor' }))

@@ -84,8 +84,12 @@ describe('CardDetailsForm', () => {
         onSave={() => undefined}
       />,
     )
-    // Assert
-    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    // Assert — the Save button shows disabled via `data-disabled` (so its
+    // "nothing to save" tooltip stays hoverable), not the native disabled prop.
+    expect(screen.getByRole('button', { name: 'Save changes' })).toHaveAttribute(
+      'data-disabled',
+      'true',
+    )
   })
 
   it('submits only the dirty fields (one audit event per real change)', async () => {

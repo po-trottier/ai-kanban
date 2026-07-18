@@ -1,8 +1,9 @@
-import { Button, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
+import { Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
 import { Ban, KeyRound, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useCreateUser, usePatchUser } from '../api/admin.ts'
 import { useUsers } from '../api/meta.ts'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { RevealOnceModal } from './RevealOnceModal.tsx'
 import { useRoleOptions } from './role-select-data.ts'
@@ -26,7 +27,8 @@ export function UsersAdmin() {
   return (
     <Stack gap="md">
       <Group justify="flex-end">
-        <Button
+        <HintButton
+          tooltip={strings.tooltips.newUser}
           size="sm"
           leftSection={<Plus size={16} aria-hidden />}
           onClick={() => {
@@ -34,7 +36,7 @@ export function UsersAdmin() {
           }}
         >
           {strings.users.createButton}
-        </Button>
+        </HintButton>
       </Group>
       <Table>
         <Table.Thead>
@@ -73,7 +75,8 @@ export function UsersAdmin() {
               </Table.Td>
               <Table.Td>
                 <Group gap="xs" justify="flex-end">
-                  <Button
+                  <HintButton
+                    tooltip={strings.tooltips.resetPassword}
                     size="compact-xs"
                     variant="light"
                     leftSection={<KeyRound size={14} aria-hidden />}
@@ -89,8 +92,9 @@ export function UsersAdmin() {
                     }}
                   >
                     {strings.users.resetPassword}
-                  </Button>
-                  <Button
+                  </HintButton>
+                  <HintButton
+                    tooltip={strings.tooltips.deactivateUser}
                     size="compact-xs"
                     variant="light"
                     color="red"
@@ -100,7 +104,7 @@ export function UsersAdmin() {
                     }}
                   >
                     {strings.users.deactivate}
-                  </Button>
+                  </HintButton>
                 </Group>
               </Table.Td>
             </Table.Tr>
@@ -143,10 +147,15 @@ export function UsersAdmin() {
               }}
             />
             <Group justify="flex-end">
-              <Button
+              <HintButton
+                tooltip={strings.tooltips.createUser}
+                disabledReason={
+                  draft.displayName.trim() === '' || draft.email.trim() === ''
+                    ? strings.tooltips.disabledUserFields
+                    : undefined
+                }
                 loading={createUser.isPending}
                 leftSection={<Plus size={16} aria-hidden />}
-                disabled={draft.displayName.trim() === '' || draft.email.trim() === ''}
                 onClick={() => {
                   createUser.mutate(draft, {
                     onSuccess: (response) => {
@@ -158,7 +167,7 @@ export function UsersAdmin() {
                 }}
               >
                 {strings.common.create}
-              </Button>
+              </HintButton>
             </Group>
           </Stack>
         </Modal>
@@ -176,15 +185,17 @@ export function UsersAdmin() {
           <Stack gap="md">
             <Text size="sm">{strings.users.deactivateConfirmBody(deactivating.name)}</Text>
             <Group justify="flex-end" gap="sm">
-              <Button
+              <HintButton
+                tooltip={strings.tooltips.cancelDialog}
                 variant="default"
                 onClick={() => {
                   setDeactivating(null)
                 }}
               >
                 {strings.common.cancel}
-              </Button>
-              <Button
+              </HintButton>
+              <HintButton
+                tooltip={strings.tooltips.deactivateUser}
                 color="red"
                 leftSection={<Ban size={16} aria-hidden />}
                 onClick={() => {
@@ -193,7 +204,7 @@ export function UsersAdmin() {
                 }}
               >
                 {strings.users.deactivate}
-              </Button>
+              </HintButton>
             </Group>
           </Stack>
         </Modal>

@@ -1,6 +1,7 @@
 import { CANCEL_RESOLUTIONS, type CancelResolution } from '@rivian-kanban/core'
-import { Button, Group, Modal, Select, Stack, Text } from '@mantine/core'
+import { Group, Modal, Select, Stack, Text } from '@mantine/core'
 import { useState } from 'react'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 
 export interface CancelCardModalProps {
@@ -32,17 +33,18 @@ export function CancelCardModal({ onSubmit, onClose }: CancelCardModalProps) {
           {strings.cancelAction.consequence(strings.cancelAction.resolutions[resolution])}
         </Text>
         <Group justify="flex-end" gap="sm">
-          <Button variant="default" onClick={onClose}>
+          <HintButton tooltip={strings.tooltips.cancelDialog} variant="default" onClick={onClose}>
             {strings.common.cancel}
-          </Button>
-          <Button
+          </HintButton>
+          <HintButton
+            tooltip={strings.tooltips.cancelCard}
             color="red"
             onClick={() => {
               onSubmit(resolution)
             }}
           >
             {strings.cancelAction.confirm}
-          </Button>
+          </HintButton>
         </Group>
       </Stack>
     </Modal>

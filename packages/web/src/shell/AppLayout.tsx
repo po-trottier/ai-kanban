@@ -72,17 +72,19 @@ export function AppLayout() {
         <SseBridge />
         <AppShell.Header>
           <div className={classes.header}>
-            <UnstyledButton component={Link} to="/" aria-label={strings.header.logoAlt}>
-              {/* Logo + wordmark: the logo is the brand, but the app title stays
-                  as visible text beside it so the header always identifies the
-                  app (the asset is a thin mark that reads faint on white). */}
-              <Group gap="xs" wrap="nowrap">
-                <img className={classes.logo} src="/logo.png" alt="" />
-                <Title order={1} size="h4">
-                  {strings.appTitle}
-                </Title>
-              </Group>
-            </UnstyledButton>
+            <Tooltip label={strings.tooltips.home}>
+              <UnstyledButton component={Link} to="/" aria-label={strings.header.logoAlt}>
+                {/* Logo + wordmark: the logo is the brand, but the app title stays
+                    as visible text beside it so the header always identifies the
+                    app (the asset is a thin mark that reads faint on white). */}
+                <Group gap="xs" wrap="nowrap">
+                  <img className={classes.logo} src="/logo.png" alt="" />
+                  <Title order={1} size="h4">
+                    {strings.appTitle}
+                  </Title>
+                </Group>
+              </UnstyledButton>
+            </Tooltip>
             <div className={classes.headerSearch}>{onBoardRoute ? <HeaderSearch /> : null}</div>
             <Group gap="sm">
               {/* Right cluster (ITEM A), left→right: New card, the badge-legend
@@ -106,25 +108,29 @@ export function AppLayout() {
                 </Menu.Target>
                 <Menu.Dropdown>
                   <Menu.Label>{me.displayName}</Menu.Label>
-                  <Menu.Item
-                    component={Link}
-                    to="/settings"
-                    leftSection={<Settings size={16} aria-hidden />}
-                  >
-                    {strings.settings.menuItem}
-                  </Menu.Item>
-                  <Menu.Item
-                    leftSection={<LogOut size={16} aria-hidden />}
-                    onClick={() => {
-                      logout.mutate(undefined, {
-                        onSettled: () => {
-                          void navigate('/login')
-                        },
-                      })
-                    }}
-                  >
-                    {strings.auth.logout}
-                  </Menu.Item>
+                  <Tooltip label={strings.tooltips.settings} position="left" withArrow>
+                    <Menu.Item
+                      component={Link}
+                      to="/settings"
+                      leftSection={<Settings size={16} aria-hidden />}
+                    >
+                      {strings.settings.menuItem}
+                    </Menu.Item>
+                  </Tooltip>
+                  <Tooltip label={strings.tooltips.logout} position="left" withArrow>
+                    <Menu.Item
+                      leftSection={<LogOut size={16} aria-hidden />}
+                      onClick={() => {
+                        logout.mutate(undefined, {
+                          onSettled: () => {
+                            void navigate('/login')
+                          },
+                        })
+                      }}
+                    >
+                      {strings.auth.logout}
+                    </Menu.Item>
+                  </Tooltip>
                 </Menu.Dropdown>
               </Menu>
             </Group>

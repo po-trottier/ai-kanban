@@ -40,66 +40,104 @@ export function CardMenu({ card, canCancel, canReopen, canArchive, onAction }: C
           </Tooltip>
         </Menu.Target>
         <Menu.Dropdown>
-          <Menu.Item
-            onClick={() => {
-              onAction('open')
-            }}
-          >
-            {strings.card.openCard}
-          </Menu.Item>
-          <Menu.Item
-            onClick={() => {
-              onAction('move')
-            }}
-          >
-            {strings.card.moveTo}
-          </Menu.Item>
+          <Tooltip label={strings.tooltips.openCard} position="left" withArrow>
+            <Menu.Item
+              onClick={() => {
+                onAction('open')
+              }}
+            >
+              {strings.card.openCard}
+            </Menu.Item>
+          </Tooltip>
+          <Tooltip label={strings.tooltips.move} position="left" withArrow>
+            <Menu.Item
+              onClick={() => {
+                onAction('move')
+              }}
+            >
+              {strings.card.moveTo}
+            </Menu.Item>
+          </Tooltip>
           {card.blocked ? (
-            <Menu.Item
-              onClick={() => {
-                onAction('unblock')
-              }}
-            >
-              {strings.card.unblock}
-            </Menu.Item>
+            <Tooltip label={strings.tooltips.unblock} position="left" withArrow>
+              <Menu.Item
+                onClick={() => {
+                  onAction('unblock')
+                }}
+              >
+                {strings.card.unblock}
+              </Menu.Item>
+            </Tooltip>
           ) : (
-            <Menu.Item
-              onClick={() => {
-                onAction('block')
-              }}
-            >
-              {strings.card.block}
-            </Menu.Item>
+            <Tooltip label={strings.tooltips.block} position="left" withArrow>
+              <Menu.Item
+                onClick={() => {
+                  onAction('block')
+                }}
+              >
+                {strings.card.block}
+              </Menu.Item>
+            </Tooltip>
           )}
           {terminal ? (
             <>
-              <Menu.Item
-                disabled={!canReopen}
-                onClick={() => {
-                  onAction('reopen')
-                }}
+              {/* A disabled Menu.Item keeps `data-disabled` (not native disabled),
+                  so it still fires hover events and the reason tooltip shows. */}
+              <Tooltip
+                label={
+                  canReopen ? strings.tooltips.reopen : strings.tooltips.disabledReopenNoPermission
+                }
+                position="left"
+                withArrow
               >
-                {strings.card.reopen}
-              </Menu.Item>
-              <Menu.Item
-                disabled={!canArchive}
-                onClick={() => {
-                  onAction('archive')
-                }}
+                <Menu.Item
+                  disabled={!canReopen}
+                  onClick={() => {
+                    onAction('reopen')
+                  }}
+                >
+                  {strings.card.reopen}
+                </Menu.Item>
+              </Tooltip>
+              <Tooltip
+                label={
+                  canArchive
+                    ? strings.tooltips.archive
+                    : strings.tooltips.disabledArchiveNoPermission
+                }
+                position="left"
+                withArrow
               >
-                {strings.card.archive}
-              </Menu.Item>
+                <Menu.Item
+                  disabled={!canArchive}
+                  onClick={() => {
+                    onAction('archive')
+                  }}
+                >
+                  {strings.card.archive}
+                </Menu.Item>
+              </Tooltip>
             </>
           ) : (
-            <Menu.Item
-              color="red"
-              disabled={!canCancel}
-              onClick={() => {
-                onAction('cancel')
-              }}
+            <Tooltip
+              label={
+                canCancel
+                  ? strings.tooltips.cancelCard
+                  : strings.tooltips.disabledCancelNoPermission
+              }
+              position="left"
+              withArrow
             >
-              {strings.card.cancelCard}
-            </Menu.Item>
+              <Menu.Item
+                color="red"
+                disabled={!canCancel}
+                onClick={() => {
+                  onAction('cancel')
+                }}
+              >
+                {strings.card.cancelCard}
+              </Menu.Item>
+            </Tooltip>
           )}
         </Menu.Dropdown>
       </Menu>

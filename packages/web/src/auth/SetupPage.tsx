@@ -6,7 +6,6 @@ import {
   type SetupAdminInput,
 } from '@rivian-kanban/core'
 import {
-  Button,
   Center,
   Image,
   Loader,
@@ -25,6 +24,7 @@ import { z } from 'zod'
 import { useSetupAdmin, useSetupRequired } from '../api/auth.ts'
 import { detectBrowserTimezone } from '../settings/timezone-select-data.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
 import { AuthShell } from './AuthShell.tsx'
@@ -165,9 +165,9 @@ function SetupAccountForm({ onCreated }: { onCreated: () => void }) {
           error={form.formState.errors.password?.message}
           {...form.register('password')}
         />
-        <Button type="submit" loading={setup.isPending}>
+        <HintButton type="submit" tooltip={strings.tooltips.createAdmin} loading={setup.isPending}>
           {strings.setup.submitButton}
-        </Button>
+        </HintButton>
       </Stack>
     </form>
   )

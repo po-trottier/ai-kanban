@@ -109,25 +109,27 @@ export function AttachmentsSection({
             <Text size="sm" c="dimmed">
               {strings.attachments.dropHint}
             </Text>
-            <Button
-              variant="light"
-              size="xs"
-              loading={uploading}
-              component="label"
-              leftSection={<Upload size={14} aria-hidden />}
-            >
-              {strings.attachments.browseButton}
-              <input
-                type="file"
-                hidden
-                accept={ALLOWED_ATTACHMENT_MIME_TYPES.join(',')}
-                onChange={(event) => {
-                  const file = event.currentTarget.files?.[0]
-                  if (file !== undefined) onUpload(file)
-                  event.currentTarget.value = ''
-                }}
-              />
-            </Button>
+            <Tooltip label={strings.tooltips.browseFiles}>
+              <Button
+                variant="light"
+                size="xs"
+                loading={uploading}
+                component="label"
+                leftSection={<Upload size={14} aria-hidden />}
+              >
+                {strings.attachments.browseButton}
+                <input
+                  type="file"
+                  hidden
+                  accept={ALLOWED_ATTACHMENT_MIME_TYPES.join(',')}
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0]
+                    if (file !== undefined) onUpload(file)
+                    event.currentTarget.value = ''
+                  }}
+                />
+              </Button>
+            </Tooltip>
           </Group>
         </div>
       )}

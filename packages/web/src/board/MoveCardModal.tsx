@@ -6,7 +6,7 @@ import {
   type Role,
   type WaitingReason,
 } from '@rivian-kanban/core'
-import { Button, Group, Modal, Select, Stack, Text, Textarea } from '@mantine/core'
+import { Group, Modal, Select, Stack, Text, Textarea } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
 import { ArrowRightLeft } from 'lucide-react'
 import { useState } from 'react'
@@ -14,6 +14,7 @@ import { isWaitingLane, type MoveIntent } from '../api/board-cache.ts'
 import { type BoardResponse } from '../api/schemas.ts'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { todayInTimezone } from '../lib/format.ts'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { canMoveToLane, dropPosition, isSamePosition, positionChoices } from './move-options.ts'
 
@@ -162,12 +163,19 @@ export function MoveCardModal({
           </Stack>
         ) : null}
         <Group justify="flex-end" gap="sm">
-          <Button variant="default" onClick={onClose}>
+          <HintButton tooltip={strings.tooltips.cancelDialog} variant="default" onClick={onClose}>
             {strings.common.cancel}
-          </Button>
-          <Button
+          </HintButton>
+          <HintButton
+            tooltip={strings.tooltips.move}
             leftSection={<ArrowRightLeft size={16} aria-hidden />}
-            disabled={!laneAllowed || !waitingComplete}
+            disabledReason={
+              !laneAllowed
+                ? strings.tooltips.disabledMoveNotAllowed
+                : !waitingComplete
+                  ? strings.tooltips.disabledWaitingIncomplete
+                  : undefined
+            }
             onClick={() => {
               const intent: MoveIntent = {
                 toLane: laneKey,
@@ -196,7 +204,7 @@ export function MoveCardModal({
             }}
           >
             {strings.move.moveButton}
-          </Button>
+          </HintButton>
         </Group>
       </Stack>
     </Modal>

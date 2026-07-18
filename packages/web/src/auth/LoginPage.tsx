@@ -1,6 +1,5 @@
 import {
   Alert,
-  Button,
   Center,
   Image,
   Loader,
@@ -19,6 +18,7 @@ import { z } from 'zod'
 import { useLogin, useSetupRequired } from '../api/auth.ts'
 import { isUnauthorizedError } from '../api/problem.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
 import { AuthShell } from './AuthShell.tsx'
@@ -109,13 +109,14 @@ export function LoginPage() {
               error={form.formState.errors.password?.message}
               {...form.register('password')}
             />
-            <Button
+            <HintButton
               type="submit"
+              tooltip={strings.tooltips.signIn}
               loading={login.isPending}
               leftSection={<LogIn size={16} aria-hidden />}
             >
               {strings.auth.loginButton}
-            </Button>
+            </HintButton>
             <Text size="sm" c="dimmed">
               {strings.auth.forgotHelp}
             </Text>

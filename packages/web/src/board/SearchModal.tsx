@@ -3,7 +3,6 @@ import {
   Accordion,
   ActionIcon,
   Badge,
-  Button,
   Group,
   Loader,
   Modal,
@@ -27,6 +26,7 @@ import { LocationPicker } from '../card/LocationPicker.tsx'
 import { cx } from '../lib/cx.ts'
 import { formatEstimate, formatTicketNumber, utcToday } from '../lib/format.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
+import { HintButton } from '../shell/HintButton.tsx'
 import { PinIcon, SearchIcon } from '../shell/icons.tsx'
 import { useBoardSearchQuery } from '../shell/board-search-param.ts'
 import { useSearchModal } from '../shell/search-modal-param.ts'
@@ -178,9 +178,13 @@ function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: (
               setText(event.currentTarget.value)
             }}
           />
-          <Button type="submit" leftSection={<SearchIcon size={16} />}>
+          <HintButton
+            tooltip={strings.tooltips.search}
+            type="submit"
+            leftSection={<SearchIcon size={16} />}
+          >
             {strings.search.searchButton}
-          </Button>
+          </HintButton>
         </Group>
       </form>
       <Accordion
@@ -209,9 +213,15 @@ function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: (
               </Group>
             </Accordion.Control>
             {hasDraftFilters ? (
-              <Button variant="subtle" color="gray" size="compact-sm" onClick={clearAll}>
+              <HintButton
+                tooltip={strings.tooltips.clearFilters}
+                variant="subtle"
+                color="gray"
+                size="compact-sm"
+                onClick={clearAll}
+              >
                 {strings.search.clearFilters}
-              </Button>
+              </HintButton>
             ) : null}
             <Tooltip
               label={filtersOpen ? strings.search.collapseFilters : strings.search.expandFilters}
@@ -332,7 +342,8 @@ function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: (
                 </div>
               ))}
               {search.hasNextPage ? (
-                <Button
+                <HintButton
+                  tooltip={strings.tooltips.loadMore}
                   variant="subtle"
                   size="xs"
                   loading={search.isFetchingNextPage}
@@ -341,16 +352,16 @@ function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: (
                   }}
                 >
                   {strings.common.loadMore}
-                </Button>
+                </HintButton>
               ) : null}
             </Stack>
           )}
         </Stack>
       )}
       <Group justify="flex-end">
-        <Button variant="default" onClick={onClose}>
+        <HintButton tooltip={strings.tooltips.backToBoard} variant="default" onClick={onClose}>
           {strings.search.backToBoard}
-        </Button>
+        </HintButton>
       </Group>
     </Stack>
   )

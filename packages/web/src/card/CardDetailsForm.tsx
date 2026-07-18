@@ -1,5 +1,5 @@
 import { updateCardInputSchema, type Location, type UpdateCardInput } from '@rivian-kanban/core'
-import { Button, Group, Stack, Text } from '@mantine/core'
+import { Group, Stack, Text } from '@mantine/core'
 import { Save } from 'lucide-react'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { useEffect } from 'react'
@@ -8,6 +8,7 @@ import { type z } from 'zod'
 import { type CardDetailResponse, type PickerUser } from '../api/schemas.ts'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDateTime } from '../lib/format.ts'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { cardFieldsControl } from './card-fields.ts'
 import { CardFieldInputs } from './CardFieldInputs.tsx'
@@ -101,14 +102,17 @@ export function CardDetailsForm({
             ) : (
               <span />
             )}
-            <Button
+            <HintButton
               type="submit"
+              tooltip={strings.tooltips.saveCard}
+              disabledReason={
+                form.formState.isDirty ? undefined : strings.tooltips.disabledNoChanges
+              }
               loading={saving}
               leftSection={<Save size={16} aria-hidden />}
-              disabled={!form.formState.isDirty}
             >
               {strings.detail.saveFields}
-            </Button>
+            </HintButton>
           </Group>
         )}
       </Stack>

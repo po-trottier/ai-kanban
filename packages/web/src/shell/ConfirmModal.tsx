@@ -1,11 +1,14 @@
-import { Button, Group, Modal, Stack, Text } from '@mantine/core'
+import { Group, Modal, Stack, Text } from '@mantine/core'
 import { X } from 'lucide-react'
+import { HintButton } from './HintButton.tsx'
 import { strings } from '../strings.ts'
 
 export interface ConfirmModalProps {
   title: string
   body: string
   confirmLabel: string
+  /** Always-on hint for the confirm button; falls back to the label. */
+  confirmHint?: string
   /** Red confirm for destructive actions; default for the rest. */
   destructive?: boolean
   loading?: boolean
@@ -22,6 +25,7 @@ export function ConfirmModal({
   title,
   body,
   confirmLabel,
+  confirmHint,
   destructive = true,
   loading = false,
   onConfirm,
@@ -32,12 +36,22 @@ export function ConfirmModal({
       <Stack gap="md">
         <Text size="sm">{body}</Text>
         <Group justify="flex-end" gap="sm">
-          <Button variant="default" leftSection={<X size={16} aria-hidden />} onClick={onClose}>
+          <HintButton
+            variant="default"
+            tooltip={strings.tooltips.cancelDialog}
+            leftSection={<X size={16} aria-hidden />}
+            onClick={onClose}
+          >
             {strings.common.cancel}
-          </Button>
-          <Button {...(destructive ? { color: 'red' } : {})} loading={loading} onClick={onConfirm}>
+          </HintButton>
+          <HintButton
+            {...(destructive ? { color: 'red' } : {})}
+            tooltip={confirmHint ?? confirmLabel}
+            loading={loading}
+            onClick={onConfirm}
+          >
             {confirmLabel}
-          </Button>
+          </HintButton>
         </Group>
       </Stack>
     </Modal>

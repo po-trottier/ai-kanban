@@ -48,6 +48,122 @@ export const strings = {
     reload: 'Reload',
   },
 
+  /**
+   * Hover/focus hints on interactive controls: the always-shown purpose of a
+   * button (context, not a bare echo of the label — shortcuts where they exist)
+   * and the reason a disabled control can't be used right now. Grouped so a
+   * screen's copy stays in one place.
+   */
+  tooltips: {
+    // Generic reusable hints/reasons.
+    cancelDialog: 'Close this dialog without saving',
+    loadMore: 'Load the next page of results',
+    disabledEmptyName: 'Enter a name first',
+    // Auth.
+    signIn: 'Sign in to the board with your email and password',
+    changePassword: 'Set your new password and continue to the board',
+    createAdmin: 'Create the first administrator account and sign in',
+    // Setup wizard.
+    setupSkip: 'Skip adding locations for now — set them up later in Settings',
+    setupContinue: 'Finish setup and open the board',
+    setupRemoveConfirm: 'Remove this location permanently',
+    // Board / cards.
+    newCard: 'Create a new work order — it lands in Intake',
+    createCard: 'Create the work order in Intake',
+    openCard: 'Open this card’s details',
+    move: 'Move the card to a chosen column and position',
+    block: 'Flag the card as blocked with a reason',
+    cancelCard: 'Close the card as cancelled, declined, or a duplicate',
+    reopen: 'Reopen the card and move it back to Ready',
+    unblock: 'Clear the block and let the card move again',
+    archive: 'Archive this Done card — read-only until reopened',
+    saveCard: 'Save your edits to this card',
+    saveWaiting: 'Save the updated waiting reason or resume date',
+    search: 'Search every card, including archived and closed ones',
+    clearFilters: 'Reset the query and every filter',
+    backToBoard: 'Close search and return to the board',
+    // Disabled reasons (WHY a control is off).
+    disabledMoveNotAllowed: 'This column can’t be entered from the current one',
+    disabledWaitingIncomplete: 'Pick a waiting reason and resume date first',
+    disabledReopenNoPermission: 'You don’t have permission to reopen cards',
+    disabledArchiveNoPermission: 'You don’t have permission to archive cards',
+    disabledCancelNoPermission: 'You don’t have permission to cancel cards',
+    disabledUnblockNotBlocked: 'This card isn’t blocked',
+    disabledNoChanges: 'Nothing to save yet — edit a field first',
+    // Comments.
+    comment: 'Post this comment on the card',
+    postReply: 'Post your reply in this thread',
+    replyComment: 'Reply to this comment',
+    editComment: 'Edit your comment',
+    deleteComment: 'Delete this comment',
+    saveCommentEdit: 'Save your changes to this comment',
+    disabledEmptyComment: 'Write something before posting',
+    // Attachments.
+    browseFiles: 'Choose an image or PDF to attach',
+    // Users admin.
+    newUser: 'Invite a new user with a temporary password',
+    resetPassword: 'Issue a new one-time temporary password',
+    deactivateUser: 'Deactivate this user so they can no longer sign in',
+    createUser: 'Create the user and reveal their temporary password',
+    disabledUserFields: 'Enter a display name and email first',
+    // Tokens admin.
+    newToken: 'Create a service token for API / MCP access',
+    rotateToken: 'Replace the token’s secret — the old one stops working',
+    revokeToken: 'Revoke the token so it can no longer authenticate',
+    createToken: 'Create the token and reveal its secret once',
+    // Lanes admin.
+    saveLane: 'Save this column’s label and WIP limit',
+    // Policy admin.
+    addRole: 'Add a new role to the permissions matrix',
+    savePolicy: 'Save the roles, permissions, and workflow policy',
+    renameRole: 'Rename this role',
+    deleteRole: 'Delete this role',
+    createRole: 'Add the role to the matrix',
+    disabledRoleFields: 'Enter a valid, unused key and a display name',
+    disabledRoleNameRequired: 'Enter a role name first',
+    disabledDeleteRoleLast: 'At least one role must keep permission to manage roles',
+    // Locations admin.
+    addBuilding: 'Add a building to your site',
+    saveLocation: 'Save this location’s name',
+    setupAddBuilding: 'Add a building to your site',
+    setupAddFloor: 'Add a floor to this building',
+    setupAddRoom: 'Add a room to this floor',
+    // Preferences.
+    savePreferences: 'Save your time zone and theme',
+    // Account / shell.
+    settings: 'Open Settings',
+    logout: 'Sign out of Facilities Kanban',
+    home: 'Go to the board',
+    reload: 'Reload the page',
+  },
+
+  /**
+   * Plain-language help shown on a field's info icon (the FieldLabel pattern) —
+   * so a non-technical facilities user understands each input. The PO flagged
+   * location, estimate, and priority as the must-haves; the rest keep the
+   * pattern consistent across every form field.
+   */
+  fieldHelp: {
+    title: 'A short, specific summary of the work — e.g. “Replace lobby light ballast”.',
+    priority:
+      'How urgent the work is: P0 Critical (drop everything), P1 High (do soon), P2 Normal (routine).',
+    estimate:
+      'Roughly how long the work should take — the target completion time, used for the burn-down bar.',
+    assignee: 'The person responsible for doing the work. Leave empty to keep it unassigned.',
+    reporter: 'Who filed this work order. Set automatically and not editable.',
+    tags: 'Free-form keywords for grouping and searching — e.g. plumbing, electrical.',
+    location: 'Where the work is — the building, floor, or room it points to.',
+    wipLimit: 'The most cards allowed in this column at once. Leave empty for no limit.',
+    roleKey: 'The internal identifier for the role. Lowercase, and fixed once created.',
+    roleName: 'The human-readable name shown throughout the app.',
+    permissionCell: 'Tick to grant this permission to the role. Unticked means not allowed.',
+    tokenName: 'A label to recognise this token by — e.g. “Slack bot” or “Nightly sync”.',
+    tokenRole: 'The role whose permissions the token acts with.',
+    tokenScope: 'Read-only tokens can’t change anything; read + write can.',
+    timezone: 'Dates and times across the app are shown in this time zone.',
+    theme: 'Choose light or dark, or follow your system setting.',
+  },
+
   /** Global keyboard undo/redo of non-text board actions (ITEM 86). */
   undo: {
     /** Announced after an undo/redo — the label names what was reversed. */

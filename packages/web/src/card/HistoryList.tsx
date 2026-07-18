@@ -1,8 +1,9 @@
-import { Button, List, Stack, Text } from '@mantine/core'
+import { List, Stack, Text } from '@mantine/core'
 import { type CardEventResponse } from '../api/schemas.ts'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDateTime } from '../lib/format.ts'
 import { describeActor, describeEvent, type HistoryContext } from '../lib/history.ts'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
 
@@ -49,9 +50,15 @@ export function HistoryList({
         ))}
       </List>
       {hasMore ? (
-        <Button variant="subtle" size="xs" loading={loadingMore} onClick={onLoadMore}>
+        <HintButton
+          variant="subtle"
+          size="xs"
+          tooltip={strings.tooltips.loadMore}
+          loading={loadingMore}
+          onClick={onLoadMore}
+        >
           {strings.common.loadMore}
-        </Button>
+        </HintButton>
       ) : null}
     </Stack>
   )

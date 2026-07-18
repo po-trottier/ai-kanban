@@ -85,7 +85,9 @@ describe('BoardPage move flows', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Move to…' }))
     await user.click(await screen.findByRole('combobox', { name: 'Column' }))
     await user.click(screen.getByRole('option', { name: 'Waiting on Parts / Vendor' }))
-    expect(screen.getByRole('button', { name: 'Move' })).toBeDisabled()
+    // Move is shown disabled via `data-disabled` (keeps its reason tooltip
+    // hoverable) until both required waiting fields are set.
+    expect(screen.getByRole('button', { name: 'Move' })).toHaveAttribute('data-disabled', 'true')
     await user.click(await screen.findByRole('combobox', { name: 'Waiting reason' }))
     await user.click(screen.getByRole('option', { name: 'Vendor' }))
     await user.click(screen.getByRole('button', { name: 'Expected resume date' }))

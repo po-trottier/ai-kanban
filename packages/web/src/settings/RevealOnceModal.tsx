@@ -1,4 +1,4 @@
-import { Button, Code, CopyButton, Group, Modal, Stack, Text } from '@mantine/core'
+import { Button, Code, CopyButton, Group, Modal, Stack, Text, Tooltip } from '@mantine/core'
 import { Check, Copy } from 'lucide-react'
 import { strings } from '../strings.ts'
 
@@ -29,21 +29,23 @@ export function RevealOnceModal({ title, hint, secret, onClose }: RevealOnceModa
           </Text>
           <CopyButton value={secret} timeout={2000}>
             {({ copied, copy }) => (
-              <Button
-                variant={copied ? 'light' : 'default'}
-                {...(copied ? { color: 'teal' } : {})}
-                leftSection={
-                  copied ? (
-                    <Check size={COPY_ICON_SIZE} aria-hidden />
-                  ) : (
-                    <Copy size={COPY_ICON_SIZE} aria-hidden />
-                  )
-                }
-                onClick={copy}
-                style={{ flexShrink: 0 }}
-              >
-                {copied ? strings.common.copied : strings.common.copy}
-              </Button>
+              <Tooltip label={strings.common.copy}>
+                <Button
+                  variant={copied ? 'light' : 'default'}
+                  {...(copied ? { color: 'teal' } : {})}
+                  leftSection={
+                    copied ? (
+                      <Check size={COPY_ICON_SIZE} aria-hidden />
+                    ) : (
+                      <Copy size={COPY_ICON_SIZE} aria-hidden />
+                    )
+                  }
+                  onClick={copy}
+                  style={{ flexShrink: 0 }}
+                >
+                  {copied ? strings.common.copied : strings.common.copy}
+                </Button>
+              </Tooltip>
             )}
           </CopyButton>
         </Group>

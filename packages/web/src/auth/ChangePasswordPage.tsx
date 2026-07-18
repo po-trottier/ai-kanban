@@ -1,5 +1,5 @@
 import { PASSWORD_MIN_LENGTH } from '@rivian-kanban/core'
-import { Button, Center, Paper, PasswordInput, Stack, Text, Title } from '@mantine/core'
+import { Center, Paper, PasswordInput, Stack, Text, Title } from '@mantine/core'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { KeyRound } from 'lucide-react'
 import { useForm } from 'react-hook-form'
@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { useChangePassword } from '../api/auth.ts'
 import { notifySuccess } from '../api/notify.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
 
@@ -79,13 +80,14 @@ export function ChangePasswordPage() {
               error={form.formState.errors.confirmPassword?.message}
               {...form.register('confirmPassword')}
             />
-            <Button
+            <HintButton
               type="submit"
+              tooltip={strings.tooltips.changePassword}
               loading={changePassword.isPending}
               leftSection={<KeyRound size={16} aria-hidden />}
             >
               {strings.auth.changePasswordButton}
-            </Button>
+            </HintButton>
           </Stack>
         </form>
       </Paper>

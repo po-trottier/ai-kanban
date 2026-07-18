@@ -1,4 +1,4 @@
-import { Alert, Button, Center, Stack } from '@mantine/core'
+import { Alert, Button, Center, Stack, Tooltip } from '@mantine/core'
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { strings } from '../strings.ts'
 
@@ -24,13 +24,15 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBound
       <Center h="100vh">
         <Stack align="center" gap="md">
           <Alert color="red" title={strings.common.genericError} />
-          <Button
-            onClick={() => {
-              window.location.reload()
-            }}
-          >
-            {strings.common.reload}
-          </Button>
+          <Tooltip label={strings.tooltips.reload}>
+            <Button
+              onClick={() => {
+                window.location.reload()
+              }}
+            >
+              {strings.common.reload}
+            </Button>
+          </Tooltip>
         </Stack>
       </Center>
     )

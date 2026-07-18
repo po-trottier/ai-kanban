@@ -158,7 +158,7 @@ describe('MoveCardModal', () => {
       />,
     )
     // Assert
-    expect(screen.getByRole('button', { name: 'Move' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Move' })).toHaveAttribute('data-disabled', 'true')
     expect(screen.getByText('Not allowed from the current column')).toBeInTheDocument()
   })
 
@@ -210,7 +210,7 @@ describe('MoveCardModal', () => {
     await user.click(screen.getByRole('combobox', { name: 'Column' }))
     await user.click(screen.getByRole('option', { name: 'Waiting on Parts / Vendor' }))
     // Assert — Move is off until both required fields are filled.
-    expect(screen.getByRole('button', { name: 'Move' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Move' })).toHaveAttribute('data-disabled', 'true')
     // Act — pick a reason but leave the date empty; the date error surfaces.
     await user.click(screen.getByRole('combobox', { name: /Waiting reason/ }))
     await user.click(screen.getByRole('option', { name: 'Parts' }))

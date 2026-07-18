@@ -2,7 +2,6 @@ import { LOCATION_KINDS, type Location } from '@rivian-kanban/core'
 import {
   ActionIcon,
   Box,
-  Button,
   Group,
   Modal,
   Stack,
@@ -17,6 +16,7 @@ import { useCreateLocation, useDeleteLocation, useRenameLocation } from '../api/
 import { useLocations } from '../api/meta.ts'
 import { isConflictError } from '../api/problem.ts'
 import { buildLocationTree, type LocationTreeNode } from '../lib/location-tree.ts'
+import { HintButton } from '../shell/HintButton.tsx'
 import { LocationKindIcon } from '../settings/location-kind-icon.tsx'
 import classes from '../settings/locations.module.css'
 import { strings } from '../strings.ts'
@@ -75,13 +75,21 @@ export function SetupLocations({ onDone }: { onDone: () => void }) {
         parent={null}
         label={strings.setup.addBuilding}
         placeholder={strings.setup.addBuildingPlaceholder}
+        hint={strings.tooltips.setupAddBuilding}
       />
 
       <Group justify="space-between" mt="md">
-        <Button variant="subtle" color="gray" onClick={onDone}>
+        <HintButton
+          tooltip={strings.tooltips.setupSkip}
+          variant="subtle"
+          color="gray"
+          onClick={onDone}
+        >
           {strings.setup.skipButton}
-        </Button>
-        <Button onClick={onDone}>{strings.setup.continueButton}</Button>
+        </HintButton>
+        <HintButton tooltip={strings.tooltips.setupContinue} onClick={onDone}>
+          {strings.setup.continueButton}
+        </HintButton>
       </Group>
 
       {removing !== null ? (
@@ -103,14 +111,15 @@ export function SetupLocations({ onDone }: { onDone: () => void }) {
               </Text>
             ) : null}
             <Group justify="flex-end">
-              <Button
+              <HintButton
+                tooltip={strings.tooltips.cancelDialog}
                 variant="default"
                 onClick={() => {
                   setRemoving(null)
                 }}
               >
                 {strings.common.cancel}
-              </Button>
+              </HintButton>
               <RemoveConfirmButton
                 location={removing.location}
                 onDone={() => {
@@ -158,6 +167,7 @@ function BuildingNode({
                 parent={floor.location}
                 label={strings.setup.addRoom}
                 placeholder={strings.setup.addRoomPlaceholder}
+                hint={strings.tooltips.setupAddRoom}
               />
             </Box>
           </Box>
@@ -166,6 +176,7 @@ function BuildingNode({
           parent={node.location}
           label={strings.setup.addFloor}
           placeholder={strings.setup.addFloorPlaceholder}
+          hint={strings.tooltips.setupAddFloor}
         />
       </Box>
     </Box>
@@ -309,7 +320,8 @@ function LocationRow({
 function RemoveConfirmButton({ location, onDone }: { location: Location; onDone: () => void }) {
   const deleteLocation = useDeleteLocation()
   return (
-    <Button
+    <HintButton
+      tooltip={strings.tooltips.setupRemoveConfirm}
       color="red"
       loading={deleteLocation.isPending}
       onClick={() => {
@@ -317,7 +329,7 @@ function RemoveConfirmButton({ location, onDone }: { location: Location; onDone:
       }}
     >
       {strings.setup.confirmRemove}
-    </Button>
+    </HintButton>
   )
 }
 
@@ -330,10 +342,13 @@ function AddChild({
   parent,
   label,
   placeholder,
+  hint,
 }: {
   parent: Location | null
   label: string
   placeholder: string
+  /** The add button's tooltip (building / floor / room specific). */
+  hint: string
 }) {
   const createLocation = useCreateLocation()
   const [name, setName] = useState('')
@@ -373,16 +388,17 @@ function AddChild({
           }
         }}
       />
-      <Button
+      <HintButton
+        tooltip={hint}
+        disabledReason={name.trim() === '' ? strings.tooltips.disabledEmptyName : undefined}
         variant="light"
         size="sm"
         leftSection={<Plus size="1rem" aria-hidden />}
         loading={createLocation.isPending}
-        disabled={name.trim() === ''}
         onClick={submit}
       >
         {label}
-      </Button>
+      </HintButton>
     </Group>
   )
 }

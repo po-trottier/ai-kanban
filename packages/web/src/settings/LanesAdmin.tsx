@@ -1,9 +1,10 @@
-import { Button, NumberInput, Table, TextInput } from '@mantine/core'
+import { NumberInput, Table, TextInput } from '@mantine/core'
 import { Save } from 'lucide-react'
 import { useState } from 'react'
 import { usePatchLane } from '../api/admin.ts'
 import { useBoard } from '../api/board.ts'
 import { type LaneSnapshot } from '../api/schemas.ts'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
 
@@ -66,10 +67,17 @@ function LaneRow({ snapshot }: { snapshot: LaneSnapshot }) {
         />
       </Table.Td>
       <Table.Td>
-        <Button
+        <HintButton
           size="sm"
+          tooltip={strings.tooltips.saveLane}
+          disabledReason={
+            label.trim() === ''
+              ? strings.tooltips.disabledEmptyName
+              : dirty
+                ? undefined
+                : strings.tooltips.disabledNoChanges
+          }
           leftSection={<Save size={16} aria-hidden />}
-          disabled={!dirty || label.trim() === ''}
           loading={patchLane.isPending}
           onClick={() => {
             patchLane.mutate({
@@ -80,7 +88,7 @@ function LaneRow({ snapshot }: { snapshot: LaneSnapshot }) {
           }}
         >
           {strings.common.save}
-        </Button>
+        </HintButton>
       </Table.Td>
     </Table.Tr>
   )

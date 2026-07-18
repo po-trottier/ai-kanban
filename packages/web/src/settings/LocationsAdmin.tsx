@@ -1,21 +1,12 @@
 import { LOCATION_KINDS, type Location, type LocationKind } from '@rivian-kanban/core'
-import {
-  ActionIcon,
-  Box,
-  Button,
-  Group,
-  Modal,
-  Stack,
-  Text,
-  TextInput,
-  Tooltip,
-} from '@mantine/core'
+import { ActionIcon, Box, Group, Modal, Stack, Text, TextInput, Tooltip } from '@mantine/core'
 import { DoorClosed, Layers, Pencil, Plus, Save, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useCreateLocation, useDeleteLocation, useRenameLocation } from '../api/admin.ts'
 import { useLocations } from '../api/meta.ts'
 import { isConflictError } from '../api/problem.ts'
 import { buildLocationTree, type LocationTreeNode } from '../lib/location-tree.ts'
+import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { LocationKindIcon } from './location-kind-icon.tsx'
 import classes from './locations.module.css'
@@ -101,7 +92,8 @@ export function LocationsAdmin() {
         {tree.length > 0 ? (
           // The empty state carries the primary "Add building" call to action,
           // so the header button appears only once there is a tree to add to.
-          <Button
+          <HintButton
+            tooltip={strings.tooltips.addBuilding}
             size="sm"
             leftSection={<Plus size="1rem" aria-hidden />}
             onClick={() => {
@@ -109,7 +101,7 @@ export function LocationsAdmin() {
             }}
           >
             {strings.locations.addRoot}
-          </Button>
+          </HintButton>
         ) : null}
       </Group>
 
@@ -158,17 +150,18 @@ export function LocationsAdmin() {
               }}
             />
             <Group justify="flex-end">
-              <Button variant="default" onClick={close}>
+              <HintButton tooltip={strings.tooltips.cancelDialog} variant="default" onClick={close}>
                 {strings.common.cancel}
-              </Button>
-              <Button
+              </HintButton>
+              <HintButton
+                tooltip={strings.tooltips.saveLocation}
+                disabledReason={name.trim() === '' ? strings.tooltips.disabledEmptyName : undefined}
                 loading={createLocation.isPending || renameLocation.isPending}
                 leftSection={<Save size={16} aria-hidden />}
-                disabled={name.trim() === ''}
                 onClick={submit}
               >
                 {strings.common.save}
-              </Button>
+              </HintButton>
             </Group>
           </Stack>
         </Modal>
@@ -186,10 +179,11 @@ export function LocationsAdmin() {
                 : strings.locations.deleteWarnsLeaf(modal.location.name)}
             </Text>
             <Group justify="flex-end">
-              <Button variant="default" onClick={close}>
+              <HintButton tooltip={strings.tooltips.cancelDialog} variant="default" onClick={close}>
                 {strings.common.cancel}
-              </Button>
-              <Button
+              </HintButton>
+              <HintButton
+                tooltip={strings.tooltips.setupRemoveConfirm}
                 color="red"
                 leftSection={<Trash2 size={16} aria-hidden />}
                 loading={deleteLocation.isPending}
@@ -198,7 +192,7 @@ export function LocationsAdmin() {
                 }}
               >
                 {strings.locations.confirmDelete}
-              </Button>
+              </HintButton>
             </Group>
           </Stack>
         </Modal>
@@ -301,9 +295,14 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
       <Text size="sm" c="dimmed" ta="center" maw="24rem">
         {strings.locations.emptyHint}
       </Text>
-      <Button size="sm" leftSection={<Plus size="1rem" aria-hidden />} onClick={onAdd}>
+      <HintButton
+        tooltip={strings.tooltips.addBuilding}
+        size="sm"
+        leftSection={<Plus size="1rem" aria-hidden />}
+        onClick={onAdd}
+      >
         {strings.locations.addRoot}
-      </Button>
+      </HintButton>
     </Stack>
   )
 }
