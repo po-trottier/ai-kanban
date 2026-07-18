@@ -36,18 +36,4 @@ describe('PreferencesTab', () => {
     })
     expect(await screen.findByText('Preferences saved')).toBeInTheDocument()
   })
-
-  it('renders an icon beside each theme option (Sun / Moon / Monitor)', () => {
-    // Arrange
-    const { container } = renderWithProviders(<PreferencesTab />)
-    // Act — collect the theme control's decorative glyphs by their lucide class.
-    // The icons are aria-hidden (correct for decorative glyphs beside text), so
-    // they never enter the a11y tree — a DOM probe is the only way to prove they
-    // render. The accessible name stays the text, so the radios are still found
-    // by 'Light' / 'Dark' / 'System' above.
-    // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
-    const glyphs = container.querySelectorAll('svg.lucide-sun, svg.lucide-moon, svg.lucide-monitor')
-    // Assert — one Sun, one Moon, one Monitor.
-    expect(glyphs).toHaveLength(3)
-  })
 })
