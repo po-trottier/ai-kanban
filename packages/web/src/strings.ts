@@ -307,6 +307,7 @@ export const strings = {
     tagsLabel: 'Tags',
     reporterLabel: 'Reporter',
     createdLabel: 'Created',
+    updatedLabel: 'Updated',
     saveFields: 'Save changes',
     fieldsSaved: 'Card updated',
     unsavedWarning: 'You have unsaved changes — click Save changes to keep them.',

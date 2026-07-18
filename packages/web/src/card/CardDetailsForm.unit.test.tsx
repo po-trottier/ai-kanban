@@ -150,6 +150,34 @@ describe('CardDetailsForm', () => {
     expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
   })
 
+  it('shows the reporter read-only and both Created and Updated datetimes', () => {
+    // Arrange — a distinct updatedAt proves the Updated row reads the right field.
+    const detail = makeDetail()
+    detail.card.updatedAt = '2026-07-05T18:30:00.000Z'
+    // Act
+    renderWithProviders(
+      <CardDetailsForm
+        detail={detail}
+        users={fixturePickerUsers}
+        locations={[]}
+        knownTags={[]}
+        saving={false}
+        onSave={() => undefined}
+      />,
+    )
+    // Assert — reporter is a first-class labelled field showing the card's
+    // reporter (Ada Admin) as read-only text: no edit control (no combobox named
+    // "Reporter"), unlike the editable Assignee combobox beside it.
+    expect(screen.getByText('Reporter')).toBeInTheDocument()
+    expect(screen.getAllByText('Ada Admin').length).toBeGreaterThan(0)
+    expect(screen.queryByRole('combobox', { name: /Reporter/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Assignee' })).toBeInTheDocument()
+    // Both datetimes render in the viewer's zone (America/Los_Angeles): the
+    // created T0 (10:00Z → 03:00) and the distinct updatedAt (18:30Z → 11:30).
+    expect(screen.getByText(/Created: Jul 1, 2026 03:00/)).toBeInTheDocument()
+    expect(screen.getByText(/Updated: Jul 5, 2026 11:30/)).toBeInTheDocument()
+  })
+
   it('rejects a non-positive estimate (core schema validation)', async () => {
     // Arrange
     const user = userEvent.setup()
