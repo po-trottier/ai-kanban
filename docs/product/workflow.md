@@ -56,24 +56,26 @@ hierarchy:
 
 ## Seeded workflow graph (active when transition enforcement is on)
 
-| From                 | To                   | Suggested role gate | Notes                                        |
-| -------------------- | -------------------- | ------------------- | -------------------------------------------- |
-| intake               | waiting_approval     | —                   | Triage complete                              |
-| waiting_approval     | ready                | admin               | Approval                                     |
-| waiting_approval     | intake               | —                   | Send back for more triage                    |
-| ready                | in_progress          | —                   | Work starts                                  |
-| in_progress          | ready                | —                   | Deprioritized / handed back                  |
-| in_progress          | waiting_parts_vendor | —                   |                                              |
-| waiting_parts_vendor | in_progress          | —                   | Dependency resolved                          |
-| in_progress          | review               | —                   | Work physically complete                     |
-| review               | done                 | admin               | Verification + close-out; requester notified |
-| review               | in_progress          | —                   | Failed verification / rework                 |
-| done                 | ready                | admin               | Reopen                                       |
+| From                 | To                   | Notes                                        |
+| -------------------- | -------------------- | -------------------------------------------- |
+| intake               | waiting_approval     | Triage complete                              |
+| waiting_approval     | ready                | Approval                                     |
+| waiting_approval     | intake               | Send back for more triage                    |
+| ready                | in_progress          | Work starts                                  |
+| in_progress          | ready                | Deprioritized / handed back                  |
+| in_progress          | waiting_parts_vendor |                                              |
+| waiting_parts_vendor | in_progress          | Dependency resolved                          |
+| in_progress          | review               | Work physically complete                     |
+| review               | done                 | Verification + close-out; requester notified |
+| review               | in_progress          | Failed verification / rework                 |
+| done                 | ready                | Reopen                                       |
 
-Role gates are per-transition and individually configurable; the "suggested" column is what the
-seeded graph proposes when an admin flips enforcement on, not a default restriction. With
-enforcement on, drag-and-drop offers only legal targets for the current user, and the server
-re-validates every move regardless of what the UI allowed.
+Transition enforcement is **topology-only** (ADR-013): when an admin turns it on, a move is
+allowed only if its `from → to` edge appears in this graph (an unlisted edge is rejected `422`),
+regardless of role. WHO may move cards at all is a separate, role-level permission (`card.move`)
+in the policy — there is no per-edge role gate. With enforcement on, drag-and-drop offers only
+legal targets for the current user, and the server re-validates every move regardless of what the
+UI allowed.
 
 ## Blocked flag (any lane)
 

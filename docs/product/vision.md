@@ -15,9 +15,10 @@ advice, and follow-up nudges.
    is recorded in an append-only audit trail, regardless of whether a human (web/Slack) or an AI
    agent (MCP) made the change.
 3. **AI-ready by construction** — the MCP server is a first-class consumer of the same service
-   layer as the REST API. Anything a human can see, an agent can see; agents write through
-   task-shaped tools covering creation, edits, moves, and comments — terminal actions
-   (cancel/reopen) are deliberately human-only in v1 (see
+   layer as the REST API. Anything a human can see, an agent can see; a write-capable agent
+   drives the full card lifecycle through task-shaped tools — creation, edits, moves, comments,
+   and terminal actions (cancel/reopen/archive/block) — each gated by the token's scope
+   (`read` tokens can call none) and the same policy as human writes (see
    [mcp.md](../architecture/mcp.md)).
 4. **Slack-native intake** — a ticket can be created from any Slack thread via a message
    shortcut or bot @-mention, with optional AI summarization of the thread into a draft ticket
@@ -67,7 +68,7 @@ advice, and follow-up nudges.
 | Deployment              | Single-node Docker Compose; SQLite (WAL) + Litestream backups                                                                                                                                                                                       |
 | Attachments             | Images + PDF, 25 MB/file, 10 files/card, local blob volume behind a port                                                                                                                                                                            |
 | Location                | Optional per card, from a seeded building/floor/room tree                                                                                                                                                                                           |
-| Review → Done           | Requester auto-notified with reopen path; supervisor gate available via policy, off by default                                                                                                                                                      |
+| Review → Done           | Requester auto-notified with reopen path; an approval gate on this edge is available via policy (transition enforcement + a role that grants `card.move`), off by default                                                                           |
 | Slack-created tickets   | Always land in Intake; the invoker reviews/edits AI-suggested values in the modal, after which they are stored as ordinary card fields                                                                                                              |
 | Done-card archival      | Auto-archive off the board after 90 days; retained and queryable                                                                                                                                                                                    |
 
