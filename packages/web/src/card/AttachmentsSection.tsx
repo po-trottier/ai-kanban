@@ -1,5 +1,16 @@
 import { ALLOWED_ATTACHMENT_MIME_TYPES, type Attachment } from '@rivian-kanban/core'
-import { ActionIcon, Anchor, Button, Group, SimpleGrid, Stack, Text, Title } from '@mantine/core'
+import {
+  ActionIcon,
+  Anchor,
+  Button,
+  Group,
+  SimpleGrid,
+  Stack,
+  Text,
+  Title,
+  Tooltip,
+} from '@mantine/core'
+import { Trash2, Upload } from 'lucide-react'
 import { useState, type DragEvent } from 'react'
 import { attachmentUrl } from '../api/card.ts'
 import { strings } from '../strings.ts'
@@ -62,17 +73,19 @@ export function AttachmentsSection({
               </Anchor>
               {/* Deleting is uploader-only unless the policy gate opens it (ADR-013). */}
               {!readOnly && (attachment.uploadedBy === currentUserId || canDeleteOthers) ? (
-                <ActionIcon
-                  variant="subtle"
-                  color="red"
-                  size="sm"
-                  aria-label={strings.attachments.deleteLabel(attachment.filename)}
-                  onClick={() => {
-                    onDelete(attachment.id)
-                  }}
-                >
-                  ✕
-                </ActionIcon>
+                <Tooltip label={strings.attachments.deleteLabel(attachment.filename)}>
+                  <ActionIcon
+                    variant="subtle"
+                    color="red"
+                    size="sm"
+                    aria-label={strings.attachments.deleteLabel(attachment.filename)}
+                    onClick={() => {
+                      onDelete(attachment.id)
+                    }}
+                  >
+                    <Trash2 size={16} aria-hidden />
+                  </ActionIcon>
+                </Tooltip>
               ) : null}
             </Stack>
           ))}
@@ -96,7 +109,13 @@ export function AttachmentsSection({
             <Text size="sm" c="dimmed">
               {strings.attachments.dropHint}
             </Text>
-            <Button variant="light" size="xs" loading={uploading} component="label">
+            <Button
+              variant="light"
+              size="xs"
+              loading={uploading}
+              component="label"
+              leftSection={<Upload size={14} aria-hidden />}
+            >
               {strings.attachments.browseButton}
               <input
                 type="file"

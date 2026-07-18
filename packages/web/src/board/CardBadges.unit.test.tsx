@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { makeCard } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
@@ -59,5 +60,30 @@ describe('CardBadges', () => {
     renderWithProviders(<CardBadges card={card} today="2026-07-16" />)
     // Assert
     expect(screen.getByText('Duplicate')).toBeInTheDocument()
+  })
+
+  it('explains the color-only waiting badge on hover (a plain-language tooltip)', async () => {
+    // Arrange — a color-only chip must not rely on color alone to convey state.
+    const user = userEvent.setup()
+    const card = makeCard('waiting_parts_vendor', {
+      waitingReason: 'parts',
+      expectedResumeAt: '2026-07-20',
+    })
+    renderWithProviders(<CardBadges card={card} today="2026-07-16" />)
+    // Act
+    await user.hover(screen.getByText('Waiting: Parts'))
+    // Assert — the tooltip spells out the reason + resume date.
+    expect(await screen.findByText(/paused until/i)).toBeInTheDocument()
+  })
+
+  it('explains the cancelled badge on hover', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const card = makeCard('done', { resolution: 'duplicate' })
+    renderWithProviders(<CardBadges card={card} today="2026-07-16" />)
+    // Act
+    await user.hover(screen.getByText('Duplicate'))
+    // Assert
+    expect(await screen.findByText(/reopen it from Search/i)).toBeInTheDocument()
   })
 })

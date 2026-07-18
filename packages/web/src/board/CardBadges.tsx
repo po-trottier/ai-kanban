@@ -1,6 +1,7 @@
 import { isOverdueResume, type BoardCard, type Card } from '@rivian-kanban/core'
 import { Badge, Group, Tooltip } from '@mantine/core'
 import { hasCardStatus } from './card-status.ts'
+import { formatDate } from '../lib/format.ts'
 import { strings } from '../strings.ts'
 import {
   ARCHIVED_COLOR,
@@ -66,21 +67,42 @@ export function CardBadges({
         </Tooltip>
       ) : null}
       {card.waitingReason !== null ? (
-        <Badge color={overdue ? OVERDUE_COLOR : WAITING_COLOR} size="sm" variant="light">
-          {overdue
-            ? strings.card.overdueBadge(strings.waiting.reasons[card.waitingReason])
-            : strings.card.waitingBadge(strings.waiting.reasons[card.waitingReason])}
-        </Badge>
+        // A color-only chip: on hover, spell out the reason + resume date so the
+        // waiting/overdue state reads without opening the card or the legend.
+        <Tooltip
+          label={
+            overdue
+              ? strings.card.overdueBadgeTooltip(
+                  strings.waiting.reasons[card.waitingReason],
+                  card.expectedResumeAt === null ? '' : formatDate(card.expectedResumeAt),
+                )
+              : strings.card.waitingBadgeTooltip(
+                  strings.waiting.reasons[card.waitingReason],
+                  card.expectedResumeAt === null ? '' : formatDate(card.expectedResumeAt),
+                )
+          }
+          multiline
+        >
+          <Badge color={overdue ? OVERDUE_COLOR : WAITING_COLOR} size="sm" variant="light">
+            {overdue
+              ? strings.card.overdueBadge(strings.waiting.reasons[card.waitingReason])
+              : strings.card.waitingBadge(strings.waiting.reasons[card.waitingReason])}
+          </Badge>
+        </Tooltip>
       ) : null}
       {cancelled && card.resolution !== null ? (
-        <Badge color={CANCELLED_COLOR} size="sm" variant="light">
-          {strings.resolutions[card.resolution]}
-        </Badge>
+        <Tooltip label={strings.card.cancelledBadgeTooltip(strings.resolutions[card.resolution])}>
+          <Badge color={CANCELLED_COLOR} size="sm" variant="light">
+            {strings.resolutions[card.resolution]}
+          </Badge>
+        </Tooltip>
       ) : null}
       {card.archivedAt !== null ? (
-        <Badge color={ARCHIVED_COLOR} size="sm" variant="outline">
-          {strings.card.archivedBadge}
-        </Badge>
+        <Tooltip label={strings.card.archivedBadgeTooltip}>
+          <Badge color={ARCHIVED_COLOR} size="sm" variant="outline">
+            {strings.card.archivedBadge}
+          </Badge>
+        </Tooltip>
       ) : null}
     </Group>
   )

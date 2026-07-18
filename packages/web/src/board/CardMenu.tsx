@@ -1,5 +1,5 @@
 import { type BoardCard } from '@rivian-kanban/core'
-import { ActionIcon, Menu } from '@mantine/core'
+import { ActionIcon, Menu, Tooltip } from '@mantine/core'
 import { DotsIcon } from '../shell/icons.tsx'
 import { strings } from '../strings.ts'
 
@@ -33,9 +33,11 @@ export function CardMenu({ card, canCancel, canReopen, canArchive, onAction }: C
     >
       <Menu position="bottom-end" withinPortal>
         <Menu.Target>
-          <ActionIcon variant="subtle" color="gray" size="sm" aria-label={strings.card.menuLabel}>
-            <DotsIcon size={16} />
-          </ActionIcon>
+          <Tooltip label={strings.card.menuLabel}>
+            <ActionIcon variant="subtle" color="gray" size="sm" aria-label={strings.card.menuLabel}>
+              <DotsIcon size={16} />
+            </ActionIcon>
+          </Tooltip>
         </Menu.Target>
         <Menu.Dropdown>
           <Menu.Item

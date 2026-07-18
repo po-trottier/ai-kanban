@@ -1,5 +1,6 @@
 import { ALLOWED_ATTACHMENT_MIME_TYPES } from '@rivian-kanban/core'
-import { ActionIcon, Button, Group, Stack, Text, Title } from '@mantine/core'
+import { ActionIcon, Button, Group, Stack, Text, Title, Tooltip } from '@mantine/core'
+import { Upload, X } from 'lucide-react'
 import { useState, type DragEvent } from 'react'
 import { strings } from '../strings.ts'
 import { cx } from '../lib/cx.ts'
@@ -45,17 +46,19 @@ export function NewCardAttachments({
               <Text size="sm" truncate>
                 {file.name}
               </Text>
-              <ActionIcon
-                variant="subtle"
-                color="red"
-                size="sm"
-                aria-label={strings.attachments.deleteLabel(file.name)}
-                onClick={() => {
-                  onRemove(index)
-                }}
-              >
-                ✕
-              </ActionIcon>
+              <Tooltip label={strings.attachments.deleteLabel(file.name)}>
+                <ActionIcon
+                  variant="subtle"
+                  color="red"
+                  size="sm"
+                  aria-label={strings.attachments.deleteLabel(file.name)}
+                  onClick={() => {
+                    onRemove(index)
+                  }}
+                >
+                  <X size={16} aria-hidden />
+                </ActionIcon>
+              </Tooltip>
             </Group>
           ))}
         </Stack>
@@ -77,7 +80,12 @@ export function NewCardAttachments({
           <Text size="sm" c="dimmed">
             {strings.attachments.dropHint}
           </Text>
-          <Button variant="light" size="xs" component="label">
+          <Button
+            variant="light"
+            size="xs"
+            component="label"
+            leftSection={<Upload size={14} aria-hidden />}
+          >
             {strings.attachments.browseButton}
             <input
               type="file"

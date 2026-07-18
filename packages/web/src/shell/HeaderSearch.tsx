@@ -1,4 +1,4 @@
-import { ActionIcon, Group, TextInput } from '@mantine/core'
+import { ActionIcon, Group, TextInput, Tooltip } from '@mantine/core'
 import { SlidersHorizontal } from 'lucide-react'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
@@ -28,27 +28,31 @@ export function HeaderSearch() {
       rightSection={
         <Group gap={4} wrap="nowrap">
           {query === '' ? null : (
+            <Tooltip label={strings.header.searchClear}>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="sm"
+                aria-label={strings.header.searchClear}
+                onClick={() => {
+                  setQuery('')
+                }}
+              >
+                <CloseIcon size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+          <Tooltip label={strings.search.advancedButton}>
             <ActionIcon
               variant="subtle"
               color="gray"
               size="sm"
-              aria-label={strings.header.searchClear}
-              onClick={() => {
-                setQuery('')
-              }}
+              aria-label={strings.search.advancedButton}
+              onClick={open}
             >
-              <CloseIcon size={16} />
+              <SlidersHorizontal size={16} aria-hidden />
             </ActionIcon>
-          )}
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            size="sm"
-            aria-label={strings.search.advancedButton}
-            onClick={open}
-          >
-            <SlidersHorizontal size={16} aria-hidden />
-          </ActionIcon>
+          </Tooltip>
         </Group>
       }
       onChange={(event) => {

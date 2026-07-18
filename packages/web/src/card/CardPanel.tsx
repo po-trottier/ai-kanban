@@ -10,9 +10,11 @@ import {
   Stack,
   Tabs,
   Text,
+  Tooltip,
   VisuallyHidden,
 } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
+import { Check, RotateCcw, ShieldOff } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { WAITING_REASONS, type Card, type WaitingReason } from '@rivian-kanban/core'
@@ -145,15 +147,17 @@ export function CardPanel({ cardId }: { cardId: string }) {
             </>
           )}
         </Group>
-        <ActionIcon
-          variant="subtle"
-          color="gray"
-          size="lg"
-          aria-label={strings.detail.closeLabel}
-          onClick={close}
-        >
-          <CloseIcon />
-        </ActionIcon>
+        <Tooltip label={strings.detail.closeLabel}>
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size="lg"
+            aria-label={strings.detail.closeLabel}
+            onClick={close}
+          >
+            <CloseIcon />
+          </ActionIcon>
+        </Tooltip>
       </Group>
       <Divider />
       <div className={classes.panelBody}>
@@ -239,6 +243,7 @@ function CardPanelBody({ cardId }: { cardId: string }) {
           <Button
             size="xs"
             variant="light"
+            leftSection={<RotateCcw size={14} aria-hidden />}
             disabled={!canReopen}
             loading={cardAction.isPending}
             onClick={() => {
@@ -358,6 +363,7 @@ function StateBanner({
               size="xs"
               variant="white"
               color={BLOCKED_COLOR}
+              leftSection={<ShieldOff size={14} aria-hidden />}
               disabled={!canUnblock || acting}
               loading={acting}
               onClick={onUnblock}
@@ -378,6 +384,7 @@ function StateBanner({
             <Button
               size="xs"
               variant="light"
+              leftSection={<RotateCcw size={14} aria-hidden />}
               disabled={!canReopen || acting}
               loading={acting}
               onClick={onReopen}
@@ -467,6 +474,7 @@ function WaitingBanner({
             size="xs"
             variant="white"
             color={WAITING_COLOR}
+            leftSection={<Check size={14} aria-hidden />}
             disabled={!dirty || saving}
             loading={saving}
             onClick={() => {

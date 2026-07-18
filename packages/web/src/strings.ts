@@ -26,6 +26,8 @@ export const strings = {
     searchLabel: 'Filter the board',
     searchPlaceholder: 'Filter cards…',
     searchClear: 'Clear filter',
+    /** Tooltip on the avatar button that opens the account menu (settings + log out). */
+    accountMenu: 'Account menu',
   },
 
   common: {
@@ -178,6 +180,15 @@ export const strings = {
     waitingBadge: (reason: string) => `Waiting: ${reason}`,
     overdueBadge: (reason: string) => `Overdue: ${reason}`,
     archivedBadge: 'Archived',
+    /** Hover explanations for the color-only status badges (mirrors the legend
+     * copy) so a technician never has to open the badge guide to decode them. */
+    waitingBadgeTooltip: (reason: string, date: string) =>
+      `Waiting on ${reason} — paused until ${date}, when it resumes automatically.`,
+    overdueBadgeTooltip: (reason: string, date: string) =>
+      `Waiting on ${reason} — overdue: the expected resume date (${date}) has passed.`,
+    cancelledBadgeTooltip: (resolution: string) =>
+      `Closed as ${resolution} — reopen it from Search to bring it back.`,
+    archivedBadgeTooltip: 'Archived — an old Done card, read-only until reopened.',
     assigneeAvatarLabel: (name: string) => `Assigned to ${name}`,
     cardJustUpdated: 'This card was just updated by someone else — the board has been refreshed.',
     moveAnnouncement: (title: string, lane: string, position: number) =>

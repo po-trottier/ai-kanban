@@ -14,6 +14,7 @@ import {
   Stack,
   Text,
   TextInput,
+  Tooltip,
   UnstyledButton,
 } from '@mantine/core'
 import { ChevronDown, SlidersHorizontal } from 'lucide-react'
@@ -212,22 +213,26 @@ function SearchModalBody({ seedQuery, onClose }: { seedQuery: string; onClose: (
                 {strings.search.clearFilters}
               </Button>
             ) : null}
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              aria-label={
-                filtersOpen ? strings.search.collapseFilters : strings.search.expandFilters
-              }
-              onClick={() => {
-                setFiltersOpen((open) => !open)
-              }}
+            <Tooltip
+              label={filtersOpen ? strings.search.collapseFilters : strings.search.expandFilters}
             >
-              <ChevronDown
-                size={16}
-                aria-hidden
-                className={cx(classes.caret, filtersOpen && classes.caretOpen)}
-              />
-            </ActionIcon>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                aria-label={
+                  filtersOpen ? strings.search.collapseFilters : strings.search.expandFilters
+                }
+                onClick={() => {
+                  setFiltersOpen((open) => !open)
+                }}
+              >
+                <ChevronDown
+                  size={16}
+                  aria-hidden
+                  className={cx(classes.caret, filtersOpen && classes.caretOpen)}
+                />
+              </ActionIcon>
+            </Tooltip>
           </Group>
           <Accordion.Panel>
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">

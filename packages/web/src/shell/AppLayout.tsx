@@ -1,4 +1,5 @@
-import { AppShell, Avatar, Group, Menu, Title, UnstyledButton } from '@mantine/core'
+import { AppShell, Avatar, Group, Menu, Title, Tooltip, UnstyledButton } from '@mantine/core'
+import { LogOut, Settings } from 'lucide-react'
 import { useState } from 'react'
 import { Link, Outlet, useMatch, useNavigate } from 'react-router'
 import { useLogout } from '../api/auth.ts'
@@ -95,18 +96,25 @@ export function AppLayout() {
               <BoardLegend />
               <Menu position="bottom-end">
                 <Menu.Target>
-                  <UnstyledButton aria-label={me.displayName}>
-                    <Avatar color="indigo" radius="xl">
-                      {initials(me.displayName)}
-                    </Avatar>
-                  </UnstyledButton>
+                  <Tooltip label={strings.header.accountMenu}>
+                    <UnstyledButton aria-label={me.displayName}>
+                      <Avatar color="indigo" radius="xl">
+                        {initials(me.displayName)}
+                      </Avatar>
+                    </UnstyledButton>
+                  </Tooltip>
                 </Menu.Target>
                 <Menu.Dropdown>
                   <Menu.Label>{me.displayName}</Menu.Label>
-                  <Menu.Item component={Link} to="/settings">
+                  <Menu.Item
+                    component={Link}
+                    to="/settings"
+                    leftSection={<Settings size={16} aria-hidden />}
+                  >
                     {strings.settings.menuItem}
                   </Menu.Item>
                   <Menu.Item
+                    leftSection={<LogOut size={16} aria-hidden />}
                     onClick={() => {
                       logout.mutate(undefined, {
                         onSettled: () => {
