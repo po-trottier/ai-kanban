@@ -333,3 +333,23 @@ export const serviceTokens = sqliteTable(
     uniqueIndex('service_tokens_token_hash_unique').on(table.tokenHash),
   ],
 )
+
+/** Per-user saved board filters (docs/architecture/board-filters.md). */
+export const filterPresets = sqliteTable(
+  'filter_presets',
+  {
+    id: text('id').primaryKey(),
+    /** The only user who can see or edit the preset (per-user private). */
+    ownerId: text('owner_id')
+      .notNull()
+      .references(() => users.id),
+    name: text('name').notNull(),
+    /** Zod-validated BoardFilter JSON (boardFilterSchema). */
+    filter: text('filter', { mode: 'json' }).notNull(),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  // The per-owner newest-first list (`WHERE owner_id = ? ORDER BY created_at
+  // DESC, id DESC`) — the only query surface.
+  (table) => [index('filter_presets_owner_id_created_at_idx').on(table.ownerId, table.createdAt)],
+)

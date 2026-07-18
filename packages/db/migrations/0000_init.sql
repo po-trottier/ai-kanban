@@ -108,6 +108,17 @@ CREATE TABLE `comments` (
 );
 --> statement-breakpoint
 CREATE INDEX `comments_card_id_created_at_idx` ON `comments` (`card_id`,`created_at`);--> statement-breakpoint
+CREATE TABLE `filter_presets` (
+	`id` text PRIMARY KEY NOT NULL,
+	`owner_id` text NOT NULL,
+	`name` text NOT NULL,
+	`filter` text NOT NULL,
+	`created_at` text NOT NULL,
+	`updated_at` text NOT NULL,
+	FOREIGN KEY (`owner_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX `filter_presets_owner_id_created_at_idx` ON `filter_presets` (`owner_id`,`created_at`);--> statement-breakpoint
 CREATE TABLE `lanes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`board_id` text NOT NULL,

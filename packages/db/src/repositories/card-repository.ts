@@ -161,7 +161,13 @@ export class SqliteCardRepository implements CardRepository {
     return Promise.resolve(row ?? null)
   }
 
-  query(filter: CardQueryFilter, page?: { after?: CursorKey; limit?: number }): Promise<Card[]> {
+  /**
+   * The filter → SQL conditions shared by `query` (keyset list) and
+   * `queryBoardSummaries` (filtered board). Excludes the cursor tuple, which is
+   * pagination-specific. Every facet is pushed into SQL — no in-memory filtering
+   * (docs/architecture/board-filters.md).
+   */
+  private filterConditions(filter: CardQueryFilter): (SQL | undefined)[] {
     const conditions: (SQL | undefined)[] = []
     if (filter.archivedOnly === true) {
       conditions.push(isNotNull(cards.archivedAt))
@@ -170,10 +176,22 @@ export class SqliteCardRepository implements CardRepository {
     }
     if (filter.boardId !== undefined) conditions.push(eq(cards.boardId, filter.boardId))
     if (filter.laneId !== undefined) conditions.push(eq(cards.laneId, filter.laneId))
+    if (filter.laneIds !== undefined && filter.laneIds.length > 0) {
+      conditions.push(inArray(cards.laneId, filter.laneIds))
+    }
     if (filter.assigneeId !== undefined) conditions.push(eq(cards.assigneeId, filter.assigneeId))
+    if (filter.assigneeIds !== undefined && filter.assigneeIds.length > 0) {
+      conditions.push(inArray(cards.assigneeId, filter.assigneeIds))
+    }
     if (filter.reporterId !== undefined) conditions.push(eq(cards.reporterId, filter.reporterId))
+    if (filter.reporterIds !== undefined && filter.reporterIds.length > 0) {
+      conditions.push(inArray(cards.reporterId, filter.reporterIds))
+    }
     if (filter.priority !== undefined) {
       conditions.push(eq(cards.priority, filter.priority))
+    }
+    if (filter.priorities !== undefined && filter.priorities.length > 0) {
+      conditions.push(inArray(cards.priority, filter.priorities))
     }
     if (filter.locationIds !== undefined && filter.locationIds.length > 0) {
       conditions.push(inArray(cards.locationId, filter.locationIds))
@@ -185,6 +203,11 @@ export class SqliteCardRepository implements CardRepository {
     if (filter.overdueBefore !== undefined) {
       // NULL expected_resume_at never satisfies `<` — matches the port contract.
       conditions.push(lt(cards.expectedResumeAt, filter.overdueBefore))
+    }
+    if (filter.overdueCandidate === true) {
+      // Only started+estimated cards CAN be overdue; the business-minutes
+      // verdict is finished in the service (SQLite can't count business hours).
+      conditions.push(isNotNull(cards.workStartedAt), isNotNull(cards.estimateMinutes))
     }
     if (filter.tags !== undefined && filter.tags.length > 0) {
       // Any-of: the card carries at least one of the wanted tags (lower()-folded
@@ -210,6 +233,11 @@ export class SqliteCardRepository implements CardRepository {
         sql`lower(${cards.title} || ${'\n'} || ${cards.description}) like lower(${pattern}) escape '\\'`,
       )
     }
+    return conditions
+  }
+
+  query(filter: CardQueryFilter, page?: { after?: CursorKey; limit?: number }): Promise<Card[]> {
+    const conditions = this.filterConditions(filter)
     const after = page?.after
     if (after !== undefined) {
       // Strictly older than the cursor tuple under (createdAt DESC, id DESC) —
@@ -229,5 +257,53 @@ export class SqliteCardRepository implements CardRepository {
       .orderBy(desc(cards.createdAt), desc(cards.id))
     const rows = page?.limit !== undefined ? query.limit(page.limit).all() : query.all()
     return Promise.resolve(rows)
+  }
+
+  queryBoardSummaries(filter: CardQueryFilter): Promise<BoardCardRow[]> {
+    // The matching cards in position order + the leaf location name (LEFT JOIN
+    // so location-less cards survive) — the same extras pattern as
+    // listBoardSummariesByLane, but the whole filtered set across lanes.
+    const rows = this.db
+      .select({ card: cards, locationLabel: locations.name })
+      .from(cards)
+      .leftJoin(locations, eq(cards.locationId, locations.id))
+      .where(and(...this.filterConditions(filter)))
+      .orderBy(asc(cards.position))
+      .all()
+    if (rows.length === 0) return Promise.resolve([])
+
+    const cardIds = rows.map((row) => row.card.id)
+    const tagRows = this.db
+      .select({ cardId: cardTags.cardId, name: tags.name })
+      .from(cardTags)
+      .innerJoin(tags, eq(cardTags.tagId, tags.id))
+      .where(inArray(cardTags.cardId, cardIds))
+      .orderBy(asc(tags.name))
+      .all()
+    const tagsByCard = new Map<number, string[]>()
+    for (const { cardId, name } of tagRows) {
+      const list = tagsByCard.get(cardId) ?? []
+      list.push(name)
+      tagsByCard.set(cardId, list)
+    }
+
+    const attachmentRows = this.db
+      .select({ cardId: attachments.cardId, count: sql<number>`count(*)` })
+      .from(attachments)
+      .where(and(inArray(attachments.cardId, cardIds), isNull(attachments.deletedAt)))
+      .groupBy(attachments.cardId)
+      .all()
+    const attachmentCountByCard = new Map(attachmentRows.map((row) => [row.cardId, row.count]))
+
+    return Promise.resolve(
+      rows.map((row) => ({
+        card: row.card,
+        extras: {
+          tags: tagsByCard.get(row.card.id) ?? [],
+          attachmentCount: attachmentCountByCard.get(row.card.id) ?? 0,
+          locationLabel: row.locationLabel,
+        },
+      })),
+    )
   }
 }

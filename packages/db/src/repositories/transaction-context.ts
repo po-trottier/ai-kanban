@@ -4,6 +4,7 @@ import { SqliteAttachmentRepository } from './attachment-repository.ts'
 import { SqliteCardRepository } from './card-repository.ts'
 import { SqliteCommentRepository } from './comment-repository.ts'
 import { SqliteEventRepository } from './event-repository.ts'
+import { SqliteFilterPresetRepository } from './filter-preset-repository.ts'
 import { SqliteLaneRepository } from './lane-repository.ts'
 import { SqliteLocationRepository } from './location-repository.ts'
 import { SqlitePolicyRepository } from './policy-repository.ts'
@@ -32,5 +33,6 @@ export function createTransactionContext(db: BetterSQLite3Database): Transaction
     tags: new SqliteTagRepository(db),
     policies: new SqlitePolicyRepository(db),
     events: new SqliteEventRepository(db),
+    filterPresets: new SqliteFilterPresetRepository(db),
   }
 }
