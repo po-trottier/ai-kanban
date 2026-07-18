@@ -1,5 +1,5 @@
-import { Button, Input, SegmentedControl, Select, Stack } from '@mantine/core'
-import { Check } from 'lucide-react'
+import { Button, Center, Input, SegmentedControl, Select, Stack } from '@mantine/core'
+import { Monitor, Moon, Save, Sun } from 'lucide-react'
 import { THEMES, type Theme } from '@rivian-kanban/core'
 import { useState } from 'react'
 import { useUpdateProfile } from '../api/auth.ts'
@@ -8,11 +8,23 @@ import { useCurrentUser } from '../auth/session-context.ts'
 import { strings } from '../strings.ts'
 import { TIMEZONE_SELECT_DATA } from './timezone-select-data.ts'
 
-/** Light/Dark/System options for the theme control (label per strings). */
-const THEME_SELECT_DATA = THEMES.map((value) => ({
-  value,
-  label: strings.profile.themes[value],
-}))
+/** One lucide glyph per theme mode, rendered beside its text in the control. */
+const THEME_ICONS: Record<Theme, typeof Sun> = { light: Sun, dark: Moon, system: Monitor }
+
+/** Light/Dark/System options with an icon + text label (accessible name stays
+ *  the text, so tests still target `radio` by 'Light' / 'Dark' / 'System'). */
+const THEME_SELECT_DATA = THEMES.map((value) => {
+  const Icon = THEME_ICONS[value]
+  return {
+    value,
+    label: (
+      <Center style={{ gap: 6 }} component="span">
+        <Icon size={14} aria-hidden />
+        <span>{strings.profile.themes[value]}</span>
+      </Center>
+    ),
+  }
+})
 
 /**
  * The per-user preferences (display time zone + theme) — the first Settings
@@ -67,7 +79,7 @@ export function PreferencesTab() {
       <Button
         onClick={save}
         loading={update.isPending}
-        leftSection={<Check size={16} aria-hidden />}
+        leftSection={<Save size={16} aria-hidden />}
         w="fit-content"
       >
         {strings.common.save}

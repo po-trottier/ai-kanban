@@ -10,7 +10,7 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core'
-import { Check, DoorClosed, Layers, Pencil, Plus, Trash2 } from 'lucide-react'
+import { DoorClosed, Layers, Pencil, Plus, Save, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useCreateLocation, useDeleteLocation, useRenameLocation } from '../api/admin.ts'
 import { useLocations } from '../api/meta.ts'
@@ -163,7 +163,7 @@ export function LocationsAdmin() {
               </Button>
               <Button
                 loading={createLocation.isPending || renameLocation.isPending}
-                leftSection={<Check size={16} aria-hidden />}
+                leftSection={<Save size={16} aria-hidden />}
                 disabled={name.trim() === ''}
                 onClick={submit}
               >

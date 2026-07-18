@@ -14,7 +14,7 @@ import {
   VisuallyHidden,
 } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
-import { Check, RotateCcw, ShieldOff } from 'lucide-react'
+import { RotateCcw, Save, ShieldOff } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { WAITING_REASONS, type Card, type WaitingReason } from '@rivian-kanban/core'
@@ -474,7 +474,7 @@ function WaitingBanner({
             size="xs"
             variant="white"
             color={WAITING_COLOR}
-            leftSection={<Check size={14} aria-hidden />}
+            leftSection={<Save size={14} aria-hidden />}
             disabled={!dirty || saving}
             loading={saving}
             onClick={() => {

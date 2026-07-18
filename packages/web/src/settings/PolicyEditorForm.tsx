@@ -14,7 +14,7 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core'
-import { Check, Plus } from 'lucide-react'
+import { Plus, Save } from 'lucide-react'
 import { useState } from 'react'
 import { strings } from '../strings.ts'
 import { DotsIcon } from '../shell/icons.tsx'
@@ -282,7 +282,7 @@ export function PolicyEditorForm({
       <Group justify="flex-end">
         <Button
           loading={saving}
-          leftSection={<Check size={16} aria-hidden />}
+          leftSection={<Save size={16} aria-hidden />}
           onClick={() => {
             onSave(document)
           }}
@@ -460,7 +460,7 @@ function RenameRoleModal({
             {strings.common.cancel}
           </Button>
           <Button
-            leftSection={<Check size={16} aria-hidden />}
+            leftSection={<Save size={16} aria-hidden />}
             disabled={name.trim() === ''}
             onClick={() => {
               onRename(name.trim())

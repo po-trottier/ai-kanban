@@ -11,7 +11,7 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core'
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Pencil, Plus, Save, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { useCreateLocation, useDeleteLocation, useRenameLocation } from '../api/admin.ts'
 import { useLocations } from '../api/meta.ts'
@@ -253,7 +253,7 @@ function LocationRow({
               disabled={draft.trim() === ''}
               onClick={submit}
             >
-              <Check size="1.1rem" aria-hidden />
+              <Save size="1.1rem" aria-hidden />
             </ActionIcon>
           </Tooltip>
           <Tooltip label={strings.setup.cancelRename}>

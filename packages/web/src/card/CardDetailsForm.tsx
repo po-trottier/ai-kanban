@@ -1,6 +1,6 @@
 import { updateCardInputSchema, type Location, type UpdateCardInput } from '@rivian-kanban/core'
 import { Button, Group, Stack, Text } from '@mantine/core'
-import { Check } from 'lucide-react'
+import { Save } from 'lucide-react'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
@@ -104,7 +104,7 @@ export function CardDetailsForm({
             <Button
               type="submit"
               loading={saving}
-              leftSection={<Check size={16} aria-hidden />}
+              leftSection={<Save size={16} aria-hidden />}
               disabled={!form.formState.isDirty}
             >
               {strings.detail.saveFields}

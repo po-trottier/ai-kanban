@@ -1,6 +1,6 @@
 import { type Comment } from '@rivian-kanban/core'
 import { Button, Group, Paper, Stack, Text, Textarea } from '@mantine/core'
-import { Check, Pencil, Reply, Trash2, X } from 'lucide-react'
+import { Pencil, Reply, Save, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { buildCommentThread } from '../lib/comments.ts'
@@ -184,7 +184,7 @@ function CommentItem({
           <Group gap="xs">
             <Button
               size="xs"
-              leftSection={<Check size={14} aria-hidden />}
+              leftSection={<Save size={14} aria-hidden />}
               onClick={() => {
                 if (draft.trim() === '') return
                 onEdit(comment.id, draft.trim())
