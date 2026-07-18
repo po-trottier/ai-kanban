@@ -44,6 +44,12 @@ and the presets; the server owns the query.
 Within a facet the values are OR-ed (any-of); across facets they are AND-ed (a card must satisfy
 every non-empty facet). This is the natural "narrow by each control" behavior of a filter bar.
 
+Every any-of array facet is capped at **50 entries** (`.max(50)` on the schema — a trust-boundary
+bound shared by the REST body, preset storage, and the form). 50 dwarfs any real UI selection; the
+cap exists to reject a pathological body (tens of thousands of ids) that would otherwise fan out
+into a per-element subtree scan and stall the event loop (see security.md#input--output). `q` is
+capped at 200 chars.
+
 `export type BoardFilter = z.infer<typeof boardFilterSchema>`.
 
 ## The `overdue` facet

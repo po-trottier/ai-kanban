@@ -25,7 +25,8 @@ Ports-and-adapters:
   service calls and construct an `Actor`; they contain no business logic. "Thin" is reviewable:
   an adapter that branches on domain state is a rule violation.
 - Outbound adapters implement ports: Drizzle repositories (db package), local-disk blob store,
-  Anthropic summarizer, Slack WebClient, croner scheduler, in-process EventBus.
+  the `openai`-SDK summarizer over any OpenAI-compatible endpoint (ADR-017), Slack WebClient,
+  croner scheduler, in-process EventBus.
 - `packages/server` is the composition root: it wires adapters to ports and owns startup order.
 
 ## Consequences

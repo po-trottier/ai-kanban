@@ -59,7 +59,7 @@ tokens) arrives with the OIDC/SSO cutover; service tokens remain for headless au
 
 ## Connecting a client
 
-1. **Mint a token.** In the app: **Settings → Tokens → New token** (pick `read` for
+1. **Mint a token.** In the app: **Settings → Service tokens → New token** (pick `read` for
    summarizers, `read_write` for agents that act). Headless: `POST /api/v1/service-tokens` with
    `{ name, role, scope }` as an admin. The raw `rkb_…` value is shown once — copy it then.
 2. **Point the client at `POST <host>/mcp`** (Streamable HTTP, stateless — no separate

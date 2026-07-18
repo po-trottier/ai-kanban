@@ -8,17 +8,18 @@ the board's drag-and-drop is **Pragmatic drag-and-drop**
 
 ## Module layout (`packages/web/src`)
 
-| Module           | Responsibility                                                                                                                                                                                                                                           |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `api/`           | Typed REST layer: `ApiClient` (fetch + If-Match + problem+json), response schemas composed from core, TanStack Query hooks per resource, query-key catalog, SSE hint → invalidation mapping, optimistic board-cache updates                              |
-| `auth/`          | Login page, `RequireAuth` session gate, must-change-password interstitial, session context                                                                                                                                                               |
-| `board/`         | Board page, lanes, cards, ⋯ menu, Move to… modal, waiting/cancel/block modals, the **filter bar + presets** (`FilterBar`/`FilterPresets`, driving `POST /board/query`), policy affordance logic (`move-options.ts`), the one thin DnD adapter (`dnd.ts`) |
-| `card/`          | Card detail drawer (deep-linked at `/cards/:id`): fields form (dirty edits survive refetches), markdown editor/preview, attachments, threaded comments, history; archived cards render read-only with a Reopen action                                    |
-| `settings/`      | Admin-only surface: users, lanes/WIP, permission policy editor, location tree, service tokens                                                                                                                                                            |
-| `shell/`         | AppShell header, SSE bridge, error boundary/alerts, skeletons                                                                                                                                                                                            |
-| `strings.ts`     | Every user-facing English string (i18n deferral rule)                                                                                                                                                                                                    |
-| `theme.ts`       | The one Mantine theme file — all design values (ADR-016 rule 1)                                                                                                                                                                                          |
-| `core-domain.ts` | Domain-only view of `@rivian-kanban/core` (see below)                                                                                                                                                                                                    |
+| Module           | Responsibility                                                                                                                                                                                                                                                                                       |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `api/`           | Typed REST layer: `ApiClient` (fetch + If-Match + problem+json), response schemas composed from core, TanStack Query hooks per resource, query-key catalog, SSE hint → invalidation mapping, optimistic board-cache updates                                                                          |
+| `auth/`          | Login page, `RequireAuth` session gate, must-change-password interstitial, session context                                                                                                                                                                                                           |
+| `board/`         | Board page, lanes, cards, ⋯ menu, Move to… modal, waiting/cancel/block modals, the **filter bar + presets** (`FilterBar`/`FilterPresets`, driving `POST /board/query`), policy affordance logic (`move-options.ts`), the one thin DnD adapter (`dnd.ts`)                                             |
+| `card/`          | Card detail drawer (deep-linked at `/cards/:id`): fields form (dirty edits survive refetches), markdown editor/preview, attachments, threaded comments, history; archived cards render read-only with a Reopen action                                                                                |
+| `settings/`      | Tabbed settings page: a **Preferences** tab (timezone + theme) every role can open, plus the manage\*-gated admin tabs (users, lanes/WIP, permission policy editor, location tree, service tokens) shown only when the caller's role grants each `manage*` permission — there is no admins-only wall |
+| `undo/`          | Global undo/redo stack for board moves + card actions (`use-undo-redo-keys.ts`, `use-undoable-board.ts`) — see Data flow                                                                                                                                                                             |
+| `shell/`         | AppShell header, SSE bridge, error boundary/alerts, skeleton loaders, disabled-reason `HintButton` + field-label `FieldLabel` tooltip helpers                                                                                                                                                        |
+| `strings.ts`     | Every user-facing English string (i18n deferral rule)                                                                                                                                                                                                                                                |
+| `theme.ts`       | The one Mantine theme file — all design values (ADR-016 rule 1)                                                                                                                                                                                                                                      |
+| `core-domain.ts` | Domain-only view of `@rivian-kanban/core` (see below)                                                                                                                                                                                                                                                |
 
 ## Data flow
 
@@ -30,6 +31,13 @@ the board's drag-and-drop is **Pragmatic drag-and-drop**
   optimistic pattern: `onMutate` snapshot (`api/board-cache.ts` recomputes lanes + soft WIP) →
   rollback `onError` → invalidate `onSettled`. A 409 rolls back, refetches, and shows the
   non-blocking "card was just updated" toast (ADR-012).
+- **Undo/redo** (`undo/`, mounted on `shell/AppLayout`): global **Ctrl/Cmd+Z** (undo) and
+  **Ctrl/Cmd+Y** (redo) drive one action stack. `use-undoable-board.ts` wraps the move + card
+  action mutations (cancel/block/unblock/archive — reopen is a recovery action, deliberately not
+  undoable) so each performed action records its inverse; the inverse re-derives from the
+  PRE-mutation board snapshot and **re-checks permission at undo time** (RBAC can change), toasting
+  "can't undo" if it no longer holds or the card left the board. The hotkey handler bails while
+  focus is in a text field so native in-field undo survives (`is-editable-target.ts`).
 - **SSE** (`api/sse.ts`, mounted by `shell/SseBridge`): native `EventSource` on
   `/api/v1/stream`; hints validated with core's `sseHintSchema` map to targeted query
   invalidations; the board refetches after a reconnect (ADR-008). Native reconnect only
@@ -123,7 +131,19 @@ conventions:
 - **Icons via `lucide-react`** — Mantine ships none. NEVER hand-roll `<svg>`/`<path>` icon
   components; use lucide glyphs (inside `ActionIcon`/`ThemeIcon`, sized on the icon, not the
   button — mantine.dev/core/action-icon). `shell/icons.tsx` only aliases lucide glyphs to app
-  names for a shared vocabulary + default size.
+  names for a shared vocabulary + default size. Save actions use the lucide `Save` (floppy) glyph
+  (`aria-hidden`, always beside a text label).
+- **Every control is labelled and hinted.** Icon-only controls carry an `aria-label`; interactive
+  controls carry a `Tooltip` (its accessible name, and the keyboard shortcut where one exists).
+  Two shared helpers centralize the patterns: `shell/HintButton` — a `Button` that ALWAYS has a
+  tooltip and, when passed a `disabledReason`, renders visually disabled (Mantine's `data-disabled`
+  so the reason tooltip still shows on hover/focus, unlike a native `disabled`) with a guarded
+  click; and `shell/FieldLabel` — a form-field label with a trailing info glyph whose tooltip
+  explains the field (what P0/P1/P2 mean, etc.), the help text doubling as the icon's accessible
+  name. Pass `FieldLabel` as a Mantine input's `label`.
+- **Loading UI is skeletons, not spinners.** The board (`shell/BoardSkeleton`) and the settings
+  tables (`shell/SkeletonRows`) render skeleton placeholders while their first fetch resolves; per-
+  row mutations (comment add/edit/delete, saves) show inline loading state on the acting control.
 
 **AI-assisted UI work should use Mantine's own agent resources** — Mantine 9 postdates most model
 training cutoffs, so recalling APIs from memory drifts. Prefer:

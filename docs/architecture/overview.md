@@ -106,7 +106,7 @@ in-memory queues, so a missed window is picked up on the next tick.
 
 All configuration comes from environment variables validated by a Zod schema at boot — the
 process refuses to start on missing/malformed config. Feature flags: `SLACK_ENABLED`,
-`SUMMARIZER_ENABLED`. Secrets (session key, Slack tokens, Anthropic key) are env-only: never in
+`SUMMARIZER_ENABLED`. Secrets (session key, Slack tokens, summarizer LLM key) are env-only: never in
 the image, the repo, or logs (pino redaction).
 
 ## Deviations from this document

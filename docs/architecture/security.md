@@ -2,7 +2,7 @@
 
 Threat model: internal tool holding personnel names, vendor details, and facility information;
 reachable by 100+ employees; exposed surfaces are the SPA/REST, the MCP endpoint, and outbound
-Slack/Anthropic calls. Every control below is enforced by code or CI, not convention.
+Slack and summarizer-LLM calls. Every control below is enforced by code or CI, not convention.
 
 ## Authentication
 
@@ -28,7 +28,10 @@ Slack/Anthropic calls. Every control below is enforced by code or CI, not conven
   on create/reset; `must_change_password` restricts the session to the change-password flow
   until cleared. Policy: 12–128 chars, no composition rules (NIST-style), top-10k common
   passwords rejected. Login verifies a static dummy argon2 hash when the email is unknown so
-  response timing does not enumerate users; error messages are uniform.
+  response timing does not enumerate users; error messages are uniform. The change-password
+  current-password check reuses login's per-account backoff **and** its per-account
+  serialization (change-password has no route-level login-rate bucket, so without serializing the
+  verify a concurrent guess burst would degrade the throttle to the per-IP limit alone).
 - **MCP**: admin-issued bearer service tokens — scope (`read`/`read_write`) enforced as an
   always-on identity rule, sha256-hashed at rest, revocable, `last_used_at` tracked, never
   anonymous. Details in [mcp.md](mcp.md#authentication).
@@ -82,9 +85,11 @@ What is security-relevant here:
 ## Input & output
 
 - Zod validation on **every** route (boot-time hook makes missing schemas fatal), strict mode:
-  unknown keys rejected. Length caps on all strings; markdown stored raw, sanitized at render
-  (frontend renders markdown with a sanitizing renderer — no `dangerouslySetInnerHTML` of user
-  content; CSP as backstop).
+  unknown keys rejected. Length caps on all strings; array inputs are size-capped too — the
+  `boardFilterSchema` facets each carry `.max(50)`, bounding the `POST /board/query` (and stored
+  preset) fan-out so a single filter can't balloon into an unbounded `IN (...)` / location-subtree
+  expansion. Markdown stored raw, sanitized at render (frontend renders markdown with a sanitizing
+  renderer — no `dangerouslySetInnerHTML` of user content; CSP as backstop).
 - Response serialization through Zod schemas — secrets/hashes are structurally unable to leak.
 - SQL exclusively through Drizzle's parameterized query builder; raw SQL is lint-banned outside
   the `db` package and reviewed there.
