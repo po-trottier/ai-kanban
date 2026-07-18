@@ -15,6 +15,7 @@ import { NewCardButton } from './NewCardButton.tsx'
 import { PanelResizeHandle } from './PanelResizeHandle.tsx'
 import { SseBridge } from './SseBridge.tsx'
 import { useCardPanelWidth } from './use-card-panel-width.ts'
+import { useUndoRedoKeys } from '../undo/use-undo-redo-keys.ts'
 import { cx } from '../lib/cx.ts'
 import classes from './shell.module.css'
 
@@ -42,6 +43,10 @@ export function AppLayout() {
   // Draggable, persisted width for the docked detail panel (desktop only; the
   // panel goes full-screen below the breakpoint).
   const panelResize = useCardPanelWidth()
+  // Global Ctrl/Cmd+Z / Ctrl/Cmd+Y undo/redo of non-text board actions (ITEM 86);
+  // mounted on the shell so it is live across the board and the docked panel,
+  // yet bails while focus is in a text field so native in-field undo survives.
+  useUndoRedoKeys()
 
   return (
     <CardPanelSlotContext.Provider value={{ openCardId, setOpenCardId }}>

@@ -7,10 +7,11 @@ import {
 import { announce } from '@atlaskit/pragmatic-drag-and-drop-live-region'
 import { useCallback, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router'
-import { useBoard, useCardAction, useMoveCard } from '../api/board.ts'
+import { useBoard, useCardAction } from '../api/board.ts'
 import { isWaitingLane, laneKeyOfCard, type MoveIntent } from '../api/board-cache.ts'
 import { usePolicy, useUsers } from '../api/meta.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
+import { useUndoableBoard } from '../undo/use-undoable-board.ts'
 import { utcToday } from '../lib/format.ts'
 import { useBoardSearchQuery } from '../shell/board-search-param.ts'
 import { BoardSkeleton } from '../shell/BoardSkeleton.tsx'
@@ -42,9 +43,15 @@ export function BoardPage() {
   const policyQuery = usePolicy()
   const usersQuery = useUsers()
   const cardAction = useCardAction()
-  const moveCard = useMoveCard(({ announcement }) => {
-    if (announcement !== undefined) announce(announcement)
-  })
+  // Undoable move + action wrappers (ITEM 86). The current policy + role are
+  // handed in each render so the undo closures re-check permission FRESH at undo
+  // time (both can change after an action) and skip a doomed inverse.
+  const { moveWithUndo, actionWithUndo } = useUndoableBoard(
+    { policy: policyQuery.data, role: me.role },
+    ({ announcement }) => {
+      if (announcement !== undefined) announce(announcement)
+    },
+  )
   const [modal, setModal] = useState<ModalState>({ kind: 'none' })
 
   const board = boardQuery.data
@@ -52,8 +59,9 @@ export function BoardPage() {
   /** Central move funnel: waiting-lane entry detours through the reason modal. */
   const requestMove = useCallback(
     (card: BoardCard, intent: MoveIntent, announcement?: string, comment?: string) => {
-      const from = board === undefined ? null : laneKeyOfCard(board, card)
-      const laneLabel = board?.lanes.find((snapshot) => snapshot.lane.key === intent.toLane)?.lane
+      if (board === undefined) return
+      const from = laneKeyOfCard(board, card)
+      const laneLabel = board.lanes.find((snapshot) => snapshot.lane.key === intent.toLane)?.lane
         .label
       // The move modal now collects the waiting reason + resume date inline, so
       // an intent that already carries them skips the second modal entirely.
@@ -72,15 +80,20 @@ export function BoardPage() {
         })
         return
       }
-      moveCard.mutate({
-        card,
-        intent,
-        ...(announcement === undefined ? {} : { announcement }),
-        ...(laneLabel === undefined ? {} : { laneLabel }),
-        ...(comment === undefined ? {} : { comment }),
-      })
+      // Route through the undoable wrapper, passing the PRE-move board snapshot
+      // so the inverse (move back to the prior lane + neighbors) is captured.
+      moveWithUndo(
+        {
+          card,
+          intent,
+          ...(announcement === undefined ? {} : { announcement }),
+          ...(laneLabel === undefined ? {} : { laneLabel }),
+          ...(comment === undefined ? {} : { comment }),
+        },
+        board,
+      )
     },
-    [board, moveCard],
+    [board, moveWithUndo],
   )
 
   const onDrop = useCallback(
@@ -141,13 +154,14 @@ export function BoardPage() {
         setModal({ kind: 'block', card })
         break
       case 'unblock':
-        cardAction.mutate({ card, action: 'unblock' })
+        actionWithUndo({ card, action: 'unblock' }, card)
         break
       case 'reopen':
+        // Reopen is a recovery action, not undoable (see useUndoableBoard).
         cardAction.mutate({ card, action: 'reopen' })
         break
       case 'archive':
-        cardAction.mutate({ card, action: 'archive' })
+        actionWithUndo({ card, action: 'archive' }, card)
         break
     }
   }
@@ -210,15 +224,18 @@ export function BoardPage() {
             comment?: string
           }) => {
             closeModal()
-            moveCard.mutate({
-              card: modal.card,
-              intent: { ...modal.intent, waitingReason, expectedResumeAt },
-              ...(modal.announcement === undefined ? {} : { announcement: modal.announcement }),
-              laneLabel:
-                board.lanes.find((snapshot) => snapshot.lane.key === modal.intent.toLane)?.lane
-                  .label ?? strings.laneNames.waiting_parts_vendor,
-              ...(comment === undefined ? {} : { comment }),
-            })
+            moveWithUndo(
+              {
+                card: modal.card,
+                intent: { ...modal.intent, waitingReason, expectedResumeAt },
+                ...(modal.announcement === undefined ? {} : { announcement: modal.announcement }),
+                laneLabel:
+                  board.lanes.find((snapshot) => snapshot.lane.key === modal.intent.toLane)?.lane
+                    .label ?? strings.laneNames.waiting_parts_vendor,
+                ...(comment === undefined ? {} : { comment }),
+              },
+              board,
+            )
           }}
         />
       ) : null}
@@ -227,7 +244,7 @@ export function BoardPage() {
           onClose={closeModal}
           onSubmit={(resolution: CancelResolution) => {
             closeModal()
-            cardAction.mutate({ card: modal.card, action: 'cancel', body: { resolution } })
+            actionWithUndo({ card: modal.card, action: 'cancel', body: { resolution } }, modal.card)
           }}
         />
       ) : null}
@@ -236,7 +253,7 @@ export function BoardPage() {
           onClose={closeModal}
           onSubmit={(reason: string) => {
             closeModal()
-            cardAction.mutate({ card: modal.card, action: 'block', body: { reason } })
+            actionWithUndo({ card: modal.card, action: 'block', body: { reason } }, modal.card)
           }}
         />
       ) : null}

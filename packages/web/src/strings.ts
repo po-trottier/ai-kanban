@@ -46,6 +46,25 @@ export const strings = {
     reload: 'Reload',
   },
 
+  /** Global keyboard undo/redo of non-text board actions (ITEM 86). */
+  undo: {
+    /** Announced after an undo/redo — the label names what was reversed. */
+    undone: (label: string) => `Undone: ${label}`,
+    redone: (label: string) => `Redone: ${label}`,
+    nothingToUndo: 'Nothing to undo',
+    nothingToRedo: 'Nothing to redo',
+    /** Shown when an inverse is no longer permitted or possible (RBAC / stale). */
+    cannotUndo: "Can't undo that",
+    cannotRedo: "Can't redo that",
+    /** Entry labels (what the toast names). */
+    moveLabel: 'card move',
+    cancelLabel: 'card cancellation',
+    reopenLabel: 'card reopen',
+    archiveLabel: 'card archive',
+    blockLabel: 'card block',
+    unblockLabel: 'card unblock',
+  },
+
   auth: {
     loginTitle: 'Sign in',
     email: 'Email',

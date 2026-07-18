@@ -80,3 +80,30 @@ export function laneKeyOfCard(
   const lane = board.lanes.find((snapshot) => snapshot.lane.id === card.laneId)
   return lane?.lane.key ?? null
 }
+
+/**
+ * The move intent that would restore a card to exactly where it sits in `board`
+ * — its current lane, between its current neighbors. Captured from the
+ * PRE-mutation snapshot, it is the inverse of a move (ITEM 86 undo): re-carries
+ * the waiting reason + resume date so a move back INTO the waiting lane is not
+ * rejected for missing them. Returns null when the card is not on the board
+ * (e.g. it lives off-board in an archived/terminal state) and so has no
+ * board-position to restore.
+ */
+export function restoreIntentForCard(board: BoardResponse, cardId: number): MoveIntent | null {
+  const lane = board.lanes.find((snapshot) => snapshot.cards.some((c) => c.id === cardId))
+  if (lane === undefined) return null
+  const index = lane.cards.findIndex((c) => c.id === cardId)
+  const card = lane.cards[index]
+  if (card === undefined) return null
+  const intent: MoveIntent = {
+    toLane: lane.lane.key,
+    prevCardId: lane.cards[index - 1]?.id ?? null,
+    nextCardId: lane.cards[index + 1]?.id ?? null,
+  }
+  if (isWaitingLane(lane.lane.key) && card.waitingReason !== null) {
+    intent.waitingReason = card.waitingReason
+    if (card.expectedResumeAt !== null) intent.expectedResumeAt = card.expectedResumeAt
+  }
+  return intent
+}

@@ -147,6 +147,9 @@ type CardAction =
   | { action: 'block'; body: Omit<BlockCardInput, 'expectedVersion'> }
   | { action: 'unblock' }
 
+/** The `useCardAction` mutate argument: the target card (id + version) plus one action. */
+export type CardActionArgs = { card: Pick<BoardCard, 'id' | 'version'> } & CardAction
+
 /** The confirmation-toast copy for each card action (names the outcome). */
 const ACTION_TOAST: Record<CardAction['action'], string> = {
   cancel: strings.card.cancelledToast,
@@ -163,7 +166,7 @@ export function useCardAction() {
   return useMutation({
     // Only id + version are read (route + If-Match): the board summary and the
     // panel's full Card both fit, so both surfaces call one mutation.
-    mutationFn: ({ card, ...action }: { card: Pick<BoardCard, 'id' | 'version'> } & CardAction) =>
+    mutationFn: ({ card, ...action }: CardActionArgs) =>
       api.post(`/cards/${String(card.id)}/${action.action}`, cardSchema, {
         body: 'body' in action ? action.body : {},
         ifMatch: card.version,
