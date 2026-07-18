@@ -119,7 +119,7 @@ export function CardPanel({ cardId }: { cardId: string }) {
       // Labelled by the header (the hidden "Card details" + title + priority),
       // so assistive tech and the tests get the same combined accessible name
       // the old Drawer produced — never overridden by an aria-label.
-      aria-labelledby={labelId}
+      aria-labelledby={`${labelId} ${labelId}-priority`}
       className={classes.panel}
     >
       <Group justify="space-between" wrap="nowrap" gap="xs" p="md" className={classes.panelHeader}>
@@ -141,23 +141,35 @@ export function CardPanel({ cardId }: { cardId: string }) {
               <Text fw={EMPHASIS_FONT_WEIGHT} lineClamp={1}>
                 {card.title}
               </Text>
-              <Badge color={PRIORITY_COLORS[card.priority]} size="sm" variant="filled">
-                {strings.priorities[card.priority]}
-              </Badge>
             </>
           )}
         </Group>
-        <Tooltip label={strings.detail.closeLabel}>
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            size="lg"
-            aria-label={strings.detail.closeLabel}
-            onClick={close}
-          >
-            <CloseIcon />
-          </ActionIcon>
-        </Tooltip>
+        {/* Priority sits on the RIGHT to match the board card (the source of
+            truth), not beside the title. It stays in the panel's accessible
+            name via aria-labelledby, so the combined name is unchanged. */}
+        <Group gap="xs" wrap="nowrap">
+          {card === undefined ? null : (
+            <Badge
+              id={`${labelId}-priority`}
+              color={PRIORITY_COLORS[card.priority]}
+              size="sm"
+              variant="filled"
+            >
+              {strings.priorities[card.priority]}
+            </Badge>
+          )}
+          <Tooltip label={strings.detail.closeLabel}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="lg"
+              aria-label={strings.detail.closeLabel}
+              onClick={close}
+            >
+              <CloseIcon />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
       </Group>
       <Divider />
       <div className={classes.panelBody}>
