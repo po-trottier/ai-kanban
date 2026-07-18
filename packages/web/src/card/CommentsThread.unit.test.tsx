@@ -289,4 +289,64 @@ describe('CommentsThread', () => {
       'true',
     )
   })
+
+  it('pins the top-level composer outside the scrolling comment list', () => {
+    // Arrange
+    const cardId = makeCard('intake').id
+    const comment = makeComment({ id: uid(80), cardId })
+    // Act
+    renderWithProviders(
+      <CommentsThread
+        comments={[comment]}
+        currentUserId={fixtureAdmin.id}
+        userNames={userNames}
+        canDeleteOthers={false}
+        onAdd={noop}
+        onEdit={noop}
+        onDelete={noop}
+      />,
+    )
+    // Assert — the list carries the scroll-region class and the top-level
+    // composer sits in the pinned wrapper OUTSIDE it, so it never scrolls away.
+    const list = screen.getByTestId('comments-list')
+    const pinned = screen.getByTestId('comments-composer')
+    expect(list).toHaveClass(String(classes.commentsList))
+    expect(pinned).toHaveClass(String(classes.commentsComposer))
+    const composer = screen.getByRole('textbox', { name: 'Add a comment' })
+    // The top-level composer lives in the pinned wrapper, NOT the scroll region.
+    expect(pinned).toContainElement(composer)
+    expect(list).not.toContainElement(composer)
+    // The comment article itself DOES live in the scroll region.
+    expect(list).toContainElement(screen.getByRole('article'))
+  })
+
+  it('shows the edited badge only on an edited comment, not an unedited one', () => {
+    // Arrange — one comment edited (updatedAt bumped past createdAt), one not.
+    const cardId = makeCard('intake').id
+    const edited = makeComment({
+      id: uid(81),
+      cardId,
+      body: 'Edited body',
+      updatedAt: '2026-07-05T10:00:00.000Z',
+    })
+    const untouched = makeComment({ id: uid(82), cardId, body: 'Untouched body' })
+    // Act
+    renderWithProviders(
+      <CommentsThread
+        comments={[edited, untouched]}
+        currentUserId={fixtureAdmin.id}
+        userNames={userNames}
+        canDeleteOthers={false}
+        onAdd={noop}
+        onEdit={noop}
+        onDelete={noop}
+      />,
+    )
+    // Assert — the badge shows on the edited comment (first) and not the other.
+    const articles = screen.getAllByRole('article')
+    expect(within(nth(articles, 0)).getByText('Edited body')).toBeInTheDocument()
+    expect(within(nth(articles, 0)).getByText('edited')).toBeInTheDocument()
+    expect(within(nth(articles, 1)).getByText('Untouched body')).toBeInTheDocument()
+    expect(within(nth(articles, 1)).queryByText('edited')).not.toBeInTheDocument()
+  })
 })

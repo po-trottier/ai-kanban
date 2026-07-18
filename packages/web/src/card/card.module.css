@@ -24,6 +24,27 @@
   min-width: 0;
 }
 
+/* Comments tab = a bounded flex column: the LIST scrolls, the top-level
+   composer below it stays pinned so composing is always reachable. */
+.commentsArea {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The scroll region. Capped so it never pushes the composer off-screen; the
+   composer sits outside this element and so never scrolls with the list. */
+.commentsList {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: var(--app-comment-list-max-height);
+  overflow-y: auto;
+}
+
+.commentsComposer {
+  flex: 0 0 auto;
+}
+
 .commentBody {
   white-space: pre-wrap;
 }

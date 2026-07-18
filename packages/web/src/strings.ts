@@ -580,6 +580,8 @@ export const strings = {
     postReplyButton: 'Post reply',
     replyComposerLabel: 'Reply',
     deletedPlaceholder: '(deleted)',
+    /** Subtle meta next to a comment's timestamp once its body has been edited. */
+    editedBadge: 'edited',
     empty: 'No comments yet',
     itemLabel: (name: string) => `Comment by ${name}`,
     /** Subtle context on a reply: which comment (its author) it answers. */

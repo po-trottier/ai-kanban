@@ -85,7 +85,9 @@ export function CommentsThread({
   }
 
   return (
-    <Stack gap="md">
+    // A bounded flex column: the LIST scrolls, the top-level composer below it
+    // stays pinned, so composing is reachable no matter how many comments load.
+    <div className={classes.commentsArea}>
       {confirmDeleteId !== null ? (
         <ConfirmModal
           title={strings.comments.deleteConfirmTitle}
@@ -104,79 +106,83 @@ export function CommentsThread({
           }}
         />
       ) : null}
-      {thread.length === 0 ? (
-        <Text size="sm" c="dimmed">
-          {strings.comments.empty}
-        </Text>
-      ) : (
-        thread.map(({ comment, replies }) => (
-          <Stack key={comment.id} gap="xs">
-            <CommentItem
-              comment={comment}
-              byId={byId}
-              highlighted={highlightedId === comment.id}
-              onJumpToParent={jumpToParent}
-              currentUserId={currentUserId}
-              userNames={userNames}
-              canDeleteOthers={canDeleteOthers}
-              readOnly={readOnly}
-              editPending={editPending}
-              onEdit={onEdit}
-              onDelete={setConfirmDeleteId}
-              onReply={() => {
-                setReplyTo(comment.id)
-              }}
-            />
-            <Stack gap="xs" pl="xl">
-              {replies.map((reply) => (
-                <CommentItem
-                  key={reply.id}
-                  comment={reply}
-                  byId={byId}
-                  highlighted={highlightedId === reply.id}
-                  onJumpToParent={jumpToParent}
-                  currentUserId={currentUserId}
-                  userNames={userNames}
-                  canDeleteOthers={canDeleteOthers}
-                  readOnly={readOnly}
-                  editPending={editPending}
-                  onEdit={onEdit}
-                  onDelete={setConfirmDeleteId}
-                  onReply={() => {
-                    setReplyTo(comment.id)
-                  }}
-                />
-              ))}
-              {replyTo === comment.id ? (
-                <Composer
-                  label={strings.comments.replyComposerLabel}
-                  submitLabel={strings.comments.postReplyButton}
-                  submitHint={strings.tooltips.postReply}
-                  pending={addPending}
-                  onSubmit={(body, onPosted) => {
-                    onAdd(body, comment.id, () => {
-                      onPosted()
-                      setReplyTo(null)
-                    })
-                  }}
-                />
-              ) : null}
+      <Stack gap="md" className={classes.commentsList} data-testid="comments-list">
+        {thread.length === 0 ? (
+          <Text size="sm" c="dimmed">
+            {strings.comments.empty}
+          </Text>
+        ) : (
+          thread.map(({ comment, replies }) => (
+            <Stack key={comment.id} gap="xs">
+              <CommentItem
+                comment={comment}
+                byId={byId}
+                highlighted={highlightedId === comment.id}
+                onJumpToParent={jumpToParent}
+                currentUserId={currentUserId}
+                userNames={userNames}
+                canDeleteOthers={canDeleteOthers}
+                readOnly={readOnly}
+                editPending={editPending}
+                onEdit={onEdit}
+                onDelete={setConfirmDeleteId}
+                onReply={() => {
+                  setReplyTo(comment.id)
+                }}
+              />
+              <Stack gap="xs" pl="xl">
+                {replies.map((reply) => (
+                  <CommentItem
+                    key={reply.id}
+                    comment={reply}
+                    byId={byId}
+                    highlighted={highlightedId === reply.id}
+                    onJumpToParent={jumpToParent}
+                    currentUserId={currentUserId}
+                    userNames={userNames}
+                    canDeleteOthers={canDeleteOthers}
+                    readOnly={readOnly}
+                    editPending={editPending}
+                    onEdit={onEdit}
+                    onDelete={setConfirmDeleteId}
+                    onReply={() => {
+                      setReplyTo(comment.id)
+                    }}
+                  />
+                ))}
+                {replyTo === comment.id ? (
+                  <Composer
+                    label={strings.comments.replyComposerLabel}
+                    submitLabel={strings.comments.postReplyButton}
+                    submitHint={strings.tooltips.postReply}
+                    pending={addPending}
+                    onSubmit={(body, onPosted) => {
+                      onAdd(body, comment.id, () => {
+                        onPosted()
+                        setReplyTo(null)
+                      })
+                    }}
+                  />
+                ) : null}
+              </Stack>
             </Stack>
-          </Stack>
-        ))
-      )}
+          ))
+        )}
+      </Stack>
       {readOnly ? null : (
-        <Composer
-          label={strings.comments.composerLabel}
-          submitLabel={strings.comments.postButton}
-          submitHint={strings.tooltips.comment}
-          pending={addPending}
-          onSubmit={(body, onPosted) => {
-            onAdd(body, null, onPosted)
-          }}
-        />
+        <div className={classes.commentsComposer} data-testid="comments-composer">
+          <Composer
+            label={strings.comments.composerLabel}
+            submitLabel={strings.comments.postButton}
+            submitHint={strings.tooltips.comment}
+            pending={addPending}
+            onSubmit={(body, onPosted) => {
+              onAdd(body, null, onPosted)
+            }}
+          />
+        </div>
       )}
-    </Stack>
+    </div>
   )
 }
 
@@ -232,6 +238,9 @@ function CommentItem({
   }, [editPending])
 
   const deleted = comment.deletedAt !== null
+  // An edit bumps updatedAt past createdAt (comment-service). Soft-delete bumps
+  // it too, so gate on `!deleted` — the deleted placeholder never shows it.
+  const edited = !deleted && comment.updatedAt !== comment.createdAt
   // Editing is identity, not policy (ADR-013); deleting others' is gated.
   const own = comment.authorId === currentUserId
   const canDelete = own || canDeleteOthers
@@ -254,6 +263,11 @@ function CommentItem({
         <Text size="xs" c="dimmed">
           {formatDateTime(comment.createdAt, timezone)}
         </Text>
+        {edited ? (
+          <Text size="xs" c="dimmed" fs="italic">
+            {strings.comments.editedBadge}
+          </Text>
+        ) : null}
       </Group>
       {comment.parentCommentId !== null ? (
         <ReplyContext

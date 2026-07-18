@@ -32,6 +32,9 @@ const other: MantineThemeOther = {
   /** Height of the vertical section dividers in the filter bar (matches the
    * Mantine `sm` input height so the separators align with the controls). */
   filterSectionHeight: '2.25rem',
+  /** Cap on the scrolling comment LIST so the top-level composer stays pinned
+   * within the panel even with many comments (CommentsThread sticky composer). */
+  commentListMaxHeight: 'min(60vh, 32rem)',
 }
 
 /** The one emphasis weight (card titles, comment authors, history actors) — matches headings. */
@@ -89,6 +92,7 @@ export const cssVariablesResolver: CSSVariablesResolver = (resolved) => ({
     '--app-filter-query-width': String(resolved.other.filterQueryWidth),
     '--app-filter-pill-width': String(resolved.other.filterPillWidth),
     '--app-filter-section-height': String(resolved.other.filterSectionHeight),
+    '--app-comment-list-max-height': String(resolved.other.commentListMaxHeight),
   },
   light: {},
   dark: {},
