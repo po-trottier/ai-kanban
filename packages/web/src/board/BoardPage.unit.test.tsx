@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import {
@@ -31,6 +31,7 @@ function boardApp(
     'GET /api/v1/users': fixturePickerUsers,
     'GET /api/v1/locations': [],
     'GET /api/v1/tags': [],
+    'GET /api/v1/filter-presets': [],
     ...extra,
   })
 }
@@ -131,37 +132,52 @@ describe('BoardPage move flows', () => {
   })
 })
 
-describe('BoardPage header live-filter (ITEM 1)', () => {
-  it('hides non-matching cards as the user types in the header filter', async () => {
-    // Arrange
+describe('BoardPage filter bar (server-side filtering)', () => {
+  it('fetches the narrowed board via POST /board/query as the query changes', async () => {
+    // Arrange — the filtered endpoint returns only the matching card; the
+    // unfiltered GET /board carries both. Filtering is API-level now (the server
+    // narrows the board), not a client-side pass over the loaded board.
     const user = userEvent.setup()
     const match = makeCard('intake', { title: 'Leaking faucet' })
     const other = makeCard('ready', { title: 'Broken window' })
-    const fake = boardApp({ intake: [match], ready: [other] })
+    const fake = boardApp(
+      { intake: [match], ready: [other] },
+      { 'POST /api/v1/board/query': makeBoard({ intake: [match] }) },
+    )
     renderApp({ fetchFn: fake.fetch })
+    expect(await screen.findByLabelText('Broken window')).toBeInTheDocument()
+    // Act — type in the filter-bar query; the debounced change drives one query.
+    await user.type(screen.getByRole('textbox', { name: 'Filter cards' }), 'faucet')
+    // Assert — the narrowed board arrives (non-match gone), and the request body
+    // is the BoardFilter with the typed query.
     expect(await screen.findByLabelText('Leaking faucet')).toBeInTheDocument()
-    // Act — the always-visible header filter narrows the board live (no request).
-    await user.type(screen.getByRole('textbox', { name: 'Filter the board' }), 'faucet')
-    // Assert — the non-matching card is gone; the match remains; lanes persist.
-    expect(screen.queryByLabelText('Broken window')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Leaking faucet')).toBeInTheDocument()
-    expect(screen.getByRole('list', { name: 'Cards in Ready' })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Broken window')).not.toBeInTheDocument()
+    })
+    expect(fake.lastBody('POST', '/api/v1/board/query')).toMatchObject({ q: 'faucet' })
   })
 
-  it('restores every card when the filter is cleared', async () => {
-    // Arrange
+  it('returns to the unfiltered board (GET /board) when Clear filters is pressed', async () => {
+    // Arrange — the filtered endpoint narrows to one card; clearing must go back
+    // to the unfiltered GET /board (both cards), which is the empty-filter path.
     const user = userEvent.setup()
     const match = makeCard('intake', { title: 'Leaking faucet' })
     const other = makeCard('ready', { title: 'Broken window' })
-    const fake = boardApp({ intake: [match], ready: [other] })
+    const fake = boardApp(
+      { intake: [match], ready: [other] },
+      { 'POST /api/v1/board/query': makeBoard({ intake: [match] }) },
+    )
     renderApp({ fetchFn: fake.fetch })
-    await screen.findByLabelText('Leaking faucet')
-    await user.type(screen.getByRole('textbox', { name: 'Filter the board' }), 'faucet')
-    expect(screen.queryByLabelText('Broken window')).not.toBeInTheDocument()
-    // Act — the clear (x) resets the filter.
-    await user.click(screen.getByRole('button', { name: 'Clear filter' }))
-    // Assert
-    expect(screen.getByLabelText('Broken window')).toBeInTheDocument()
+    await screen.findByLabelText('Broken window')
+    // Act — filter down to one card…
+    await user.type(screen.getByRole('textbox', { name: 'Filter cards' }), 'faucet')
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Broken window')).not.toBeInTheDocument()
+    })
+    // …then Clear filters restores the full unfiltered board.
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }))
+    // Assert — both cards are back (the empty filter reads GET /board again).
+    expect(await screen.findByLabelText('Broken window')).toBeInTheDocument()
     expect(screen.getByLabelText('Leaking faucet')).toBeInTheDocument()
   })
 })

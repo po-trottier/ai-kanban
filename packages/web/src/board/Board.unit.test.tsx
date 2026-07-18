@@ -43,6 +43,30 @@ describe('Board', () => {
     expect(titles[1]).toContain('Change filter')
   })
 
+  it('marks the board busy while a filtered fetch is in flight (loading)', () => {
+    // Arrange — a filter round-trip is in flight over the retained board, so the
+    // board dims and reports aria-busy (skeleton/loading cue during the fetch).
+    const board = makeBoard({ ready: [makeCard('ready', { title: 'Fix pump' })] })
+    // Act
+    renderWithProviders(
+      <Board
+        board={board}
+        loading
+        policy={permissivePolicy}
+        role="user"
+        users={fixturePickerUsers}
+        today="2026-07-16"
+        onOpenCard={noop}
+        onMenuAction={noop}
+      />,
+    )
+    // Assert
+    expect(screen.getByRole('region', { name: 'Kanban board' })).toHaveAttribute(
+      'aria-busy',
+      'true',
+    )
+  })
+
   it('highlights a lane header when its WIP limit is exceeded', () => {
     // Arrange — fixture in_progress WIP limit is 3
     const cards = [
@@ -110,17 +134,16 @@ describe('Board', () => {
     expect(screen.getByRole('button', { name: 'New card' })).toBeInTheDocument()
   })
 
-  it('offers an archived-search link when the filter matches nothing (carrying the query)', () => {
+  it('shows a no-matches message (not the first-run CTA) when the filter matches nothing', () => {
     // Arrange — filtering is active but no lane has a match: the board shows a
-    // single no-matches message with the subtle link to full /search, so
-    // archived/closed cards stay reachable without a permanent header button.
+    // single no-matches message hinting to widen the filter (the filter bar is
+    // now the ONE search surface — scope All reaches archived/closed cards).
     const board = makeBoard({})
     // Act
     renderWithProviders(
       <Board
         board={board}
         filtering
-        filterQuery="boiler"
         policy={permissivePolicy}
         role="user"
         users={fixturePickerUsers}
@@ -129,12 +152,11 @@ describe('Board', () => {
         onMenuAction={noop}
       />,
     )
-    // Assert — the message shows and the link opens advanced search (`?search=1`)
-    // carrying the current query (not the first-run "New card" CTA, wrong here).
-    expect(screen.getByText('No cards match your filter')).toBeInTheDocument()
+    // Assert — the no-matches message shows; the first-run "New card" CTA (wrong
+    // here) does not, and there is no legacy advanced-search link.
+    expect(screen.getByText('No cards match your filters')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'New card' })).not.toBeInTheDocument()
-    const link = screen.getByRole('link', { name: 'Search all cards, including archived' })
-    expect(link).toHaveAttribute('href', '/?q=boiler&search=1')
+    expect(screen.queryByRole('link', { name: /Search all cards/ })).not.toBeInTheDocument()
   })
 
   it('shows the assignee avatar with initials', () => {

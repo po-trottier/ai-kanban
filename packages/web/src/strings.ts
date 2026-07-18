@@ -22,10 +22,6 @@ export const strings = {
   header: {
     /** Alt text on the logo, which also links home. */
     logoAlt: 'Facilities Kanban — go to the board',
-    /** The always-visible board filter in the header centre. */
-    searchLabel: 'Filter the board',
-    searchPlaceholder: 'Filter cards…',
-    searchClear: 'Clear filter',
     /** Tooltip on the avatar button that opens the account menu (settings + log out). */
     accountMenu: 'Account menu',
   },
@@ -79,9 +75,6 @@ export const strings = {
     archive: 'Archive this Done card — read-only until reopened',
     saveCard: 'Save your edits to this card',
     saveWaiting: 'Save the updated waiting reason or resume date',
-    search: 'Search every card, including archived and closed ones',
-    clearFilters: 'Reset the query and every filter',
-    backToBoard: 'Close search and return to the board',
     // Disabled reasons (WHY a control is off).
     disabledMoveNotAllowed: 'This column can’t be entered from the current one',
     disabledWaitingIncomplete: 'Pick a waiting reason and resume date first',
@@ -246,13 +239,9 @@ export const strings = {
     boardLabel: 'Kanban board',
     newCard: 'New card',
     emptyLane: 'No cards',
-    /** Per-lane hint when the header filter hides every card in a lane. */
+    /** Per-lane hint when the filter bar hides every card in a lane. */
     filterEmptyLane: 'No matching cards',
-    /** Board-level message when the header filter matches nothing anywhere. */
-    filterNoMatchesTitle: 'No cards match your filter',
-    filterNoMatchesHint:
-      'This filters the loaded board only. Archived and closed cards live in full search.',
-    /** Subtle per-lane match count shown under the header filter. */
+    /** Subtle per-lane match count shown while the filter bar is narrowing. */
     filterMatchCount: (count: number) => `${String(count)} ${count === 1 ? 'match' : 'matches'}`,
     wipLimitExceededSuffix: 'WIP limit exceeded',
     cardListLabel: (lane: string) => `Cards in ${lane}`,
@@ -303,7 +292,7 @@ export const strings = {
     overdueBadgeTooltip: (reason: string, date: string) =>
       `Waiting on ${reason} — overdue: the expected resume date (${date}) has passed.`,
     cancelledBadgeTooltip: (resolution: string) =>
-      `Closed as ${resolution} — reopen it from Search to bring it back.`,
+      `Closed as ${resolution} — filter the board to All to find it and reopen it.`,
     archivedBadgeTooltip: 'Archived — an old Done card, read-only until reopened.',
     assigneeAvatarLabel: (name: string) => `Assigned to ${name}`,
     cardJustUpdated: 'This card was just updated by someone else — the board has been refreshed.',
@@ -344,54 +333,90 @@ export const strings = {
       `${state}. Overdue — ${elapsed} of work against a ${estimate} estimate. Time accrues only during business hours (Mon–Fri, 9am–5pm in your time zone).`,
   },
 
-  search: {
-    /** The advanced-search modal — the one place archived and closed cards are
-     * reachable. Opened from the header field's filter icon or the board's
-     * no-matches state; replaces the former full-page /search view. */
-    modalTitle: 'Search all cards',
-    /** aria-label for the header trigger icon and the board no-matches link. */
-    advancedButton: 'Advanced search',
-    /** Explicit dismiss that names the destination (the modal X does the same). */
-    backToBoard: 'Back to board',
-    /** Subtle link from the board-filter no-results state into advanced search,
-     * carrying the current query so the modal opens pre-populated. */
-    searchAllArchived: 'Search all cards, including archived',
-    /** Full-width query field: title + description substring. Nothing queries
-     * until Search is pressed, so several facets can be set in one pass. */
-    queryPlaceholder: 'Search by title or description…',
-    /** Stable accessible name for the query input (tests target it). */
-    queryAriaLabel: 'Search cards',
-    /** Applies the query + facets (a magnifying-glass button + the Enter key). */
-    searchButton: 'Search',
-    /** Resets every facet to its default and clears the query. */
-    clearFilters: 'Clear all',
-    /** Collapsible facet section (the search bar stays; only the facets fold). */
-    filtersToggle: 'Filters',
-    /** aria-labels for the caret that expands/collapses the facet panel. */
-    expandFilters: 'Expand filters',
-    collapseFilters: 'Collapse filters',
-    /** Facet filters (each defaults to "any"). Column maps to the board lane;
-     * Tags is multi-select (any-of); Location is recursively inclusive. */
-    priorityFilter: 'Priority',
-    columnFilter: 'Column',
-    tagFilter: 'Tags',
-    locationFilter: 'Location',
-    anyPriority: 'Any priority',
-    anyColumn: 'Any column',
-    anyTag: 'Any tag',
-    anyLocation: 'Any location',
-    /** Archived-scope combobox (matches the other facet selects): a 3-way choice
-     * defaulting to both, so archived cards are in scope (docs/user/guide.md). */
-    archivedFilter: 'Archived cards',
-    archivedBoth: 'Active and archived',
-    activeOnly: 'Active cards only',
-    archivedOnly: 'Archived only',
-    resultsLabel: 'Search results',
-    /** Count summary above the results list. */
-    resultCount: (count: number) => `${String(count)} ${count === 1 ? 'result' : 'results'}`,
-    /** Clear no-results wording (distinct from an error). */
-    noResults: 'No cards match your search.',
-    loadFailed: 'Cards could not be loaded.',
+  /**
+   * The board FILTER BAR (below the header, above the board) — every facet of
+   * the shared `BoardFilter`, its presets, and the save/rename/delete flow.
+   * Every control here reads as part of one bar; the enumerable facets are
+   * split segmented controls, the high-cardinality ones multi-select pills.
+   */
+  filterBar: {
+    /** Accessible name for the whole bar region. */
+    regionLabel: 'Board filters',
+    /** Free-text query over title + description. */
+    queryLabel: 'Filter cards',
+    queryPlaceholder: 'Filter by title or description…',
+    queryClear: 'Clear the text filter',
+    /** Enumerable facet group labels (each group is a split segmented control). */
+    priorityLabel: 'Priority',
+    priorityGroupLabel: 'Filter by priority',
+    laneLabel: 'Status',
+    laneGroupLabel: 'Filter by status',
+    scopeLabel: 'Scope',
+    scopeGroupLabel: 'Active, archived, or all cards',
+    scopeActive: 'Active',
+    scopeArchived: 'Archived',
+    scopeAll: 'All',
+    /** The overdue toggle (a two-segment control: everything vs overdue-only). */
+    overdueLabel: 'Overdue',
+    overdueAny: 'Any',
+    overdueOnly: 'Overdue',
+    /** High-cardinality facet multi-selects (any-of). */
+    assigneeLabel: 'Assignee',
+    assigneePlaceholder: 'Any assignee',
+    reporterLabel: 'Reporter',
+    reporterPlaceholder: 'Any reporter',
+    tagsLabel: 'Tags',
+    tagsPlaceholder: 'Any tag',
+    locationsLabel: 'Location',
+    locationsPlaceholder: 'Any location',
+    /** Clears every facet back to the empty filter (today's full board). */
+    clearAll: 'Clear filters',
+    /** Presets combobox: built-ins + the user's saved filters. */
+    presetsLabel: 'Preset',
+    presetsPlaceholder: 'Choose a preset',
+    presetsBuiltInGroup: 'Built-in',
+    presetsCustomGroup: 'My presets',
+    /** Built-in preset display names (mirror core BUILTIN_FILTER_PRESETS). */
+    builtinMyCards: 'My Cards',
+    builtinOverdue: 'Overdue',
+    /** Save / rename / delete affordances. */
+    savePreset: 'Save current filters as a preset',
+    savePresetTitle: 'Save filter preset',
+    presetNameLabel: 'Preset name',
+    presetNamePlaceholder: 'e.g. My urgent HVAC jobs',
+    saveConfirm: 'Save preset',
+    renamePreset: 'Rename this preset',
+    renamePresetTitle: 'Rename preset',
+    renameConfirm: 'Rename',
+    deletePreset: 'Delete this preset',
+    deletePresetTitle: 'Delete preset',
+    deletePresetConfirm: (name: string) => `Delete the “${name}” preset?`,
+    deleteConfirm: 'Delete preset',
+    /** Toasts confirming a preset mutation. */
+    presetSaved: 'Preset saved',
+    presetRenamed: 'Preset renamed',
+    presetDeleted: 'Preset deleted',
+    /** Tooltips (every control carries one). */
+    tooltips: {
+      query: 'Show only cards whose title or description contains this text',
+      priority: 'Show only cards at the selected priorities',
+      lane: 'Show only cards in the selected columns',
+      scope: 'Include active cards, archived cards, or both',
+      overdue: 'Show only cards past their estimated completion time',
+      assignee: 'Show only cards assigned to the selected people',
+      reporter: 'Show only cards filed by the selected people',
+      tags: 'Show only cards carrying at least one of these tags',
+      locations: 'Show only cards at the selected locations (buildings include their rooms)',
+      clearAll: 'Reset every filter to the full board',
+      presets: 'Apply a saved filter — it replaces every facet at once',
+      savePreset: 'Save the current filters as a named preset you can reapply',
+      renamePreset: 'Give this preset a new name',
+      deletePreset: 'Remove this saved preset',
+      disabledEmptyPresetName: 'Enter a preset name first',
+    },
+    /** Board-level message when the filter matches nothing anywhere. */
+    noMatchesTitle: 'No cards match your filters',
+    noMatchesHint: 'Widen the scope or clear a facet to see more cards.',
   },
 
   move: {
@@ -429,7 +454,7 @@ export const strings = {
     confirm: 'Cancel card',
     /** Warns that cancelling is destructive-feeling: it leaves the board. */
     consequence: (resolution: string) =>
-      `This moves the card to Done and marks it ${resolution}. You can reopen it later from Search.`,
+      `This moves the card to Done and marks it ${resolution}. You can reopen it later — filter the board to All to find it.`,
     resolutions: {
       cancelled: 'Cancelled',
       declined: 'Declined',

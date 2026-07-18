@@ -1,11 +1,5 @@
+import { type AddCommentInput, type EditCommentInput } from '@rivian-kanban/core'
 import {
-  type AddCommentInput,
-  type EditCommentInput,
-  type LaneKey,
-  type Priority,
-} from '@rivian-kanban/core'
-import {
-  keepPreviousData,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -20,7 +14,6 @@ import {
   attachmentUploadResponseSchema,
   cardDetailResponseSchema,
   cardEventsPageSchema,
-  cardsPageSchema,
   commentResponseSchema,
   commentsResponseSchema,
 } from './schemas.ts'
@@ -52,46 +45,6 @@ export function useCardEvents(cardId: string) {
         query: { cursor: pageParam },
       }),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-  })
-}
-
-export interface CardSearchFilters {
-  q: string
-  includeArchived: boolean
-  /** Restrict to archived cards only (the third archived-scope state). */
-  archivedOnly?: boolean
-  /** Advanced-search facets; an unset facet (null / empty) is omitted from the request. */
-  priority?: Priority | null
-  lane?: LaneKey | null
-  /** Any-of tag match: a card with at least one of these tags. */
-  tags?: string[]
-  locationId?: string | null
-}
-
-/** `GET /cards` — the filterable card list (search + facets + include-archived), cursor-paginated. */
-export function useCardSearch(filters: CardSearchFilters) {
-  const api = useApi()
-  return useInfiniteQuery({
-    queryKey: queryKeys.cardList(filters),
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) =>
-      api.get('/cards', cardsPageSchema, {
-        query: {
-          q: filters.q === '' ? undefined : filters.q,
-          includeArchived: filters.includeArchived ? true : undefined,
-          archivedOnly: filters.archivedOnly ? true : undefined,
-          priority: filters.priority ?? undefined,
-          lane: filters.lane ?? undefined,
-          tags: filters.tags && filters.tags.length > 0 ? filters.tags : undefined,
-          locationId: filters.locationId ?? undefined,
-          cursor: pageParam,
-        },
-      }),
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    // Archived search can be slow; keep the current results on screen while the
-    // next query (a changed facet or query term) loads, rather than blanking to
-    // a skeleton on every keystroke — the modal shows a spinner meanwhile.
-    placeholderData: keepPreviousData,
   })
 }
 

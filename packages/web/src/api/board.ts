@@ -1,13 +1,21 @@
 import {
+  EMPTY_BOARD_FILTER,
   cardSchema,
   type BlockCardInput,
   type BoardCard,
+  type BoardFilter,
   type CancelCardInput,
   type Card,
   type CreateCardInput,
   type UpdateCardInput,
 } from '@rivian-kanban/core'
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query'
 import { strings } from '../strings.ts'
 import { useApi } from './api-context.ts'
 import { applyMoveToBoard, type MoveIntent } from './board-cache.ts'
@@ -16,12 +24,43 @@ import { notifyCardError, notifyError, notifySuccess } from './notify.ts'
 import { movedToMessage } from './toast-messages.tsx'
 import { boardResponseSchema, commentResponseSchema, type BoardResponse } from './schemas.ts'
 
-export function useBoard() {
+/**
+ * The board, narrowed by a `BoardFilter`. Each filter is its own query (keyed
+ * by the filter under the shared `board` prefix, so any board invalidation —
+ * SSE, a move — refetches whichever filter is mounted). The empty filter takes
+ * the hot, cached `GET /board` path (today's unfiltered board); a non-empty
+ * filter posts to `POST /board/query`. The board response is identical either
+ * way, so the whole board/drag/move pipeline is unchanged downstream.
+ */
+export function useBoard(filter: BoardFilter = EMPTY_BOARD_FILTER) {
   const api = useApi()
+  const isEmpty = isEmptyFilter(filter)
   return useQuery({
-    queryKey: queryKeys.board,
-    queryFn: () => api.get('/board', boardResponseSchema),
+    queryKey: queryKeys.boardQuery(filter),
+    queryFn: () =>
+      isEmpty
+        ? api.get('/board', boardResponseSchema)
+        : api.post('/board/query', boardResponseSchema, { body: filter }),
+    // Keep the previous filter's board on screen while the next one loads, so a
+    // filter change shows the old board dimmed + a skeleton rather than blanking
+    // the whole page (isPlaceholderData marks the round-trip in progress).
+    placeholderData: keepPreviousData,
   })
+}
+
+/** True when a filter narrows nothing (the empty filter → today's full board). */
+export function isEmptyFilter(filter: BoardFilter): boolean {
+  return (
+    filter.priorities.length === 0 &&
+    filter.laneKeys.length === 0 &&
+    filter.assigneeIds.length === 0 &&
+    filter.reporterIds.length === 0 &&
+    filter.tags.length === 0 &&
+    filter.locationIds.length === 0 &&
+    filter.scope === 'active' &&
+    filter.q.trim() === '' &&
+    !filter.overdue
+  )
 }
 
 export interface MoveCardArgs {
@@ -42,10 +81,19 @@ export interface MoveCardArgs {
  * onMutate snapshot → rollback onError → invalidate onSettled. A 409 rolls
  * back, refetches, and shows the non-blocking "card was just updated" toast
  * (ADR-012).
+ *
+ * `filter` names the board variant currently mounted, so the optimistic
+ * snapshot reads/writes the exact filtered board cache (drag/move stays
+ * optimistic on a filtered board). onSettled still invalidates the `board`
+ * PREFIX, refetching whichever filter is showing.
  */
-export function useMoveCard(onMoved?: (args: MoveCardArgs) => void) {
+export function useMoveCard(
+  onMoved?: (args: MoveCardArgs) => void,
+  filter: BoardFilter = EMPTY_BOARD_FILTER,
+) {
   const api = useApi()
   const queryClient = useQueryClient()
+  const boardKey = queryKeys.boardQuery(filter)
   return useMutation({
     mutationFn: ({ card, intent }: MoveCardArgs) =>
       api.post(`/cards/${String(card.id)}/move`, cardSchema, {
@@ -53,16 +101,16 @@ export function useMoveCard(onMoved?: (args: MoveCardArgs) => void) {
         ifMatch: card.version,
       }),
     onMutate: async ({ card, intent }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.board })
-      const previous = queryClient.getQueryData<BoardResponse>(queryKeys.board)
+      await queryClient.cancelQueries({ queryKey: boardKey })
+      const previous = queryClient.getQueryData<BoardResponse>(boardKey)
       if (previous !== undefined) {
-        queryClient.setQueryData(queryKeys.board, applyMoveToBoard(previous, card.id, intent))
+        queryClient.setQueryData(boardKey, applyMoveToBoard(previous, card.id, intent))
       }
       return { previous }
     },
     onError: (error, _args, context) => {
       if (context?.previous !== undefined) {
-        queryClient.setQueryData(queryKeys.board, context.previous)
+        queryClient.setQueryData(boardKey, context.previous)
       }
       notifyCardError(error)
     },

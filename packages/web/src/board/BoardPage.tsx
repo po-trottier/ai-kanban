@@ -1,24 +1,26 @@
 import {
+  EMPTY_BOARD_FILTER,
   type BoardCard,
+  type BoardFilter,
   type CancelResolution,
   type LaneKey,
   type WaitingReason,
 } from '@rivian-kanban/core'
 import { announce } from '@atlaskit/pragmatic-drag-and-drop-live-region'
+import { useDebouncedValue } from '@mantine/hooks'
 import { useCallback, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router'
-import { useBoard, useCardAction } from '../api/board.ts'
+import { isEmptyFilter, useBoard, useCardAction } from '../api/board.ts'
 import { isWaitingLane, laneKeyOfCard, type MoveIntent } from '../api/board-cache.ts'
-import { usePolicy, useUsers } from '../api/meta.ts'
+import { useLocations, usePolicy, useTags, useUsers } from '../api/meta.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
 import { useUndoableBoard } from '../undo/use-undoable-board.ts'
 import { utcToday } from '../lib/format.ts'
-import { useBoardSearchQuery } from '../shell/board-search-param.ts'
 import { BoardSkeleton } from '../shell/BoardSkeleton.tsx'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { strings } from '../strings.ts'
 import { Board } from './Board.tsx'
-import { filterBoard } from './board-filter.ts'
+import { FilterBar } from './FilterBar.tsx'
 import { BlockCardModal } from './BlockCardModal.tsx'
 import { CancelCardModal } from './CancelCardModal.tsx'
 import { type CardMenuAction } from './CardMenu.tsx'
@@ -26,6 +28,9 @@ import { MoveCardModal, type MoveSelection } from './MoveCardModal.tsx'
 import { WaitingLaneModal } from './WaitingLaneModal.tsx'
 import { useBoardDropMonitor } from './dnd.ts'
 import { dropPosition, moveIntentFromDrop, type DropTarget } from './move-options.ts'
+
+/** Debounce facet/text changes so a filtered fetch isn't fired on every keystroke. */
+const FILTER_DEBOUNCE_MS = 300
 
 type ModalState =
   | { kind: 'none' }
@@ -38,19 +43,27 @@ type ModalState =
 export function BoardPage() {
   const navigate = useNavigate()
   const me = useCurrentUser()
-  const [searchQuery] = useBoardSearchQuery()
-  const boardQuery = useBoard()
+  // The live filter the bar edits; the DEBOUNCED value drives the fetch so a
+  // burst of facet/text edits collapses into one `POST /board/query`.
+  const [filter, setFilter] = useState<BoardFilter>(EMPTY_BOARD_FILTER)
+  const [debouncedFilter] = useDebouncedValue(filter, FILTER_DEBOUNCE_MS)
+  const boardQuery = useBoard(debouncedFilter)
   const policyQuery = usePolicy()
   const usersQuery = useUsers()
+  const tagsQuery = useTags()
+  const locationsQuery = useLocations()
   const cardAction = useCardAction()
   // Undoable move + action wrappers (ITEM 86). The current policy + role are
   // handed in each render so the undo closures re-check permission FRESH at undo
-  // time (both can change after an action) and skip a doomed inverse.
+  // time (both can change after an action) and skip a doomed inverse. The
+  // debounced filter names the mounted board variant so optimistic drag/move
+  // targets the exact filtered board cache.
   const { moveWithUndo, actionWithUndo } = useUndoableBoard(
     { policy: policyQuery.data, role: me.role },
     ({ announcement }) => {
       if (announcement !== undefined) announce(announcement)
     },
+    debouncedFilter,
   )
   const [modal, setModal] = useState<ModalState>({ kind: 'none' })
 
@@ -119,11 +132,11 @@ export function BoardPage() {
   )
   useBoardDropMonitor(onDrop)
 
-  if (boardQuery.isPending || policyQuery.isPending || usersQuery.isPending) {
+  // The essential once-per-session reads (policy + the user roster the affordances
+  // and filter bar need). The board itself is per-filter and handled below so the
+  // bar stays mounted across filter changes.
+  if (policyQuery.isPending || usersQuery.isPending) {
     return <BoardSkeleton />
-  }
-  if (board === undefined || boardQuery.error !== null) {
-    return <ErrorAlert error={boardQuery.error} fallbackMessage={strings.board.loadFailed} />
   }
   if (policyQuery.data === undefined || usersQuery.data === undefined) {
     return (
@@ -139,6 +152,7 @@ export function BoardPage() {
   }
 
   const onMenuAction = (card: BoardCard, action: CardMenuAction) => {
+    if (board === undefined) return
     const currentLane = laneKeyOfCard(board, card)
     switch (action) {
       case 'open':
@@ -170,25 +184,45 @@ export function BoardPage() {
     setModal({ kind: 'none' })
   }
 
-  // The header live-filter (?q=) narrows the RENDERED board only; every move
-  // computation above still uses the full `board` so neighbor ids resolve even
-  // for cards the filter has hidden.
-  const filtered = filterBoard(board, searchQuery)
+  // Whether the filter narrows anything (drives the per-lane match count + the
+  // no-matches state). The board is fetched already narrowed by the server, so
+  // there is no client-side re-filter — every rendered card is a real match.
+  const filtering = !isEmptyFilter(debouncedFilter)
+  // The round-trip is in flight when the first load has no data, or a filter
+  // change is refetching over the retained previous board (keepPreviousData).
+  const boardLoading =
+    boardQuery.isPending || (boardQuery.isFetching && boardQuery.isPlaceholderData)
 
   return (
     <>
-      <Board
-        board={filtered.board}
-        filtering={filtered.active}
-        filterQuery={searchQuery}
-        policy={policyQuery.data}
-        role={me.role}
+      <FilterBar
+        filter={filter}
+        onChange={setFilter}
         users={usersQuery.data}
-        today={utcToday()}
-        onOpenCard={openCard}
-        onMenuAction={onMenuAction}
+        tags={(tagsQuery.data ?? []).map((tag) => tag.name)}
+        locations={locationsQuery.data ?? []}
+        currentUserId={me.id}
       />
-      {modal.kind === 'move' ? (
+      {board === undefined || boardQuery.error !== null ? (
+        boardQuery.error !== null ? (
+          <ErrorAlert error={boardQuery.error} fallbackMessage={strings.board.loadFailed} />
+        ) : (
+          <BoardSkeleton />
+        )
+      ) : (
+        <Board
+          board={board}
+          filtering={filtering}
+          loading={boardLoading}
+          policy={policyQuery.data}
+          role={me.role}
+          users={usersQuery.data}
+          today={utcToday()}
+          onOpenCard={openCard}
+          onMenuAction={onMenuAction}
+        />
+      )}
+      {board !== undefined && modal.kind === 'move' ? (
         <MoveCardModal
           card={modal.card}
           currentLane={modal.currentLane}
@@ -211,7 +245,7 @@ export function BoardPage() {
           }}
         />
       ) : null}
-      {modal.kind === 'waiting' ? (
+      {board !== undefined && modal.kind === 'waiting' ? (
         <WaitingLaneModal
           onClose={closeModal}
           onSubmit={({

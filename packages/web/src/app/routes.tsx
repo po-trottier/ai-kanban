@@ -3,7 +3,6 @@ import { LoginPage } from '../auth/LoginPage.tsx'
 import { RequireAuth } from '../auth/RequireAuth.tsx'
 import { SetupPage } from '../auth/SetupPage.tsx'
 import { BoardPage } from '../board/BoardPage.tsx'
-import { SearchRedirect } from '../board/SearchRedirect.tsx'
 import { CardPanelRoute } from '../card/CardPanel.tsx'
 import { SettingsPage } from '../settings/SettingsPage.tsx'
 import { AppLayout } from '../shell/AppLayout.tsx'
@@ -26,7 +25,6 @@ export const routes: RouteObject[] = [
             element: <BoardPage />,
             children: [{ path: 'cards/:cardId', element: <CardPanelRoute /> }],
           },
-          { path: '/search', element: <SearchRedirect /> },
           { path: '/settings', element: <SettingsPage /> },
         ],
       },

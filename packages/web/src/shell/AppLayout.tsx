@@ -1,17 +1,15 @@
 import { AppShell, Avatar, Group, Menu, Title, Tooltip, UnstyledButton } from '@mantine/core'
 import { LogOut, Settings } from 'lucide-react'
 import { useState } from 'react'
-import { Link, Outlet, useMatch, useNavigate } from 'react-router'
+import { Link, Outlet, useNavigate } from 'react-router'
 import { useLogout } from '../api/auth.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
-import { SearchModal } from '../board/SearchModal.tsx'
 import { CardPanel } from '../card/CardPanel.tsx'
 import { initials } from '../lib/format.ts'
 import { strings } from '../strings.ts'
 import { CARD_PANEL_FULLSCREEN_BREAKPOINT, SIZES } from '../theme.ts'
 import { BoardLegend } from './BoardLegend.tsx'
 import { CardPanelSlotContext } from './card-panel-slot.ts'
-import { HeaderSearch } from './HeaderSearch.tsx'
 import { NewCardButton } from './NewCardButton.tsx'
 import { PanelResizeHandle } from './PanelResizeHandle.tsx'
 import { SseBridge } from './SseBridge.tsx'
@@ -31,13 +29,6 @@ export function AppLayout() {
   const me = useCurrentUser()
   const navigate = useNavigate()
   const logout = useLogout()
-  // The header filter only drives the board; it does nothing on /search or
-  // /settings, so it renders only on the board route (and its deep-linked card
-  // panel) — a facilities user is never shown a filter that silently no-ops.
-  // Both matches run unconditionally (rules-of-hooks) then combine.
-  const boardMatch = useMatch('/')
-  const cardPanelMatch = useMatch('/cards/:cardId')
-  const onBoardRoute = boardMatch !== null || cardPanelMatch !== null
   // The deep-linked card id, published by the CardPanel route element.
   const [openCardId, setOpenCardId] = useState<string | null>(null)
   const panelOpen = openCardId !== null
@@ -85,15 +76,11 @@ export function AppLayout() {
                 </Group>
               </UnstyledButton>
             </Tooltip>
-            <div className={classes.headerSearch}>{onBoardRoute ? <HeaderSearch /> : null}</div>
-            <Group gap="sm">
-              {/* Right cluster (ITEM A), left→right: New card, the badge-legend
-                  help icon, then the avatar menu (which now carries the single
-                  Settings entry — no separate gear). The centered live-search
-                  (above) and this help icon replace the former "Search cards"
-                  and "What do the badges mean?" text buttons; global/archived
-                  search stays reachable via /search from the header-filter
-                  empty state. */}
+            <Group gap="sm" ml="auto">
+              {/* Right cluster, left→right: New card, the badge-legend help
+                  icon, then the avatar menu (which carries the single Settings
+                  entry — no separate gear). Board filtering lives in the filter
+                  bar below the header now, so the header centre is empty. */}
               <NewCardButton />
               <BoardLegend />
               <Menu position="bottom-end">
@@ -145,9 +132,6 @@ export function AppLayout() {
             <CardPanel cardId={openCardId} />
           </AppShell.Aside>
         ) : null}
-        {/* Advanced search is board-scoped (archived + facet search over every
-            card); mounted only on the board route, opened via `?search=1`. */}
-        {onBoardRoute ? <SearchModal /> : null}
       </AppShell>
     </CardPanelSlotContext.Provider>
   )

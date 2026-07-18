@@ -135,3 +135,28 @@ All scoped to the current user; a user only ever sees and edits their own preset
 
 A `:id` that exists but belongs to another user is a `404` (same as unknown) — the server never
 confirms another user's preset exists.
+
+## Frontend (the filter bar)
+
+The SPA renders the filter as a **filter bar** below the header and above the board
+(`packages/web/src/board/FilterBar.tsx`), replacing the former advanced-search modal and the
+`/search` page (both removed). It holds no server state of its own — it is a controlled view of one
+`BoardFilter` in `BoardPage` state.
+
+- **Controls.** Enumerable, any-of facets (priority, status/lane) are `Chip.Group multiple` split
+  toggles; the single-value facets (`scope`, the `overdue` toggle) are `SegmentedControl`s; the
+  high-cardinality facets (assignee, reporter, tags, location) are `MultiSelect` pill comboboxes; a
+  text `q` input and a "Clear filters" reset complete the bar. Every control carries a tooltip
+  (`FieldLabel`/`Tooltip`), per the repo convention.
+- **Fetching.** `BoardPage` debounces the live filter (`useDebouncedValue`, 300 ms) and drives
+  `useBoard(filter)` (`api/board.ts`): the empty filter takes the hot `GET /board` path, any non-empty
+  filter posts to `POST /board/query`. Each filter is its own TanStack query, keyed
+  `['board', filter]` under the shared `board` prefix, so every board invalidation (SSE, a move)
+  refetches whichever filter is mounted, and `keepPreviousData` keeps the prior board on screen
+  (dimmed, `aria-busy`) during the round-trip. The optimistic drag/move cache targets the exact
+  mounted `['board', filter]` key, so filtering never breaks optimistic moves.
+- **Presets** (`FilterPresets.tsx`). The combobox lists the two core built-ins
+  (`BUILTIN_FILTER_PRESETS` — "My Cards" fills `assigneeIds` with the current user id client-side,
+  "Overdue" sets `overdue:true`) plus the user's custom presets from `GET /filter-presets`. Selecting
+  any preset applies its COMPLETE `BoardFilter` (never a partial overlay). Save/rename/delete wire to
+  the CRUD API with loading states and toasts.

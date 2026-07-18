@@ -17,6 +17,8 @@ export * from '../../core/src/domain/dates.ts'
 /** @public */
 export * from '../../core/src/domain/entities.ts'
 /** @public */
+export * from '../../core/src/domain/filters.ts'
+/** @public */
 export * from '../../core/src/domain/events.ts'
 /** @public */
 export * from '../../core/src/domain/policy.ts'

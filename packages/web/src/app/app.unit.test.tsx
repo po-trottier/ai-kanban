@@ -23,7 +23,7 @@ function authedRoutes(overrides: Record<string, unknown> = {}): FakeFetch {
     'GET /api/v1/users': fixturePickerUsers,
     'GET /api/v1/locations': [],
     'GET /api/v1/tags': [],
-    'GET /api/v1/cards': { items: [], nextCursor: null },
+    'GET /api/v1/filter-presets': [],
     ...overrides,
   })
 }
@@ -86,26 +86,18 @@ describe('app routing', () => {
     expect(await screen.findByRole('menuitem', { name: 'Settings' })).toBeInTheDocument()
   })
 
-  it('redirects the legacy /search route to the board with advanced search open', async () => {
-    // Arrange — /search is no longer a standalone page: search is a modal over
-    // the board. An old bookmark should land on the board with the modal open.
-    const fake = authedRoutes()
-    // Act — land directly on the legacy /search route.
-    renderApp({ fetchFn: fake.fetch, route: '/search' })
-    // Assert — the board (header filter) is shown and the advanced-search modal
-    // is open (its own query field is present).
-    expect(await screen.findByRole('textbox', { name: 'Filter the board' })).toBeInTheDocument()
-    expect(await screen.findByRole('textbox', { name: 'Search cards' })).toBeInTheDocument()
-  })
-
-  it('shows the header board-filter on the board route', async () => {
-    // Arrange
+  it('shows the board filter bar above the board (the /search page + modal are gone)', async () => {
+    // Arrange — search is no longer a separate page or modal; the filter bar
+    // (below the header, above the board) is the one filtering surface.
     const fake = authedRoutes()
     // Act — the default route is the board.
     renderApp({ fetchFn: fake.fetch })
-    // Assert — the always-visible board filter is present on the board.
+    // Assert — the board renders with the filter bar; its region + text-query
+    // control are present, and the removed advanced-search field is not.
     expect(await screen.findByText('Fix pump')).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Filter the board' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Board filters' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Filter cards' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Search cards' })).not.toBeInTheDocument()
   })
 
   it('lets a non-admin open Settings and see only the Preferences tab', async () => {

@@ -1,9 +1,9 @@
 import { type BoardCard, type LaneKey, type PolicyDocument, type Role } from '@rivian-kanban/core'
-import { Anchor, Center, Stack, Text, Title } from '@mantine/core'
+import { Center, Stack, Text, Title } from '@mantine/core'
 import { useCallback, useMemo, useRef } from 'react'
-import { Link } from 'react-router'
 import { type BoardResponse, type PickerUser } from '../api/schemas.ts'
 import { NewCardButton } from '../shell/NewCardButton.tsx'
+import { cx } from '../lib/cx.ts'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
 import { type CardMenuAction } from './CardMenu.tsx'
@@ -14,10 +14,10 @@ import { canMoveToLane, canPerformAction } from './move-options.ts'
 
 export interface BoardProps {
   board: BoardResponse
-  /** Whether the header live-filter is narrowing the board (ITEM 1). */
+  /** Whether the filter bar is narrowing the board (server-filtered result). */
   filtering?: boolean
-  /** The active filter query, carried into advanced search from the no-matches state. */
-  filterQuery?: string
+  /** A filtered fetch is in flight over the retained previous board (dim + busy). */
+  loading?: boolean
   policy: PolicyDocument
   role: Role
   users: PickerUser[]
@@ -30,7 +30,7 @@ export interface BoardProps {
 export function Board({
   board,
   filtering = false,
-  filterQuery = '',
+  loading = false,
   policy,
   role,
   users,
@@ -55,18 +55,16 @@ export function Board({
   // A brand-new team sees a blank grid otherwise; nudge them to the New card
   // button rather than seven "No cards" columns with no call to action.
   const boardEmpty = !filtering && noCards
-  // The header filter matched nothing anywhere: rather than seven "No matching
-  // cards" columns, surface a single message with the ONE place archived and
-  // closed cards live — the advanced-search modal, carrying the current query
-  // (`?search=1`). This is the subtle affordance that keeps global/archived
-  // search reachable now that the permanent "Search cards" header button is
-  // gone (ITEM A); the header field's sliders icon opens the same modal.
+  // The filter matched nothing anywhere: rather than seven "No matching cards"
+  // columns, surface one message pointing at how to widen the filter (scope All
+  // reaches archived + closed cards — the filter is now the ONE search surface).
   const filterNoMatches = filtering && noCards
 
   return (
     <div
       ref={scrollRef}
-      className={classes.board}
+      className={cx(classes.board, loading && classes.boardLoading)}
+      aria-busy={loading}
       // A named landmark: aria-label on a role-less div is prohibited ARIA.
       role="region"
       aria-label={strings.board.boardLabel}
@@ -87,20 +85,11 @@ export function Board({
         <Center className={classes.emptyBoard}>
           <Stack align="center" gap="sm">
             <Title order={2} size="h4" fw={EMPHASIS_FONT_WEIGHT}>
-              {strings.board.filterNoMatchesTitle}
+              {strings.filterBar.noMatchesTitle}
             </Title>
             <Text size="sm" c="dimmed" ta="center" maw="26rem">
-              {strings.board.filterNoMatchesHint}
+              {strings.filterBar.noMatchesHint}
             </Text>
-            <Anchor
-              component={Link}
-              to={
-                filterQuery === '' ? '?search=1' : `?q=${encodeURIComponent(filterQuery)}&search=1`
-              }
-              size="sm"
-            >
-              {strings.search.searchAllArchived}
-            </Anchor>
           </Stack>
         </Center>
       ) : (

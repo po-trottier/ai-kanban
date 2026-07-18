@@ -1,4 +1,10 @@
-import { type BoardCard, type PolicyDocument, type Role } from '@rivian-kanban/core'
+import {
+  EMPTY_BOARD_FILTER,
+  type BoardCard,
+  type BoardFilter,
+  type PolicyDocument,
+  type Role,
+} from '@rivian-kanban/core'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef } from 'react'
 import { useCardAction, useMoveCard, type CardActionArgs, type MoveCardArgs } from '../api/board.ts'
@@ -46,9 +52,13 @@ export type UndoableActionArgs = Extract<
  * closures read the LATEST posture at undo time — a permission revoked after the
  * action still blocks the inverse.
  */
-export function useUndoableBoard(undoPolicy: UndoPolicy, onMoved?: (args: MoveCardArgs) => void) {
+export function useUndoableBoard(
+  undoPolicy: UndoPolicy,
+  onMoved?: (args: MoveCardArgs) => void,
+  filter: BoardFilter = EMPTY_BOARD_FILTER,
+) {
   const queryClient = useQueryClient()
-  const moveCard = useMoveCard(onMoved)
+  const moveCard = useMoveCard(onMoved, filter)
   const cardAction = useCardAction()
 
   // Mirror the live posture so the (earlier-captured) undo closures dereference
@@ -61,24 +71,24 @@ export function useUndoableBoard(undoPolicy: UndoPolicy, onMoved?: (args: MoveCa
   /** The card as it currently sits in the board cache (fresh version), or null. */
   const currentCard = useCallback(
     (cardId: number): BoardCard | null => {
-      const board = queryClient.getQueryData<BoardResponse>(queryKeys.board)
+      const board = queryClient.getQueryData<BoardResponse>(queryKeys.boardQuery(filter))
       return board?.lanes.flatMap((lane) => lane.cards).find((c) => c.id === cardId) ?? null
     },
-    [queryClient],
+    [queryClient, filter],
   )
 
   /** Fires a move of the CURRENT card to `intent`, gated on the move being permitted now. */
   const fireMove = useCallback(
     async (cardId: number, intent: MoveIntent): Promise<void> => {
       const card = currentCard(cardId)
-      const board = queryClient.getQueryData<BoardResponse>(queryKeys.board)
+      const board = queryClient.getQueryData<BoardResponse>(queryKeys.boardQuery(filter))
       const from = board !== undefined && card !== null ? laneKeyOfCard(board, card) : null
       const { policy, role } = policyRef.current
       if (card === null || from === null || policy === undefined) throw new NotPermittedError()
       if (!canMoveToLane(policy, role, from, intent.toLane)) throw new NotPermittedError()
       await moveCard.mutateAsync({ card, intent })
     },
-    [currentCard, moveCard, queryClient],
+    [currentCard, moveCard, queryClient, filter],
   )
 
   /** Fires a card action on the CURRENT card for one undo/redo direction, gated when `gated` is set. */

@@ -20,11 +20,13 @@ const other: MantineThemeOther = {
   laneWidth: '18rem',
   boardColumnMinHeight: '10rem',
   thumbnailHeight: '6rem',
-  /** Header logo height + centred-search cap, consumed by shell.module.css. */
+  /** Header logo height, consumed by shell.module.css. */
   headerLogoHeight: '2rem',
-  headerSearchMaxWidth: '28rem',
   /** Grab width of the card-panel resize handle (shell.module.css). */
   panelResizeHandleWidth: '0.375rem',
+  /** Filter-bar field widths (filter-bar.module.css). */
+  filterQueryWidth: '16rem',
+  filterPillWidth: '11rem',
 }
 
 /** The one emphasis weight (card titles, comment authors, history actors) — matches headings. */
@@ -49,8 +51,6 @@ export const SIZES = {
   cardPanelMinWidth: 450,
   cardPanelMaxWidth: 900,
   cardPanelMinBoardVisible: 140,
-  /** Header search trailing controls (clear + advanced-search icons side by side). */
-  headerSearchActionsWidth: 64,
 } as const
 
 /** The viewport below which the card panel goes full-screen (matches <=62em). */
@@ -80,8 +80,9 @@ export const cssVariablesResolver: CSSVariablesResolver = (resolved) => ({
     '--app-board-column-min-height': String(resolved.other.boardColumnMinHeight),
     '--app-thumbnail-height': String(resolved.other.thumbnailHeight),
     '--app-header-logo-height': String(resolved.other.headerLogoHeight),
-    '--app-header-search-max-width': String(resolved.other.headerSearchMaxWidth),
     '--app-panel-resize-handle-width': String(resolved.other.panelResizeHandleWidth),
+    '--app-filter-query-width': String(resolved.other.filterQueryWidth),
+    '--app-filter-pill-width': String(resolved.other.filterPillWidth),
   },
   light: {},
   dark: {},

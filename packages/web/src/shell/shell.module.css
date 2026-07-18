@@ -4,25 +4,14 @@
   height: 100vh;
 }
 
-/* Header: three sections — brand left, search centred (flex-grow, capped),
-   actions right. The centre grows to fill and centres its capped-width input. */
+/* Header: brand left, actions right (the actions Group carries `ml="auto"`).
+   Board filtering lives in the filter bar below the header now. */
 .header {
   display: flex;
   align-items: center;
   gap: var(--mantine-spacing-md);
   height: 100%;
   padding-inline: var(--mantine-spacing-md);
-}
-
-.headerSearch {
-  flex: 1 1 auto;
-  display: flex;
-  justify-content: center;
-}
-
-.headerSearch > * {
-  width: 100%;
-  max-width: var(--app-header-search-max-width);
 }
 
 /* The brand mark ships WHITE (for dark surfaces). In light mode invert it to

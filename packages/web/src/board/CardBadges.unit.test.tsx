@@ -84,6 +84,6 @@ describe('CardBadges', () => {
     // Act
     await user.hover(screen.getByText('Duplicate'))
     // Assert
-    expect(await screen.findByText(/reopen it from Search/i)).toBeInTheDocument()
+    expect(await screen.findByText(/filter the board to All/i)).toBeInTheDocument()
   })
 })

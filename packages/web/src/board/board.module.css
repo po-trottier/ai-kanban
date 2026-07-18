@@ -43,6 +43,14 @@
   text-align: center;
 }
 
+/* A filter round-trip is in flight over the retained previous board: dim it and
+   block interaction until the narrowed board arrives (keepPreviousData). */
+.boardLoading {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
 .card {
   position: relative;
   cursor: grab;

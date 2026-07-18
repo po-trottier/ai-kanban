@@ -1,0 +1,19 @@
+/* The board filter bar: one wrapping row of controls between the header and the
+   board. Token-only values (ADR-016 rule 1). */
+.bar {
+  padding-block-end: var(--mantine-spacing-sm);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  margin-block-end: var(--mantine-spacing-sm);
+}
+
+/* The free-text query grows to a readable width but never dominates the row. */
+.query {
+  flex: 1 1 var(--app-filter-query-width);
+  min-width: var(--app-filter-query-width);
+}
+
+/* Multi-select pills get a stable minimum so the row reads as aligned fields
+   rather than jumping widths as chips are added. */
+.pill {
+  min-width: var(--app-filter-pill-width);
+}

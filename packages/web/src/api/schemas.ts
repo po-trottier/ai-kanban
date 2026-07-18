@@ -5,6 +5,7 @@ import {
   cardDetailSchemaOf,
   cardEventSchema,
   cardSchema,
+  filterPresetSchema,
   laneSchema,
   locationSchema,
   pageSchemaOf,
@@ -61,9 +62,6 @@ const cardEventResponseSchema = z.intersection(
 export type CardEventResponse = z.infer<typeof cardEventResponseSchema>
 export const cardEventsPageSchema = pageSchemaOf(cardEventResponseSchema)
 
-/** `GET /cards` — the filterable list (`q`, `includeArchived`, …), newest-first. */
-export const cardsPageSchema = pageSchemaOf(cardSchema)
-
 /**
  * Comment reads use core's redacted shape: soft-deleted comments arrive with
  * a blanked body (rest-api.md#comments — deleted content never leaves the
@@ -109,3 +107,7 @@ export const createdServiceTokenSchema = z.object({
   token: serviceTokenViewSchema,
   rawToken: z.string(),
 })
+
+/** `GET /filter-presets` — the caller's saved board filters (core's stored shape). */
+export const filterPresetResponseSchema = filterPresetSchema
+export const filterPresetsResponseSchema = z.array(filterPresetSchema)
