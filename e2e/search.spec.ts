@@ -130,8 +130,8 @@ test('saves the current filter as a preset, then reapplies it (per-user CRUD)', 
   await page.getByRole('button', { name: 'Save preset', exact: true }).click()
   await expect(page.getByText('Preset saved')).toBeVisible()
 
-  // Clearing the filter restores the full board…
-  await page.getByRole('button', { name: 'Clear filters' }).click()
+  // Resetting the filter restores the full board…
+  await page.getByRole('button', { name: 'Reset filters' }).click()
   await expect(boardCard(page, 'Quarterly HVAC filter replacement')).toBeVisible()
 
   // …and reapplying the saved preset sets the complete filter again.

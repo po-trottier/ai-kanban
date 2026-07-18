@@ -97,7 +97,7 @@ describe('FilterPresets', () => {
 
   it('hides the rename/delete affordances once the live filter drifts from the applied preset', async () => {
     // Arrange — the bar's live filter has drifted from the preset (as it does
-    // after an edit or "Clear filters"), so the combobox reflects NO selection
+    // after an edit or "Reset filters"), so the combobox reflects NO selection
     // even after a pick — which is what lets re-picking the same option re-fire
     // onApply (Mantine's Select no-ops on re-selecting the already-current value).
     const preset = customPreset()

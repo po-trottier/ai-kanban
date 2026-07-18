@@ -107,7 +107,7 @@ describe('FilterBar', () => {
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'p' }))
   })
 
-  it('resets every facet to the empty filter with Clear filters', async () => {
+  it('resets every facet to the empty filter with Reset filters', async () => {
     // Arrange — a filter with several facets set.
     const user = userEvent.setup()
     const filter: BoardFilter = {
@@ -118,8 +118,8 @@ describe('FilterBar', () => {
       q: 'pump',
     }
     const { onChange } = renderBar(filter)
-    // Act — Clear filters is an icon button (accessible name from its aria-label).
-    await user.click(screen.getByRole('button', { name: 'Clear filters' }))
+    // Act — Reset filters is a text button (accessible name from its aria-label).
+    await user.click(screen.getByRole('button', { name: 'Reset filters' }))
     // Assert — the empty filter (today's full board).
     expect(onChange).toHaveBeenCalledWith(EMPTY_BOARD_FILTER)
   })

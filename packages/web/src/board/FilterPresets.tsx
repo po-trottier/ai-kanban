@@ -84,7 +84,7 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
 
   const customPresets = presets.data ?? []
   // The combobox reflects the selected preset ONLY while the live filter still
-  // equals its saved filter. Once any facet drifts (an edit, or "Clear filters"
+  // equals its saved filter. Once any facet drifts (an edit, or "Reset filters"
   // resetting the bar), the selection clears — so the combobox never lies, and
   // re-picking the SAME preset changes the Select value and re-fires onApply
   // (Mantine's Select no-ops when re-selecting the already-current value).

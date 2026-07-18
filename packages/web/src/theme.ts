@@ -24,7 +24,9 @@ const other: MantineThemeOther = {
   headerLogoHeight: '2rem',
   /** Grab width of the card-panel resize handle (shell.module.css). */
   panelResizeHandleWidth: '0.375rem',
-  /** Filter-bar field widths (filter-bar.module.css). */
+  /** Filter-bar field widths (filter-bar.module.css). The pill facets use a
+   * FIXED width so selecting/clearing values never resizes the control and the
+   * bar never reflows. */
   filterQueryWidth: '16rem',
   filterPillWidth: '11rem',
   /** Height of the vertical section dividers in the filter bar (matches the

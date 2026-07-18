@@ -149,17 +149,22 @@ The SPA renders the filter as a **filter bar** below the header and above the bo
 `/search` page (both removed). It holds no server state of its own — it is a controlled view of one
 `BoardFilter` in `BoardPage` state.
 
-- **Layout.** The bar is a single centered (`align="center"`) wrapping row grouped into deliberately
-  ordered, `Divider`-separated sections: text search · **attributes** (Status, Priority) · **people**
-  (Assignee, Reporter) · **classification** (Tags, Location) · **scope** (Scope, Overdue) ·
-  right-aligned **presets + Clear**. The section-divider height is a theme token
-  (`filterSectionHeight`), the field widths are `filterQueryWidth`/`filterPillWidth` (ADR-016 rule 1).
+- **Layout.** The bar is a single wrapping row laid out in **three zones**: the text search (left) ·
+  the facet group **centered** in the flexible middle (a `flex:1` wrapper with
+  `justify-content:center`) · right-aligned **presets + Reset**. The centered facet group keeps its
+  deliberately ordered, `Divider`-separated sections: **attributes** (Status, Priority) · **people**
+  (Assignee, Reporter) · **classification** (Tags, Location) · **scope** (Scope, Overdue). The
+  section-divider height is a theme token (`filterSectionHeight`), the field widths are
+  `filterQueryWidth`/`filterPillWidth` (ADR-016 rule 1). Each pill facet uses a **fixed** width (plus a
+  single-row, overflow-clipped `pillsList` via the Styles API) so selecting or clearing values never
+  resizes the control or reflows the bar.
 - **Controls.** Every any-of facet — Status, Priority, and the high-cardinality assignee / reporter /
   tags / location — is a `MultiSelect` pill combobox (selected values render as compact pills,
   keeping the bar dense); the Priority options render each code + plain-language name + P0/P1/P2
   description via `renderOption` (the same `strings.priorityOptions` the card priority Select shows).
   The single-value facets (`scope`, the `overdue` toggle) are `SegmentedControl`s; a text `q` input
-  and an icon "Clear filters" reset complete the bar. The bar is **placeholder-only** — no visible
+  and a text **"Reset filters"** `Button` (subtle, leading `RotateCcw` glyph, at the far right after
+  the presets) complete the bar. The bar is **placeholder-only** — no visible
   field labels — so every control carries a `placeholder` for the visible cue and an `aria-label` for
   its accessible name (convention #104), plus a `Tooltip`, per the repo convention.
 - **Fetching.** `BoardPage` debounces the live filter (`useDebouncedValue`, 300 ms) and drives
@@ -174,7 +179,7 @@ The SPA renders the filter as a **filter bar** below the header and above the bo
   "Overdue" sets `overdue:true`) plus the user's custom presets from `GET /filter-presets`. Selecting
   any preset applies its COMPLETE `BoardFilter` (never a partial overlay). The combobox shows a preset
   as selected ONLY while the live filter still equals its saved filter — once any facet drifts (an
-  edit, or "Clear filters" resetting the bar) the selection clears, so the combobox never lies and
+  edit, or "Reset filters" resetting the bar) the selection clears, so the combobox never lies and
   re-picking the SAME preset re-applies it (Mantine's `Select` no-ops on re-selecting the current
   value). Creating a preset is a trailing **"Create new preset"** entry at the bottom of the same
   dropdown (there is no separate Save icon button): selecting it opens the name dialog and `POST`s the

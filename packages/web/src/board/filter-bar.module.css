@@ -1,5 +1,5 @@
-/* The board filter bar: one wrapping row of controls between the header and the
-   board. Token-only values (ADR-016 rule 1). */
+/* The board filter bar: three zones (search · facets · presets) on one wrapping
+   row between the header and the board. Token-only values (ADR-016 rule 1). */
 .bar {
   padding-block-end: var(--mantine-spacing-sm);
   border-bottom: 1px solid var(--mantine-color-default-border);
@@ -7,16 +7,35 @@
 }
 
 /* The free-text query has a readable fixed width; it does NOT grow, so the
-   right-aligned presets + clear group (ml="auto") reaches the row's edge. */
+   center facet zone owns the flexible middle and the presets sit at the edge. */
 .query {
   flex: 0 0 var(--app-filter-query-width);
   min-width: var(--app-filter-query-width);
 }
 
-/* Multi-select pills get a stable minimum so the row reads as aligned fields
-   rather than jumping widths as chips are added. */
+/* CENTER zone: takes the space between the search box and the presets and
+   centers the facet group within it (justify-content: center), so the facets
+   read as centered rather than left-hugging. Wraps gracefully on narrow widths. */
+.center {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+}
+
+/* Each facet control has a FIXED footprint (width): selecting or clearing values
+   never changes its box, so the bar never jumps/reflows as chips are added. */
 .pill {
-  min-width: var(--app-filter-pill-width);
+  flex: 0 0 var(--app-filter-pill-width);
+  width: var(--app-filter-pill-width);
+}
+
+/* Keep selected pills on a SINGLE row and clip the overflow so many values can't
+   grow the control's height. Combined with the fixed width above, the control's
+   box is constant whether 0 or many values are selected (Mantine Styles API:
+   `pillsList` is the container holding the pills + search input). */
+.pillsList {
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 /* Vertical group separators between facet sections. In a center-aligned wrap

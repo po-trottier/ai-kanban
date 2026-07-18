@@ -379,8 +379,8 @@ export const strings = {
     tagsPlaceholder: 'Tags',
     locationsLabel: 'Location',
     locationsPlaceholder: 'Location',
-    /** Clears every facet back to the empty filter (today's full board). */
-    clearAll: 'Clear filters',
+    /** Resets every facet back to the empty filter (today's full board). */
+    clearAll: 'Reset filters',
     /** Presets combobox: built-ins + the user's saved filters. */
     presetsLabel: 'Preset',
     presetsPlaceholder: 'Choose a preset',

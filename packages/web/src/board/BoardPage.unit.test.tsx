@@ -157,7 +157,7 @@ describe('BoardPage filter bar (server-side filtering)', () => {
     expect(fake.lastBody('POST', '/api/v1/board/query')).toMatchObject({ q: 'faucet' })
   })
 
-  it('returns to the unfiltered board (GET /board) when Clear filters is pressed', async () => {
+  it('returns to the unfiltered board (GET /board) when Reset filters is pressed', async () => {
     // Arrange — the filtered endpoint narrows to one card; clearing must go back
     // to the unfiltered GET /board (both cards), which is the empty-filter path.
     const user = userEvent.setup()
@@ -174,8 +174,8 @@ describe('BoardPage filter bar (server-side filtering)', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Broken window')).not.toBeInTheDocument()
     })
-    // …then Clear filters restores the full unfiltered board.
-    await user.click(screen.getByRole('button', { name: 'Clear filters' }))
+    // …then Reset filters restores the full unfiltered board.
+    await user.click(screen.getByRole('button', { name: 'Reset filters' }))
     // Assert — both cards are back (the empty filter reads GET /board again).
     expect(await screen.findByLabelText('Broken window')).toBeInTheDocument()
     expect(screen.getByLabelText('Leaking faucet')).toBeInTheDocument()

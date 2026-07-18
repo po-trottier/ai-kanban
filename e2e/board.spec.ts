@@ -72,7 +72,7 @@ test('board cards always show estimate, location, tags and attachments (board pa
   await expect(plain.getByText('No estimate')).toBeVisible()
 })
 
-test('the filter bar narrows the board via the text query, and Clear filters restores it', async ({
+test('the filter bar narrows the board via the text query, and Reset filters restores it', async ({
   page,
   context,
 }) => {
@@ -93,8 +93,8 @@ test('the filter bar narrows the board via the text query, and Clear filters res
   // Lanes stay visible even when they no longer hold a match.
   await expect(laneList(page, 'Review')).toBeVisible()
 
-  // Clear filters returns to the full unfiltered board.
-  await page.getByRole('button', { name: 'Clear filters' }).click()
+  // Reset filters returns to the full unfiltered board.
+  await page.getByRole('button', { name: 'Reset filters' }).click()
   await expect(other).toBeVisible()
 })
 

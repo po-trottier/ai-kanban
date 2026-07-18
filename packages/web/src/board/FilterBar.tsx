@@ -10,6 +10,7 @@ import {
 } from '@rivian-kanban/core'
 import {
   ActionIcon,
+  Button,
   Divider,
   Group,
   MultiSelect,
@@ -20,6 +21,7 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core'
+import { RotateCcw } from 'lucide-react'
 import { locationPath } from '../lib/location-tree.ts'
 import { type PickerUser } from '../api/schemas.ts'
 import { CloseIcon, SearchIcon } from '../shell/icons.tsx'
@@ -39,16 +41,18 @@ export interface FilterBarProps {
 
 /**
  * The board filter bar (below the header, above the board): every facet of the
- * shared `BoardFilter` as one centered, section-grouped row. The bar is
- * placeholder-only — no visible field labels — so each control carries an
- * `aria-label` for its accessible name (convention #104). The any-of facets
- * (Status, Priority, assignee, reporter, tags, location) are `MultiSelect` pill
- * comboboxes (compact selected pills); the single-value facets (scope, overdue)
- * are `SegmentedControl`s; plus the text query, the presets combobox, and a
- * Clear reset. Facets are grouped by kind (attributes · people · classification
- * · scope) with vertical `Divider`s between groups. Presentational + controlled:
- * it holds no state, just renders `filter` and calls `onChange` with the next
- * `BoardFilter`.
+ * shared `BoardFilter` on one wrapping row laid out in THREE zones — the search
+ * input (left), the facet group centered in the flexible middle, and the presets
+ * + Reset-filters control (right). The bar is placeholder-only — no visible field
+ * labels — so each control carries an `aria-label` for its accessible name
+ * (convention #104). The any-of facets (Status, Priority, assignee, reporter,
+ * tags, location) are `MultiSelect` pill comboboxes with a FIXED footprint (a
+ * fixed width + single-row pills) so selecting/clearing values never resizes the
+ * control or reflows the bar; the single-value facets (scope, overdue) are
+ * `SegmentedControl`s. Facets are grouped by kind (attributes · people ·
+ * classification · scope) with vertical `Divider`s between groups. Presentational
+ * + controlled: it holds no state, just renders `filter` and calls `onChange`
+ * with the next `BoardFilter`.
  */
 export function FilterBar({
   filter,
@@ -85,9 +89,11 @@ export function FilterBar({
 
   return (
     <div className={classes.bar} role="region" aria-label={strings.filterBar.regionLabel}>
-      {/* align="center" vertically centers every control incl. Clear (ITEM 4);
-          Dividers separate the facet groups (ITEM 1). */}
+      {/* Three zones on one wrapping row: search (left) · facets (centered in the
+          flexible middle) · presets + Reset (right). align="center" vertically
+          centers every zone. */}
       <Group gap="sm" align="center" wrap="wrap">
+        {/* LEFT: the text query. */}
         <Tooltip label={strings.filterBar.tooltips.query} withArrow>
           <TextInput
             className={classes.query}
@@ -118,127 +124,134 @@ export function FilterBar({
           />
         </Tooltip>
 
-        <Divider orientation="vertical" className={classes.divider} />
+        {/* CENTER: the facet group, horizontally centered in the space between
+            the search box and the presets (classes.center is flex:1 +
+            justify-content:center). Wraps gracefully on narrow widths. */}
+        <div className={classes.center}>
+          <Group gap="sm" align="center" wrap="wrap" justify="center">
+            {/* Card attributes: status · priority. */}
+            <PillFacet
+              label={strings.filterBar.laneLabel}
+              placeholder={strings.filterBar.lanePlaceholder}
+              tooltip={strings.filterBar.tooltips.lane}
+              data={LANE_KEYS.map((key) => ({ value: key, label: strings.laneNames[key] }))}
+              value={filter.laneKeys}
+              onChange={(next) => {
+                set('laneKeys', next as LaneKey[])
+              }}
+            />
 
-        {/* Card attributes: status · priority. */}
-        <PillFacet
-          label={strings.filterBar.laneLabel}
-          placeholder={strings.filterBar.lanePlaceholder}
-          tooltip={strings.filterBar.tooltips.lane}
-          data={LANE_KEYS.map((key) => ({ value: key, label: strings.laneNames[key] }))}
-          value={filter.laneKeys}
-          onChange={(next) => {
-            set('laneKeys', next as LaneKey[])
-          }}
-        />
+            <PillFacet
+              label={strings.filterBar.priorityLabel}
+              placeholder={strings.filterBar.priorityPlaceholder}
+              tooltip={strings.filterBar.tooltips.priority}
+              data={PRIORITIES.map((p) => ({ value: p, label: strings.priorities[p] }))}
+              value={filter.priorities}
+              onChange={(next) => {
+                set('priorities', next as Priority[])
+              }}
+              renderOption={renderPriorityOption}
+            />
 
-        <PillFacet
-          label={strings.filterBar.priorityLabel}
-          placeholder={strings.filterBar.priorityPlaceholder}
-          tooltip={strings.filterBar.tooltips.priority}
-          data={PRIORITIES.map((p) => ({ value: p, label: strings.priorities[p] }))}
-          value={filter.priorities}
-          onChange={(next) => {
-            set('priorities', next as Priority[])
-          }}
-          renderOption={renderPriorityOption}
-        />
+            <Divider orientation="vertical" className={classes.divider} />
 
-        <Divider orientation="vertical" className={classes.divider} />
+            {/* People: assignee · reporter. */}
+            <PillFacet
+              label={strings.filterBar.assigneeLabel}
+              placeholder={strings.filterBar.assigneePlaceholder}
+              tooltip={strings.filterBar.tooltips.assignee}
+              data={userOptions}
+              value={filter.assigneeIds}
+              onChange={(next) => {
+                set('assigneeIds', next)
+              }}
+            />
 
-        {/* People: assignee · reporter. */}
-        <PillFacet
-          label={strings.filterBar.assigneeLabel}
-          placeholder={strings.filterBar.assigneePlaceholder}
-          tooltip={strings.filterBar.tooltips.assignee}
-          data={userOptions}
-          value={filter.assigneeIds}
-          onChange={(next) => {
-            set('assigneeIds', next)
-          }}
-        />
+            <PillFacet
+              label={strings.filterBar.reporterLabel}
+              placeholder={strings.filterBar.reporterPlaceholder}
+              tooltip={strings.filterBar.tooltips.reporter}
+              data={userOptions}
+              value={filter.reporterIds}
+              onChange={(next) => {
+                set('reporterIds', next)
+              }}
+            />
 
-        <PillFacet
-          label={strings.filterBar.reporterLabel}
-          placeholder={strings.filterBar.reporterPlaceholder}
-          tooltip={strings.filterBar.tooltips.reporter}
-          data={userOptions}
-          value={filter.reporterIds}
-          onChange={(next) => {
-            set('reporterIds', next)
-          }}
-        />
+            <Divider orientation="vertical" className={classes.divider} />
 
-        <Divider orientation="vertical" className={classes.divider} />
+            {/* Classification: tags · location. */}
+            <PillFacet
+              label={strings.filterBar.tagsLabel}
+              placeholder={strings.filterBar.tagsPlaceholder}
+              tooltip={strings.filterBar.tooltips.tags}
+              data={tagOptions}
+              value={filter.tags}
+              onChange={(next) => {
+                set('tags', next)
+              }}
+            />
 
-        {/* Classification: tags · location. */}
-        <PillFacet
-          label={strings.filterBar.tagsLabel}
-          placeholder={strings.filterBar.tagsPlaceholder}
-          tooltip={strings.filterBar.tooltips.tags}
-          data={tagOptions}
-          value={filter.tags}
-          onChange={(next) => {
-            set('tags', next)
-          }}
-        />
+            <PillFacet
+              label={strings.filterBar.locationsLabel}
+              placeholder={strings.filterBar.locationsPlaceholder}
+              tooltip={strings.filterBar.tooltips.locations}
+              data={locationOptions}
+              value={filter.locationIds}
+              onChange={(next) => {
+                set('locationIds', next)
+              }}
+            />
 
-        <PillFacet
-          label={strings.filterBar.locationsLabel}
-          placeholder={strings.filterBar.locationsPlaceholder}
-          tooltip={strings.filterBar.tooltips.locations}
-          data={locationOptions}
-          value={filter.locationIds}
-          onChange={(next) => {
-            set('locationIds', next)
-          }}
-        />
+            <Divider orientation="vertical" className={classes.divider} />
 
-        <Divider orientation="vertical" className={classes.divider} />
+            {/* Scope + overdue toggles. */}
+            <SegmentedFacet
+              groupLabel={strings.filterBar.scopeGroupLabel}
+              tooltip={strings.filterBar.tooltips.scope}
+              value={filter.scope}
+              data={[
+                { value: 'active', label: strings.filterBar.scopeActive },
+                { value: 'archived', label: strings.filterBar.scopeArchived },
+                { value: 'all', label: strings.filterBar.scopeAll },
+              ]}
+              onChange={(next) => {
+                set('scope', next as FilterScope)
+              }}
+            />
 
-        {/* Scope + overdue toggles. */}
-        <SegmentedFacet
-          groupLabel={strings.filterBar.scopeGroupLabel}
-          tooltip={strings.filterBar.tooltips.scope}
-          value={filter.scope}
-          data={[
-            { value: 'active', label: strings.filterBar.scopeActive },
-            { value: 'archived', label: strings.filterBar.scopeArchived },
-            { value: 'all', label: strings.filterBar.scopeAll },
-          ]}
-          onChange={(next) => {
-            set('scope', next as FilterScope)
-          }}
-        />
+            <SegmentedFacet
+              groupLabel={strings.filterBar.overdueLabel}
+              tooltip={strings.filterBar.tooltips.overdue}
+              value={filter.overdue ? 'overdue' : 'any'}
+              data={[
+                { value: 'any', label: strings.filterBar.overdueAny },
+                { value: 'overdue', label: strings.filterBar.overdueOnly },
+              ]}
+              onChange={(next) => {
+                set('overdue', next === 'overdue')
+              }}
+            />
+          </Group>
+        </div>
 
-        <SegmentedFacet
-          groupLabel={strings.filterBar.overdueLabel}
-          tooltip={strings.filterBar.tooltips.overdue}
-          value={filter.overdue ? 'overdue' : 'any'}
-          data={[
-            { value: 'any', label: strings.filterBar.overdueAny },
-            { value: 'overdue', label: strings.filterBar.overdueOnly },
-          ]}
-          onChange={(next) => {
-            set('overdue', next === 'overdue')
-          }}
-        />
-
-        {/* Right-aligned: presets + clear (ITEM 1). */}
-        <Group gap="sm" align="center" wrap="nowrap" ml="auto">
+        {/* RIGHT: presets + the Reset-filters control. */}
+        <Group gap="sm" align="center" wrap="nowrap">
           <FilterPresets filter={filter} onApply={onChange} currentUserId={currentUserId} />
 
           <Tooltip label={strings.filterBar.tooltips.clearAll} withArrow>
-            <ActionIcon
+            <Button
               variant="subtle"
               color="gray"
+              size="sm"
+              leftSection={<RotateCcw size={16} aria-hidden />}
               aria-label={strings.filterBar.clearAll}
               onClick={() => {
                 onChange(EMPTY_BOARD_FILTER)
               }}
             >
-              <CloseIcon size={16} />
-            </ActionIcon>
+              {strings.filterBar.clearAll}
+            </Button>
           </Tooltip>
         </Group>
       </Group>
@@ -297,6 +310,10 @@ function PillFacet({
     <Tooltip label={tooltip} withArrow>
       <MultiSelect
         className={classes.pill}
+        // Fixed footprint: `pillsList` (the pills + input container) is pinned to
+        // one row with clipped overflow so selected values never grow the control
+        // beyond its fixed width/height — the bar can't reflow as chips are added.
+        classNames={{ pillsList: classes.pillsList }}
         aria-label={label}
         placeholder={value.length === 0 ? placeholder : undefined}
         data={data}

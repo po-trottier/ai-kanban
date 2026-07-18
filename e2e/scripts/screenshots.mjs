@@ -110,7 +110,7 @@ try {
   await page.getByRole('textbox', { name: 'Filter cards' }).fill('HVAC')
   await page.getByText('Quarterly HVAC filter replacement').first().waitFor()
   await shot(page, '02b-board-filtered')
-  await page.getByRole('button', { name: 'Clear filters' }).click()
+  await page.getByRole('button', { name: 'Reset filters' }).click()
 
   await page.getByText(CARD_FOR_DETAILS).first().click()
   await page.waitForURL(/\/cards\//)
@@ -159,7 +159,7 @@ try {
   await page.getByRole('radio', { name: 'Archived', exact: true }).click()
   await page.getByText('Annual fire extinguisher inspection').waitFor()
   await shot(page, '10-filter-archived')
-  await page.getByRole('button', { name: 'Clear filters' }).click()
+  await page.getByRole('button', { name: 'Reset filters' }).click()
 
   await page.goto(`${BASE}/settings`)
   await page.getByRole('tab', { name: 'Users' }).click()
