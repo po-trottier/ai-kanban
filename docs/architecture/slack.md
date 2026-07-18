@@ -19,7 +19,7 @@ work in threads, and out-of-thread quick creation is the web UI's job).
 
 1. `ack()` within 3 s, immediately `views.open` a loading modal (the `trigger_id` is short-lived).
 2. Fetch the thread: `conversations.replies(channel, thread_ts ?? ts)`.
-3. If `SUMMARIZER_ENABLED`: SummarizerPort → the **configured LLM provider** with
+3. If `SUMMARIZER_ENABLED`: SummarizerPort → the **configured OpenAI-compatible endpoint** with
    schema-constrained structured output → `{ title, description, suggestedPriority, tags[] }`.
    If disabled or on failure: prefill the raw thread text. Either way the human reviews.
 4. `views.update` the modal with the prefilled, editable draft (title, description, priority,
@@ -84,14 +84,16 @@ DM (logged, not fatal). SMTP becomes a second adapter later.
 
 ## Summarization & data handling
 
-The summarizer is **provider-agnostic by requirement** (product-owner direction, 2026-07-16):
-the SummarizerPort adapter must make the concrete LLM a pure configuration choice — Anthropic,
-OpenAI, Google Gemini, NVIDIA (build.nvidia.com), or any OpenAI-compatible endpoint — via
-`SUMMARIZER_PROVIDER`, `SUMMARIZER_MODEL`, `SUMMARIZER_API_KEY`, and `SUMMARIZER_BASE_URL`
-(for compatible/self-hosted endpoints). The default remains `anthropic` /
-`claude-haiku-4-5` (the PO-approved cost/quality pick), but swapping models must never touch
-code outside the adapter and its config. The concrete abstraction library vs hand-rolled
-multi-adapter decision is recorded in its own ADR at implementation time.
+The summarizer is **provider-agnostic by requirement** (product-owner direction, 2026-07-16;
+2026-07-18 revision): the SummarizerPort adapter is one official `openai` client aimed at any
+**OpenAI-compatible endpoint** — OpenAI, NVIDIA NIM (build.nvidia.com), a LiteLLM proxy, vLLM,
+OpenRouter, … — selected purely by `SUMMARIZER_BASE_URL` (with `SUMMARIZER_MODEL` and
+`SUMMARIZER_API_KEY`). The provider IS the base URL; swapping it must never touch code outside the
+adapter and its config. Structured output uses the SDK's Structured Outputs (`response_format`
+json_schema). This trades native per-provider schema mechanisms for one uniform surface: providers
+whose OpenAI-compatible endpoint ignores `response_format` (e.g. Anthropic's own compat endpoint)
+get no schema enforcement — route those through a LiteLLM proxy or use a provider that honors it
+(OpenAI, NVIDIA NIM). The full decision and tradeoff is recorded in ADR-017.
 
 Thread content is sent to the configured provider **only** when `SUMMARIZER_ENABLED=true`. The
 invoking user already sees the full content in the review modal, so no information reaches the

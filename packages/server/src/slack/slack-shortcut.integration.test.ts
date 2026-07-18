@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { anthropicMessagesResponse } from '../../test/fixtures/llm-responses.ts'
+import { openAiChatCompletionResponse } from '../../test/fixtures/llm-responses.ts'
 import { messageActionPayload } from '../../test/fixtures/slack-payloads.ts'
 import { startSummarizerFixture, type LlmFixture } from '../test/llm.ts'
 import { createSlackHarness, type SlackHarness } from '../test/slack.ts'
@@ -98,7 +98,7 @@ describe('message shortcut → editable draft modal', () => {
   })
 
   it('prefills the modal with the summarizer draft when enabled', async () => {
-    const summarizer = await summarizerAgainst(() => anthropicMessagesResponse(SUMMARY_DOCUMENT))
+    const summarizer = await summarizerAgainst(() => openAiChatCompletionResponse(SUMMARY_DOCUMENT))
     harness = await createSlackHarness({ summarizer })
     const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
@@ -115,7 +115,9 @@ describe('message shortcut → editable draft modal', () => {
   })
 
   it('falls back to the raw thread text when the summarizer returns garbage', async () => {
-    const summarizer = await summarizerAgainst(() => anthropicMessagesResponse({ wrong: 'shape' }))
+    const summarizer = await summarizerAgainst(() =>
+      openAiChatCompletionResponse({ wrong: 'shape' }),
+    )
     harness = await createSlackHarness({ summarizer })
     const { user } = await harness.testApp.createUser('user')
     harness.fixture.setUserEmail('U0REPORTER', user.email)
@@ -131,7 +133,7 @@ describe('message shortcut → editable draft modal', () => {
 
   it('falls back to the raw thread text when the summarizer times out', async () => {
     const summarizer = await summarizerAgainst(
-      () => anthropicMessagesResponse(SUMMARY_DOCUMENT),
+      () => openAiChatCompletionResponse(SUMMARY_DOCUMENT),
       5_000,
     )
     harness = await createSlackHarness({ summarizer })
@@ -147,7 +149,7 @@ describe('message shortcut → editable draft modal', () => {
   })
 
   it('skips the summarizer (raw prefill) once the budget is exhausted', async () => {
-    const summarizer = await summarizerAgainst(() => anthropicMessagesResponse(SUMMARY_DOCUMENT))
+    const summarizer = await summarizerAgainst(() => openAiChatCompletionResponse(SUMMARY_DOCUMENT))
     harness = await createSlackHarness({
       summarizer,
       limits: { summariesPerUserPerMinute: 0 },

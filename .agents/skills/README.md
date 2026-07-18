@@ -14,8 +14,6 @@ npx skills list
 Recommended for this repo — add when the work calls for it; keep the set lean (knip-style, no
 speculative installs):
 
-- **`vercel/ai`** — Vercel AI SDK patterns, for the Slack-thread summarizer (ADR-017):
-  `npx skills add vercel/ai`
 - **`mantinedev/skills` → `mantine-custom-components`** — building Mantine 9 UI:
   `npx skills add https://github.com/mantinedev/skills --skill mantine-custom-components`
 

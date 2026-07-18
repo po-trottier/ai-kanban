@@ -37,9 +37,9 @@ changing behavior**, starting with `docs/architecture/overview.md` and the ADRs.
 
 ## Use each library's own AI resources — don't guess APIs
 
-Mantine 9, TanStack Query 5, Zod 4, Drizzle, and the Vercel AI SDK all postdate common model training
-cutoffs, so recalling their APIs from memory drifts. Fetch their `llms(-full).txt`, or use their
-skills / MCP servers, for exact APIs. The per-library table is in
+Mantine 9, TanStack Query 5, Zod 4, Drizzle, and the `openai` SDK all postdate common model training
+cutoffs, so recalling their APIs from memory drifts. Fetch their `llms(-full).txt` / docs, or use
+their skills / MCP servers, for exact APIs. The per-library table is in
 `docs/dev/getting-started.md` → "AI-assisted development".
 
 ## Tooling wired up in this repo

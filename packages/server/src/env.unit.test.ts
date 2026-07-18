@@ -116,7 +116,7 @@ describe('parseEnv', () => {
     expect(act).toThrow(/SUMMARIZER_API_KEY is required/)
   })
 
-  it('defaults the summarizer to anthropic/claude-haiku-4-5 (ADR-017)', () => {
+  it('defaults the summarizer model and leaves the base URL unset (ADR-017)', () => {
     // Arrange
     const source = { SUMMARIZER_ENABLED: 'true', SUMMARIZER_API_KEY: 'sk-test' }
 
@@ -124,26 +124,22 @@ describe('parseEnv', () => {
     const env = parseEnv(source)
 
     // Assert
-    expect(env.SUMMARIZER_PROVIDER).toBe('anthropic')
-    expect(env.SUMMARIZER_MODEL).toBe('claude-haiku-4-5')
+    expect(env.SUMMARIZER_MODEL).toBe('gpt-5-mini')
     expect(env.SUMMARIZER_BASE_URL).toBeUndefined()
   })
 
-  it('requires SUMMARIZER_BASE_URL for the openai-compatible provider', () => {
+  it('accepts an OpenAI-compatible base URL override', () => {
     // Arrange
     const source = {
       SUMMARIZER_ENABLED: 'true',
       SUMMARIZER_API_KEY: 'sk-test',
-      SUMMARIZER_PROVIDER: 'openai-compatible',
+      SUMMARIZER_BASE_URL: 'https://integrate.api.nvidia.com/v1',
     }
 
     // Act
-    const act = () => parseEnv(source)
+    const env = parseEnv(source)
 
     // Assert
-    expect(act).toThrow(/SUMMARIZER_BASE_URL is required/)
-    expect(() =>
-      parseEnv({ ...source, SUMMARIZER_BASE_URL: 'https://integrate.api.nvidia.com/v1' }),
-    ).not.toThrow()
+    expect(env.SUMMARIZER_BASE_URL).toBe('https://integrate.api.nvidia.com/v1')
   })
 })

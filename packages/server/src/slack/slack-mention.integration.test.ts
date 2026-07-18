@@ -1,6 +1,6 @@
 import { type Card } from '@rivian-kanban/core'
 import { afterEach, describe, expect, it } from 'vitest'
-import { anthropicMessagesResponse } from '../../test/fixtures/llm-responses.ts'
+import { openAiChatCompletionResponse } from '../../test/fixtures/llm-responses.ts'
 import { appMentionEnvelope } from '../../test/fixtures/slack-payloads.ts'
 import { startSummarizerFixture, type LlmFixture } from '../test/llm.ts'
 import { createSlackHarness, type SlackHarness } from '../test/slack.ts'
@@ -170,7 +170,7 @@ describe('app_mention → card creation', () => {
     // The spec invariant (slack.md#-mention-grammar): no review step exists
     // here, so no AI output may exist — a live summarizer must stay idle.
     const fixture = await startSummarizerFixture(() =>
-      anthropicMessagesResponse({
+      openAiChatCompletionResponse({
         title: 'AI title that must never be used',
         description: 'AI description that must never be used',
         suggestedPriority: 'P0',

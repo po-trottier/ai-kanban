@@ -6,9 +6,9 @@ import { pino } from 'pino'
 import { createAiSummarizer } from '../adapters/summarizer/ai-summarizer.ts'
 
 /**
- * Local fixture HTTP server standing in for an LLM provider
+ * Local fixture HTTP server standing in for an OpenAI-compatible LLM endpoint
  * (docs/dev/testing.md: external HTTP is faked only as real local servers;
- * our code — the AI SDK included — runs unmodified against it via
+ * our code — the `openai` client included — runs unmodified against it via
  * SUMMARIZER_BASE_URL).
  */
 
@@ -39,8 +39,8 @@ export interface SummarizerFixture {
 }
 
 /**
- * A real AiSummarizer wired to a fresh LLM fixture server (Anthropic wire
- * shape, short timeout) — shared by the Slack surface tests so both can
+ * A real AiSummarizer wired to a fresh LLM fixture server (OpenAI-compatible
+ * wire shape, short timeout) — shared by the Slack surface tests so both can
  * assert whether the summarizer was (or was not) invoked.
  */
 export async function startSummarizerFixture(
@@ -50,8 +50,7 @@ export async function startSummarizerFixture(
   const llm = await startLlmFixture({ respond, ...(delayMs !== undefined ? { delayMs } : {}) })
   const summarizer = createAiSummarizer(
     {
-      provider: 'anthropic',
-      model: 'claude-haiku-4-5',
+      model: 'fixture-model',
       apiKey: 'fixture-api-key',
       baseUrl: llm.url,
       timeoutMs: 500,

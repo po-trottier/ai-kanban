@@ -51,14 +51,14 @@ const envSchema = z
     SLACK_APP_TOKEN: z.string().min(1).optional(),
     SLACK_TEAM_ID: z.string().min(1).optional(),
     SUMMARIZER_ENABLED: z.stringbool().default(false),
-    /** Provider-agnostic summarizer (ADR-017): the LLM is pure configuration. */
-    SUMMARIZER_PROVIDER: z
-      .enum(['anthropic', 'openai', 'google', 'openai-compatible'])
-      .default('anthropic'),
-    SUMMARIZER_MODEL: z.string().min(1).default('claude-haiku-4-5'),
-    /** Always passed explicitly to the provider factory — never ambient env vars. */
+    /**
+     * Provider-agnostic summarizer (ADR-017): one `openai` client over any
+     * OpenAI-compatible endpoint. The provider IS the base URL.
+     */
+    SUMMARIZER_MODEL: z.string().min(1).default('gpt-5-mini'),
+    /** Always passed explicitly to the OpenAI client — never ambient env vars. */
     SUMMARIZER_API_KEY: z.string().min(1).optional(),
-    /** Optional endpoint override; required for openai-compatible (e.g. build.nvidia.com). */
+    /** OpenAI-compatible endpoint; defaults to OpenAI's own (e.g. https://integrate.api.nvidia.com/v1). */
     SUMMARIZER_BASE_URL: z.url().optional(),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
     /** Build-time stamps surfaced by GET /version; 'dev' outside the image. */
@@ -93,26 +93,13 @@ const envSchema = z
         input: env,
       })
     }
-    if (env.SUMMARIZER_ENABLED) {
-      if (env.SUMMARIZER_API_KEY === undefined) {
-        ctx.issues.push({
-          code: 'custom',
-          message: 'SUMMARIZER_API_KEY is required when SUMMARIZER_ENABLED=true',
-          path: ['SUMMARIZER_API_KEY'],
-          input: env,
-        })
-      }
-      if (
-        env.SUMMARIZER_PROVIDER === 'openai-compatible' &&
-        env.SUMMARIZER_BASE_URL === undefined
-      ) {
-        ctx.issues.push({
-          code: 'custom',
-          message: 'SUMMARIZER_BASE_URL is required when SUMMARIZER_PROVIDER=openai-compatible',
-          path: ['SUMMARIZER_BASE_URL'],
-          input: env,
-        })
-      }
+    if (env.SUMMARIZER_ENABLED && env.SUMMARIZER_API_KEY === undefined) {
+      ctx.issues.push({
+        code: 'custom',
+        message: 'SUMMARIZER_API_KEY is required when SUMMARIZER_ENABLED=true',
+        path: ['SUMMARIZER_API_KEY'],
+        input: env,
+      })
     }
   })
 
