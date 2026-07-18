@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ZodError } from 'zod'
 import { ConflictError, IllegalTransitionError, PolicyDeniedError } from '../domain/errors.ts'
-import { DEFAULT_POLICY_DOCUMENT } from '../domain/policy.ts'
+import { DEFAULT_POLICY_DOCUMENT, type PolicyDocument } from '../domain/policy.ts'
 import { createScenario, policyDenyingUser } from '../testing/index.ts'
 
 const ENFORCED = { ...DEFAULT_POLICY_DOCUMENT, transitionEnforcement: true }
@@ -503,5 +503,38 @@ describe('CardService.claimOverdueWaitingAlerts', () => {
       scenario.users.admin.id,
     ])
     expect(second).toEqual([])
+  })
+
+  it('resolves supervisors by the manageUsers grant, not a hardcoded admin role', async () => {
+    // Arrange — a policy where the 'admin' role no longer grants manageUsers
+    // (permission absence = denied): role alone must not qualify a user as a
+    // supervisor recipient (ADR-013).
+    const noAdminManageUsers: PolicyDocument = {
+      ...DEFAULT_POLICY_DOCUMENT,
+      roles: DEFAULT_POLICY_DOCUMENT.roles.map((role) =>
+        role.key === 'admin'
+          ? {
+              ...role,
+              permissions: Object.fromEntries(
+                Object.entries(role.permissions).filter(([key]) => key !== 'manageUsers'),
+              ),
+            }
+          : role,
+      ),
+    }
+    const scenario = createScenario({ policy: noAdminManageUsers })
+    scenario.seedCard({
+      laneId: scenario.lanes.waiting_parts_vendor.id,
+      waitingReason: 'parts',
+      expectedResumeAt: '2026-07-15',
+      assigneeId: scenario.users.technician.id,
+    })
+
+    // Act
+    const alerts = await scenario.cards.claimOverdueWaitingAlerts()
+
+    // Assert — no role grants manageUsers, so the two role-'admin' fixture users
+    // are NOT resolved; only the assignee is alerted (string check would fail).
+    expect(alerts.at(0)?.recipients.map((user) => user.id)).toEqual([scenario.users.technician.id])
   })
 })

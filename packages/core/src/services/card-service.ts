@@ -665,8 +665,16 @@ export class CardService {
       )
       if (overdue.length === 0) return []
 
+      // Recipients are the admin-equivalent users: roles that grant manageUsers
+      // (the ADR-013 definition of "admin"), not a hardcoded 'admin' key — a
+      // UI-created custom admin role is alerted too.
+      const policy = await activePolicy(tx, this.deps.boardId)
+      const adminRoleKeys = new Set(
+        policy.roles.filter((role) => role.permissions.manageUsers).map((role) => role.key),
+      )
       const supervisors = (await tx.userAccounts.list()).filter(
-        (user) => user.role === 'admin' && user.isActive && user.id !== this.deps.systemUserId,
+        (user) =>
+          adminRoleKeys.has(user.role) && user.isActive && user.id !== this.deps.systemUserId,
       )
       const alerts: { card: Card; recipients: User[] }[] = []
       for (const card of overdue) {

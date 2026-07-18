@@ -2,6 +2,8 @@ import { ActionIcon, AppShell, Avatar, Group, Menu, Title, UnstyledButton } from
 import { useState } from 'react'
 import { Link, Outlet, useMatch, useNavigate } from 'react-router'
 import { useLogout } from '../api/auth.ts'
+import { usePolicy } from '../api/meta.ts'
+import { canManageAnything } from '../auth/permissions.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
 import { SearchModal } from '../board/SearchModal.tsx'
 import { CardPanel } from '../card/CardPanel.tsx'
@@ -29,6 +31,7 @@ import classes from './shell.module.css'
  */
 export function AppLayout() {
   const me = useCurrentUser()
+  const policy = usePolicy()
   const navigate = useNavigate()
   const logout = useLogout()
   // The header filter only drives the board; it does nothing on /search or
@@ -84,14 +87,15 @@ export function AppLayout() {
             <div className={classes.headerSearch}>{onBoardRoute ? <HeaderSearch /> : null}</div>
             <Group gap="sm">
               {/* Right cluster (ITEM A), left→right: New card, the badge-legend
-                  help icon, the admin-only settings gear, then the avatar menu.
-                  The centered live-search (above) and this help icon replace the
-                  former "Search cards" and "What do the badges mean?" text
-                  buttons; global/archived search stays reachable via /search
-                  from the header-filter empty state. */}
+                  help icon, the settings gear (any manage* grant — ADR-013, not
+                  a hardcoded 'admin' role), then the avatar menu. The centered
+                  live-search (above) and this help icon replace the former
+                  "Search cards" and "What do the badges mean?" text buttons;
+                  global/archived search stays reachable via /search from the
+                  header-filter empty state. */}
               <NewCardButton />
               <BoardLegend />
-              {me.role === 'admin' ? (
+              {canManageAnything(policy.data, me.role) ? (
                 <ActionIcon
                   component={Link}
                   to="/settings"

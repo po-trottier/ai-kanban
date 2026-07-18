@@ -48,6 +48,9 @@ export async function createAdminUser(
   const normalizedEmail = email.toLowerCase()
 
   const users = await uow.run((tx) => tx.userAccounts.list())
+  // Break-glass targets the seeded 'admin' role by contract (it always creates
+  // one below): the role-key literal is intentional here, not a stale RBAC
+  // check — this recovery path must not depend on the customizable policy doc.
   const activeAdmin = users.find(
     (user) => user.role === 'admin' && user.isActive && user.id !== systemUserId,
   )

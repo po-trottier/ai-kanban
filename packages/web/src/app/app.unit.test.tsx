@@ -1,3 +1,4 @@
+import { type PolicyDocument, type User } from '@rivian-kanban/core'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
@@ -111,6 +112,28 @@ describe('app routing', () => {
     // Assert
     expect(await screen.findByText('Only admins can open settings.')).toBeInTheDocument()
     expect(screen.queryByLabelText('Settings')).not.toBeInTheDocument()
+  })
+
+  it('shows the settings gear to a custom role with any manage* grant (ADR-013)', async () => {
+    // Arrange — a role keyed 'auditor' (not 'admin') granting one manage
+    // permission; the gear gates on the permission, not the literal role key.
+    const auditor: User = { ...fixtureAdmin, role: 'auditor' }
+    const policy: PolicyDocument = {
+      ...permissivePolicy,
+      roles: [
+        ...permissivePolicy.roles,
+        { key: 'auditor', name: 'Auditor', permissions: { manageLocations: true } },
+      ],
+    }
+    const fake = authedRoutes({
+      'GET /api/v1/auth/me': auditor,
+      'GET /api/v1/policy': policyRecordOf(policy),
+    })
+    // Act
+    renderApp({ fetchFn: fake.fetch })
+    // Assert — board renders and the custom-admin sees the gear.
+    expect(await screen.findByText('Fix pump')).toBeInTheDocument()
+    expect(screen.getByLabelText('Settings')).toBeInTheDocument()
   })
 
   it('interposes the change-password page while must_change_password is set', async () => {

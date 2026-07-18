@@ -1,3 +1,4 @@
+import { DEFAULT_POLICY_DOCUMENT, type PolicyDocument } from '@rivian-kanban/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestApp, type TestApp } from './test/support.ts'
 
@@ -54,6 +55,38 @@ describe('GET /users', () => {
       .json<Record<string, unknown>[]>()
       .find((row) => row.id === admin.user.id)
     expect(sameRowForRequester).not.toHaveProperty('email')
+  })
+
+  it('includes emails for any role granting manageUsers, not just "admin" (ADR-013)', async () => {
+    // A dedicated app: this PUTs a custom policy the shared app's tests must not
+    // see. Proves the email gate is the manageUsers PERMISSION, not a role key.
+    const solo = await createTestApp()
+    try {
+      const admin = await solo.asRole('admin')
+      // A custom role keyed 'auditor' (not 'admin') granting only manageUsers.
+      const withAuditor: PolicyDocument = {
+        ...DEFAULT_POLICY_DOCUMENT,
+        roles: [
+          ...DEFAULT_POLICY_DOCUMENT.roles,
+          { key: 'auditor', name: 'Auditor', permissions: { manageUsers: true } },
+        ],
+      }
+      const applied = await solo.request(admin.cookie, {
+        method: 'PUT',
+        url: '/api/v1/policy',
+        payload: withAuditor,
+      })
+      expect(applied.statusCode).toBe(200)
+
+      const auditor = await solo.asRole('auditor')
+      const view = await solo.request(auditor.cookie, { method: 'GET', url: '/api/v1/users' })
+      const adminRow = view
+        .json<Record<string, unknown>[]>()
+        .find((row) => row.id === admin.user.id)
+      expect(adminRow?.email).toBe(admin.user.email)
+    } finally {
+      await solo.cleanup()
+    }
   })
 })
 

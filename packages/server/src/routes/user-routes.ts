@@ -1,5 +1,6 @@
 import {
   createUserInputSchema,
+  evaluatePolicy,
   updateUserInputSchema,
   userWithTempPasswordSchemaOf,
   type Actor,
@@ -32,10 +33,13 @@ export function userRoutes(deps: AppDeps) {
       { schema: { response: { 200: z.array(pickerUserSchema) } } },
       async (request) => {
         const users = await deps.services.users.listActive()
-        // Emails ride along for admins only (the users admin table); every
-        // other role keeps the email-free picker (slack/messages.ts relies on
-        // the roster never becoming an email oracle for non-admins).
-        if (actorOf(request).role === 'admin') return users
+        // Emails ride along only for actors who can manage users (the admin
+        // users table); every other role keeps the email-free picker so the
+        // roster never becomes an email oracle (slack/messages.ts relies on
+        // this). Gate on the manageUsers PERMISSION, not a hardcoded role key,
+        // so a UI-created custom admin role (ADR-013) sees emails too.
+        const policy = (await deps.services.policies.getActive()).config
+        if (evaluatePolicy(actorOf(request), { type: 'manageUsers' }, policy).allowed) return users
         return users.map(({ id, displayName, role }) => ({ id, displayName, role }))
       },
     )
