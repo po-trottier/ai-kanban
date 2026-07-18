@@ -1,12 +1,14 @@
 import { createCardInputSchema, type CreateCardInput, type Location } from '@rivian-kanban/core'
 import { Button, Group, Modal, Stack } from '@mantine/core'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { type z } from 'zod'
 import { type PickerUser } from '../api/schemas.ts'
 import { cardFieldsControl } from '../card/card-fields.ts'
 import { CardFieldInputs } from '../card/CardFieldInputs.tsx'
 import { strings } from '../strings.ts'
+import { NewCardAttachments } from './NewCardAttachments.tsx'
 
 type NewCardValues = z.input<typeof createCardInputSchema>
 
@@ -15,7 +17,8 @@ export interface NewCardModalProps {
   locations: Location[]
   knownTags: string[]
   submitting: boolean
-  onSubmit: (input: CreateCardInput) => void
+  /** Files are uploaded to the card after it's created (it has no id until then). */
+  onSubmit: (input: CreateCardInput, files: File[]) => void
   onClose: () => void
 }
 
@@ -32,13 +35,16 @@ export function NewCardModal({
     resolver: standardSchemaResolver(createCardInputSchema),
     defaultValues: { title: '', description: '', priority: 'P2', tags: [] },
   })
+  const [files, setFiles] = useState<File[]>([])
 
   return (
     <Modal opened onClose={onClose} title={strings.newCard.modalTitle} size="lg" centered>
       <form
         noValidate
         onSubmit={(event) => {
-          void form.handleSubmit(onSubmit)(event)
+          void form.handleSubmit((input) => {
+            onSubmit(input, files)
+          })(event)
         }}
       >
         <Stack gap="md">
@@ -54,6 +60,15 @@ export function NewCardModal({
             knownTags={knownTags}
             // The create command omits cleared optionals (core schema `.optional()`).
             cleared={undefined}
+          />
+          <NewCardAttachments
+            files={files}
+            onAdd={(file) => {
+              setFiles((current) => [...current, file])
+            }}
+            onRemove={(index) => {
+              setFiles((current) => current.filter((_, position) => position !== index))
+            }}
           />
           <Group justify="flex-end" gap="sm">
             <Button variant="default" onClick={onClose}>

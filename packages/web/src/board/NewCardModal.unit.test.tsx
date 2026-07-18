@@ -87,4 +87,31 @@ describe('NewCardModal', () => {
       },
     ])
   })
+
+  it('collects an attachment and passes it to onSubmit for post-create upload', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const submitted: File[][] = []
+    renderWithProviders(
+      <NewCardModal
+        users={fixturePickerUsers}
+        locations={[]}
+        knownTags={[]}
+        submitting={false}
+        onSubmit={(_input, files) => {
+          submitted.push(files)
+        }}
+        onClose={noop}
+      />,
+    )
+    // Act — title + pick a file (which lists in the pending section), then create
+    await user.type(screen.getByRole('textbox', { name: /Title/ }), 'Leaky faucet')
+    const file = new File(['png-bytes'], 'leak.png', { type: 'image/png' })
+    await user.upload(screen.getByLabelText<HTMLInputElement>('Browse files'), file)
+    expect(screen.getByText('leak.png')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+    // Assert — the picked file rides along to the caller (uploaded after create)
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]?.map((entry) => entry.name)).toEqual(['leak.png'])
+  })
 })

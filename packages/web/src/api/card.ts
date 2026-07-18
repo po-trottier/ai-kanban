@@ -151,6 +151,23 @@ export function useUploadAttachment(cardId: string) {
   })
 }
 
+/**
+ * Upload to a card whose id is only known at call time — the create form
+ * gathers files before the card exists, then uploads each to the freshly
+ * created card. Errors reject (no bound `onError`) so the caller can report a
+ * bad file without aborting the rest.
+ */
+export function useUploadNewCardAttachment() {
+  const api = useApi()
+  return useMutation({
+    mutationFn: ({ cardId, file }: { cardId: string; file: File }) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      return api.post(`/cards/${cardId}/attachments`, attachmentUploadResponseSchema, { formData })
+    },
+  })
+}
+
 export function useDeleteAttachment(cardId: string) {
   const api = useApi()
   const queryClient = useQueryClient()
