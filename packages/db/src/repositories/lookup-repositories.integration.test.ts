@@ -259,19 +259,23 @@ describe('SqliteTagRepository', () => {
 describe('SqlitePolicyRepository', () => {
   it('getActive returns the newest version for the board (append-only history)', async () => {
     const adminId = insertUser(db.connection, { role: 'admin' }).id
+    // Anchor to the wall clock: the structural seed writes its policy at
+    // `new Date()`, so both versions must be strictly newer than "now" to be
+    // the active one — hardcoded dates rot the moment real time passes them.
+    const asOf = Date.now()
     const older: BoardPolicy = {
       id: newId(),
       boardId: base.boardId,
       config: { ...DEFAULT_POLICY_DOCUMENT, transitionEnforcement: true },
       createdBy: adminId,
-      createdAt: '2026-07-17T00:00:00.000Z',
+      createdAt: new Date(asOf + 1000).toISOString(),
     }
     const newer: BoardPolicy = {
       id: newId(),
       boardId: base.boardId,
       config: { ...DEFAULT_POLICY_DOCUMENT, transitionEnforcement: false },
       createdBy: adminId,
-      createdAt: '2026-07-18T00:00:00.000Z',
+      createdAt: new Date(asOf + 2000).toISOString(),
     }
     await run((tx) => tx.policies.insert(older))
     await run((tx) => tx.policies.insert(newer))
@@ -317,7 +321,8 @@ describe('SqlitePolicyRepository', () => {
         boardId,
         config: { transitionEnforcement: 'yes-please' },
         createdBy: base.systemUserId,
-        createdAt: '2027-01-01T00:00:00.000Z',
+        // Newest version wins, so make it strictly after the seed's `new Date()`.
+        createdAt: new Date(Date.now() + 3_600_000).toISOString(),
       })
       .run()
 
