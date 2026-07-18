@@ -276,4 +276,81 @@ describe('SqliteEventRepository', () => {
 
     expect(messageChain(error)).toContain('FOREIGN KEY constraint failed')
   })
+
+  describe('listBoardSince', () => {
+    let otherCard: Card
+
+    beforeAll(async () => {
+      // A SECOND card proves the query spans the whole board, not one card.
+      otherCard = makeCard({
+        boardId: base.boardId,
+        laneId: base.lanes.ready.id,
+        reporterId: authorId,
+        position: 'e-other',
+      })
+      await run(async (tx) => {
+        await tx.cards.insert(otherCard)
+        await tx.events.append({
+          id: newId(),
+          cardId: otherCard.id,
+          actorId: null,
+          actorKind: 'mcp',
+          eventType: 'card.created',
+          payload: {
+            snapshot: {
+              ...otherCard,
+              tags: [],
+            },
+          },
+          createdAt: '2026-07-16T17:00:00.000Z',
+        })
+      })
+    })
+
+    it('returns events across all cards since a timestamp, newest-first on (createdAt, id)', async () => {
+      const since = await run((tx) => tx.events.listBoardSince('2026-07-16T14:30:00.000Z'))
+
+      // 17:00 (otherCard) newest, then 16:00, then the two shared 15:00
+      // siblings (id DESC). The 14:00 archived event is before `since`.
+      expect(since.map((e) => e.createdAt)).toEqual([
+        '2026-07-16T17:00:00.000Z',
+        '2026-07-16T16:00:00.000Z',
+        shared,
+        shared,
+      ])
+      expect(since.at(0)?.cardId).toBe(otherCard.id)
+      expect(since.slice(2).map((e) => e.id)).toEqual([idHigh, idLow])
+    })
+
+    it('after-cursor returns rows strictly older (keyset), siblings not skipped', async () => {
+      const afterHigh = await run((tx) =>
+        tx.events.listBoardSince('2026-07-16T14:30:00.000Z', {
+          after: { createdAt: shared, id: idHigh },
+        }),
+      )
+
+      // Only the lower-id 15:00 sibling remains after (shared, idHigh).
+      expect(afterHigh.map((e) => e.id)).toEqual([idLow])
+    })
+
+    it('filters by type, cardId, and actorKind; empty type list matches nothing', async () => {
+      const created = await run((tx) =>
+        tx.events.listBoardSince('2026-07-16T00:00:00.000Z', { types: ['card.created'] }),
+      )
+      const forEventCard = await run((tx) =>
+        tx.events.listBoardSince('2026-07-16T00:00:00.000Z', { cardId: eventCard.id }),
+      )
+      const mcpOnly = await run((tx) =>
+        tx.events.listBoardSince('2026-07-16T00:00:00.000Z', { actorKind: 'mcp' }),
+      )
+      const none = await run((tx) =>
+        tx.events.listBoardSince('2026-07-16T00:00:00.000Z', { types: [] }),
+      )
+
+      expect(created.map((e) => e.cardId)).toEqual([otherCard.id])
+      expect(forEventCard.every((e) => e.cardId === eventCard.id)).toBe(true)
+      expect(mcpOnly.map((e) => e.actorKind)).toEqual(['mcp'])
+      expect(none).toEqual([])
+    })
+  })
 })

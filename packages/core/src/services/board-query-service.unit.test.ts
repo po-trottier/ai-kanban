@@ -360,6 +360,82 @@ describe('BoardQueryService.cardHistory', () => {
   })
 })
 
+describe('BoardQueryService.eventsSince', () => {
+  it('returns board-wide events newest-first across all cards, cursor-paginated', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const cardA = scenario.seedCard({ laneId: scenario.lanes.ready.id })
+    const cardB = scenario.seedCard({ laneId: scenario.lanes.ready.id })
+    await scenario.cards.block(scenario.actors.technician, cardA.id, {
+      reason: 'first',
+      expectedVersion: 1,
+    })
+    scenario.clock.advanceDays(1)
+    await scenario.cards.block(scenario.actors.technician, cardB.id, {
+      reason: 'second',
+      expectedVersion: 1,
+    })
+
+    // Act — the fixed clock is now day+1; the 24h default window still spans both.
+    const pageOne = await scenario.queries.eventsSince({ limit: 1 })
+    const pageTwo = await scenario.queries.eventsSince({
+      limit: 1,
+      cursor: pageOne.nextCursor ?? '',
+    })
+
+    // Assert — newest (cardB) first, then cardA; no dupes across the keyset page.
+    expect(pageOne.items.map((event) => event.cardId)).toEqual([cardB.id])
+    expect(pageTwo.items.map((event) => event.cardId)).toEqual([cardA.id])
+    expect(pageTwo.nextCursor).toBeNull()
+  })
+
+  it('defaults `since` to 24h before now via the clock, excluding older events', async () => {
+    // Arrange: an event at the fixed clock, then advance two days.
+    const scenario = createScenario()
+    const card = scenario.seedCard({ laneId: scenario.lanes.ready.id })
+    await scenario.cards.block(scenario.actors.technician, card.id, {
+      reason: 'aged out',
+      expectedVersion: 1,
+    })
+    scenario.clock.advanceDays(2)
+
+    // Act — no sinceIso: the service derives (now − 24h) from the injected clock.
+    const defaulted = await scenario.queries.eventsSince()
+    const explicit = await scenario.queries.eventsSince({
+      sinceIso: '2026-07-01T00:00:00.000Z',
+    })
+
+    // Assert — the two-day-old event is outside the default window but inside
+    // the explicit one.
+    expect(defaulted.items).toHaveLength(0)
+    expect(explicit.items.map((event) => event.cardId)).toEqual([card.id])
+  })
+
+  it('filters by event type and actorKind', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const card = scenario.seedCard({ laneId: scenario.lanes.ready.id })
+    await scenario.cards.update(scenario.actors.technician, card.id, {
+      title: 'Renamed',
+      expectedVersion: 1,
+    })
+    await scenario.cards.block(scenario.actors.technician, card.id, {
+      reason: 'parts',
+      expectedVersion: 2,
+    })
+
+    // Act
+    const byType = await scenario.queries.eventsSince({ type: 'card.blocked' })
+    const byUserKind = await scenario.queries.eventsSince({ actorKind: 'user' })
+    const byMcpKind = await scenario.queries.eventsSince({ actorKind: 'mcp' })
+
+    // Assert
+    expect(byType.items.map((event) => event.eventType)).toEqual(['card.blocked'])
+    expect(byUserKind.items.length).toBeGreaterThanOrEqual(2)
+    expect(byMcpKind.items).toHaveLength(0)
+  })
+})
+
 describe('BoardQueryService.cardDetailWithThread', () => {
   it('returns only the trailing take events, in chronological order', async () => {
     // Arrange

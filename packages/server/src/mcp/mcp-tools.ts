@@ -1,9 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { type CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import {
+  activityFeedRequestSchema,
   addCommentInputSchema,
+  archiveCardInputSchema,
   attachmentSchema,
+  blockCardInputSchema,
   boardCardSchema,
+  cancelCardInputSchema,
   cardDetailSchemaOf,
   cardEventSchema,
   cardHistoryRequestSchema,
@@ -21,9 +25,12 @@ import {
   PolicyDeniedError,
   READ_SCOPE_RULE,
   redactedCommentSchema,
+  reopenCardInputSchema,
+  serviceTokenSchema,
   STALE_REASONS,
   staleCardsInputSchema,
   tagSchema,
+  unblockCardInputSchema,
   updateCardInputSchema,
   type Actor,
   type BoardCard,
@@ -74,6 +81,19 @@ const createCardToolSchema = createCardInputSchema.extend({
 const updateCardToolSchema = updateCardInputSchema.extend(cardIdShape)
 const moveCardToolSchema = moveCardInputSchema.extend(cardIdShape)
 const commentToolSchema = addCommentInputSchema.extend(cardIdShape)
+
+/** Terminal-action tool inputs: the core command schemas + the addressing `cardId`. */
+const cancelCardToolSchema = cancelCardInputSchema.extend(cardIdShape)
+const reopenCardToolSchema = reopenCardInputSchema.extend(cardIdShape)
+const archiveCardToolSchema = archiveCardInputSchema.extend(cardIdShape)
+const blockCardToolSchema = blockCardInputSchema.extend(cardIdShape)
+const unblockCardToolSchema = unblockCardInputSchema.extend(cardIdShape)
+
+/** The board-wide activity feed shares the same enriched-event page as history. */
+const activityOutputSchema = cardHistoryOutputSchema
+
+/** whoami exposes the calling token's metadata — the hash is structurally omitted. */
+const whoamiOutputSchema = z.object(serviceTokenSchema.omit({ tokenHash: true }).shape)
 
 /** How many trailing audit events get_card returns (its "latest events" panel). */
 const LATEST_EVENTS_TAKE = 20
@@ -339,6 +359,72 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       jsonResult({ items: await queries.staleCards(args) }),
   )
 
+  readTool(
+    'list_activity',
+    {
+      description:
+        'The board-wide activity feed: card events across ALL cards since a timestamp, ' +
+        'newest-first, cursor-paginated. Filters (all optional): sinceIso (ISO datetime; ' +
+        'defaults to 24 hours ago), type (event type), cardId, actorKind (user/mcp/slack/' +
+        'system). mcp events carry actorLabel (token name) + onBehalfOfUserId (its creator).',
+      inputSchema: activityFeedRequestSchema,
+      outputSchema: activityOutputSchema,
+    },
+    async (args: z.output<typeof activityFeedRequestSchema>) =>
+      jsonResult(await queries.eventsSince(args)),
+  )
+
+  readTool(
+    'list_lanes',
+    {
+      description:
+        "The board's lanes in board order (id, key, label, position, wipLimit) — the workflow " +
+        'columns cards move between.',
+      outputSchema: z.strictObject({ lanes: z.array(laneSchema) }),
+    },
+    async () => jsonResult({ lanes: await queries.listLanes() }),
+  )
+
+  readTool(
+    'list_blocked_cards',
+    {
+      description:
+        'Every currently-blocked card (a thin blocked=true slice of list_cards), newest-first, ' +
+        'cursor-paginated.',
+      inputSchema: pageRequestSchema,
+      outputSchema: pageSchemaOf(cardSchema),
+    },
+    async (args: z.output<typeof pageRequestSchema>) => {
+      const { cursor, limit } = args
+      return jsonResult(
+        await queries.listCards(
+          { blocked: true },
+          { limit, ...(cursor !== undefined ? { cursor } : {}) },
+        ),
+      )
+    },
+  )
+
+  readTool(
+    'whoami',
+    {
+      description:
+        "This service token's own identity: id, name, role, scope, createdAt, lastUsedAt. Any " +
+        'token may inspect itself; the token hash is never returned.',
+      outputSchema: whoamiOutputSchema,
+    },
+    async () => {
+      // The mcp actor carries its token id; tokens are few and admin-managed,
+      // so the existing list() read resolves it without a new port method.
+      const tokens = await deps.uow.read((tx) => tx.serviceTokens.list())
+      const own = tokens.find((candidate) => candidate.id === actor.id)
+      if (own === undefined) throw new NotFoundError('service token')
+      // The stripping output schema drops tokenHash structurally (like the REST
+      // service-token responses) — the hash can never leave the server.
+      return jsonResult(whoamiOutputSchema.parse(own))
+    },
+  )
+
   writeTool(
     'create_card',
     {
@@ -402,6 +488,81 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
     async (args) => {
       const { cardId, ...input } = args
       return jsonResult(await comments.add(actor, cardId, input, { authorId: deps.systemUserId }))
+    },
+  )
+
+  writeTool(
+    'cancel_card',
+    {
+      description:
+        'Cancel a non-terminal card: moves it to the bottom of done with the given cancel ' +
+        'resolution (no requester notification). Requires expectedVersion and a read_write token.',
+      inputSchema: cancelCardToolSchema,
+      outputSchema: cardSchema,
+    },
+    async (args) => {
+      const { cardId, ...input } = args
+      return jsonResult(await cards.cancel(actor, cardId, input))
+    },
+  )
+
+  writeTool(
+    'reopen_card',
+    {
+      description:
+        'Reopen a card in done (including cancelled/archived): clears the resolution and ' +
+        'archived flag and places it at the bottom of ready. Requires expectedVersion and a ' +
+        'read_write token.',
+      inputSchema: reopenCardToolSchema,
+      outputSchema: cardSchema,
+    },
+    async (args) => {
+      const { cardId, ...input } = args
+      return jsonResult(await cards.reopen(actor, cardId, input))
+    },
+  )
+
+  writeTool(
+    'archive_card',
+    {
+      description:
+        'Manually archive a Done card (completed or cancelled): sets archivedAt so it leaves ' +
+        'the board. Reopen reverses it. Requires expectedVersion and a read_write token.',
+      inputSchema: archiveCardToolSchema,
+      outputSchema: cardSchema,
+    },
+    async (args) => {
+      const { cardId, ...input } = args
+      return jsonResult(await cards.archive(actor, cardId, input))
+    },
+  )
+
+  writeTool(
+    'block_card',
+    {
+      description:
+        'Raise the blocked flag on a card (any lane; the card stays put) with a reason. ' +
+        'Requires expectedVersion and a read_write token.',
+      inputSchema: blockCardToolSchema,
+      outputSchema: cardSchema,
+    },
+    async (args) => {
+      const { cardId, ...input } = args
+      return jsonResult(await cards.block(actor, cardId, input))
+    },
+  )
+
+  writeTool(
+    'unblock_card',
+    {
+      description:
+        'Clear the blocked flag on a card. Requires expectedVersion and a read_write token.',
+      inputSchema: unblockCardToolSchema,
+      outputSchema: cardSchema,
+    },
+    async (args) => {
+      const { cardId, ...input } = args
+      return jsonResult(await cards.unblock(actor, cardId, input))
     },
   )
 

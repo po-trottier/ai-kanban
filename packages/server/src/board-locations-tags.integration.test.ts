@@ -1,4 +1,5 @@
 import { LANE_KEYS } from '@rivian-kanban/core'
+import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestApp, type TestApp } from './test/support.ts'
 
@@ -435,5 +436,108 @@ describe('GET /tags', () => {
     const names = response.json<{ name: string }[]>().map((tag) => tag.name)
     expect(names).toContain('Zamboni')
     expect(names).toContain('abseiling')
+  })
+})
+
+describe('GET /lanes', () => {
+  it('returns the 7 board lanes in position order (any authenticated user)', async () => {
+    const { cookie } = await t.asRole('user')
+
+    const response = await t.request(cookie, { method: 'GET', url: '/api/v1/lanes' })
+
+    expect(response.statusCode).toBe(200)
+    const lanes = response.json<{ key: string; label: string; position: number }[]>()
+    expect(lanes.map((lane) => lane.key)).toEqual([...LANE_KEYS])
+    const positions = lanes.map((lane) => lane.position)
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions)
+  })
+})
+
+describe('GET /events (board-wide activity feed)', () => {
+  it('returns board-wide events since a timestamp, newest-first, filterable by type', async () => {
+    const { cookie } = await t.asRole('user')
+    const before = new Date().toISOString()
+    const created = await t.request(cookie, {
+      method: 'POST',
+      url: '/api/v1/cards',
+      payload: { title: 'Activity feed card' },
+    })
+    const cardId = created.json<{ id: string }>().id
+
+    const feed = await t.request(cookie, {
+      method: 'GET',
+      url: `/api/v1/events?since=${encodeURIComponent(before)}`,
+    })
+    const createdOnly = await t.request(cookie, {
+      method: 'GET',
+      url: `/api/v1/events?since=${encodeURIComponent(before)}&type=card.created&cardId=${cardId}`,
+    })
+
+    expect(feed.statusCode).toBe(200)
+    const items = feed.json<{ items: { eventType: string; createdAt: string; cardId: string }[] }>()
+      .items
+    expect(items.some((event) => event.cardId === cardId)).toBe(true)
+    // Newest-first: the timestamps already come sorted descending.
+    const timestamps = items.map((event) => event.createdAt)
+    expect(timestamps).toEqual([...timestamps].sort((a, b) => (a < b ? 1 : -1)))
+    const filtered = createdOnly.json<{ items: { eventType: string; cardId: string }[] }>().items
+    expect(filtered.map((event) => event.eventType)).toEqual(['card.created'])
+    expect(filtered[0]?.cardId).toBe(cardId)
+  })
+
+  it('defaults `since` to 24 hours ago, excluding older events', async () => {
+    const { cookie } = await t.asRole('user')
+    // A card whose creation event we backdate two days — outside the default window.
+    const created = await t.request(cookie, {
+      method: 'POST',
+      url: '/api/v1/cards',
+      payload: { title: 'Ancient history card' },
+    })
+    const cardId = created.json<{ id: string }>().id
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+    // Backdate this card's events directly — the audit trail is append-only, so
+    // the port has no update method; a raw write is the honest test arrange.
+    t.wired.connection.db.run(
+      sql`UPDATE card_events SET created_at = ${twoDaysAgo} WHERE card_id = ${cardId}`,
+    )
+
+    const defaulted = await t.request(cookie, { method: 'GET', url: '/api/v1/events' })
+
+    const ids = defaulted.json<{ items: { cardId: string }[] }>().items.map((e) => e.cardId)
+    expect(ids).not.toContain(cardId)
+  })
+
+  it('honors actorKind, limit, and the cursor across pages', async () => {
+    const { cookie } = await t.asRole('user')
+    const before = new Date().toISOString()
+    // Two user-actor events (card creations) guarantee a second keyset page.
+    await t.request(cookie, { method: 'POST', url: '/api/v1/cards', payload: { title: 'Feed A' } })
+    await t.request(cookie, { method: 'POST', url: '/api/v1/cards', payload: { title: 'Feed B' } })
+
+    const page = (query: string) =>
+      t.request(cookie, {
+        method: 'GET',
+        url: `/api/v1/events?since=${encodeURIComponent(before)}&actorKind=user&${query}`,
+      })
+    const first = await page('limit=1')
+    const firstBody = first.json<{ items: { actorKind: string }[]; nextCursor: string | null }>()
+    const second = await page(`limit=1&cursor=${encodeURIComponent(firstBody.nextCursor ?? '')}`)
+
+    expect(firstBody.items).toHaveLength(1)
+    expect(firstBody.items.every((event) => event.actorKind === 'user')).toBe(true)
+    expect(firstBody.nextCursor).not.toBeNull()
+    expect(second.json<{ items: unknown[] }>().items).toHaveLength(1)
+  })
+
+  it('400s an invalid `since` (not an ISO datetime)', async () => {
+    const { cookie } = await t.asRole('user')
+
+    const response = await t.request(cookie, {
+      method: 'GET',
+      url: '/api/v1/events?since=not-a-date',
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json<{ type: string }>().type).toBe('urn:rivian-kanban:problem:validation')
   })
 })

@@ -1,4 +1,4 @@
-import { type Priority, type WaitingReason } from '../domain/constants.ts'
+import { type ActorKind, type Priority, type WaitingReason } from '../domain/constants.ts'
 import { type CursorKey } from '../domain/cursor.ts'
 import {
   type Attachment,
@@ -285,6 +285,25 @@ export interface EventRepository {
     cardId: string,
     limit: number,
     types?: readonly CardEventType[],
+  ): Promise<CardEvent[]>
+  /**
+   * Board-wide activity feed, newest-first: `ORDER BY createdAt DESC, id DESC`
+   * across ALL cards, only events with `createdAt >= sinceIso`. When `after` is
+   * set, returns only rows strictly older than the cursor tuple, i.e.
+   * `(createdAt, id) < (after.createdAt, after.id)` under that ordering —
+   * mirroring `CardRepository.query` exactly (tie-break direction AND strict
+   * inequality), which `BoardQueryService.eventsSince` pagination depends on.
+   * Optional filters: event type, a single card id, and actor kind.
+   */
+  listBoardSince(
+    sinceIso: string,
+    options?: {
+      types?: readonly CardEventType[]
+      cardId?: string
+      actorKind?: ActorKind
+      after?: CursorKey
+      limit?: number
+    },
   ): Promise<CardEvent[]>
 }
 

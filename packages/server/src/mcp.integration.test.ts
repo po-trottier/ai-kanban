@@ -25,10 +25,19 @@ const MCP_TOOL_NAMES = [
   'get_card',
   'get_card_history',
   'list_stale_cards',
+  'list_activity',
+  'list_lanes',
+  'list_blocked_cards',
+  'whoami',
   'create_card',
   'update_card',
   'move_card',
   'comment_on_card',
+  'cancel_card',
+  'reopen_card',
+  'archive_card',
+  'block_card',
+  'unblock_card',
 ] as const
 
 let t: TestApp
@@ -166,7 +175,7 @@ describe('handshake and discovery', () => {
     expect(client.getServerVersion()).toMatchObject({ name: 'rivian-kanban' })
   })
 
-  it('lists exactly the 9 documented tools with descriptions', async () => {
+  it('lists exactly the documented tools with descriptions', async () => {
     const client = await connect(reader.raw)
 
     const { tools } = await client.listTools()
@@ -460,15 +469,180 @@ describe('mutating tools', () => {
   })
 })
 
+describe('terminal-action tools', () => {
+  it('cancel_card moves the card into done with the resolution', async () => {
+    const client = await connect(writer.raw)
+    const card = await callOk<Card>(client, 'create_card', { title: 'Cancel via MCP' })
+
+    const cancelled = await callOk<Card>(client, 'cancel_card', {
+      cardId: card.id,
+      resolution: 'duplicate',
+      expectedVersion: 1,
+    })
+
+    expect(cancelled.resolution).toBe('duplicate')
+    expect(cancelled.version).toBe(2)
+  })
+
+  it('reopen_card returns a done card to ready, clearing the resolution', async () => {
+    const client = await connect(writer.raw)
+    const card = await callOk<Card>(client, 'create_card', { title: 'Reopen via MCP' })
+    const cancelled = await callOk<Card>(client, 'cancel_card', {
+      cardId: card.id,
+      resolution: 'declined',
+      expectedVersion: 1,
+    })
+
+    const reopened = await callOk<Card>(client, 'reopen_card', {
+      cardId: card.id,
+      expectedVersion: cancelled.version,
+    })
+
+    expect(reopened.resolution).toBeNull()
+  })
+
+  it('archive_card sets archivedAt on a done card', async () => {
+    const client = await connect(writer.raw)
+    const card = await callOk<Card>(client, 'create_card', { title: 'Archive via MCP' })
+    const cancelled = await callOk<Card>(client, 'cancel_card', {
+      cardId: card.id,
+      resolution: 'cancelled',
+      expectedVersion: 1,
+    })
+
+    const archived = await callOk<Card & { archivedAt: string | null }>(client, 'archive_card', {
+      cardId: card.id,
+      expectedVersion: cancelled.version,
+    })
+
+    expect(archived.archivedAt).not.toBeNull()
+  })
+
+  it('block_card and unblock_card toggle the blocked flag with a reason', async () => {
+    const client = await connect(writer.raw)
+    const card = await callOk<Card>(client, 'create_card', { title: 'Block via MCP' })
+
+    const blocked = await callOk<Card>(client, 'block_card', {
+      cardId: card.id,
+      reason: 'awaiting sign-off',
+      expectedVersion: 1,
+    })
+    expect(blocked.blocked).toBe(true)
+    expect(blocked.blockedReason).toBe('awaiting sign-off')
+
+    const unblocked = await callOk<Card>(client, 'unblock_card', {
+      cardId: card.id,
+      expectedVersion: blocked.version,
+    })
+    expect(unblocked.blocked).toBe(false)
+  })
+})
+
+describe('board-wide read tools', () => {
+  it('list_lanes returns the 7 board lanes in position order', async () => {
+    const client = await connect(reader.raw)
+
+    const { lanes } = await callOk<{ lanes: { key: string; position: number }[] }>(
+      client,
+      'list_lanes',
+    )
+
+    expect(lanes).toHaveLength(7)
+    expect(lanes[0]?.key).toBe('intake')
+    const positions = lanes.map((lane) => lane.position)
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions)
+  })
+
+  it('list_activity returns recent board-wide events newest-first, filterable by type', async () => {
+    const client = await connect(writer.raw)
+    // A fresh mutation guarantees at least one very-recent event in the feed.
+    const card = await callOk<Card>(client, 'create_card', { title: 'Activity feed subject' })
+
+    const feed = await callOk<{ items: CardEvent[]; nextCursor: string | null }>(
+      client,
+      'list_activity',
+      { limit: 5 },
+    )
+    const created = await callOk<{ items: CardEvent[] }>(client, 'list_activity', {
+      type: 'card.created',
+      cardId: card.id,
+    })
+
+    expect(feed.items.length).toBeGreaterThan(0)
+    // Newest-first: the timestamps already come sorted descending.
+    const timestamps = feed.items.map((event) => event.createdAt)
+    expect(timestamps).toEqual([...timestamps].sort((a, b) => (a < b ? 1 : -1)))
+    expect(created.items.map((event) => event.eventType)).toEqual(['card.created'])
+    expect(created.items[0]?.cardId).toBe(card.id)
+  })
+
+  it('list_activity filters by actorKind and enriches mcp events', async () => {
+    const client = await connect(writer.raw)
+    await callOk<Card>(client, 'create_card', { title: 'MCP actor-kind subject' })
+
+    const mcpOnly = await callOk<{
+      items: (CardEvent & { actorKind: string; actorLabel?: string })[]
+    }>(client, 'list_activity', { actorKind: 'mcp', limit: 50 })
+
+    expect(mcpOnly.items.length).toBeGreaterThan(0)
+    expect(mcpOnly.items.every((event) => event.actorKind === 'mcp')).toBe(true)
+    expect(mcpOnly.items.every((event) => event.actorLabel === 'writer agent')).toBe(true)
+  })
+
+  it('list_blocked_cards returns only currently-blocked cards, cursor-paginated', async () => {
+    const writeClient = await connect(writer.raw)
+    // Two fresh blocked cards guarantee a second page at limit 1.
+    for (const title of ['Blocked feed A', 'Blocked feed B']) {
+      const card = await callOk<Card>(writeClient, 'create_card', { title })
+      await callOk<Card>(writeClient, 'block_card', {
+        cardId: card.id,
+        reason: 'feed test',
+        expectedVersion: 1,
+      })
+    }
+    const client = await connect(reader.raw)
+
+    const firstPage = await callOk<{ items: Card[]; nextCursor: string | null }>(
+      client,
+      'list_blocked_cards',
+      { limit: 1 },
+    )
+    const secondPage = await callOk<{ items: Card[] }>(client, 'list_blocked_cards', {
+      limit: 1,
+      cursor: firstPage.nextCursor ?? '',
+    })
+
+    expect(firstPage.items).toHaveLength(1)
+    expect(firstPage.items.every((card) => card.blocked)).toBe(true)
+    expect(secondPage.items[0]?.id).not.toBe(firstPage.items[0]?.id)
+    expect(secondPage.items.every((card) => card.blocked)).toBe(true)
+  })
+
+  it('whoami returns the calling token identity without the hash', async () => {
+    const client = await connect(reader.raw)
+
+    const me = await callOk<Record<string, unknown>>(client, 'whoami')
+
+    expect(me.id).toBe(reader.id)
+    expect(me.name).toBe('reporting agent')
+    expect(me.scope).toBe('read')
+    expect(me.role).toBe('user')
+    expect(me).not.toHaveProperty('tokenHash')
+  })
+})
+
 describe('read-scope identity rule', () => {
+  const ZERO_UUID = '00000000-0000-7000-8000-000000000000'
   it.each([
     ['create_card', { title: 'denied' }],
-    ['update_card', { cardId: '00000000-0000-7000-8000-000000000000', expectedVersion: 1 }],
-    [
-      'move_card',
-      { cardId: '00000000-0000-7000-8000-000000000000', toLane: 'ready', expectedVersion: 1 },
-    ],
-    ['comment_on_card', { cardId: '00000000-0000-7000-8000-000000000000', body: 'denied' }],
+    ['update_card', { cardId: ZERO_UUID, expectedVersion: 1 }],
+    ['move_card', { cardId: ZERO_UUID, toLane: 'ready', expectedVersion: 1 }],
+    ['comment_on_card', { cardId: ZERO_UUID, body: 'denied' }],
+    ['cancel_card', { cardId: ZERO_UUID, resolution: 'duplicate', expectedVersion: 1 }],
+    ['reopen_card', { cardId: ZERO_UUID, expectedVersion: 1 }],
+    ['archive_card', { cardId: ZERO_UUID, expectedVersion: 1 }],
+    ['block_card', { cardId: ZERO_UUID, reason: 'denied', expectedVersion: 1 }],
+    ['unblock_card', { cardId: ZERO_UUID, expectedVersion: 1 }],
   ] as const)('denies %s for a read-scope token, naming the rule', async (name, args) => {
     const client = await connect(reader.raw)
 

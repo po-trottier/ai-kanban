@@ -29,9 +29,10 @@ Missing/invalid tokens get `401` + `WWW-Authenticate: Bearer`. Rate-limited **pe
 (agents often share egress IPs).
 
 The stored `actor_id` stays the token id (audit integrity), but read paths that return events —
-`get_card_history` and the REST `GET /cards/:id/events` — enrich each `mcp` event at read time
-with two derived, optional fields: `actorLabel` (the token name) and `onBehalfOfUserId` (the
-token's `createdBy`), so surfaces render "<token> on behalf of <user>" instead of an opaque id.
+`get_card_history`, `list_activity`, and the REST `GET /cards/:id/events` and `GET /events` —
+enrich each `mcp` event at read time with two derived, optional fields: `actorLabel` (the token
+name) and `onBehalfOfUserId` (the token's `createdBy`), so surfaces render "<token> on behalf
+of <user>" instead of an opaque id.
 
 Each token carries:
 
@@ -52,35 +53,53 @@ tokens) arrives with the OIDC/SSO cutover; service tokens remain for headless au
 Input/output schemas are the same Zod schemas the REST API uses, exposed as JSON Schema. All
 listing tools accept the same filters and cursors as REST.
 
-| Tool                 | Maps to            | Notes                                                                                                                                                                                                                   |
-| -------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `get_board_snapshot` | BoardQueryService  | lanes with card counts, WIP status, blocked counts, oldest-card ages — the "state of the shop" call                                                                                                                     |
-| `list_cards`         | card list          | same filters as `GET /cards`: lane, assignee, reporter, priority, tag, blocked, waitingReason, overdueResume, q (title+description substring), includeArchived                                                          |
-| `get_card`           | card detail        | includes tags, location, attachment metadata, latest events, full comment thread (soft-deleted bodies blanked, exactly like REST)                                                                                       |
-| `get_card_history`   | events             | audit trail, oldest-first, filterable by event type                                                                                                                                                                     |
-| `list_stale_cards`   | BoardQueryService  | cards past `expected_resume_at`, in review > `reviewDays` (default 7), or blocked > `blockedDays` (default 3) — the follow-up feed; defaults stated in the tool description                                             |
-| `create_card`        | CardService.create | same schema as `POST /cards`; lands in intake, origin `mcp`; optional `reporterEmail` resolves the reporter (active accounts only; unknown and deactivated emails fail identically), otherwise the seeded `system` user |
-| `update_card`        | CardService.update | requires `expectedVersion` like REST                                                                                                                                                                                    |
-| `move_card`          | CardService.move   | same configurable permission policy as REST                                                                                                                                                                             |
-| `comment_on_card`    | CommentService     | supports `parentCommentId` replies                                                                                                                                                                                      |
+| Tool                 | Maps to             | Notes                                                                                                                                                                                                                                      |
+| -------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `get_board_snapshot` | BoardQueryService   | lanes with card counts, WIP status, blocked counts, oldest-card ages — the "state of the shop" call                                                                                                                                        |
+| `list_cards`         | card list           | same filters as `GET /cards`: lane, assignee, reporter, priority, tag, blocked, waitingReason, overdueResume, q (title+description substring), includeArchived                                                                             |
+| `get_card`           | card detail         | includes tags, location, attachment metadata, latest events, full comment thread (soft-deleted bodies blanked, exactly like REST)                                                                                                          |
+| `get_card_history`   | events              | audit trail, oldest-first, filterable by event type                                                                                                                                                                                        |
+| `list_stale_cards`   | BoardQueryService   | cards past `expected_resume_at`, in review > `reviewDays` (default 7), or blocked > `blockedDays` (default 3) — the follow-up feed; defaults stated in the tool description                                                                |
+| `list_activity`      | BoardQueryService   | board-wide activity feed: card events across ALL cards, newest-first, cursor-paginated; filters (all optional) `sinceIso` (ISO datetime, default 24h ago), `type`, `cardId`, `actorKind`; mcp events carry `actorLabel`/`onBehalfOfUserId` |
+| `list_lanes`         | BoardQueryService   | the board's lanes in board order (`id, key, label, position, wipLimit`)                                                                                                                                                                    |
+| `list_blocked_cards` | card list           | thin `blocked=true` slice of `list_cards`, newest-first, cursor-paginated                                                                                                                                                                  |
+| `whoami`             | ServiceToken read   | the calling token's own `{ id, name, role, scope, createdAt, lastUsedAt }` (any token inspects itself; the hash is never returned)                                                                                                         |
+| `create_card`        | CardService.create  | same schema as `POST /cards`; lands in intake, origin `mcp`; optional `reporterEmail` resolves the reporter (active accounts only; unknown and deactivated emails fail identically), otherwise the seeded `system` user                    |
+| `update_card`        | CardService.update  | requires `expectedVersion` like REST                                                                                                                                                                                                       |
+| `move_card`          | CardService.move    | same configurable permission policy as REST                                                                                                                                                                                                |
+| `comment_on_card`    | CommentService      | supports `parentCommentId` replies                                                                                                                                                                                                         |
+| `cancel_card`        | CardService.cancel  | cancel a non-terminal card into `done` with a resolution; `expectedVersion` + `read_write`                                                                                                                                                 |
+| `reopen_card`        | CardService.reopen  | reopen a `done`/cancelled/archived card back to `ready`; `expectedVersion` + `read_write`                                                                                                                                                  |
+| `archive_card`       | CardService.archive | archive a `done` card (reversible via reopen); `expectedVersion` + `read_write`                                                                                                                                                            |
+| `block_card`         | CardService.block   | raise the blocked flag with a `reason`; `expectedVersion` + `read_write`                                                                                                                                                                   |
+| `unblock_card`       | CardService.unblock | clear the blocked flag; `expectedVersion` + `read_write`                                                                                                                                                                                   |
+
+Write tools (`create_card`, `update_card`, `move_card`, `comment_on_card`, `cancel_card`,
+`reopen_card`, `archive_card`, `block_card`, `unblock_card`) are registered on the guarded
+write path: a `read`-scope token is denied by the always-on identity rule (`token-scope-read`)
+before any service runs, and the core service independently re-denies it via `evaluatePolicy`.
+The remaining tools are reads (never policy-gated — any authenticated token).
 
 Design rules:
 
 - Tools are **task-shaped, not table-shaped**: `list_stale_cards` exists because "what needs
   follow-up" is the agent's job; agents should not need to reimplement staleness math.
 - Every tool result includes ISO timestamps and ids so agents can chain calls.
-- Destructive/terminal actions (cancel, reopen) are deliberately **not** exposed as MCP tools in
-  v1; agents recommend, humans execute. Revisit with usage evidence.
+- Terminal actions (cancel, reopen, archive, block, unblock) ARE exposed as write tools so a
+  write-capable agent can fully drive the lifecycle. They are gated exactly like every other
+  write: `read`-scope tokens are denied, each action is audited with the token identity, and
+  every one is reversible through history. Give summarizer/reporting agents `read` tokens so
+  they can never reach them.
 
 ## Threats
 
 Board content (titles, descriptions, comments) is written by any authenticated user and
 returned verbatim to agents — treat it as **untrusted input**: a hostile insider can plant
 instructions aimed at a write-capable agent ("move all P0 cards to Done…"). Mitigations, in
-order: issue `read` tokens to any agent that doesn't strictly need writes; terminal actions
-are not exposed as tools at all; every agent write is audited with the token identity and is
-fully reversible through history. Agent authors should treat user-authored fields as data,
-never as instructions.
+order: issue `read` tokens to any agent that doesn't strictly need writes (which blocks every
+write tool, terminal actions included); every agent write is audited with the token identity
+and is fully reversible through history. Agent authors should treat user-authored fields as
+data, never as instructions.
 
 ## Testing
 

@@ -1,4 +1,5 @@
-﻿import { type CursorKey } from '../domain/cursor.ts'
+﻿import { type ActorKind } from '../domain/constants.ts'
+import { type CursorKey } from '../domain/cursor.ts'
 import {
   type Attachment,
   type Card,
@@ -825,5 +826,38 @@ class InMemoryEventRepository implements EventRepository {
   ): Promise<CardEvent[]> {
     const events = await this.listByCard(cardId, types === undefined ? {} : { types })
     return events.slice(-limit).reverse()
+  }
+
+  listBoardSince(
+    sinceIso: string,
+    options?: {
+      types?: readonly CardEventType[]
+      cardId?: string
+      actorKind?: ActorKind
+      after?: CursorKey
+      limit?: number
+    },
+  ): Promise<CardEvent[]> {
+    let events = this.state.events
+      .filter((event) => event.createdAt >= sinceIso)
+      .filter((event) => options?.types === undefined || options.types.includes(event.eventType))
+      .filter((event) => options?.cardId === undefined || event.cardId === options.cardId)
+      .filter((event) => options?.actorKind === undefined || event.actorKind === options.actorKind)
+      // Newest-first (createdAt DESC, id DESC) — mirrors the SQL adapter.
+      .sort((a, b) =>
+        a.createdAt === b.createdAt
+          ? binaryCompare(b.id, a.id)
+          : binaryCompare(b.createdAt, a.createdAt),
+      )
+    const after = options?.after
+    if (after !== undefined) {
+      events = events.filter(
+        (event) =>
+          event.createdAt < after.createdAt ||
+          (event.createdAt === after.createdAt && event.id < after.id),
+      )
+    }
+    if (options?.limit !== undefined) events = events.slice(0, options.limit)
+    return Promise.resolve(clone(events))
   }
 }

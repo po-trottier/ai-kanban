@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import {
+  ACTOR_KINDS,
+  activityFeedRequestSchema,
   affectsBoardSnapshot,
   createLocationInputSchema,
   policyDocumentSchema,
@@ -14,12 +16,29 @@ import { actorOf } from './user-routes.ts'
 import {
   boardPolicyResponseSchema,
   boardResponseSchema,
+  cardEventResponseSchema,
   laneResponseSchema,
   locationResponseSchema,
   emptyBodySchema,
   idParamsSchema,
+  pageResponseOf,
   tagResponseSchema,
 } from './schemas.ts'
+
+/**
+ * `GET /events` query shape (single-schema rule): the shared activity-feed
+ * schema with query-string coercion for the numeric limit, wrapped in a
+ * stripping z.object so unknown params are ignored (not 400s). `since` maps to
+ * the core `sinceIso` field; an invalid ISO datetime is a 400.
+ */
+const activityQuerySchema = z.object({
+  since: activityFeedRequestSchema.shape.sinceIso,
+  type: activityFeedRequestSchema.shape.type,
+  cardId: activityFeedRequestSchema.shape.cardId,
+  actorKind: z.enum(ACTOR_KINDS).optional(),
+  cursor: activityFeedRequestSchema.shape.cursor,
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+})
 
 /**
  * Board snapshot, lane admin edits, locations (list + admin CRUD), tags, and
@@ -155,6 +174,31 @@ export function boardRoutes(deps: AppDeps) {
 
     r.get('/tags', { schema: { response: { 200: z.array(tagResponseSchema) } } }, async () =>
       queries.listTags(),
+    )
+
+    r.get('/lanes', { schema: { response: { 200: z.array(laneResponseSchema) } } }, async () =>
+      queries.listLanes(),
+    )
+
+    r.get(
+      '/events',
+      {
+        schema: {
+          querystring: activityQuerySchema,
+          response: { 200: pageResponseOf(cardEventResponseSchema) },
+        },
+      },
+      async (request) => {
+        const { since, type, cardId, actorKind, cursor, limit } = request.query
+        return queries.eventsSince({
+          ...(since !== undefined ? { sinceIso: since } : {}),
+          ...(type !== undefined ? { type } : {}),
+          ...(cardId !== undefined ? { cardId } : {}),
+          ...(actorKind !== undefined ? { actorKind } : {}),
+          ...(cursor !== undefined ? { cursor } : {}),
+          ...(limit !== undefined ? { limit } : {}),
+        })
+      },
     )
 
     r.get('/policy', { schema: { response: { 200: boardPolicyResponseSchema } } }, async () =>

@@ -4,10 +4,15 @@ import {
   pageRequestSchema,
   type ListCardsFilter,
 } from '../domain/commands.ts'
-import { DEFAULT_BLOCKED_STALE_DAYS, DEFAULT_REVIEW_STALE_DAYS } from '../domain/constants.ts'
+import {
+  ACTOR_KINDS,
+  DEFAULT_BLOCKED_STALE_DAYS,
+  DEFAULT_REVIEW_STALE_DAYS,
+} from '../domain/constants.ts'
 import { decodeCursor, encodeCursor, type CursorKey } from '../domain/cursor.ts'
 import { isOverdueResume, utcDayOf } from '../domain/dates.ts'
 import {
+  isoDateTimeSchema,
   type Attachment,
   type Card,
   type Comment,
@@ -99,6 +104,20 @@ export const cardHistoryRequestSchema = pageRequestSchema.extend({
 })
 
 /**
+ * Board-wide activity feed request (`GET /events`, MCP `list_activity`): every
+ * card event since `sinceIso`, newest-first, cursor-paginated — all filters
+ * optional. `sinceIso` defaults to 24h before now, applied in `eventsSince`
+ * via the injected Clock (core never reads the wall clock directly). Shared by
+ * REST and MCP (single-schema rule).
+ */
+export const activityFeedRequestSchema = pageRequestSchema.extend({
+  sinceIso: isoDateTimeSchema.optional(),
+  type: z.enum(CARD_EVENT_TYPES).optional(),
+  cardId: z.uuid().optional(),
+  actorKind: z.enum(ACTOR_KINDS).optional(),
+})
+
+/**
  * Read-side queries. Reads are never policy-checked (every authenticated user
  * may see every card, ADR-008); no audit events are written.
  */
@@ -152,6 +171,11 @@ export class BoardQueryService {
     return this.deps.uow.read((tx) => tx.tags.listAll())
   }
 
+  /** The board's lanes in board order (`GET /lanes`, MCP `list_lanes`). */
+  async listLanes(): Promise<Lane[]> {
+    return this.deps.uow.read((tx) => tx.lanes.listByBoard(this.deps.boardId))
+  }
+
   /** Full card detail: card + tags + location + active attachment metadata. */
   async cardDetail(cardId: string): Promise<CardDetail> {
     return this.deps.uow.read(async (tx) => {
@@ -188,6 +212,34 @@ export class BoardQueryService {
       requireFound(await tx.cards.findById(cardId), 'card')
       const events = await tx.events.listByCard(cardId, {
         ...(request.type !== undefined ? { types: [request.type] } : {}),
+        ...(after !== undefined ? { after } : {}),
+        limit: request.limit + 1,
+      })
+      const page = paginate(events, request.limit, (event) => ({
+        createdAt: event.createdAt,
+        id: event.id,
+      }))
+      return { ...page, items: await enrichMcpActors(tx, page.items) }
+    })
+  }
+
+  /**
+   * Board-wide activity feed: card events across ALL cards since `sinceIso`
+   * (default 24h before now, resolved via the injected Clock), newest-first,
+   * cursor-paginated on (createdAt, id) exactly like `listCards`. Filters
+   * (type/cardId/actorKind) are all optional. mcp actors are enriched with
+   * `actorLabel`/`onBehalfOfUserId` like `cardHistory`.
+   */
+  async eventsSince(rawRequest?: unknown): Promise<Page<EnrichedCardEvent>> {
+    const request = activityFeedRequestSchema.parse(rawRequest ?? {})
+    const sinceIso =
+      request.sinceIso ?? new Date(this.deps.clock.now().getTime() - DAY_MS).toISOString()
+    const after = request.cursor !== undefined ? decodeCursor(request.cursor) : undefined
+    return this.deps.uow.read(async (tx) => {
+      const events = await tx.events.listBoardSince(sinceIso, {
+        ...(request.type !== undefined ? { types: [request.type] } : {}),
+        ...(request.cardId !== undefined ? { cardId: request.cardId } : {}),
+        ...(request.actorKind !== undefined ? { actorKind: request.actorKind } : {}),
         ...(after !== undefined ? { after } : {}),
         limit: request.limit + 1,
       })

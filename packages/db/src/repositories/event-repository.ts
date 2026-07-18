@@ -1,11 +1,12 @@
 import {
   cardEventSchema,
+  type ActorKind,
   type CardEvent,
   type CardEventType,
   type CursorKey,
   type EventRepository,
 } from '@rivian-kanban/core'
-import { and, asc, desc, eq, gt, inArray, or, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, gte, inArray, lt, or, type SQL } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { toError } from '../errors.ts'
 import { cardEvents } from '../schema.ts'
@@ -85,6 +86,48 @@ export class SqliteEventRepository implements EventRepository {
       .orderBy(desc(cardEvents.createdAt), desc(cardEvents.id))
       .limit(limit)
       .all()
+    return Promise.resolve(rows.map((row) => cardEventSchema.parse(row)))
+  }
+
+  /**
+   * Board-wide activity feed, newest-first on (createdAt DESC, id DESC),
+   * bounded by `createdAt >= sinceIso`; `after` returns rows strictly older
+   * than the cursor tuple — the pinned port contract (mirrors query()).
+   */
+  listBoardSince(
+    sinceIso: string,
+    options?: {
+      types?: readonly CardEventType[]
+      cardId?: string
+      actorKind?: ActorKind
+      after?: CursorKey
+      limit?: number
+    },
+  ): Promise<CardEvent[]> {
+    if (options?.types?.length === 0) return Promise.resolve([])
+    const conditions: (SQL | undefined)[] = [gte(cardEvents.createdAt, sinceIso)]
+    if (options?.types !== undefined) {
+      conditions.push(inArray(cardEvents.eventType, [...options.types]))
+    }
+    if (options?.cardId !== undefined) conditions.push(eq(cardEvents.cardId, options.cardId))
+    if (options?.actorKind !== undefined) {
+      conditions.push(eq(cardEvents.actorKind, options.actorKind))
+    }
+    const after = options?.after
+    if (after !== undefined) {
+      conditions.push(
+        or(
+          lt(cardEvents.createdAt, after.createdAt),
+          and(eq(cardEvents.createdAt, after.createdAt), lt(cardEvents.id, after.id)),
+        ),
+      )
+    }
+    const query = this.db
+      .select()
+      .from(cardEvents)
+      .where(and(...conditions))
+      .orderBy(desc(cardEvents.createdAt), desc(cardEvents.id))
+    const rows = options?.limit !== undefined ? query.limit(options.limit).all() : query.all()
     return Promise.resolve(rows.map((row) => cardEventSchema.parse(row)))
   }
 }
