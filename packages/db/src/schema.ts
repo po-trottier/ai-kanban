@@ -75,6 +75,15 @@ export const users = sqliteTable(
      * CITEXT/lower() unique index on the Postgres port (ADR-003).
      */
     uniqueIndex('users_email_ci_unique').on(sql`lower(${table.email})`),
+    /**
+     * Backs the async user-picker read (`GET /users/search`), which the
+     * assignee/reporter pickers use so a 10k+ roster never loads whole. The
+     * query orders by `lower(display_name)`; this lets SQLite serve the
+     * ordered, capped page from the index instead of sorting the whole table,
+     * and covers a name-prefix `LIKE` (substring `%…%` still scans, but the
+     * `limit` bounds the read either way).
+     */
+    index('users_display_name_ci_idx').on(sql`lower(${table.displayName})`),
   ],
 )
 

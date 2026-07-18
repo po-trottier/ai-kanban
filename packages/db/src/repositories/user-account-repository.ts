@@ -4,11 +4,17 @@ import {
   type User,
   type UserAccountRepository,
   type UserCredentials,
+  type UserSearchFilter,
 } from '@rivian-kanban/core'
-import { asc, eq, ne, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, ne, sql, type SQL } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { isUniqueViolation, toError } from '../errors.ts'
 import { users } from '../schema.ts'
+
+/** Escapes LIKE wildcards so `q` is a literal substring match (`ESCAPE '\'`). */
+function escapeLike(needle: string): string {
+  return needle.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')
+}
 
 /**
  * True for either spelling of a duplicate email: the plain column UNIQUE
@@ -26,6 +32,23 @@ function toCredentials(row: typeof users.$inferSelect): UserCredentials {
   const { passwordHash, ...user } = row
   return { user, passwordHash }
 }
+
+/**
+ * Explicit `User` column projection — password_hash is deliberately absent so
+ * the hash can never ride out of a `list`/`search` read into a response.
+ */
+const USER_ENTITY_COLUMNS = {
+  id: users.id,
+  email: users.email,
+  displayName: users.displayName,
+  role: users.role,
+  mustChangePassword: users.mustChangePassword,
+  slackUserId: users.slackUserId,
+  isActive: users.isActive,
+  timezone: users.timezone,
+  theme: users.theme,
+  createdAt: users.createdAt,
+} as const
 
 /**
  * The auth/admin user surface (login, change-password, users CRUD). The only
@@ -62,20 +85,46 @@ export class SqliteUserAccountRepository implements UserAccountRepository {
 
   list(): Promise<User[]> {
     const rows = this.db
-      .select({
-        id: users.id,
-        email: users.email,
-        displayName: users.displayName,
-        role: users.role,
-        mustChangePassword: users.mustChangePassword,
-        slackUserId: users.slackUserId,
-        isActive: users.isActive,
-        timezone: users.timezone,
-        theme: users.theme,
-        createdAt: users.createdAt,
-      })
+      .select(USER_ENTITY_COLUMNS)
       .from(users)
       .orderBy(asc(users.createdAt), asc(users.id))
+      .all()
+    return Promise.resolve(rows)
+  }
+
+  /**
+   * The async user-picker read (`GET /users/search`). Index-backed and bounded:
+   * a case-insensitive substring over display name + email (or an `ids`
+   * allowlist), `activeOnly`/`excludeId` pushed into SQL, ordered by
+   * lower(display_name) then id, capped at `limit` — so it never hydrates a
+   * 10k-user roster. Empty `q` matches everyone, yielding the first `limit`.
+   */
+  search(filter: UserSearchFilter): Promise<User[]> {
+    const conditions: SQL[] = []
+    if (filter.excludeId !== undefined) conditions.push(ne(users.id, filter.excludeId))
+    if (filter.activeOnly === true) conditions.push(eq(users.isActive, true))
+    if (filter.ids !== undefined) {
+      // Empty allowlist matches nothing (never a bare `id IN ()` — SQLite would
+      // reject it); an explicit set resolves exactly those ids.
+      if (filter.ids.length === 0) return Promise.resolve([])
+      conditions.push(inArray(users.id, filter.ids))
+    } else if (filter.q !== '') {
+      // Both sides folded by SQLite's lower() (ASCII-only without ICU) so the
+      // needle and columns collapse the same way — ASCII matching stays
+      // case-insensitive and an exact non-ASCII substring still matches.
+      const pattern = `%${escapeLike(filter.q)}%`
+      // One raw `sql` clause (always `SQL`, never the `SQL | undefined` that
+      // `or(...)` returns) matches the substring against display name OR email.
+      conditions.push(
+        sql`(lower(${users.displayName}) like lower(${pattern}) escape '\\' or lower(${users.email}) like lower(${pattern}) escape '\\')`,
+      )
+    }
+    const rows = this.db
+      .select(USER_ENTITY_COLUMNS)
+      .from(users)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(sql`lower(${users.displayName})`, asc(users.id))
+      .limit(filter.limit)
       .all()
     return Promise.resolve(rows)
   }

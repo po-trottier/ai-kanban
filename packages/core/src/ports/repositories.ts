@@ -156,6 +156,30 @@ export interface UserRepository {
 }
 
 /**
+ * The async user-picker read filter (`UserAccountRepository.search`), pushed
+ * into an index-backed SQL query so the assignee/reporter pickers scale past
+ * 10k users without ever loading the whole roster. Two combinable legs:
+ *
+ * - `q` — case-insensitive substring over display name AND email. Empty string
+ *   matches everyone (the picker's pre-type "first N" list).
+ * - `ids` — when set, resolves exactly those user ids (an `id IN (…)`
+ *   allowlist) INSTEAD of substring-searching, for already-selected values on
+ *   a card / saved preset. Bounded by the caller; unknown ids are absent.
+ *
+ * `activeOnly` and `excludeId` are the business rules (skip deactivated users
+ * in search, always drop the automation user) pushed into SQL rather than
+ * post-filtered, so the row cap and ordering stay correct. Ordered by display
+ * name then id; capped at `limit`.
+ */
+export interface UserSearchFilter {
+  q: string
+  limit: number
+  ids?: string[]
+  activeOnly?: boolean
+  excludeId?: string
+}
+
+/**
  * A user row plus its stored password hash. Auth-surface only (login,
  * change-password): the hash never enters the `User` entity, so response
  * schemas are structurally unable to leak it (docs/architecture/security.md).
@@ -183,6 +207,15 @@ export interface UserAccountRepository {
   findById(id: string): Promise<UserCredentials | null>
   /** Every user, active and inactive (admin management, last-admin guard). */
   list(): Promise<User[]>
+  /**
+   * The async user-picker read (`GET /users/search`) — the scalable path that
+   * must never hydrate the whole roster (10k+ users). See `UserSearchFilter`:
+   * case-insensitive substring over display name AND email (or an `ids`
+   * allowlist), `activeOnly`/`excludeId` pushed into SQL, ordered by display
+   * name then id, capped at `filter.limit`. Empty `q` returns the first
+   * `limit` users so the picker shows something before typing.
+   */
+  search(filter: UserSearchFilter): Promise<User[]>
   /**
    * COUNT of user rows excluding the seeded automation user — ANY status:
    * deactivated accounts still count, so the first-boot setup flow (enabled

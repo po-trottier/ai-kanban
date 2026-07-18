@@ -6,6 +6,7 @@ import {
   ensurePermission,
   NotFoundError,
   updateUserInputSchema,
+  userSearchQuerySchema,
   type Actor,
   type Clock,
   type EventBus,
@@ -57,6 +58,37 @@ export class UserAdminService {
   async listActive(): Promise<User[]> {
     const users = await this.deps.uow.read((tx) => tx.userAccounts.list())
     return users.filter((user) => user.isActive && user.id !== this.deps.systemUserId)
+  }
+
+  /**
+   * The async user-picker read (`GET /users/search`) — the scalable path the
+   * assignee/reporter pickers use so a 10k+ roster never loads whole. Two
+   * combinable legs (docs/architecture/rest-api.md#auth--users):
+   *
+   * - substring search (`q`) over display name + email, active users only,
+   *   ordered by name, capped at `limit` (default 20, hard cap 50) — empty `q`
+   *   returns the first `limit` so the picker shows something before typing;
+   * - `ids` resolution (≤100): resolves an explicit set of already-selected
+   *   ids to their picker shape REGARDLESS of active state, so a card's
+   *   deactivated assignee still renders. Unknown ids are simply absent.
+   *
+   * The automation user is always excluded. The query is pushed into an
+   * index-backed SQL read (never a whole-table scan). Any authenticated user
+   * may pick assignees, so this read is not policy-gated — matching `/users`.
+   */
+  async search(rawQuery: unknown): Promise<User[]> {
+    const query = userSearchQuerySchema.parse(rawQuery)
+    return this.deps.uow.read((tx) =>
+      tx.userAccounts.search({
+        q: query.q,
+        limit: query.limit,
+        // ids resolution shows already-selected values (may be deactivated);
+        // free-text search offers only active, pickable users.
+        activeOnly: query.ids === undefined,
+        excludeId: this.deps.systemUserId,
+        ...(query.ids !== undefined ? { ids: query.ids } : {}),
+      }),
+    )
   }
 
   /**

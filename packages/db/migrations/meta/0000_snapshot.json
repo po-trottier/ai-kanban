@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "54a2fe8a-2442-45cd-b2b7-0612d9c10fbe",
+  "id": "8d0a3c5f-c746-4c2c-a75a-ccd85eec5d1a",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -1298,6 +1298,13 @@
             "lower(\"email\")"
           ],
           "isUnique": true
+        },
+        "users_display_name_ci_idx": {
+          "name": "users_display_name_ci_idx",
+          "columns": [
+            "lower(\"display_name\")"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -1318,6 +1325,13 @@
       "users_email_ci_unique": {
         "columns": {
           "lower(\"email\")": {
+            "isExpression": true
+          }
+        }
+      },
+      "users_display_name_ci_idx": {
+        "columns": {
+          "lower(\"display_name\")": {
             "isExpression": true
           }
         }

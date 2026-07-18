@@ -219,6 +219,32 @@ export const updateUserInputSchema = z
   .refine((input) => Object.keys(input).length > 0, { message: 'no fields to update' })
 export type UpdateUserInput = z.infer<typeof updateUserInputSchema>
 
+/** Hard cap on a single async-picker search page (bounds a 10k-user read). */
+export const USER_SEARCH_LIMIT_MAX = 50
+/** Cap on batch id-resolution — a picker's already-selected set is small. */
+export const USER_SEARCH_IDS_MAX = 100
+
+/**
+ * The async user-picker query (`GET /users/search`, rest-api.md#auth--users):
+ * the scalable replacement for loading every user into the assignee/reporter
+ * pickers. Two independent, combinable legs so a 10k-user roster never ships
+ * whole:
+ *
+ * - `q` — case-insensitive substring over display name AND email; empty (the
+ *   default) returns the first `limit` users so the picker shows something
+ *   before the user types. Bounded by `limit` (default 20, hard cap 50).
+ * - `ids` — resolve an explicit, bounded set (≤100) of user ids to their
+ *   picker shape, so a card's already-selected assignee/reporter renders
+ *   without the full roster. Independent of `q`/`limit`; unknown ids are
+ *   simply absent from the result.
+ */
+export const userSearchQuerySchema = z.strictObject({
+  q: z.string().trim().max(200).default(''),
+  limit: z.number().int().min(1).max(USER_SEARCH_LIMIT_MAX).default(20),
+  ids: z.array(z.uuid()).max(USER_SEARCH_IDS_MAX).optional(),
+})
+export type UserSearchQuery = z.infer<typeof userSearchQuerySchema>
+
 /**
  * Self-service profile update (`PATCH /auth/me`, rest-api.md#auth--users): the
  * authenticated user editing THEIR OWN display preferences (time zone + theme).

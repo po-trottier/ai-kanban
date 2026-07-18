@@ -90,6 +90,153 @@ describe('GET /users', () => {
   })
 })
 
+describe('GET /users/search (async user-picker)', () => {
+  it('requires auth (401 without a session)', async () => {
+    const anon = await t.request(null, { method: 'GET', url: '/api/v1/users/search?q=x' })
+    expect(anon.statusCode).toBe(401)
+  })
+
+  it('matches display name and email, case-insensitively', async () => {
+    // A dedicated app so the seeded set is known and small.
+    const solo = await createTestApp()
+    try {
+      const { cookie } = await solo.asRole('admin')
+      const alice = await solo.createUser('user', {
+        displayName: 'Alice Pickerton',
+        email: 'alice-pick@test.example',
+      })
+      await solo.createUser('user', { displayName: 'Bob Other', email: 'bob@test.example' })
+
+      const byName = await solo.request(cookie, {
+        method: 'GET',
+        url: '/api/v1/users/search?q=PICKERTON',
+      })
+      const byEmail = await solo.request(cookie, {
+        method: 'GET',
+        url: '/api/v1/users/search?q=alice-pick@test',
+      })
+
+      expect(byName.json<{ id: string }[]>().map((u) => u.id)).toEqual([alice.user.id])
+      expect(byEmail.json<{ id: string }[]>().map((u) => u.id)).toEqual([alice.user.id])
+    } finally {
+      await solo.cleanup()
+    }
+  })
+
+  it('empty q returns the first N, the limit bounds results, and the system user is excluded', async () => {
+    const solo = await createTestApp()
+    try {
+      const { cookie } = await solo.asRole('admin')
+      // Seed comfortably more than the page size to prove the limit bounds it.
+      for (let i = 0; i < 25; i += 1) await solo.createUser('user')
+
+      const firstPage = await solo.request(cookie, {
+        method: 'GET',
+        url: '/api/v1/users/search?limit=5',
+      })
+      const overCap = await solo.request(cookie, {
+        method: 'GET',
+        url: '/api/v1/users/search?limit=999',
+      })
+
+      expect(firstPage.json<unknown[]>()).toHaveLength(5)
+      // limit above the hard cap is a validation error (mirrors /cards).
+      expect(overCap.statusCode).toBe(400)
+      const capped = await solo.request(cookie, {
+        method: 'GET',
+        url: '/api/v1/users/search?limit=50',
+      })
+      const ids = capped.json<{ id: string }[]>().map((u) => u.id)
+      expect(ids.length).toBeLessThanOrEqual(50)
+      expect(ids).not.toContain(solo.wired.systemUserId)
+    } finally {
+      await solo.cleanup()
+    }
+  })
+
+  it('search omits deactivated users but id-resolution returns them', async () => {
+    const solo = await createTestApp()
+    try {
+      const { cookie } = await solo.asRole('admin')
+      const gone = await solo.createUser('user', {
+        displayName: 'Departed Deactron',
+        isActive: false,
+      })
+
+      const searched = await solo.request(cookie, {
+        method: 'GET',
+        url: '/api/v1/users/search?q=Deactron',
+      })
+      const resolved = await solo.request(cookie, {
+        method: 'GET',
+        url: `/api/v1/users/search?ids=${gone.user.id}`,
+      })
+
+      expect(searched.json<unknown[]>()).toHaveLength(0)
+      expect(resolved.json<{ id: string }[]>().map((u) => u.id)).toEqual([gone.user.id])
+    } finally {
+      await solo.cleanup()
+    }
+  })
+
+  it('resolves a comma-separated id set, ignoring unknown ids', async () => {
+    const solo = await createTestApp()
+    try {
+      const { cookie } = await solo.asRole('admin')
+      const a = await solo.createUser('user')
+      const b = await solo.createUser('user')
+      const unknown = '00000000-0000-7000-8000-000000000abc'
+
+      const resolved = await solo.request(cookie, {
+        method: 'GET',
+        url: `/api/v1/users/search?ids=${a.user.id},${unknown},${b.user.id}`,
+      })
+
+      expect(resolved.statusCode).toBe(200)
+      expect(
+        resolved
+          .json<{ id: string }[]>()
+          .map((u) => u.id)
+          .sort(),
+      ).toEqual([a.user.id, b.user.id].sort())
+    } finally {
+      await solo.cleanup()
+    }
+  })
+
+  it('includes email for manageUsers actors only (matches GET /users)', async () => {
+    const solo = await createTestApp()
+    try {
+      const admin = await solo.asRole('admin')
+      const requester = await solo.asRole('user')
+      const target = await solo.createUser('user', {
+        displayName: 'Emailcase Target',
+        email: 'emailcase@test.example',
+      })
+
+      const adminView = await solo.request(admin.cookie, {
+        method: 'GET',
+        url: '/api/v1/users/search?q=Emailcase',
+      })
+      const requesterView = await solo.request(requester.cookie, {
+        method: 'GET',
+        url: '/api/v1/users/search?q=Emailcase',
+      })
+
+      const adminRow = adminView
+        .json<Record<string, unknown>[]>()
+        .find((u) => u.id === target.user.id)
+      const requesterRow = requesterView
+        .json<Record<string, unknown>[]>()
+        .find((u) => u.id === target.user.id)
+      expect(adminRow?.email).toBe('emailcase@test.example')
+      expect(requesterRow).not.toHaveProperty('email')
+    } finally {
+      await solo.cleanup()
+    }
+  })
+})
+
 describe('POST /users', () => {
   it('creates a user with a one-time temp password and must_change_password set', async () => {
     const admin = await t.asRole('admin')

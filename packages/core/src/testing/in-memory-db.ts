@@ -34,6 +34,7 @@ import {
   type UserAccountRepository,
   type UserCredentials,
   type UserRepository,
+  type UserSearchFilter,
 } from '../ports/repositories.ts'
 
 /**
@@ -534,6 +535,30 @@ class InMemoryUserAccountRepository implements UserAccountRepository {
 
   list(): Promise<User[]> {
     return Promise.resolve(clone(this.state.users))
+  }
+
+  /**
+   * Mirrors the SQL adapter (docs/architecture/rest-api.md): case-insensitive
+   * substring over display name + email (or an `ids` allowlist), `activeOnly`
+   * / `excludeId` applied, ordered by lower(display_name) then id, limited.
+   */
+  search(filter: UserSearchFilter): Promise<User[]> {
+    const needle = filter.q.toLowerCase()
+    const idSet = filter.ids === undefined ? undefined : new Set(filter.ids)
+    const matched = this.state.users.filter((user) => {
+      if (filter.excludeId !== undefined && user.id === filter.excludeId) return false
+      if (filter.activeOnly === true && !user.isActive) return false
+      if (idSet !== undefined) return idSet.has(user.id)
+      if (needle === '') return true
+      return (
+        user.displayName.toLowerCase().includes(needle) || user.email.toLowerCase().includes(needle)
+      )
+    })
+    matched.sort((a, b) => {
+      const byName = binaryCompare(a.displayName.toLowerCase(), b.displayName.toLowerCase())
+      return byName !== 0 ? byName : binaryCompare(a.id, b.id)
+    })
+    return Promise.resolve(clone(matched.slice(0, filter.limit)))
   }
 
   countHumanUsers(excludedSystemUserId: string): Promise<number> {

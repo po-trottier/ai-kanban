@@ -147,6 +147,97 @@ describe('SqliteUserAccountRepository', () => {
   })
 })
 
+describe('SqliteUserAccountRepository.search (async user-picker read)', () => {
+  it('matches display name and email case-insensitively, ordered by name', async () => {
+    // A distinctive token so only these rows match in the shared db.
+    insertUser(db.connection, { displayName: 'Zoe Searchcase', email: 'zoe@sk1.example' })
+    insertUser(db.connection, { displayName: 'Amy Nomatch', email: 'amy-searchcase@sk1.example' })
+
+    const byName = await run((tx) => tx.userAccounts.search({ q: 'SEARCHCASE', limit: 20 }))
+    const byEmail = await run((tx) => tx.userAccounts.search({ q: 'searchcase@sk1', limit: 20 }))
+
+    // AAA: both the name hit (Zoe) and the email hit (Amy) come back for `q`…
+    expect(byName.map((u) => u.displayName)).toEqual(['Amy Nomatch', 'Zoe Searchcase'])
+    // …ordered by display name (Amy before Zoe), and email-only `q` still hits Amy.
+    expect(byEmail.map((u) => u.displayName)).toEqual(['Amy Nomatch'])
+  })
+
+  it('empty q returns the first `limit` users and the cap bounds the result', async () => {
+    // Seed comfortably more than the page size to prove `limit` bounds the read.
+    for (let i = 0; i < 30; i += 1) {
+      insertUser(db.connection, { displayName: `SeedLimit ${String(i).padStart(2, '0')}` })
+    }
+
+    const firstPage = await run((tx) => tx.userAccounts.search({ q: '', limit: 5 }))
+    const capped = await run((tx) => tx.userAccounts.search({ q: 'SeedLimit', limit: 50 }))
+
+    expect(firstPage).toHaveLength(5)
+    // The token matches exactly the 30 seeded rows; the limit caps below that.
+    expect(capped).toHaveLength(30)
+    const capped10 = await run((tx) => tx.userAccounts.search({ q: 'SeedLimit', limit: 10 }))
+    expect(capped10).toHaveLength(10)
+  })
+
+  it('search skips deactivated users but id-resolution returns them', async () => {
+    const gone = insertUser(db.connection, {
+      displayName: 'Ghost Deacton',
+      isActive: false,
+    })
+
+    const searched = await run((tx) =>
+      tx.userAccounts.search({ q: 'Deacton', limit: 20, activeOnly: true }),
+    )
+    const resolved = await run((tx) => tx.userAccounts.search({ q: '', limit: 20, ids: [gone.id] }))
+
+    // AAA: free-text search (activeOnly) hides the deactivated user…
+    expect(searched).toHaveLength(0)
+    // …but resolving its id explicitly still returns it (already-selected value).
+    expect(resolved.map((u) => u.id)).toEqual([gone.id])
+  })
+
+  it('id-resolution returns exactly the requested users and ignores unknown ids', async () => {
+    const a = insertUser(db.connection, { displayName: 'Res A' })
+    const b = insertUser(db.connection, { displayName: 'Res B' })
+
+    const resolved = await run((tx) =>
+      tx.userAccounts.search({ q: '', limit: 20, ids: [a.id, newId(), b.id] }),
+    )
+
+    expect(resolved.map((u) => u.id).sort()).toEqual([a.id, b.id].sort())
+    // An empty id set matches nothing (never a bare `IN ()`).
+    const none = await run((tx) => tx.userAccounts.search({ q: '', limit: 20, ids: [] }))
+    expect(none).toEqual([])
+  })
+
+  it('excludeId drops the automation user from the result', async () => {
+    const kept = insertUser(db.connection, { displayName: 'ExcludeCase Keep' })
+
+    const withoutSelf = await run((tx) =>
+      tx.userAccounts.search({ q: 'ExcludeCase', limit: 20, excludeId: kept.id }),
+    )
+
+    expect(withoutSelf.map((u) => u.id)).not.toContain(kept.id)
+  })
+
+  it('never exposes password_hash', async () => {
+    insertUser(db.connection, { displayName: 'NoHash Leak' })
+
+    const [row] = await run((tx) => tx.userAccounts.search({ q: 'NoHash', limit: 20 }))
+
+    expect(row !== undefined && 'passwordHash' in row).toBe(false)
+  })
+
+  it('treats LIKE wildcards in q as literal characters', async () => {
+    insertUser(db.connection, { displayName: 'Literal_Underscore' })
+    insertUser(db.connection, { displayName: 'LiteralXUnderscore' })
+
+    const hit = await run((tx) => tx.userAccounts.search({ q: 'Literal_Under', limit: 20 }))
+
+    // `_` is a LIKE wildcard; escaped, it matches only the literal underscore.
+    expect(hit.map((u) => u.displayName)).toEqual(['Literal_Underscore'])
+  })
+})
+
 describe('SqliteSessionRepository', () => {
   it('creates and finds a session by hash', async () => {
     const user = insertUser(db.connection)

@@ -108,6 +108,70 @@ describe('InMemoryUserAccountRepository', () => {
     expect(count).toBe(all.length - 1)
   })
 
+  it('search matches name and email, is case-insensitive, and orders by name', async () => {
+    // Arrange — the scenario seeds requester/technician/supervisor/admin + system.
+    const scenario = createScenario()
+
+    // Act
+    const byName = await scenario.db.run((tx) => tx.userAccounts.search({ q: 'TECH', limit: 20 }))
+    const byEmail = await scenario.db.run((tx) =>
+      tx.userAccounts.search({ q: 'requester@example', limit: 20 }),
+    )
+    const all = await scenario.db.run((tx) => tx.userAccounts.search({ q: '', limit: 20 }))
+
+    // Assert
+    expect(byName.map((u) => u.displayName)).toEqual(['technician'])
+    expect(byEmail.map((u) => u.displayName)).toEqual(['requester'])
+    // Empty q returns everyone, ordered by lower(displayName).
+    expect(all.map((u) => u.displayName)).toEqual([
+      'admin',
+      'Automation',
+      'requester',
+      'supervisor',
+      'technician',
+    ])
+  })
+
+  it('search respects the limit and excludeId drops the system user', async () => {
+    // Arrange
+    const scenario = createScenario()
+
+    // Act
+    const capped = await scenario.db.run((tx) => tx.userAccounts.search({ q: '', limit: 2 }))
+    const withoutSystem = await scenario.db.run((tx) =>
+      tx.userAccounts.search({ q: '', limit: 20, excludeId: scenario.systemUser.id }),
+    )
+
+    // Assert
+    expect(capped).toHaveLength(2)
+    expect(withoutSystem.map((u) => u.id)).not.toContain(scenario.systemUser.id)
+  })
+
+  it('search with activeOnly hides deactivated users; ids resolves them regardless', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const target = scenario.users.technician
+    await scenario.db.run((tx) => tx.userAccounts.update({ ...target, isActive: false }))
+
+    // Act
+    const searched = await scenario.db.run((tx) =>
+      tx.userAccounts.search({ q: 'technician', limit: 20, activeOnly: true }),
+    )
+    const resolved = await scenario.db.run((tx) =>
+      tx.userAccounts.search({ q: '', limit: 20, ids: [target.id, fixtureId(999)] }),
+    )
+    const emptyIds = await scenario.db.run((tx) =>
+      tx.userAccounts.search({ q: '', limit: 20, ids: [] }),
+    )
+
+    // Assert — free-text search hides the deactivated user…
+    expect(searched).toHaveLength(0)
+    // …id-resolution returns exactly the known id, ignoring the unknown one…
+    expect(resolved.map((u) => u.id)).toEqual([target.id])
+    // …and an empty id set matches nothing.
+    expect(emptyIds).toEqual([])
+  })
+
   it('setPassword replaces the hash and flag; unknown users reject NotFound', async () => {
     // Arrange
     const scenario = createScenario()
