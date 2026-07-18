@@ -31,7 +31,15 @@ export function hintInvalidations(hint: SseHint): readonly (readonly string[])[]
     default: {
       // card.* — board summaries, the card detail, and its history all change.
       const cardId = String(hint.cardId)
-      return [queryKeys.board, queryKeys.card(cardId), queryKeys.events(cardId)]
+      const keys = [queryKeys.board, queryKeys.card(cardId), queryKeys.events(cardId)]
+      // A create or a field edit can mint a new free-form tag (the tags table
+      // is insert-only, so no other card event alters the vocabulary): refresh
+      // the Tags facet so a tag another user just introduced appears here too.
+      // Mirrors the local useCreateCard / invalidateCard paths.
+      if (hint.type === 'card.created' || hint.type === 'card.field_changed') {
+        return [...keys, queryKeys.tags]
+      }
+      return keys
     }
   }
 }

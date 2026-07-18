@@ -190,6 +190,16 @@ The SPA renders the filter as a **filter bar** below the header and above the bo
   refetches whichever filter is mounted, and `keepPreviousData` keeps the prior board on screen
   (dimmed, `aria-busy`) during the round-trip. The optimistic drag/move cache targets the exact
   mounted `['board', filter]` key, so filtering never breaks optimistic moves.
+- **Facet-option freshness.** The dynamic facet vocabularies stay live in both directions. **Tags**
+  (`GET /tags`, an insert-only table — a tag is only ever _added_, on card create or a tag-field edit):
+  the local `useCreateCard` and `invalidateCard` (card edit / action) both invalidate `['tags']`, and
+  the SSE bridge (`sse.ts`) appends `['tags']` for exactly the `card.created` / `card.field_changed`
+  hints, so a tag another user just introduced shows up here too — never on a move (`card.status_changed`)
+  or any other card event. **Locations** (`GET /locations`): the admin create/rename/delete mutations
+  invalidate `['locations']`, and the SSE `location.updated` hint does the same cross-user. **Assignee /
+  Reporter** need no cached vocabulary — they search the server per keystroke (`#119`,
+  `AsyncUserPicker`), so a 10k-user roster is never loaded or cached to go stale. Priority and Scope are
+  static enums.
 - **Presets** (`FilterPresets.tsx`). The combobox lists the two core built-ins
   (`BUILTIN_FILTER_PRESETS` — "My Cards" fills `assigneeIds` with the current user id client-side,
   "Overdue" sets `overdue:true`) plus the user's custom presets from `GET /filter-presets`. Selecting

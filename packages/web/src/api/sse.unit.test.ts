@@ -21,6 +21,27 @@ describe('hintInvalidations', () => {
     expect(keys).toEqual([queryKeys.board, queryKeys.card(key), queryKeys.events(key)])
   })
 
+  it('refreshes the Tags facet only for the card events that can mint a tag', () => {
+    // Arrange — a create and a field edit can introduce a new free-form tag; a
+    // pure status change (a move) never touches the tag vocabulary.
+    const cardId = 7
+    const key = String(cardId)
+    const base = { cardId, version: 3, eventId: uid(2) } as const
+    // Act
+    const created = hintInvalidations({ ...base, type: 'card.created' })
+    const fieldChanged = hintInvalidations({ ...base, type: 'card.field_changed' })
+    const statusChanged = hintInvalidations({ ...base, type: 'card.status_changed' })
+    // Assert — tags appended for create/field-change, absent for a status move.
+    expect(created).toEqual([
+      queryKeys.board,
+      queryKeys.card(key),
+      queryKeys.events(key),
+      queryKeys.tags,
+    ])
+    expect(fieldChanged).toContainEqual(queryKeys.tags)
+    expect(statusChanged).not.toContainEqual(queryKeys.tags)
+  })
+
   it('maps comment hints to the comment thread and history only', () => {
     // Arrange
     const cardId = 1

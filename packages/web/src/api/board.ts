@@ -158,6 +158,10 @@ export function useCreateCard() {
     onSuccess: () => {
       notifySuccess(strings.newCard.created)
       void queryClient.invalidateQueries({ queryKey: queryKeys.board })
+      // A new card can carry a new free-form tag, so refresh the tags list that
+      // feeds the filter-bar Tags facet and the card's tag autocomplete (the
+      // edit path already does this via invalidateCard).
+      void queryClient.invalidateQueries({ queryKey: queryKeys.tags })
     },
     onError: notifyCardError,
   })
