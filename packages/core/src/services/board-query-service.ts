@@ -465,11 +465,6 @@ export class BoardQueryService {
   ): Promise<CardQueryFilter> {
     const repoFilter: CardQueryFilter = { boardId: this.deps.boardId }
     if (filter.priorities.length > 0) repoFilter.priorities = filter.priorities
-    if (filter.laneKeys.length > 0) {
-      const lanes = await tx.lanes.listByBoard(this.deps.boardId)
-      const idByKey = new Map(lanes.map((lane) => [lane.key, lane.id]))
-      repoFilter.laneIds = filter.laneKeys.map((key) => idByKey.get(key) ?? key)
-    }
     if (filter.assigneeIds.length > 0) repoFilter.assigneeIds = filter.assigneeIds
     if (filter.reporterIds.length > 0) repoFilter.reporterIds = filter.reporterIds
     if (filter.tags.length > 0) repoFilter.tags = filter.tags

@@ -32,7 +32,6 @@ and the presets; the server owns the query.
 | Facet         | Type                              | Empty value | Meaning                                                                      |
 | ------------- | --------------------------------- | ----------- | ---------------------------------------------------------------------------- |
 | `priorities`  | `Priority[]` (`P0`/`P1`/`P2`)     | `[]`        | any-of; a card matches if its priority is in the set                         |
-| `laneKeys`    | `LaneKey[]`                       | `[]`        | any-of over lane/status                                                      |
 | `assigneeIds` | `string[]` (user ids)             | `[]`        | any-of                                                                       |
 | `reporterIds` | `string[]` (user ids)             | `[]`        | any-of                                                                       |
 | `tags`        | `string[]` (tag names)            | `[]`        | any-of, case-insensitive — a card with at least one of the tags              |
@@ -43,6 +42,12 @@ and the presets; the server owns the query.
 
 Within a facet the values are OR-ed (any-of); across facets they are AND-ed (a card must satisfy
 every non-empty facet). This is the natural "narrow by each control" behavior of a filter bar.
+
+There is **no lane/status facet** (#121). Filtering by lane only hid board columns — not a useful
+narrowing — so the field is gone from the schema, the query, and the bar. The **`scope`** facet
+(active / archived / all) stays: reaching archived cards is genuinely useful. (v0/no-legacy: the
+removed `laneKeys` field simply stops being written; existing `filter_presets` JSON that lacks it
+parses fine, since every facet defaults to its empty value.)
 
 Every any-of array facet is capped at **50 entries** (`.max(50)` on the schema — a trust-boundary
 bound shared by the REST body, preset storage, and the form). 50 dwarfs any real UI selection; the

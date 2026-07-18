@@ -75,8 +75,8 @@ export async function openCardMenu(page: Page, title: string, item: string): Pro
  * options listbox is aria-labelled by the same label as the input.)
  *
  * Scoped to the open dialog (card panel / move modal). The board filter bar
- * (#113) carries controls whose aria-labels — Priority, Status, Assignee,
- * Reporter, Tags, Location — collide with the panel's field selects; since
+ * (#113) carries controls whose aria-labels — Priority, Assignee, Reporter,
+ * Tags, Location — collide with the panel's field selects; since
  * role-name matching is substring, those bar controls (outside the dialog)
  * would otherwise co-match. Every caller of this helper targets a dialog
  * select, so scoping here disambiguates all of them at once.

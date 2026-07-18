@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { laneKeySchema, prioritySchema, tagNameSchema } from './entities.ts'
+import { prioritySchema, tagNameSchema } from './entities.ts'
 
 /**
  * The board FILTER state — one flat object, every facet present so a preset can
@@ -29,8 +29,6 @@ const FACET_MAX = 50
 export const boardFilterSchema = z.strictObject({
   /** Any-of priorities (P0/P1/P2). */
   priorities: z.array(prioritySchema).max(FACET_MAX).default([]),
-  /** Any-of lanes/status by lane key. */
-  laneKeys: z.array(laneKeySchema).max(FACET_MAX).default([]),
   /** Any-of assignee user ids. */
   assigneeIds: z.array(z.uuid()).max(FACET_MAX).default([]),
   /** Any-of reporter user ids. */

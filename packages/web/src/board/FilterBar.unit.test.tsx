@@ -42,17 +42,6 @@ describe('FilterBar', () => {
     )
   })
 
-  it('adds a status (lane) through the multi-select', async () => {
-    // Arrange
-    const user = userEvent.setup()
-    const { onChange } = renderBar()
-    // Act
-    await user.click(screen.getByRole('combobox', { name: 'Status' }))
-    await user.click(await screen.findByRole('option', { name: 'In Progress' }))
-    // Assert
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ laneKeys: ['in_progress'] }))
-  })
-
   it('sets the archived scope through the segmented control', async () => {
     // Arrange
     const user = userEvent.setup()

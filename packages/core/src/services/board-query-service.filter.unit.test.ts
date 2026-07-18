@@ -46,10 +46,10 @@ describe('BoardQueryService.filteredBoard', () => {
     expect(idsOf(filtered)).toEqual([p0.id, p1.id].sort((a, b) => a - b))
   })
 
-  it('narrows by lane keys and assignee ids (multi-select)', async () => {
+  it('narrows by assignee ids (multi-select any-of)', async () => {
     // Arrange
     const scenario = createScenario()
-    const inReady = scenario.seedCard({
+    const mine = scenario.seedCard({
       laneId: scenario.lanes.ready.id,
       assigneeId: scenario.users.technician.id,
     })
@@ -57,19 +57,18 @@ describe('BoardQueryService.filteredBoard', () => {
       laneId: scenario.lanes.ready.id,
       assigneeId: scenario.users.requester.id,
     })
-    scenario.seedCard({
+    const alsoMine = scenario.seedCard({
       laneId: scenario.lanes.intake.id,
       assigneeId: scenario.users.technician.id,
     })
 
     // Act
     const filtered = await scenario.queries.filteredBoard({
-      laneKeys: ['ready'],
       assigneeIds: [scenario.users.technician.id],
     })
 
-    // Assert — only the ready card assigned to the technician.
-    expect(idsOf(filtered)).toEqual([inReady.id])
+    // Assert — both cards assigned to the technician, across lanes.
+    expect(idsOf(filtered)).toEqual([mine.id, alsoMine.id].sort((a, b) => a - b))
   })
 
   it('matches the free-text query over title and description', async () => {

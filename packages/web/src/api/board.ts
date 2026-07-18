@@ -52,7 +52,6 @@ export function useBoard(filter: BoardFilter = EMPTY_BOARD_FILTER) {
 export function isEmptyFilter(filter: BoardFilter): boolean {
   return (
     filter.priorities.length === 0 &&
-    filter.laneKeys.length === 0 &&
     filter.assigneeIds.length === 0 &&
     filter.reporterIds.length === 0 &&
     filter.tags.length === 0 &&

@@ -17,7 +17,6 @@ describe('boardFilterSchema', () => {
     // Assert — a preset can always set the COMPLETE state; nothing is undefined.
     expect(filter).toEqual({
       priorities: [],
-      laneKeys: [],
       assigneeIds: [],
       reporterIds: [],
       tags: [],

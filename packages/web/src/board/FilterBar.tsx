@@ -1,10 +1,8 @@
 import {
   EMPTY_BOARD_FILTER,
-  LANE_KEYS,
   PRIORITIES,
   type BoardFilter,
   type FilterScope,
-  type LaneKey,
   type Location,
   type Priority,
 } from '@rivian-kanban/core'
@@ -45,9 +43,9 @@ export interface FilterBarProps {
  * input (left), the facet group centered in the flexible middle, and the presets
  * + Reset-filters control (right). The bar is placeholder-only — no visible field
  * labels — so each control carries an `aria-label` for its accessible name
- * (convention #104). The any-of facets (Status, Priority, assignee, reporter,
- * tags, location) are `MultiSelect` pill comboboxes with a FIXED footprint (a
- * fixed width + single-row pills) so selecting/clearing values never resizes the
+ * (convention #104). The any-of facets (Priority, assignee, reporter, tags,
+ * location) are `MultiSelect` pill comboboxes with a FIXED footprint (a fixed
+ * width + single-row pills) so selecting/clearing values never resizes the
  * control or reflows the bar; the single-value facets (scope, overdue) are
  * `SegmentedControl`s. Facets are grouped by kind (attributes · people ·
  * classification · scope) with vertical `Divider`s between groups. Presentational
@@ -129,18 +127,7 @@ export function FilterBar({
             justify-content:center). Wraps gracefully on narrow widths. */}
         <div className={classes.center}>
           <Group gap="sm" align="center" wrap="wrap" justify="center">
-            {/* Card attributes: status · priority. */}
-            <PillFacet
-              label={strings.filterBar.laneLabel}
-              placeholder={strings.filterBar.lanePlaceholder}
-              tooltip={strings.filterBar.tooltips.lane}
-              data={LANE_KEYS.map((key) => ({ value: key, label: strings.laneNames[key] }))}
-              value={filter.laneKeys}
-              onChange={(next) => {
-                set('laneKeys', next as LaneKey[])
-              }}
-            />
-
+            {/* Card attributes: priority. */}
             <PillFacet
               label={strings.filterBar.priorityLabel}
               placeholder={strings.filterBar.priorityPlaceholder}

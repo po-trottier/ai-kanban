@@ -358,9 +358,6 @@ export const strings = {
     priorityLabel: 'Priority',
     priorityGroupLabel: 'Filter by priority',
     priorityPlaceholder: 'Priority',
-    laneLabel: 'Status',
-    laneGroupLabel: 'Filter by status',
-    lanePlaceholder: 'Status',
     scopeLabel: 'Scope',
     scopeGroupLabel: 'Active, archived, or all cards',
     scopeActive: 'Active',
@@ -413,7 +410,6 @@ export const strings = {
     tooltips: {
       query: 'Show only cards whose title or description contains this text',
       priority: 'Show only cards at the selected priorities',
-      lane: 'Show only cards in the selected columns',
       scope: 'Include active cards, archived cards, or both',
       overdue: 'Show only cards past their estimated completion time',
       assignee: 'Show only cards assigned to the selected people',

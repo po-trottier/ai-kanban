@@ -53,7 +53,6 @@ function boardFilterEquals(a: BoardFilter, b: BoardFilter): boolean {
     a.scope === b.scope &&
     a.overdue === b.overdue &&
     sameSet(a.priorities, b.priorities) &&
-    sameSet(a.laneKeys, b.laneKeys) &&
     sameSet(a.assigneeIds, b.assigneeIds) &&
     sameSet(a.reporterIds, b.reporterIds) &&
     sameSet(a.tags, b.tags) &&
