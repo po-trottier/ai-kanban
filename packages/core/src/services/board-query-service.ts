@@ -185,6 +185,16 @@ export class BoardQueryService {
   }
 
   /**
+   * Resolve a human ticket number to the card's uuid — the web deep-links cards
+   * by their number (`/cards/1`). 404 when no card on this board has that number.
+   */
+  async cardIdByNumber(number: number): Promise<string> {
+    return this.deps.uow.read(
+      async (tx) => requireFound(await tx.cards.findByNumber(this.deps.boardId, number), 'card').id,
+    )
+  }
+
+  /**
    * The MCP `get_card` composition: full detail plus the redacted comment
    * thread and the trailing `latestEventsTake` audit events (chronological;
    * O(take) — the repository reads newest-first with a LIMIT). Composed

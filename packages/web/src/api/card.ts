@@ -32,6 +32,21 @@ export function useCardDetail(cardId: string) {
   })
 }
 
+/**
+ * Resolve a card by its human ticket NUMBER (the server's `GET /cards/:id`
+ * accepts a number too). Used only to map a `/cards/<number>` deep-link to the
+ * card's uuid when it is not in the board snapshot (archived / cold load) —
+ * `null` disables it. Keyed separately so it never collides with the uuid cache.
+ */
+export function useCardByNumber(number: number | null) {
+  const api = useApi()
+  return useQuery({
+    queryKey: ['card-by-number', number] as const,
+    queryFn: () => api.get(`/cards/${String(number)}`, cardDetailResponseSchema),
+    enabled: number !== null,
+  })
+}
+
 export function useComments(cardId: string) {
   const api = useApi()
   return useQuery({

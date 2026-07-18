@@ -378,7 +378,8 @@ function SearchResultCard({
     <UnstyledButton
       className={classes.result}
       onClick={() => {
-        onOpen(card.id)
+        // Deep-link by the human ticket number (/cards/1), not the uuid.
+        onOpen(String(card.number))
       }}
     >
       {/* One dense line: #number, title (ellipsized), badges, lane, dimmed meta. */}

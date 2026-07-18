@@ -58,6 +58,8 @@ export interface CardQueryFilter {
 
 export interface CardRepository {
   findById(id: string): Promise<Card | null>
+  /** By human ticket number within a board — the web deep-links `/cards/<number>`. */
+  findByNumber(boardId: string, number: number): Promise<Card | null>
   /**
    * The next sequential ticket number for the board — `MAX(number) + 1`, or 1
    * for the first card. Called inside the create transaction; SQLite's single

@@ -19,6 +19,7 @@ import { actorOf } from './user-routes.ts'
 import {
   cardDetailResponseSchema,
   cardEventResponseSchema,
+  cardIdOrNumberParamsSchema,
   cardResponseSchema,
   idParamsSchema,
   ifMatchHeadersSchema,
@@ -115,12 +116,16 @@ export function cardRoutes(deps: AppDeps) {
       '/cards/:id',
       {
         schema: {
-          params: idParamsSchema,
+          // Accepts the uuid OR the human ticket number (/cards/1) — the web
+          // deep-links by number; a numeric id resolves to the card's uuid.
+          params: cardIdOrNumberParamsSchema,
           response: { 200: cardDetailResponseSchema },
         },
       },
       async (request, reply) => {
-        const detail = await queries.cardDetail(request.params.id)
+        const { id } = request.params
+        const cardId = /^\d+$/.test(id) ? await queries.cardIdByNumber(Number(id)) : id
+        const detail = await queries.cardDetail(cardId)
         return reply.header('etag', etagOf(detail.card.version)).send(detail)
       },
     )

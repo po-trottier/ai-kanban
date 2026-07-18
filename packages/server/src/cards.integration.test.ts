@@ -176,6 +176,28 @@ describe('GET /cards/:id', () => {
     expect(missing.statusCode).toBe(404)
     expect(invalid.statusCode).toBe(400)
   })
+
+  it('resolves the human ticket number to the same card (/cards/<number> deep-link)', async () => {
+    const { cookie } = await t.asRole('user')
+    const card = await createCard(cookie, { title: 'By number' })
+
+    const byNumber = await t.request(cookie, {
+      method: 'GET',
+      url: `/api/v1/cards/${String(card.number)}`,
+    })
+
+    expect(byNumber.statusCode).toBe(200)
+    expect(byNumber.json<{ card: CardBody }>().card.id).toBe(card.id)
+    expect(byNumber.headers.etag).toBe('"1"')
+  })
+
+  it('404s an unknown ticket number', async () => {
+    const { cookie } = await t.asRole('user')
+
+    const response = await t.request(cookie, { method: 'GET', url: '/api/v1/cards/999999' })
+
+    expect(response.statusCode).toBe(404)
+  })
 })
 
 describe('PATCH /cards/:id', () => {

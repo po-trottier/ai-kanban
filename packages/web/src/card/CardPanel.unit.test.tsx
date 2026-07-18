@@ -51,6 +51,25 @@ describe('CardPanel', () => {
     expect(dialog).toHaveAccessibleName(new RegExp(card.priority))
   })
 
+  it('resolves a /cards/<number> deep-link off the board (archived) via a by-number fetch', async () => {
+    // Arrange — an archived card is absent from the board snapshot, so the panel
+    // resolves its ticket number → uuid through the by-number endpoint, then
+    // loads the detail by uuid (keeping every query uuid-keyed for SSE).
+    const archived = makeCard('done', { title: 'Old fix', archivedAt: '2026-04-01T00:00:00.000Z' })
+    const detail = { card: archived, tags: [], location: null, attachments: [] }
+    const fake = panelApp({
+      'GET /api/v1/board': makeBoard({}),
+      [`GET /api/v1/cards/${String(archived.number)}`]: detail,
+      [`GET /api/v1/cards/${archived.id}`]: detail,
+      [`GET /api/v1/cards/${archived.id}/comments`]: [],
+      [`GET /api/v1/cards/${archived.id}/events`]: { items: [], nextCursor: null },
+    })
+    // Act
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(archived.number)}` })
+    // Assert — the panel opens for the resolved card
+    expect(await screen.findByRole('dialog', { name: /Old fix/ })).toBeInTheDocument()
+  })
+
   it('renders non-modal on desktop so the board behind stays interactive', async () => {
     // Arrange — desktop is the default viewport in the test environment
     const user = userEvent.setup()

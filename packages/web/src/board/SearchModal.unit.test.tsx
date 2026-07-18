@@ -229,6 +229,9 @@ describe('SearchModal', () => {
     const found = makeCard('ready', { title: 'Fix pump', description: 'It leaks' })
     const user = userEvent.setup()
     const fake = searchApp({
+      // The result deep-links by ticket number; an active card resolves to its
+      // uuid from the board snapshot (where every active card lives).
+      'GET /api/v1/board': makeBoard({ ready: [found] }),
       'GET /api/v1/cards': { items: [found], nextCursor: null },
       [`GET /api/v1/cards/${found.id}`]: {
         card: found,

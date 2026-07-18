@@ -104,3 +104,13 @@ export const ifMatchHeadersSchema = z.looseObject({
 })
 
 export const idParamsSchema = z.object({ id: z.uuid() })
+
+/**
+ * `GET /cards/:id` accepts EITHER the uuid or the human ticket number
+ * (rest-api.md#board--cards): the web deep-links cards by number (`/cards/1`)
+ * and the server resolves it to the uuid. A bare positive integer is a number;
+ * anything else must be a uuid.
+ */
+export const cardIdOrNumberParamsSchema = z.object({
+  id: z.union([z.uuid(), z.string().regex(/^[1-9]\d*$/)]),
+})

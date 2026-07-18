@@ -31,6 +31,7 @@ import { useLocations, usePolicy, useTags, useUsers } from '../api/meta.ts'
 import { useCurrentUser, useUserTimezone } from '../auth/session-context.ts'
 import { CardBadges } from '../board/CardBadges.tsx'
 import { canPerformAction } from '../board/move-options.ts'
+import { useResolvedCardId } from './use-resolved-card-id.ts'
 import { formatTicketNumber, todayInTimezone, utcToday } from '../lib/format.ts'
 import { CloseIcon } from '../shell/icons.tsx'
 import { useCardPanelSlot } from '../shell/card-panel-slot.ts'
@@ -59,13 +60,16 @@ import classes from './card.module.css'
 export function CardPanelRoute() {
   const { cardId = '' } = useParams()
   const { setOpenCardId } = useCardPanelSlot()
+  // The URL carries the human ticket number (/cards/1); resolve it to the uuid
+  // so the panel and SSE stay uuid-keyed. null while resolving → panel waits.
+  const resolvedId = useResolvedCardId(cardId)
 
   useEffect(() => {
-    setOpenCardId(cardId)
+    setOpenCardId(resolvedId)
     return () => {
       setOpenCardId(null)
     }
-  }, [cardId, setOpenCardId])
+  }, [resolvedId, setOpenCardId])
 
   return null
 }
