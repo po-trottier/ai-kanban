@@ -2,6 +2,7 @@ import { PASSWORD_MIN_LENGTH, timezoneSchema, type SetupAdminInput } from '@rivi
 import {
   Button,
   Center,
+  Image,
   Loader,
   Paper,
   PasswordInput,
@@ -106,6 +107,7 @@ function SetupAccountForm({ onCreated }: { onCreated: () => void }) {
     >
       <Stack gap="md">
         <Stack gap="xs">
+          <Image src="/logo.png" alt="" h={SIZES.authLogoHeight} w="auto" fit="contain" />
           <Title order={2} size="h4" c="dimmed">
             {strings.appTitle}
           </Title>

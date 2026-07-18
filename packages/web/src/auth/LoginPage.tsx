@@ -2,6 +2,7 @@ import {
   Alert,
   Button,
   Center,
+  Image,
   Loader,
   Paper,
   PasswordInput,
@@ -67,6 +68,7 @@ export function LoginPage() {
         >
           <Stack gap="md">
             <Stack gap="xs">
+              <Image src="/logo.png" alt="" h={SIZES.authLogoHeight} w="auto" fit="contain" />
               <Title order={2} size="h4" c="dimmed">
                 {strings.appTitle}
               </Title>

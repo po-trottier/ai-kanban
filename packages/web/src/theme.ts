@@ -34,6 +34,8 @@ export const EMPHASIS_FONT_WEIGHT = 600
 export const SIZES = {
   headerHeight: 56,
   authCardWidth: '24rem',
+  /** Brand logo height inside the sign-in / setup cards (a touch larger than the header mark). */
+  authLogoHeight: '2.75rem',
   skeletonLaneHeaderHeight: '1.5rem',
   skeletonCardHeight: '5rem',
   /** Fixed lanes-admin inputs so the grid aligns regardless of label length. */
