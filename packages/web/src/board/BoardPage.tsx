@@ -51,7 +51,7 @@ export function BoardPage() {
 
   /** Central move funnel: waiting-lane entry detours through the reason modal. */
   const requestMove = useCallback(
-    (card: BoardCard, intent: MoveIntent, announcement?: string) => {
+    (card: BoardCard, intent: MoveIntent, announcement?: string, comment?: string) => {
       const from = board === undefined ? null : laneKeyOfCard(board, card)
       const laneLabel = board?.lanes.find((snapshot) => snapshot.lane.key === intent.toLane)?.lane
         .label
@@ -77,6 +77,7 @@ export function BoardPage() {
         intent,
         ...(announcement === undefined ? {} : { announcement }),
         ...(laneLabel === undefined ? {} : { laneLabel }),
+        ...(comment === undefined ? {} : { comment }),
       })
     },
     [board, moveCard],
@@ -191,6 +192,7 @@ export function BoardPage() {
                 selection.laneLabel,
                 selection.position,
               ),
+              selection.comment,
             )
           }}
         />
@@ -201,9 +203,11 @@ export function BoardPage() {
           onSubmit={({
             waitingReason,
             expectedResumeAt,
+            comment,
           }: {
             waitingReason: WaitingReason
             expectedResumeAt: string
+            comment?: string
           }) => {
             closeModal()
             moveCard.mutate({
@@ -213,6 +217,7 @@ export function BoardPage() {
               laneLabel:
                 board.lanes.find((snapshot) => snapshot.lane.key === modal.intent.toLane)?.lane
                   .label ?? strings.laneNames.waiting_parts_vendor,
+              ...(comment === undefined ? {} : { comment }),
             })
           }}
         />

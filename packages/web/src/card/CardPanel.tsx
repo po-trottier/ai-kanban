@@ -28,10 +28,10 @@ import {
   useUploadAttachment,
 } from '../api/card.ts'
 import { useLocations, usePolicy, useTags, useUsers } from '../api/meta.ts'
-import { useCurrentUser } from '../auth/session-context.ts'
+import { useCurrentUser, useUserTimezone } from '../auth/session-context.ts'
 import { CardBadges } from '../board/CardBadges.tsx'
 import { canPerformAction } from '../board/move-options.ts'
-import { formatTicketNumber, utcToday } from '../lib/format.ts'
+import { formatTicketNumber, todayInTimezone, utcToday } from '../lib/format.ts'
 import { CloseIcon } from '../shell/icons.tsx'
 import { useCardPanelSlot } from '../shell/card-panel-slot.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
@@ -433,6 +433,7 @@ function WaitingBanner({
     seenServer.current = { reason: card.waitingReason, resumeAt: card.expectedResumeAt }
   }, [card.waitingReason, card.expectedResumeAt])
 
+  const timezone = useUserTimezone()
   const dirty =
     reason !== null &&
     resumeAt !== null &&
@@ -458,6 +459,8 @@ function WaitingBanner({
           label={strings.detail.waitingResumeLabel}
           value={resumeAt}
           onChange={setResumeAt}
+          minDate={todayInTimezone(timezone)}
+          highlightToday
         />
         <Group justify="flex-end">
           <Button

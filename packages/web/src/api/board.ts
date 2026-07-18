@@ -12,9 +12,9 @@ import { strings } from '../strings.ts'
 import { useApi } from './api-context.ts'
 import { applyMoveToBoard, type MoveIntent } from './board-cache.ts'
 import { queryKeys } from './keys.ts'
-import { notifyCardError, notifySuccess } from './notify.ts'
+import { notifyCardError, notifyError, notifySuccess } from './notify.ts'
 import { movedToMessage } from './toast-messages.tsx'
-import { boardResponseSchema, type BoardResponse } from './schemas.ts'
+import { boardResponseSchema, commentResponseSchema, type BoardResponse } from './schemas.ts'
 
 export function useBoard() {
   const api = useApi()
@@ -33,6 +33,8 @@ export interface MoveCardArgs {
   announcement?: string
   /** Destination lane label, for the confirmation toast ("Card moved to Ready"). */
   laneLabel?: string
+  /** Optional note posted as a card comment after a move into the waiting lane. */
+  comment?: string
 }
 
 /**
@@ -68,6 +70,15 @@ export function useMoveCard(onMoved?: (args: MoveCardArgs) => void) {
         args.laneLabel === undefined ? strings.board.moved : movedToMessage(args.laneLabel),
       )
       onMoved?.(args)
+      // Optional waiting-lane note → a card comment, best-effort: a failed post
+      // never undoes the move that already succeeded.
+      const note = args.comment?.trim()
+      if (note !== undefined && note !== '') {
+        void api
+          .post(`/cards/${args.card.id}/comments`, commentResponseSchema, { body: { body: note } })
+          .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.comments(args.card.id) }))
+          .catch(notifyError)
+      }
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.board })

@@ -1,21 +1,30 @@
 import { WAITING_REASONS, type WaitingReason } from '@rivian-kanban/core'
-import { Button, Group, Modal, Select, Stack, Text } from '@mantine/core'
+import { Button, Group, Modal, Select, Stack, Text, Textarea } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
 import { useState } from 'react'
+import { useUserTimezone } from '../auth/session-context.ts'
+import { todayInTimezone } from '../lib/format.ts'
 import { strings } from '../strings.ts'
 
 export interface WaitingLaneModalProps {
-  onSubmit: (values: { waitingReason: WaitingReason; expectedResumeAt: string }) => void
+  onSubmit: (values: {
+    waitingReason: WaitingReason
+    expectedResumeAt: string
+    /** Optional note, posted as a card comment after the move. */
+    comment?: string
+  }) => void
   onClose: () => void
 }
 
 /**
  * Always-on data rule (never policy): entering Waiting on Parts / Vendor
- * requires a reason and an expected resume date.
+ * requires a reason and an expected resume date; a free-text note is optional.
  */
 export function WaitingLaneModal({ onSubmit, onClose }: WaitingLaneModalProps) {
+  const timezone = useUserTimezone()
   const [reason, setReason] = useState<WaitingReason | null>(null)
   const [resumeAt, setResumeAt] = useState<string | null>(null)
+  const [comment, setComment] = useState('')
   const [touched, setTouched] = useState(false)
 
   const reasonError = touched && reason === null ? strings.waiting.reasonRequired : null
@@ -44,6 +53,19 @@ export function WaitingLaneModal({ onSubmit, onClose }: WaitingLaneModalProps) {
           value={resumeAt}
           error={resumeError}
           onChange={setResumeAt}
+          minDate={todayInTimezone(timezone)}
+          highlightToday
+        />
+        <Textarea
+          label={strings.waiting.commentLabel}
+          placeholder={strings.waiting.commentPlaceholder}
+          value={comment}
+          onChange={(event) => {
+            setComment(event.currentTarget.value)
+          }}
+          autosize
+          minRows={2}
+          maxRows={5}
         />
         <Group justify="flex-end" gap="sm">
           <Button variant="default" onClick={onClose}>
@@ -53,7 +75,12 @@ export function WaitingLaneModal({ onSubmit, onClose }: WaitingLaneModalProps) {
             onClick={() => {
               setTouched(true)
               if (reason === null || resumeAt === null) return
-              onSubmit({ waitingReason: reason, expectedResumeAt: resumeAt })
+              const note = comment.trim()
+              onSubmit({
+                waitingReason: reason,
+                expectedResumeAt: resumeAt,
+                ...(note === '' ? {} : { comment: note }),
+              })
             }}
           >
             {strings.waiting.confirm}

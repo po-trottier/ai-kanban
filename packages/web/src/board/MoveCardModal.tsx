@@ -6,11 +6,13 @@ import {
   type Role,
   type WaitingReason,
 } from '@rivian-kanban/core'
-import { Button, Group, Modal, Select, Stack, Text } from '@mantine/core'
+import { Button, Group, Modal, Select, Stack, Text, Textarea } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
 import { useState } from 'react'
 import { isWaitingLane, type MoveIntent } from '../api/board-cache.ts'
 import { type BoardResponse } from '../api/schemas.ts'
+import { useUserTimezone } from '../auth/session-context.ts'
+import { todayInTimezone } from '../lib/format.ts'
 import { strings } from '../strings.ts'
 import { canMoveToLane, isSamePosition, positionChoices } from './move-options.ts'
 
@@ -19,6 +21,8 @@ export interface MoveSelection {
   laneLabel: string
   /** 1-based position in the target lane, for the live-region announcement. */
   position: number
+  /** Optional note when entering the waiting lane, posted as a card comment. */
+  comment?: string
 }
 
 /** Narrows the Select's `string | null` to a WaitingReason (or null). */
@@ -51,12 +55,14 @@ export function MoveCardModal({
   onSubmit,
   onClose,
 }: MoveCardModalProps) {
+  const timezone = useUserTimezone()
   const [laneKey, setLaneKey] = useState<LaneKey>(currentLane)
   const [positionValue, setPositionValue] = useState('first')
   // Waiting-lane data collected inline (always-on data rule): the requirement
   // is visible at the point of choice, not after a confusing second modal.
   const [waitingReason, setWaitingReason] = useState<WaitingReason | null>(null)
   const [resumeAt, setResumeAt] = useState<string | null>(null)
+  const [comment, setComment] = useState('')
   // Once the user has engaged the waiting fields, surface a per-field required
   // message so the two mandatory fields are obvious, not just the greyed Move.
   const [waitingTouched, setWaitingTouched] = useState(false)
@@ -139,6 +145,19 @@ export function MoveCardModal({
                 setWaitingTouched(true)
                 setResumeAt(value)
               }}
+              minDate={todayInTimezone(timezone)}
+              highlightToday
+            />
+            <Textarea
+              label={strings.waiting.commentLabel}
+              placeholder={strings.waiting.commentPlaceholder}
+              value={comment}
+              onChange={(event) => {
+                setComment(event.currentTarget.value)
+              }}
+              autosize
+              minRows={2}
+              maxRows={5}
             />
           </Stack>
         ) : null}
@@ -162,10 +181,12 @@ export function MoveCardModal({
                 onClose()
                 return
               }
+              const note = comment.trim()
               onSubmit({
                 intent,
                 laneLabel: targetLane?.lane.label ?? laneKey,
                 position: choices.indexOf(selected) + 1,
+                ...(entersWaiting && note !== '' ? { comment: note } : {}),
               })
             }}
           >

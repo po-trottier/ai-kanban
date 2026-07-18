@@ -253,6 +253,8 @@ export const strings = {
     resumeLabel: 'Expected resume date',
     reasonRequired: 'Pick a waiting reason',
     resumeRequired: 'Pick the expected resume date',
+    commentLabel: 'Note (optional)',
+    commentPlaceholder: 'Add context — which part, vendor, or PO number',
     confirm: 'Move card',
     reasons: {
       parts: 'Parts',

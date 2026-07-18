@@ -62,6 +62,11 @@ export function utcToday(): string {
   return utcDayOf(new Date())
 }
 
+/** Today as `YYYY-MM-DD` in the given IANA zone — the minimum for resume-date pickers. */
+export function todayInTimezone(timezone: string): string {
+  return dayjs().tz(timezone).format('YYYY-MM-DD')
+}
+
 /** An absolute timestamp rendered in the viewer's own time zone (IANA id). */
 export function formatDateTime(iso: string, timezone: string): string {
   return dayjs(iso).tz(timezone).format('MMM D, YYYY HH:mm')
