@@ -26,16 +26,27 @@ harness does for deterministic logins (refused in production, like `SEED_DEMO_DA
 
 ## Commands (root)
 
-| Command                                        | What                                                           |
-| ---------------------------------------------- | -------------------------------------------------------------- |
-| `npm run dev`                                  | run backend + frontend in watch mode against `data/app.sqlite` |
-| `npm test`                                     | unit + integration suites                                      |
-| `npm run test:unit` / `test:integration`       | one layer                                                      |
-| `npm run test:e2e`                             | Playwright (builds web, boots server on a temp DB)             |
-| `npm run lint` / `lint:fix`                    | ESLint + prettier                                              |
-| `npm run check`                                | everything CI runs, locally, in order                          |
-| `npm run db:migrate` / `db:seed` / `db:studio` | drizzle-kit migrate / reseed dev DB / data browser             |
-| `npm run build`                                | compile all packages + SPA bundle                              |
+| Command                                        | What                                                              |
+| ---------------------------------------------- | ----------------------------------------------------------------- |
+| `npm run dev`                                  | run backend + frontend in watch mode against `data/app.sqlite`    |
+| `npm test`                                     | unit + integration suites                                         |
+| `npm run test:unit` / `test:integration`       | one layer                                                         |
+| `npm run test:e2e`                             | Playwright (builds web, boots server on a temp DB)                |
+| `npm run lint` / `lint:fix`                    | ESLint + prettier                                                 |
+| `npm run check`                                | everything CI runs, locally, in order                             |
+| `npm run db:generate`                          | regenerate `0000_init` from `schema.ts` (see Changing the schema) |
+| `npm run db:migrate` / `db:seed` / `db:studio` | drizzle-kit migrate / reseed dev DB / data browser                |
+| `npm run build`                                | compile all packages + SPA bundle                                 |
+
+## Changing the schema (v0)
+
+There is exactly **one** migration — `packages/db/migrations/0000_init.sql`. While pre-1.0 there
+is no deployed schema to preserve, so a schema change **regenerates that single file in place**
+instead of adding an incremental `0001_*` migration: edit `packages/db/src/schema.ts`, delete
+`migrations/0000_init.sql` and `migrations/meta/`, run `npm run db:generate`, then recreate a
+fresh dev DB (`rm -rf data` then `npm run dev`). The forward-only migration chain that
+[deployment.md](../architecture/deployment.md) describes begins at the first production release;
+until then, keep it a single `0000_init` — this is a deliberate simplification, not an oversight.
 
 ## Docker quickstart
 
