@@ -47,26 +47,22 @@ test('sets the display time zone from Preferences and persists it across a reloa
   await fillLogin(page, demoEmail('admin'), DEMO_PASSWORD)
   await expect(page.getByRole('region', { name: 'Kanban board' })).toBeVisible()
 
-  // Open Preferences from the avatar menu (every role can reach it).
-  await page.getByRole('button', { name: 'Demo Admin' }).click()
-  await page.getByRole('menuitem', { name: 'Preferences' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Preferences' })
+  // Preferences is the first tab of the Settings page (reachable by every role).
+  await page.goto('/settings')
+  await page.getByRole('tab', { name: 'Preferences' }).click()
 
   // Pick a new zone in the searchable Select and save.
-  const zone = dialog.getByRole('combobox', { name: 'Time zone' })
+  const zone = page.getByRole('combobox', { name: 'Time zone' })
   await zone.click()
   await zone.fill('New York')
   await page.getByRole('option', { name: 'America/New York' }).click()
-  await dialog.getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByText('Preferences saved')).toBeVisible()
 
   // The choice survives a full reload (persisted server-side, re-read from /auth/me).
   await page.reload()
-  await page.getByRole('button', { name: 'Demo Admin' }).click()
-  await page.getByRole('menuitem', { name: 'Preferences' }).click()
-  await expect(
-    page.getByRole('dialog', { name: 'Preferences' }).getByRole('combobox', { name: 'Time zone' }),
-  ).toHaveValue('America/New York')
+  await page.getByRole('tab', { name: 'Preferences' }).click()
+  await expect(page.getByRole('combobox', { name: 'Time zone' })).toHaveValue('America/New York')
 })
 
 test('routes a fresh admin-created user through the change-password interstitial', async ({

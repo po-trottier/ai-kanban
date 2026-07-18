@@ -165,13 +165,13 @@ describe('CardDetailsForm', () => {
         onSave={() => undefined}
       />,
     )
-    // Assert — reporter is a first-class labelled field showing the card's
-    // reporter (Ada Admin) as read-only text: no edit control (no combobox named
-    // "Reporter"), unlike the editable Assignee combobox beside it.
-    expect(screen.getByText('Reporter')).toBeInTheDocument()
-    expect(screen.getAllByText('Ada Admin').length).toBeGreaterThan(0)
-    expect(screen.queryByRole('combobox', { name: /Reporter/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Assignee' })).toBeInTheDocument()
+    // Assert — Reporter looks EXACTLY like Assignee: a combobox directly below
+    // it, but disabled and pre-populated with the card's reporter (Ada Admin);
+    // Assignee stays an enabled combobox.
+    const reporterField = screen.getByRole('combobox', { name: 'Reporter' })
+    expect(reporterField).toBeDisabled()
+    expect(reporterField).toHaveValue('Ada Admin')
+    expect(screen.getByRole('combobox', { name: 'Assignee' })).toBeEnabled()
     // Both datetimes render in the viewer's zone (America/Los_Angeles): the
     // created T0 (10:00Z → 03:00) and the distinct updatedAt (18:30Z → 11:30).
     expect(screen.getByText(/Created: Jul 1, 2026 03:00/)).toBeInTheDocument()

@@ -15,6 +15,12 @@ export interface CardFieldInputsProps {
   titleField: UseFormRegisterReturn
   errors: { title?: string | undefined; estimateMinutes?: string | undefined }
   users: PickerUser[]
+  /**
+   * When set (the edit form), a disabled Reporter picker renders directly below
+   * Assignee — identical to it, showing who filed the card (never editable here).
+   * Omitted by the create modal (a new card's reporter is the current user).
+   */
+  reporterId?: string | undefined
   locations: Location[]
   knownTags: string[]
   /**
@@ -26,6 +32,15 @@ export interface CardFieldInputsProps {
   cleared: null | undefined
   /** Archived cards are read-only except reopen (workflow.md#terminal-states). */
   disabled?: boolean
+}
+
+/** Assignee-style options guaranteed to include the reporter, so the disabled
+ *  Reporter picker resolves a name even if the reporter is no longer assignable. */
+function reporterOptions(users: PickerUser[], reporterId: string) {
+  const options = users.map((user) => ({ value: user.id, label: user.displayName }))
+  return options.some((option) => option.value === reporterId)
+    ? options
+    : [...options, { value: reporterId, label: strings.history.unknownUser }]
 }
 
 /**
@@ -40,6 +55,7 @@ export function CardFieldInputs({
   titleField,
   errors,
   users,
+  reporterId,
   locations,
   knownTags,
   cleared,
@@ -128,6 +144,18 @@ export function CardFieldInputs({
           />
         )}
       />
+      {reporterId === undefined ? null : (
+        <Select
+          label={strings.detail.reporterLabel}
+          // Identical to Assignee but always disabled: who filed the card, shown
+          // here and never editable. The reporter is guaranteed an option (even
+          // if no longer an assignable user) so the name resolves.
+          data={reporterOptions(users, reporterId)}
+          value={reporterId}
+          disabled
+          onChange={() => undefined}
+        />
+      )}
       <Controller
         control={control}
         name="locationId"

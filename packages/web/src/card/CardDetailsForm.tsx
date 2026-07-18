@@ -1,5 +1,5 @@
 import { updateCardInputSchema, type Location, type UpdateCardInput } from '@rivian-kanban/core'
-import { Button, Group, Input, Stack, Text } from '@mantine/core'
+import { Button, Group, Stack, Text } from '@mantine/core'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
@@ -56,8 +56,6 @@ export function CardDetailsForm({
     form.reset(valuesOf(detail), { keepDirtyValues: true })
   }, [form, detail])
 
-  const reporter = users.find((user) => user.id === card.reporterId)
-
   return (
     <form
       noValidate
@@ -76,18 +74,13 @@ export function CardDetailsForm({
             estimateMinutes: form.formState.errors.estimateMinutes?.message,
           }}
           users={users}
+          reporterId={card.reporterId}
           locations={locations}
           knownTags={knownTags}
           // The update command clears optionals explicitly (core schema `.nullable()`).
           cleared={null}
           disabled={disabled}
         />
-        {/* Reporter is a first-class read-only field — labelled like Assignee
-            (an Input.Wrapper gives the same label treatment) but with no picker,
-            since who filed the card never changes here. */}
-        <Input.Wrapper label={strings.detail.reporterLabel}>
-          <Text size="sm">{reporter?.displayName ?? strings.history.unknownUser}</Text>
-        </Input.Wrapper>
         <Group gap="lg">
           <Text size="xs" c="dimmed">
             {strings.detail.createdLabel}: {formatDateTime(card.createdAt, timezone)}
