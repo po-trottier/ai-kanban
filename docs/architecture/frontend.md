@@ -107,3 +107,30 @@ dependency injection, not interception; the real network path belongs to Playwri
 `src/test/setup.ts` carries hand-written happy-dom polyfills (`document.fonts`,
 `EventSource`) and drains the singleton notifications store between tests. The DnD adapter's
 native drag events cannot fire in happy-dom; that path is e2e-only by design (ADR-007).
+
+## Mantine (UI library) — conventions & AI resources
+
+Decision rationale lives in [ADR-016](decisions/ADR-016-ui-framework.md); the enforced
+conventions:
+
+- **Styles import order** in `main.tsx`: `@mantine/core/styles.css` first, then the extension
+  packages (`dates`, `notifications`, `tiptap`), then `index.css`. Later imports win on equal
+  specificity — that is how `index.css` offsets the notifications container without `!important`.
+- **PostCSS**: `postcss-preset-mantine` (`packages/web/postcss.config.cjs`) supplies the `rem()`,
+  `light-dark()`, and `smaller-than`/`larger-than` mixins the CSS modules use.
+- **One theme file**: `src/theme.ts` (`createTheme`) is the only home for design values (ADR-016
+  rule 1); component overrides go through the Styles API, never inline pixel literals.
+- **Icons via `lucide-react`** — Mantine ships none. NEVER hand-roll `<svg>`/`<path>` icon
+  components; use lucide glyphs (inside `ActionIcon`/`ThemeIcon`, sized on the icon, not the
+  button — mantine.dev/core/action-icon). `shell/icons.tsx` only aliases lucide glyphs to app
+  names for a shared vocabulary + default size.
+
+**AI-assisted UI work should use Mantine's own agent resources** — Mantine 9 postdates most model
+training cutoffs, so recalling APIs from memory drifts. Prefer:
+
+- **`https://mantine.dev/llms-full.txt`** — the whole docs as one file (per-page markdown indexed
+  by `/llms.txt`); fetch it for exact v9 component props/behavior rather than guessing.
+- **Skills** — [`mantinedev/skills`](https://github.com/mantinedev/skills) (`mantine-form`,
+  `mantine-combobox`, `mantine-custom-components`), added via `npx skills add`.
+- **MCP server** — `@mantine/mcp-server` (experimental): `list_items`, `get_item_doc`,
+  `get_item_props`, `search_docs` for any MCP client.
