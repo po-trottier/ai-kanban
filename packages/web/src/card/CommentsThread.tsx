@@ -1,6 +1,6 @@
 import { type Comment } from '@rivian-kanban/core'
-import { Group, Paper, Stack, Text, Textarea } from '@mantine/core'
-import { Pencil, Reply, Save, Trash2, X } from 'lucide-react'
+import { Anchor, Group, Paper, Stack, Text, Textarea } from '@mantine/core'
+import { CornerUpLeft, Pencil, Reply, Save, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { buildCommentThread } from '../lib/comments.ts'
@@ -33,6 +33,14 @@ export interface CommentsThreadProps {
   onDelete: (commentId: string, onDeleted: () => void) => void
 }
 
+/** A comment's DOM id, so a reply can jump to its parent by id (no per-item ref). */
+function commentDomId(id: string): string {
+  return `comment-${id}`
+}
+
+/** How long the parent stays flashed after a reply's "Replied to…" jump. */
+const HIGHLIGHT_MS = 1500
+
 /** Threaded discussion: one nesting level, edit-own, soft-delete placeholders. */
 export function CommentsThread({
   comments,
@@ -51,6 +59,30 @@ export function CommentsThread({
   const [replyTo, setReplyTo] = useState<string | null>(null)
   // Deleting a comment is irreversible to the author, so confirm first.
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  // A reply's "Replied to…" jumps to its parent and briefly flashes it.
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
+  // Resolve a reply's parent (author name + deleted/absent state) by id.
+  const byId = new Map(comments.map((comment) => [comment.id, comment]))
+
+  // Clear the flash after a beat. One shared timer, cleared on the next jump and
+  // on unmount so it never fires into a torn-down component (the notify-timer
+  // lesson: no live setTimeout past teardown).
+  const highlightTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => {
+    return () => {
+      clearTimeout(highlightTimer.current)
+    }
+  }, [])
+  const jumpToParent = (parentId: string) => {
+    document
+      .getElementById(commentDomId(parentId))
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightedId(parentId)
+    clearTimeout(highlightTimer.current)
+    highlightTimer.current = setTimeout(() => {
+      setHighlightedId(null)
+    }, HIGHLIGHT_MS)
+  }
 
   return (
     <Stack gap="md">
@@ -81,6 +113,9 @@ export function CommentsThread({
           <Stack key={comment.id} gap="xs">
             <CommentItem
               comment={comment}
+              byId={byId}
+              highlighted={highlightedId === comment.id}
+              onJumpToParent={jumpToParent}
               currentUserId={currentUserId}
               userNames={userNames}
               canDeleteOthers={canDeleteOthers}
@@ -97,6 +132,9 @@ export function CommentsThread({
                 <CommentItem
                   key={reply.id}
                   comment={reply}
+                  byId={byId}
+                  highlighted={highlightedId === reply.id}
+                  onJumpToParent={jumpToParent}
                   currentUserId={currentUserId}
                   userNames={userNames}
                   canDeleteOthers={canDeleteOthers}
@@ -144,6 +182,11 @@ export function CommentsThread({
 
 interface CommentItemProps {
   comment: Comment
+  /** All loaded comments by id, to resolve a reply's parent author/state. */
+  byId: Map<string, Comment>
+  /** True while this comment is the flash target of a "Replied to…" jump. */
+  highlighted: boolean
+  onJumpToParent: (parentId: string) => void
   currentUserId: string
   userNames: Map<string, string>
   canDeleteOthers: boolean
@@ -157,6 +200,9 @@ interface CommentItemProps {
 
 function CommentItem({
   comment,
+  byId,
+  highlighted,
+  onJumpToParent,
   currentUserId,
   userNames,
   canDeleteOthers,
@@ -197,6 +243,8 @@ function CommentItem({
       p="sm"
       radius="md"
       component="article"
+      id={commentDomId(comment.id)}
+      className={highlighted ? classes.commentHighlight : undefined}
       aria-label={strings.comments.itemLabel(authorName)}
     >
       <Group gap="xs">
@@ -207,6 +255,14 @@ function CommentItem({
           {formatDateTime(comment.createdAt, timezone)}
         </Text>
       </Group>
+      {comment.parentCommentId !== null ? (
+        <ReplyContext
+          parentId={comment.parentCommentId}
+          byId={byId}
+          userNames={userNames}
+          onJumpToParent={onJumpToParent}
+        />
+      ) : null}
       {deleted ? (
         <Text size="sm" c="dimmed" fs="italic">
           {strings.comments.deletedPlaceholder}
@@ -305,6 +361,52 @@ function CommentItem({
         </Group>
       ) : null}
     </Paper>
+  )
+}
+
+/**
+ * A reply's "Replied to {name}" context. Resolves the parent from the loaded
+ * page: present → jump to it; soft-deleted → still jump (the placeholder is
+ * on-screen); absent from this page → a graceful, non-interactive label (there
+ * is nothing to scroll to).
+ */
+function ReplyContext({
+  parentId,
+  byId,
+  userNames,
+  onJumpToParent,
+}: {
+  parentId: string
+  byId: Map<string, Comment>
+  userNames: Map<string, string>
+  onJumpToParent: (parentId: string) => void
+}) {
+  const parent = byId.get(parentId)
+  const icon = <CornerUpLeft size={12} aria-hidden />
+  // Not in this page — can't scroll, so a plain label, not a button.
+  if (parent === undefined) {
+    return (
+      <Text size="xs" c="dimmed" mt={4}>
+        {icon} {strings.comments.repliedToEarlier}
+      </Text>
+    )
+  }
+  const authorName = userNames.get(parent.authorId) ?? strings.history.unknownUser
+  const deleted = parent.deletedAt !== null
+  return (
+    <Anchor
+      component="button"
+      type="button"
+      size="xs"
+      c="dimmed"
+      mt={4}
+      aria-label={strings.comments.repliedToLabel(authorName)}
+      onClick={() => {
+        onJumpToParent(parentId)
+      }}
+    >
+      {icon} {deleted ? strings.comments.repliedToDeleted : strings.comments.repliedTo(authorName)}
+    </Anchor>
   )
 }
 

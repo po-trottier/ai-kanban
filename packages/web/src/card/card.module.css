@@ -28,6 +28,14 @@
   white-space: pre-wrap;
 }
 
+/* Brief background flash when a reply's "Replied to…" jumps to its parent, so
+   the eye lands on the right comment. Toggled off after ~1.5s in JS; the fade
+   back is the transition. */
+.commentHighlight {
+  background-color: light-dark(var(--mantine-color-indigo-0), var(--mantine-color-dark-5));
+  transition: background-color 300ms ease-out;
+}
+
 .dropzone {
   border: 1px dashed var(--mantine-color-default-border);
   border-radius: var(--mantine-radius-md);

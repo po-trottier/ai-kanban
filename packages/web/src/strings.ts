@@ -575,6 +575,14 @@ export const strings = {
     deletedPlaceholder: '(deleted)',
     empty: 'No comments yet',
     itemLabel: (name: string) => `Comment by ${name}`,
+    /** Subtle context on a reply: which comment (its author) it answers. */
+    repliedTo: (name: string) => `Replied to ${name}`,
+    /** Parent is present in the page but soft-deleted (blanked body). */
+    repliedToDeleted: 'Replied to a deleted comment',
+    /** Parent isn't in the loaded page (older than the fetched window). */
+    repliedToEarlier: 'Replied to an earlier comment',
+    /** Accessible name for the reply-context button that jumps to the parent. */
+    repliedToLabel: (name: string) => `Go to the comment by ${name} this replies to`,
     editLabel: 'Edit comment',
     deleteLabel: 'Delete comment',
     saveEdit: 'Save',

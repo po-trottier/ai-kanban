@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { fixtureAdmin, fixtureTech, makeCard, makeComment, nth, uid } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
+import classes from './card.module.css'
 import { CommentsThread } from './CommentsThread.tsx'
 
 const userNames = new Map([
@@ -67,6 +68,84 @@ describe('CommentsThread', () => {
     // Assert
     expect(screen.getByText('(deleted)')).toBeInTheDocument()
     expect(screen.queryByText('gone')).not.toBeInTheDocument()
+  })
+
+  it('labels a reply with its parent author and jumps + highlights on click', async () => {
+    // Arrange — a reply (by Terry) to Ada's top-level comment.
+    const user = userEvent.setup()
+    const cardId = makeCard('intake').id
+    const parent = makeComment({ id: uid(71), cardId, authorId: fixtureAdmin.id })
+    const reply = makeComment({
+      id: uid(72),
+      cardId,
+      parentCommentId: parent.id,
+      authorId: fixtureTech.id,
+      createdAt: '2026-07-02T10:00:00.000Z',
+    })
+    renderWithProviders(
+      <CommentsThread
+        comments={[parent, reply]}
+        currentUserId={fixtureAdmin.id}
+        userNames={userNames}
+        canDeleteOthers={false}
+        onAdd={noop}
+        onEdit={noop}
+        onDelete={noop}
+      />,
+    )
+    // scrollIntoView isn't in happy-dom — a hand-written recorder on the parent
+    // element (no mocking libs, per the repo rule) proves the handler ran.
+    const parentArticle = nth(screen.getAllByRole('article'), 0)
+    const scrolled: unknown[] = []
+    parentArticle.scrollIntoView = (arg) => scrolled.push(arg)
+    // Act — click the reply's "Replied to Ada Admin" context button.
+    await user.click(
+      screen.getByRole('button', {
+        name: `Go to the comment by ${fixtureAdmin.displayName} this replies to`,
+      }),
+    )
+    // Assert — the label names the parent author, the parent was scrolled into
+    // view, and it now carries the highlight class.
+    expect(screen.getByText(`Replied to ${fixtureAdmin.displayName}`)).toBeInTheDocument()
+    expect(scrolled).toHaveLength(1)
+    // Vite types CSS-module members as string | undefined; assert it resolved,
+    // then that the parent now carries the flash class.
+    const highlight = classes.commentHighlight
+    expect(highlight).toBeTruthy()
+    expect(parentArticle).toHaveClass(String(highlight))
+  })
+
+  it('shows a graceful label when a reply’s parent was deleted', () => {
+    // Arrange — the parent is present in the page but soft-deleted.
+    const cardId = makeCard('intake').id
+    const parent = makeComment({
+      id: uid(73),
+      cardId,
+      authorId: fixtureAdmin.id,
+      deletedAt: '2026-07-03T10:00:00.000Z',
+    })
+    const reply = makeComment({
+      id: uid(74),
+      cardId,
+      parentCommentId: parent.id,
+      authorId: fixtureTech.id,
+      createdAt: '2026-07-04T10:00:00.000Z',
+    })
+    // Act
+    renderWithProviders(
+      <CommentsThread
+        comments={[parent, reply]}
+        currentUserId={fixtureAdmin.id}
+        userNames={userNames}
+        canDeleteOthers={false}
+        onAdd={noop}
+        onEdit={noop}
+        onDelete={noop}
+      />,
+    )
+    // Assert — the graceful label, not the deleted author's name.
+    expect(screen.getByText('Replied to a deleted comment')).toBeInTheDocument()
+    expect(screen.queryByText(`Replied to ${fixtureAdmin.displayName}`)).not.toBeInTheDocument()
   })
 
   it('offers edit and delete only on own comments when the gate is closed', () => {
