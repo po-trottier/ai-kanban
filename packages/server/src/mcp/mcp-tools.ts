@@ -42,7 +42,7 @@ import { toProblem } from '../http/problems.ts'
 import { type AppDeps } from '../types.ts'
 
 /**
- * The 9 MCP tools (docs/architecture/mcp.md#tools). Handlers call the same
+ * The 20 MCP tools (docs/architecture/mcp.md#tools). Handlers call the same
  * core services as REST with the token-derived Actor, so policy and audit
  * behave identically. Input schemas are the core command/filter schemas
  * (single-schema rule) extended only with the tool-addressing fields REST
@@ -197,7 +197,7 @@ function laneSummaryOf(lane: Lane, cards: BoardCard[], wipLimitExceeded: boolean
 }
 
 export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBaseLogger): McpServer {
-  const { queries, cards, comments } = deps.services
+  const { queries, cards, comments, locations } = deps.services
   const server = new McpServer(
     { name: 'rivian-kanban', version: deps.config.version.version },
     { capabilities: { tools: {} } },
@@ -383,6 +383,29 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       outputSchema: z.strictObject({ lanes: z.array(laneSchema) }),
     },
     async () => jsonResult({ lanes: await queries.listLanes() }),
+  )
+
+  readTool(
+    'list_locations',
+    {
+      description:
+        "The board's locations (facilities/areas) as a flat parentId-linked tree (id, kind, " +
+        'name, parentId). Resolve a location id here before setting a card.locationId in ' +
+        'create_card / update_card — that field takes an id, not a name.',
+      outputSchema: z.strictObject({ locations: z.array(locationSchema) }),
+    },
+    async () => jsonResult({ locations: await locations.list() }),
+  )
+
+  readTool(
+    'list_tags',
+    {
+      description:
+        'Every tag currently used on the board (id, name). Reuse an existing name when tagging ' +
+        'cards (card tags are a full-replacement name array) instead of coining near-duplicates.',
+      outputSchema: z.strictObject({ tags: z.array(tagSchema) }),
+    },
+    async () => jsonResult({ tags: await queries.listTags() }),
   )
 
   readTool(

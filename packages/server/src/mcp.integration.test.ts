@@ -27,6 +27,8 @@ const MCP_TOOL_NAMES = [
   'list_stale_cards',
   'list_activity',
   'list_lanes',
+  'list_locations',
+  'list_tags',
   'list_blocked_cards',
   'whoami',
   'create_card',
@@ -551,6 +553,29 @@ describe('board-wide read tools', () => {
     expect(lanes[0]?.key).toBe('intake')
     const positions = lanes.map((lane) => lane.position)
     expect([...positions].sort((a, b) => a - b)).toEqual(positions)
+  })
+
+  it('list_locations returns the seeded location tree with a root building', async () => {
+    const client = await connect(reader.raw)
+
+    const { locations } = await callOk<{
+      locations: { id: string; kind: string; name: string; parentId: string | null }[]
+    }>(client, 'list_locations')
+
+    // The demo seed plants buildings → floors → rooms; agents resolve an id
+    // here before setting card.locationId (the field takes an id, not a name).
+    expect(locations.length).toBeGreaterThan(0)
+    expect(locations.some((loc) => loc.parentId === null && loc.kind === 'building')).toBe(true)
+    expect(locations.every((loc) => loc.id.length > 0 && loc.name.length > 0)).toBe(true)
+  })
+
+  it('list_tags returns tags in use, reflecting a freshly tagged card', async () => {
+    const client = await connect(writer.raw)
+    await callOk<Card>(client, 'create_card', { title: 'Tag discovery', tags: ['electrical'] })
+
+    const { tags } = await callOk<{ tags: { id: string; name: string }[] }>(client, 'list_tags')
+
+    expect(tags.map((tag) => tag.name)).toContain('electrical')
   })
 
   it('list_activity returns recent board-wide events newest-first, filterable by type', async () => {

@@ -48,6 +48,34 @@ scanner-detectable). Shown once at creation, never expires, revocation is the on
 Full OAuth 2.0 resource-server behavior (RFC 9728 protected-resource metadata, IdP-issued
 tokens) arrives with the OIDC/SSO cutover; service tokens remain for headless automation.
 
+## Connecting a client
+
+1. **Mint a token.** In the app: **Settings → Tokens → New token** (pick `read` for
+   summarizers, `read_write` for agents that act). Headless: `POST /api/v1/service-tokens` with
+   `{ name, role, scope }` as an admin. The raw `rkb_…` value is shown once — copy it then.
+2. **Point the client at `POST <host>/mcp`** (Streamable HTTP, stateless — no separate
+   handshake endpoint) with header `Authorization: Bearer rkb_…`.
+
+A typical MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "rivian-kanban": {
+      "url": "https://<host>/mcp",
+      "headers": { "Authorization": "Bearer rkb_your_token_here" }
+    }
+  }
+}
+```
+
+Smoke-test with the MCP Inspector — Transport **Streamable HTTP**, URL `<host>/mcp`, header
+`Authorization: Bearer rkb_…`, then **Connect → List Tools**:
+
+```
+npx @modelcontextprotocol/inspector
+```
+
 ## Tools
 
 Input/output schemas are the same Zod schemas the REST API uses, exposed as JSON Schema. All
@@ -62,6 +90,8 @@ listing tools accept the same filters and cursors as REST.
 | `list_stale_cards`   | BoardQueryService   | cards past `expected_resume_at`, in review > `reviewDays` (default 7), or blocked > `blockedDays` (default 3) — the follow-up feed; defaults stated in the tool description                                                                |
 | `list_activity`      | BoardQueryService   | board-wide activity feed: card events across ALL cards, newest-first, cursor-paginated; filters (all optional) `sinceIso` (ISO datetime, default 24h ago), `type`, `cardId`, `actorKind`; mcp events carry `actorLabel`/`onBehalfOfUserId` |
 | `list_lanes`         | BoardQueryService   | the board's lanes in board order (`id, key, label, position, wipLimit`)                                                                                                                                                                    |
+| `list_locations`     | LocationService     | the location tree as a flat `parentId`-linked list (`id, kind, name, parentId`) — resolve an id before setting `card.locationId` (that field takes an id, not a name)                                                                      |
+| `list_tags`          | BoardQueryService   | every tag in use (`id, name`) — reuse an existing name when tagging instead of coining near-duplicates                                                                                                                                     |
 | `list_blocked_cards` | card list           | thin `blocked=true` slice of `list_cards`, newest-first, cursor-paginated                                                                                                                                                                  |
 | `whoami`             | ServiceToken read   | the calling token's own `{ id, name, role, scope, createdAt, lastUsedAt }` (any token inspects itself; the hash is never returned)                                                                                                         |
 | `create_card`        | CardService.create  | same schema as `POST /cards`; lands in intake, origin `mcp`; optional `reporterEmail` resolves the reporter (active accounts only; unknown and deactivated emails fail identically), otherwise the seeded `system` user                    |
