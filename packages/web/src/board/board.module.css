@@ -68,8 +68,24 @@
   min-width: 0;
 }
 
-/* Tags stay on one line; extras clip rather than wrap and change the height. */
+/* Tags stay on one line at their NATURAL width; the ROW (not each pill) clips
+   its overflow so visible tags stay fully readable. A right-edge fade is the
+   "more tags" affordance; the full set is on the row's tooltip/aria-label. */
 .tagRow {
   overflow: hidden;
   flex-wrap: nowrap;
+  /* The mask is a no-op until content overflows, then fades the clipped edge so
+     a partial pill reads as "there's more" rather than an abrupt cut. No
+     autoprefixer in this PostCSS chain, so the -webkit- prefix is explicit. */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    black calc(100% - var(--mantine-spacing-lg)),
+    transparent
+  );
+  mask-image: linear-gradient(to right, black calc(100% - var(--mantine-spacing-lg)), transparent);
+}
+
+/* Every pill keeps its intrinsic size — no shrinking, no per-tag ellipsis. */
+.tagRow > * {
+  flex-shrink: 0;
 }

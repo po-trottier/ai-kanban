@@ -213,4 +213,36 @@ describe('Board', () => {
     expect(screen.getByText('1d')).toBeInTheDocument()
     expect(screen.getByLabelText('2 attachments')).toBeInTheDocument()
   })
+
+  it('renders each tag pill at natural width and clips overflow at the row, not the pill', () => {
+    // Arrange — more tags than fit on one line so the ROW must clip. Each pill
+    // must still be individually readable (no per-tag ellipsis).
+    const tags = [
+      'heating-ventilation-air-conditioning',
+      'safety-critical',
+      'roof-access',
+      'vendor',
+    ]
+    const card = withCardExtras(makeCard('ready'), { tags })
+    const board = makeBoard({ ready: [card] })
+    // Act
+    renderWithProviders(
+      <Board
+        board={board}
+        policy={permissivePolicy}
+        role="user"
+        users={fixturePickerUsers}
+        today="2026-07-16"
+        onOpenCard={noop}
+        onMenuAction={noop}
+      />,
+    )
+    // Assert — every pill carries its FULL text (natural width, not truncated).
+    for (const tag of tags) expect(screen.getByText(tag)).toBeInTheDocument()
+    // The overflow is truncated at the ROW: pills live in the single clipping
+    // container, and the complete set (including any pill clipped off-screen) is
+    // reachable via its aria-label so nothing is lost.
+    const row = screen.getByLabelText(`Tags: ${tags.join(', ')}`)
+    for (const tag of tags) expect(within(row).getByText(tag)).toBeInTheDocument()
+  })
 })

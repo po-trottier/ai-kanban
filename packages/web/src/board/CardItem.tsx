@@ -110,13 +110,23 @@ export function CardItem({
         </Group>
       ) : null}
       {card.tags.length === 0 ? null : (
-        <Group gap="xs" mt="xs" className={classes.tagRow}>
-          {card.tags.map((tag) => (
-            <Badge key={tag} size="sm" variant="outline" color="gray">
-              {tag}
-            </Badge>
-          ))}
-        </Group>
+        // Pills render at natural width and the ROW clips its overflow (CSS),
+        // so visible tags stay fully readable. The full set — including any
+        // clipped off the right edge — is on the tooltip and aria-label.
+        <Tooltip label={strings.card.tagsLabel(card.tags.join(', '))} multiline>
+          <Group
+            gap="xs"
+            mt="xs"
+            className={classes.tagRow}
+            aria-label={strings.card.tagsLabel(card.tags.join(', '))}
+          >
+            {card.tags.map((tag) => (
+              <Badge key={tag} size="sm" variant="outline" color="gray">
+                {tag}
+              </Badge>
+            ))}
+          </Group>
+        </Tooltip>
       )}
       {/* estimate · location · attachments ………… assignee (one fixed row) */}
       <Group justify="space-between" mt="xs" gap="sm" wrap="nowrap">
