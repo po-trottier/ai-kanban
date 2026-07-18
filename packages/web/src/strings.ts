@@ -241,7 +241,6 @@ export const strings = {
     positionLabel: 'Position',
     positionFirst: 'First (top)',
     positionLast: 'Last (bottom)',
-    positionAfter: (title: string) => `After "${title}"`,
     moveButton: 'Move',
     laneNotAllowed: 'Not allowed from the current column',
   },

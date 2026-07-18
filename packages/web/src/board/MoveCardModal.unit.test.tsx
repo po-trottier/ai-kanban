@@ -31,24 +31,24 @@ describe('MoveCardModal', () => {
         onClose={() => undefined}
       />,
     )
-    // Act
+    // Act — First (top) lands the card before the current head.
     await user.click(screen.getByRole('combobox', { name: 'Column' }))
     await user.click(screen.getByRole('option', { name: 'Ready' }))
     await user.click(screen.getByRole('combobox', { name: 'Position' }))
-    await user.click(screen.getByRole('option', { name: 'After "Fix pump"' }))
+    await user.click(screen.getByRole('option', { name: 'First (top)' }))
     await user.click(screen.getByRole('button', { name: 'Move' }))
     // Assert
     expect(selections).toEqual([
       {
-        intent: { toLane: 'ready', prevCardId: a.id, nextCardId: b.id },
+        intent: { toLane: 'ready', prevCardId: null, nextCardId: a.id },
         laneLabel: 'Ready',
-        position: 2,
+        position: 1,
       },
     ])
   })
 
-  it('offers explicit First and Last (not "After <last card>") for the bottom (ITEM 2)', async () => {
-    // Arrange — a two-card target lane, so First / After / Last all appear.
+  it('offers only First and Last — no per-card "After" middle option (ITEM 85)', async () => {
+    // Arrange — a two-card target lane: the picker still shows exactly two ends.
     const user = userEvent.setup()
     const a = makeCard('ready', { title: 'Fix pump' })
     const b = makeCard('ready', { title: 'Change filter' })

@@ -115,39 +115,31 @@ describe('canPerformAction', () => {
 const LABELS = {
   first: 'First',
   last: 'Last',
-  after: (title: string) => `After "${title}"`,
 }
 
 describe('positionChoices', () => {
-  it('offers First, per-card After for the middle, and a named Last (ITEM 2)', () => {
-    // Arrange — three other cards, so there are true middle placements.
+  it('offers only First and Last — middle placement is a drag, not a menu choice (ITEM 85)', () => {
+    // Arrange — three other cards; there is NO longer a per-card "After" option.
     const a = makeCard('ready', { title: 'Fix pump' })
     const b = makeCard('ready', { title: 'Change filter' })
     const c = makeCard('ready', { title: 'Grease bearings' })
     const moving = makeCard('intake')
     // Act
     const choices = positionChoices([a, b, c], moving.id, LABELS)
-    // Assert — First, After-each-but-the-last (middle), then a clear Last. The
-    // redundant "After <last card>" is replaced by the named Last option.
-    expect(choices.map((choice) => choice.label)).toEqual([
-      'First',
-      'After "Fix pump"',
-      'After "Change filter"',
-      'Last',
-    ])
+    // Assert — the two unambiguous ends only: First (before the head) and Last
+    // (after the tail). Between-card placement is done by dragging.
+    expect(choices.map((choice) => choice.label)).toEqual(['First', 'Last'])
     expect(choices[0]).toMatchObject({ prevCardId: null, nextCardId: a.id })
-    expect(choices[1]).toMatchObject({ prevCardId: a.id, nextCardId: b.id })
-    expect(choices[2]).toMatchObject({ prevCardId: b.id, nextCardId: c.id })
-    expect(choices[3]).toMatchObject({ prevCardId: c.id, nextCardId: null })
+    expect(choices[1]).toMatchObject({ prevCardId: c.id, nextCardId: null })
   })
 
-  it('offers exactly First and Last for a single-other-card lane (no middle)', () => {
+  it('offers exactly First and Last for a single-other-card lane', () => {
     // Arrange
     const only = makeCard('ready', { title: 'Sole card' })
     const moving = makeCard('intake')
     // Act
     const choices = positionChoices([only], moving.id, LABELS)
-    // Assert — top or bottom relative to the one card; no per-card After.
+    // Assert — top or bottom relative to the one card.
     expect(choices.map((choice) => choice.label)).toEqual(['First', 'Last'])
     expect(choices[0]).toMatchObject({ prevCardId: null, nextCardId: only.id })
     expect(choices[1]).toMatchObject({ prevCardId: only.id, nextCardId: null })

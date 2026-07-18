@@ -14,7 +14,7 @@ import { type BoardResponse } from '../api/schemas.ts'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { todayInTimezone } from '../lib/format.ts'
 import { strings } from '../strings.ts'
-import { canMoveToLane, isSamePosition, positionChoices } from './move-options.ts'
+import { canMoveToLane, dropPosition, isSamePosition, positionChoices } from './move-options.ts'
 
 export interface MoveSelection {
   intent: MoveIntent
@@ -77,7 +77,6 @@ export function MoveCardModal({
   const choices = positionChoices(targetLane?.cards ?? [], card.id, {
     first: strings.move.positionFirst,
     last: strings.move.positionLast,
-    after: strings.move.positionAfter,
   })
   const selected = choices.find((choice) => choice.value === positionValue) ?? choices[0]
   // The preselected current lane can itself be disallowed (e.g. reorderReady).
@@ -182,10 +181,14 @@ export function MoveCardModal({
                 return
               }
               const note = comment.trim()
+              // "Last" can land far below its option index (position 2), so the
+              // announcement uses the true 1-based landing spot, not the choice
+              // ordinal — the same math the drag path announces with.
+              const landing = dropPosition(board, card.id, intent)
               onSubmit({
                 intent,
                 laneLabel: targetLane?.lane.label ?? laneKey,
-                position: choices.indexOf(selected) + 1,
+                position: landing?.position ?? choices.indexOf(selected) + 1,
                 ...(entersWaiting && note !== '' ? { comment: note } : {}),
               })
             }}
