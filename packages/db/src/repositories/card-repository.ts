@@ -41,15 +41,6 @@ export class SqliteCardRepository implements CardRepository {
     return Promise.resolve(row ?? null)
   }
 
-  findByNumber(boardId: string, number: number): Promise<Card | null> {
-    const row = this.db
-      .select()
-      .from(cards)
-      .where(and(eq(cards.boardId, boardId), eq(cards.number, number)))
-      .get()
-    return Promise.resolve(row ?? null)
-  }
-
   nextCardNumber(boardId: string): Promise<number> {
     // MAX(number)+1 under the board-number unique index; atomic inside the
     // create transaction (SQLite single writer), the index is the backstop.

@@ -240,13 +240,6 @@ class InMemoryCardRepository implements CardRepository {
     return Promise.resolve(card ? clone(card) : null)
   }
 
-  findByNumber(boardId: string, number: number): Promise<Card | null> {
-    const card = this.state.cards.find(
-      (candidate) => candidate.boardId === boardId && candidate.number === number,
-    )
-    return Promise.resolve(card ? clone(card) : null)
-  }
-
   nextCardNumber(boardId: string): Promise<number> {
     const max = this.state.cards
       .filter((card) => card.boardId === boardId)

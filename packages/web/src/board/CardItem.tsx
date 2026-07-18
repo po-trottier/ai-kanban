@@ -69,8 +69,7 @@ export function CardItem({
       role="group"
       aria-label={card.title}
       onClick={() => {
-        // Deep-link by the human ticket number (/cards/1), not the uuid.
-        onOpen(String(card.number))
+        onOpen(card.id)
       }}
     >
       {/* #number · title … priority + menu */}
