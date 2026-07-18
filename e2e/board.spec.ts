@@ -1,7 +1,15 @@
 import { randomUUID } from 'node:crypto'
 import { createCard } from './support/api.ts'
 import { expect, test } from './support/fixtures.ts'
-import { boardCard, dragTo, laneList, openBoard, relativeOrder, signIn } from './support/ui.ts'
+import {
+  boardCard,
+  dragTo,
+  filterBoard,
+  laneList,
+  openBoard,
+  relativeOrder,
+  signIn,
+} from './support/ui.ts'
 
 /** The board and real mouse drag-and-drop (Pragmatic DnD, ADR-007). */
 
@@ -64,7 +72,10 @@ test('board cards always show estimate, location, tags and attachments (board pa
   await expect(plain.getByText('No estimate')).toBeVisible()
 })
 
-test('header search live-filters the board as you type (ITEM 1)', async ({ page, context }) => {
+test('the filter bar narrows the board via the text query, and Clear filters restores it', async ({
+  page,
+  context,
+}) => {
   await signIn(context)
   await openBoard(page)
 
@@ -73,16 +84,17 @@ test('header search live-filters the board as you type (ITEM 1)', async ({ page,
   await expect(match).toBeVisible()
   await expect(other).toBeVisible()
 
-  // Typing filters the already-loaded board client-side (no navigation).
-  await page.getByRole('textbox', { name: 'Filter the board' }).fill('loading-dock')
+  // The filter bar's text query drives an API-level filtered board (POST
+  // /board/query), narrowing the board to the match.
+  await filterBoard(page, 'loading-dock')
 
   await expect(match).toBeVisible()
   await expect(other).toBeHidden()
   // Lanes stay visible even when they no longer hold a match.
   await expect(laneList(page, 'Review')).toBeVisible()
 
-  // The clear (x) restores every card.
-  await page.getByRole('button', { name: 'Clear filter' }).click()
+  // Clear filters returns to the full unfiltered board.
+  await page.getByRole('button', { name: 'Clear filters' }).click()
   await expect(other).toBeVisible()
 })
 

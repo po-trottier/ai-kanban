@@ -39,6 +39,19 @@ export function laneList(page: Page, laneLabel: string): Locator {
   return page.getByRole('list', { name: `Cards in ${laneLabel}` })
 }
 
+/** Types into the board filter bar's text query (title/description substring). */
+export async function filterBoard(page: Page, text: string): Promise<void> {
+  await page.getByRole('textbox', { name: 'Filter cards' }).fill(text)
+}
+
+/** Sets the filter bar's archived-scope segmented control (Active/Archived/All). */
+export async function setBoardScope(
+  page: Page,
+  scope: 'Active' | 'Archived' | 'All',
+): Promise<void> {
+  await page.getByRole('radio', { name: scope, exact: true }).click()
+}
+
 export function boardCard(page: Page, title: string): Locator {
   // exact — role-name matching is substring by default, and specs assert
   // absence of a title that may prefix another (e.g. after a rename).

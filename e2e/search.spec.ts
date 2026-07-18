@@ -1,67 +1,60 @@
-import { type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { cancelCard, createCard } from './support/api.ts'
 import { expect, test } from './support/fixtures.ts'
-import { laneList, openBoard, openCardMenu, signIn } from './support/ui.ts'
+import {
+  boardCard,
+  filterBoard,
+  laneList,
+  openBoard,
+  openCardMenu,
+  setBoardScope,
+  signIn,
+} from './support/ui.ts'
 
-/** Advanced-search modal: live search, the archived-scope filter, and the
- * reopen path (guide.md). The legacy `/search` route redirects into the modal. */
+/**
+ * The board FILTER BAR is the one filtering surface (the /search page + modal
+ * are gone). Filtering is API-level: the text query and the archived-scope
+ * segmented control drive `POST /board/query`, narrowing the board in place.
+ */
 
-async function search(page: Page, query: string): Promise<void> {
-  // Filters are batch-applied: fill the field, then press Search to run it.
-  await page.getByLabel('Search cards').fill(query)
-  await page.getByRole('button', { name: 'Search', exact: true }).click()
-}
-
-/** Narrow the archived-scope facet to one of its two options and apply it —
- * facets don't take effect until Search is pressed. The default (unfiltered)
- * "Active and archived" is the placeholder, reached by clearing, not an option. */
-async function setArchivedScope(page: Page, option: 'Active cards only' | 'Archived only') {
-  await page.getByRole('combobox', { name: 'Archived cards' }).click()
-  await page.getByRole('option', { name: option, exact: true }).click()
-  await page.getByRole('button', { name: 'Search', exact: true }).click()
-}
-
-test('finds a seeded card by substring', async ({ page, context }) => {
+test('narrows the board to a seeded card by a text-query substring', async ({ page, context }) => {
   await signIn(context)
-  await page.goto('/search')
+  await openBoard(page)
 
-  await search(page, 'loading-dock')
+  // The unfiltered board shows both seeded cards.
+  await expect(boardCard(page, 'Repair loading-dock leveler')).toBeVisible()
+  await expect(boardCard(page, 'Quarterly HVAC filter replacement')).toBeVisible()
 
-  await expect(
-    page.getByRole('list', { name: 'Search results' }).getByText('Repair loading-dock leveler'),
-  ).toBeVisible()
+  // Typing a query narrows the board (server-filtered) to the match.
+  await filterBoard(page, 'loading-dock')
+
+  await expect(boardCard(page, 'Repair loading-dock leveler')).toBeVisible()
+  await expect(boardCard(page, 'Quarterly HVAC filter replacement')).toBeHidden()
+  // Lanes stay visible even when they no longer hold a match.
+  await expect(laneList(page, 'Review')).toBeVisible()
 })
 
 // Read-only on the seeded archived card: nothing can re-archive a card (only
 // the retention scheduler and the seed do), so reopening it here would leak
 // state into the next run against a reused server. The reopen behavior itself
 // is proven below on a terminal card this test owns.
-test('surfaces the archived demo card (in scope by default), read-only until reopened', async ({
+test('reaches the archived demo card only via the archived scope, read-only until reopened', async ({
   page,
   context,
 }) => {
   await signIn(context)
-  await page.goto('/search')
+  await openBoard(page)
 
-  // Archived cards are in scope by default, so the card surfaces immediately.
-  await search(page, 'fire extinguisher')
-  const result = page
-    .getByRole('list', { name: 'Search results' })
-    .getByText('Annual fire extinguisher inspection')
-  await expect(result).toBeVisible()
+  // Active scope is the default, so archived cards are NOT on the board…
+  await filterBoard(page, 'fire extinguisher')
+  await expect(boardCard(page, 'Annual fire extinguisher inspection')).toBeHidden()
 
-  // Narrowing to active-only proves the archived-scope facet filters it out.
-  await setArchivedScope(page, 'Active cards only')
-  await expect(page.getByText('No cards match your search.')).toBeVisible()
-  // "Archived only" brings it back (it is archived).
-  await setArchivedScope(page, 'Archived only')
-  await expect(result).toBeVisible()
+  // …switching the scope to Archived brings it into the board.
+  await setBoardScope(page, 'Archived')
+  const archived = boardCard(page, 'Annual fire extinguisher inspection')
+  await expect(archived).toBeVisible()
 
-  await result.click()
-  // The result navigates to the card, opening the docked detail panel. The
-  // search modal is also a dialog and briefly overlaps during its close
-  // transition, so target the panel by its accessible name (the card title).
+  await archived.click()
   const panel = page.getByRole('dialog', { name: /Annual fire extinguisher inspection/ })
   await expect(panel).toContainText('This card is archived — reopen it to make changes.')
   await expect(panel.getByText('Archived', { exact: true })).toBeVisible()
@@ -70,7 +63,7 @@ test('surfaces the archived demo card (in scope by default), read-only until reo
   await expect(panel.getByRole('button', { name: 'Reopen' })).toBeEnabled()
 })
 
-test('archives a Done card from the menu: it leaves the board and stays findable in search', async ({
+test('archives a Done card from the menu: it leaves the active board but the archived scope finds it', async ({
   page,
   context,
 }) => {
@@ -86,17 +79,17 @@ test('archives a Done card from the menu: it leaves the board and stays findable
   await openCardMenu(page, title, 'Archive')
   await expect(page.getByText('Card archived')).toBeVisible()
 
-  // It has left the board entirely (the board query excludes archived cards).
+  // It has left the (active) board — the default scope excludes archived cards.
   await expect(page.getByRole('group', { name: title, exact: true })).toBeHidden()
 
-  // But advanced search includes archived by default, so it is still findable.
-  await page.goto('/search')
-  await search(page, title)
-  await expect(page.getByRole('list', { name: 'Search results' }).getByText(title)).toBeVisible()
+  // Filtering to the Archived scope brings it back on the board.
+  await filterBoard(page, title)
+  await setBoardScope(page, 'Archived')
+  await expect(boardCard(page, title)).toBeVisible()
 
-  // And narrowing to active-only hides it (it is archived).
-  await setArchivedScope(page, 'Active cards only')
-  await expect(page.getByRole('list', { name: 'Search results' }).getByText(title)).toBeHidden()
+  // …and switching back to Active hides it again (it is archived).
+  await setBoardScope(page, 'Active')
+  await expect(boardCard(page, title)).toBeHidden()
 })
 
 test('reopens a terminal card into Ready', async ({ page, context }) => {
@@ -117,4 +110,35 @@ test('reopens a terminal card into Ready', async ({ page, context }) => {
   await expect(
     laneList(page, 'Ready').getByRole('group', { name: title }).getByText('Duplicate'),
   ).toBeHidden()
+})
+
+test('saves the current filter as a preset, then reapplies it (per-user CRUD)', async ({
+  page,
+  context,
+}) => {
+  await signIn(context)
+  await openBoard(page)
+
+  // Filter down to the loading-dock card, then save it as a named preset.
+  await filterBoard(page, 'loading-dock')
+  await expect(boardCard(page, 'Repair loading-dock leveler')).toBeVisible()
+  const name = `Dock ${randomUUID()}`
+  await page.getByRole('button', { name: 'Save current filters as a preset' }).click()
+  await page.getByRole('textbox', { name: 'Preset name' }).fill(name)
+  await page.getByRole('button', { name: 'Save preset', exact: true }).click()
+  await expect(page.getByText('Preset saved')).toBeVisible()
+
+  // Clearing the filter restores the full board…
+  await page.getByRole('button', { name: 'Clear filters' }).click()
+  await expect(boardCard(page, 'Quarterly HVAC filter replacement')).toBeVisible()
+
+  // …and reapplying the saved preset sets the complete filter again.
+  await page.getByRole('combobox', { name: 'Preset' }).click()
+  await page.getByRole('option', { name }).click()
+  await expect(boardCard(page, 'Repair loading-dock leveler')).toBeVisible()
+  await expect(boardCard(page, 'Quarterly HVAC filter replacement')).toBeHidden()
+
+  // Clean up the preset so the shared demo user's list doesn't accrete rows.
+  await page.getByRole('button', { name: 'Delete this preset' }).click()
+  await expect(page.getByText('Preset deleted')).toBeVisible()
 })

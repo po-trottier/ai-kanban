@@ -106,11 +106,11 @@ try {
   })
   console.log('captured 02a-header')
 
-  // ITEM 1: the header logo + always-visible filter, and a filtered board.
-  await page.getByRole('textbox', { name: 'Filter the board' }).fill('HVAC')
+  // The filter bar (below the header) narrows the board via the text query.
+  await page.getByRole('textbox', { name: 'Filter cards' }).fill('HVAC')
   await page.getByText('Quarterly HVAC filter replacement').first().waitFor()
   await shot(page, '02b-board-filtered')
-  await page.getByRole('button', { name: 'Clear filter' }).click()
+  await page.getByRole('button', { name: 'Clear filters' }).click()
 
   await page.getByText(CARD_FOR_DETAILS).first().click()
   await page.waitForURL(/\/cards\//)
@@ -150,22 +150,16 @@ try {
   await shot(page, '08c-badge-legend-modal')
   await page.keyboard.press('Escape')
 
-  // ITEM A: archived/global search is a modal opened from the header field's
-  // sliders icon (also reached via the board no-matches link and the legacy
-  // /search redirect). It searches live across every card with a collapsible
-  // facet panel; archived cards are in scope by default.
-  await page.getByRole('button', { name: 'Advanced search' }).click()
-  await page.getByRole('textbox', { name: 'Search cards' }).fill('door')
-  // Filters batch-apply on the Search button (magnifying glass), not live.
-  await page.getByRole('button', { name: 'Search', exact: true }).click()
-  await page.getByRole('list', { name: 'Search results' }).waitFor()
-  await shot(page, '09-search')
-  // Archived is in scope by default, so the seeded archived card surfaces.
-  await page.getByRole('textbox', { name: 'Search cards' }).fill('fire extinguisher')
-  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  // The filter bar is the one filtering surface: a text query narrows the board
+  // in place (API-level, POST /board/query). No separate search page or modal.
+  await page.getByRole('textbox', { name: 'Filter cards' }).fill('door')
+  await shot(page, '09-filter-query')
+  // Switching the archived scope reaches archived cards on the board.
+  await page.getByRole('textbox', { name: 'Filter cards' }).fill('fire extinguisher')
+  await page.getByRole('radio', { name: 'Archived', exact: true }).click()
   await page.getByText('Annual fire extinguisher inspection').waitFor()
-  await shot(page, '10-search-archived')
-  await page.keyboard.press('Escape')
+  await shot(page, '10-filter-archived')
+  await page.getByRole('button', { name: 'Clear filters' }).click()
 
   await page.goto(`${BASE}/settings`)
   await page.getByRole('tab', { name: 'Users' }).click()
