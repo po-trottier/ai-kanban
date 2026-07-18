@@ -1,5 +1,6 @@
 import { type BoardCard, type LaneKey } from '@rivian-kanban/core'
 import { Avatar, Badge, Group, Paper, Text, Tooltip } from '@mantine/core'
+import { Paperclip } from 'lucide-react'
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { useRef } from 'react'
 import { type PickerUser } from '../api/schemas.ts'
@@ -146,7 +147,7 @@ export function CardItem({
               {...(card.attachmentCount === 0 ? { c: 'dimmed' } : {})}
               aria-label={strings.card.attachmentCountLabel(card.attachmentCount)}
             >
-              <Paperclip />
+              <Paperclip size={14} aria-hidden />
               <Text size="xs" c="dimmed">
                 {card.attachmentCount}
               </Text>
@@ -182,25 +183,5 @@ export function CardItem({
         <DropIndicator edge={closestEdge} gap="var(--mantine-spacing-xs)" />
       ) : null}
     </Paper>
-  )
-}
-
-/** A paperclip glyph for the attachment indicator (currentColor SVG). */
-function Paperclip() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      focusable="false"
-    >
-      <path d="M21 8.5 11.5 18a4 4 0 0 1-5.66-5.66l8.49-8.49a2.5 2.5 0 1 1 3.54 3.54L9.6 15.6a1 1 0 0 1-1.42-1.42l7.78-7.78" />
-    </svg>
   )
 }
