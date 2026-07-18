@@ -91,6 +91,7 @@ export function CardMenu({ card, canCancel, canReopen, canArchive, onAction }: C
                 withArrow
               >
                 <Menu.Item
+                  color="green"
                   disabled={!canReopen}
                   onClick={() => {
                     onAction('reopen')
@@ -109,6 +110,7 @@ export function CardMenu({ card, canCancel, canReopen, canArchive, onAction }: C
                 withArrow
               >
                 <Menu.Item
+                  color="red"
                   disabled={!canArchive}
                   onClick={() => {
                     onAction('archive')
