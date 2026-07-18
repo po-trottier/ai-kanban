@@ -38,7 +38,7 @@ export function renderWithProviders(ui: ReactNode, options: RenderOptions = {}):
       <QueryClientProvider client={testQueryClient()}>
         <ApiContext.Provider value={client}>
           <SessionContext.Provider value={user}>
-            <Notifications />
+            <Notifications autoClose={false} />
             <MemoryRouter initialEntries={[options.route ?? '/']}>{ui}</MemoryRouter>
           </SessionContext.Provider>
         </ApiContext.Provider>
@@ -55,7 +55,7 @@ export function renderApp(options: RenderOptions = {}): RenderResult {
     <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} env="test">
       <QueryClientProvider client={testQueryClient()}>
         <ApiContext.Provider value={client}>
-          <Notifications />
+          <Notifications autoClose={false} />
           <RouterProvider router={router} />
         </ApiContext.Provider>
       </QueryClientProvider>
