@@ -27,6 +27,7 @@ server for AI agents, and Slack-native ticket intake — all over one audited se
   - [Overview](docs/architecture/overview.md) — hexagonal design, monorepo, process model
   - [Data model](docs/architecture/data-model.md)
   - [REST API](docs/architecture/rest-api.md)
+  - [Board filters](docs/architecture/board-filters.md) — filter bar facets, presets, API-level filtering
   - [MCP server](docs/architecture/mcp.md)
   - [Slack integration](docs/architecture/slack.md)
   - [Security](docs/architecture/security.md)

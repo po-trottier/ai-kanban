@@ -10,7 +10,8 @@ import {
   DEFAULT_REVIEW_STALE_DAYS,
 } from '../domain/constants.ts'
 import { decodeCursor, encodeCursor, type CursorKey } from '../domain/cursor.ts'
-import { isOverdueResume, utcDayOf } from '../domain/dates.ts'
+import { isOverdueResume, isWorkOverdue, utcDayOf } from '../domain/dates.ts'
+import { boardFilterSchema, type BoardFilter } from '../domain/filters.ts'
 import {
   isoDateTimeSchema,
   userSchema,
@@ -26,6 +27,7 @@ import { boardCardOf, type BoardCard } from '../domain/envelopes.ts'
 import { CARD_EVENT_TYPES, type CardEvent } from '../domain/events.ts'
 import { hasPermission } from '../policy/policy-engine.ts'
 import {
+  type BoardCardRow,
   type CardQueryFilter,
   type TransactionContext,
   type UnitOfWork,
@@ -195,6 +197,52 @@ export class BoardQueryService {
           lane,
           cards: rows.map((row) => boardCardOf(row.card, row.extras)),
           wipLimitExceeded: lane.wipLimit !== null && rows.length > lane.wipLimit,
+        })
+      }
+      return { lanes: snapshots }
+    })
+  }
+
+  /**
+   * The board narrowed by a `BoardFilter`, grouped by lane
+   * (docs/architecture/board-filters.md). Every facet is pushed into the DB
+   * query; the `overdue` facet is finished here over the DB-narrowed candidate
+   * set (`overdueCandidate` predicate) — SQLite cannot count business hours, so
+   * the service applies `isWorkOverdue` in UTC business minutes. Never an
+   * in-memory whole-board scan. `wipLimitExceeded` reflects the FULL active lane
+   * count (the WIP marker is a property of the lane, not the filtered view), so
+   * filtering never hides a breach. The empty filter equals `boardSnapshot`.
+   */
+  async filteredBoard(rawFilter: unknown): Promise<BoardSnapshot> {
+    const filter = boardFilterSchema.parse(rawFilter)
+    const now = this.deps.clock.now()
+    return this.deps.uow.read(async (tx) => {
+      const repoFilter = await this.toBoardRepoFilter(tx, filter)
+      let rows = await tx.cards.queryBoardSummaries(repoFilter)
+      if (filter.overdue) {
+        // Candidate set already restricted to started+estimated cards in SQL;
+        // finish the business-minutes verdict here (consistent with ADR-019).
+        rows = rows.filter((row) =>
+          isWorkOverdue(row.card.workStartedAt, row.card.estimateMinutes, now),
+        )
+      }
+      const byLane = new Map<string, BoardCardRow[]>()
+      for (const row of rows) {
+        const list = byLane.get(row.card.laneId) ?? []
+        list.push(row)
+        byLane.set(row.card.laneId, list)
+      }
+      const lanes = await tx.lanes.listByBoard(this.deps.boardId)
+      const snapshots: LaneSnapshot[] = []
+      for (const lane of lanes) {
+        const laneRows = byLane.get(lane.id) ?? []
+        // WIP is a property of the whole lane, so read the true active count
+        // rather than the filtered slice — filtering must not mask a breach.
+        const activeCount = await tx.cards.countActiveByLane(lane.id)
+        snapshots.push({
+          lane,
+          cards: laneRows.map((row) => boardCardOf(row.card, row.extras)),
+          wipLimitExceeded: lane.wipLimit !== null && activeCount > lane.wipLimit,
         })
       }
       return { lanes: snapshots }
@@ -401,6 +449,43 @@ export class BoardQueryService {
     if (filter.q !== undefined) repoFilter.q = filter.q
     if (filter.includeArchived !== undefined) repoFilter.includeArchived = filter.includeArchived
     if (filter.archivedOnly !== undefined) repoFilter.archivedOnly = filter.archivedOnly
+    return repoFilter
+  }
+
+  /**
+   * Maps the flat `BoardFilter` (docs/architecture/board-filters.md) to the
+   * repository's `CardQueryFilter`. Board-scoped (multi-board seam); every
+   * non-empty facet becomes a pushed-into-SQL condition. `scope` becomes the
+   * archived selector; `overdue` becomes the `overdueCandidate` DB predicate
+   * (the business-minutes verdict is finished in `filteredBoard`).
+   */
+  private async toBoardRepoFilter(
+    tx: TransactionContext,
+    filter: BoardFilter,
+  ): Promise<CardQueryFilter> {
+    const repoFilter: CardQueryFilter = { boardId: this.deps.boardId }
+    if (filter.priorities.length > 0) repoFilter.priorities = filter.priorities
+    if (filter.laneKeys.length > 0) {
+      const lanes = await tx.lanes.listByBoard(this.deps.boardId)
+      const idByKey = new Map(lanes.map((lane) => [lane.key, lane.id]))
+      repoFilter.laneIds = filter.laneKeys.map((key) => idByKey.get(key) ?? key)
+    }
+    if (filter.assigneeIds.length > 0) repoFilter.assigneeIds = filter.assigneeIds
+    if (filter.reporterIds.length > 0) repoFilter.reporterIds = filter.reporterIds
+    if (filter.tags.length > 0) repoFilter.tags = filter.tags
+    if (filter.locationIds.length > 0) {
+      // Each selected location expands to its whole subtree (recursively
+      // inclusive), unioned — a building matches its floors and rooms.
+      const expanded = new Set<string>()
+      for (const locationId of filter.locationIds) {
+        for (const id of await locationSubtreeIds(tx, locationId)) expanded.add(id)
+      }
+      repoFilter.locationIds = [...expanded]
+    }
+    if (filter.scope === 'archived') repoFilter.archivedOnly = true
+    else if (filter.scope === 'all') repoFilter.includeArchived = true
+    if (filter.q !== '') repoFilter.q = filter.q
+    if (filter.overdue) repoFilter.overdueCandidate = true
     return repoFilter
   }
 }

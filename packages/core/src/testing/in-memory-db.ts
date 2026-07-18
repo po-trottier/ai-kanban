@@ -13,6 +13,7 @@ import {
 } from '../domain/entities.ts'
 import { ConflictError, DuplicatePositionError, NotFoundError } from '../domain/errors.ts'
 import { type CardEvent, type CardEventType } from '../domain/events.ts'
+import { type FilterPreset } from '../domain/filters.ts'
 import { type BoardPolicy } from '../domain/policy.ts'
 import {
   type AttachmentRepository,
@@ -21,6 +22,7 @@ import {
   type CardRepository,
   type CommentRepository,
   type EventRepository,
+  type FilterPresetRepository,
   type LaneRepository,
   type LocationRepository,
   type PolicyRepository,
@@ -67,6 +69,7 @@ interface DbState {
   cardTags: CardTagRow[]
   policies: BoardPolicy[]
   events: CardEvent[]
+  filterPresets: FilterPreset[]
 }
 
 function emptyState(): DbState {
@@ -84,6 +87,7 @@ function emptyState(): DbState {
     cardTags: [],
     policies: [],
     events: [],
+    filterPresets: [],
   }
 }
 
@@ -129,6 +133,7 @@ export class InMemoryDb implements UnitOfWork {
       tags: new InMemoryTagRepository(state),
       policies: new InMemoryPolicyRepository(state),
       events: new InMemoryEventRepository(state),
+      filterPresets: new InMemoryFilterPresetRepository(state),
     }
   }
 
@@ -185,6 +190,11 @@ export class InMemoryDb implements UnitOfWork {
 
   seedPolicy(policy: BoardPolicy): void {
     this.state.policies.push(clone(policy))
+  }
+
+  /** Seeds a filter preset directly (per-user isolation / list-order tests). */
+  seedFilterPreset(preset: FilterPreset): void {
+    this.state.filterPresets.push(clone(preset))
   }
 
   getCard(id: number): Card {
@@ -279,23 +289,35 @@ class InMemoryCardRepository implements CardRepository {
 
   async listBoardSummariesByLane(laneId: string): Promise<BoardCardRow[]> {
     const cards = await this.listByLane(laneId, { activeOnly: true })
-    return cards.map((card) => {
-      const tagIds = new Set(
-        this.state.cardTags.filter((row) => row.cardId === card.id).map((row) => row.tagId),
-      )
-      const tagNames = this.state.tags
-        .filter((tag) => tagIds.has(tag.id))
-        .map((tag) => tag.name)
-        .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
-      const attachmentCount = this.state.attachments.filter(
-        (attachment) => attachment.cardId === card.id && attachment.deletedAt === null,
-      ).length
-      const locationLabel =
-        card.locationId === null
-          ? null
-          : (this.state.locations.find((location) => location.id === card.locationId)?.name ?? null)
-      return { card, extras: { tags: tagNames, attachmentCount, locationLabel } }
-    })
+    return cards.map((card) => this.summaryOf(card))
+  }
+
+  queryBoardSummaries(filter: CardQueryFilter): Promise<BoardCardRow[]> {
+    const rows = this.state.cards
+      .filter((card) => this.matches(card, filter))
+      // Position order within each lane (the service groups by lane) — the
+      // same BINARY collation ordering the summary read uses.
+      .sort((a, b) => binaryCompare(a.position, b.position))
+      .map((card) => this.summaryOf(card))
+    return Promise.resolve(clone(rows))
+  }
+
+  private summaryOf(card: Card): BoardCardRow {
+    const tagIds = new Set(
+      this.state.cardTags.filter((row) => row.cardId === card.id).map((row) => row.tagId),
+    )
+    const tagNames = this.state.tags
+      .filter((tag) => tagIds.has(tag.id))
+      .map((tag) => tag.name)
+      .sort((a, b) => binaryCompare(a, b))
+    const attachmentCount = this.state.attachments.filter(
+      (attachment) => attachment.cardId === card.id && attachment.deletedAt === null,
+    ).length
+    const locationLabel =
+      card.locationId === null
+        ? null
+        : (this.state.locations.find((location) => location.id === card.locationId)?.name ?? null)
+    return { card, extras: { tags: tagNames, attachmentCount, locationLabel } }
   }
 
   async countActiveByLane(laneId: string): Promise<number> {
@@ -336,11 +358,22 @@ class InMemoryCardRepository implements CardRepository {
     }
     if (filter.boardId !== undefined && card.boardId !== filter.boardId) return false
     if (filter.laneId !== undefined && card.laneId !== filter.laneId) return false
+    if (filter.laneIds !== undefined && !filter.laneIds.includes(card.laneId)) return false
     if (filter.assigneeId !== undefined && card.assigneeId !== filter.assigneeId) return false
+    if (filter.assigneeIds !== undefined) {
+      if (card.assigneeId === null || !filter.assigneeIds.includes(card.assigneeId)) return false
+    }
     if (filter.reporterId !== undefined && card.reporterId !== filter.reporterId) return false
+    if (filter.reporterIds !== undefined && !filter.reporterIds.includes(card.reporterId)) {
+      return false
+    }
     if (filter.priority !== undefined && card.priority !== filter.priority) return false
+    if (filter.priorities !== undefined && !filter.priorities.includes(card.priority)) return false
     if (filter.locationIds !== undefined) {
       if (card.locationId === null || !filter.locationIds.includes(card.locationId)) return false
+    }
+    if (filter.overdueCandidate === true) {
+      if (card.workStartedAt === null || card.estimateMinutes === null) return false
     }
     if (filter.blocked !== undefined && card.blocked !== filter.blocked) return false
     if (filter.waitingReason !== undefined && card.waitingReason !== filter.waitingReason) {
@@ -884,5 +917,58 @@ class InMemoryEventRepository implements EventRepository {
     }
     if (options?.limit !== undefined) events = events.slice(0, options.limit)
     return Promise.resolve(clone(events))
+  }
+}
+
+class InMemoryFilterPresetRepository implements FilterPresetRepository {
+  private readonly state: DbState
+
+  constructor(state: DbState) {
+    this.state = state
+  }
+
+  listByOwner(ownerId: string): Promise<FilterPreset[]> {
+    return Promise.resolve(
+      clone(
+        this.state.filterPresets
+          .filter((preset) => preset.ownerId === ownerId)
+          // Newest-first (createdAt DESC, id DESC) — mirrors the SQL adapter.
+          .sort((a, b) =>
+            a.createdAt === b.createdAt
+              ? binaryCompare(b.id, a.id)
+              : binaryCompare(b.createdAt, a.createdAt),
+          ),
+      ),
+    )
+  }
+
+  findByIdForOwner(id: string, ownerId: string): Promise<FilterPreset | null> {
+    const preset = this.state.filterPresets.find(
+      (candidate) => candidate.id === id && candidate.ownerId === ownerId,
+    )
+    return Promise.resolve(preset ? clone(preset) : null)
+  }
+
+  insert(preset: FilterPreset): Promise<void> {
+    this.state.filterPresets.push(clone(preset))
+    return Promise.resolve()
+  }
+
+  update(preset: FilterPreset): Promise<void> {
+    const index = this.state.filterPresets.findIndex(
+      (candidate) => candidate.id === preset.id && candidate.ownerId === preset.ownerId,
+    )
+    if (index === -1) return Promise.reject(new NotFoundError('filter preset'))
+    this.state.filterPresets.splice(index, 1, clone(preset))
+    return Promise.resolve()
+  }
+
+  delete(id: string, ownerId: string): Promise<void> {
+    const index = this.state.filterPresets.findIndex(
+      (candidate) => candidate.id === id && candidate.ownerId === ownerId,
+    )
+    if (index === -1) return Promise.reject(new NotFoundError('filter preset'))
+    this.state.filterPresets.splice(index, 1)
+    return Promise.resolve()
   }
 }

@@ -13,6 +13,7 @@ import {
 } from '../domain/entities.ts'
 import { type BoardCardExtras } from '../domain/envelopes.ts'
 import { type CardEvent, type CardEventType } from '../domain/events.ts'
+import { type FilterPreset } from '../domain/filters.ts'
 import { type BoardPolicy } from '../domain/policy.ts'
 
 /**
@@ -36,9 +37,17 @@ export interface CardQueryFilter {
   /** Board scope for legs not already scoped through a lane (multi-board seam). */
   boardId?: string
   laneId?: string
+  /** Any-of lane ids (the board-filter multi-select); OR-ed with each other. */
+  laneIds?: string[]
   assigneeId?: string
+  /** Any-of assignee user ids (board-filter multi-select). */
+  assigneeIds?: string[]
   reporterId?: string
+  /** Any-of reporter user ids (board-filter multi-select). */
+  reporterIds?: string[]
   priority?: Priority
+  /** Any-of priorities (board-filter multi-select). */
+  priorities?: Priority[]
   /** Location ids to match a card's own location against — a selected location
    * plus its descendants, so a location filter is recursively inclusive. */
   locationIds?: string[]
@@ -48,6 +57,13 @@ export interface CardQueryFilter {
   waitingReason?: WaitingReason
   /** Matches cards whose expectedResumeAt is strictly before this `YYYY-MM-DD` date. */
   overdueBefore?: string
+  /**
+   * The board-filter `overdue` candidate predicate: restrict to cards that CAN
+   * be overdue (`work_started_at IS NOT NULL AND estimate_minutes IS NOT NULL`).
+   * The business-minutes verdict itself is finished in the service over this
+   * bounded set — SQLite cannot count business hours (board-filters.md).
+   */
+  overdueCandidate?: boolean
   /** Case-insensitive substring over title + description. */
   q?: string
   /** Default false: archived cards are excluded. */
@@ -85,6 +101,15 @@ export interface CardRepository {
    * per lane rather than a per-card lookup fan-out.
    */
   listBoardSummariesByLane(laneId: string): Promise<BoardCardRow[]>
+  /**
+   * Board summaries (card + join-sourced extras) matching `filter`, in position
+   * order — the filtered-board read (docs/architecture/board-filters.md). Same
+   * extras and ordering as `listBoardSummariesByLane`, but the whole matching
+   * set across lanes rather than one lane, with the filter pushed into SQL
+   * (never in-memory). The `overdue` verdict is finished in the service over
+   * this set via the `overdueCandidate` predicate. The service groups by lane.
+   */
+  queryBoardSummaries(filter: CardQueryFilter): Promise<BoardCardRow[]>
   /**
    * COUNT of non-archived cards in the lane — the WIP-marker read inside the
    * move transaction, which must not hydrate rows just to take a length
@@ -316,6 +341,25 @@ export interface EventRepository {
   ): Promise<CardEvent[]>
 }
 
+/**
+ * Per-user saved board filters (docs/architecture/board-filters.md). Every
+ * method is scoped by `ownerId` — a user only ever sees or edits their own
+ * presets, so an id owned by another user is indistinguishable from a missing
+ * one (the service maps both to 404). Rows are hard-deleted (no soft delete —
+ * a preset carries no audit weight).
+ */
+export interface FilterPresetRepository {
+  /** The owner's presets, newest-first. */
+  listByOwner(ownerId: string): Promise<FilterPreset[]>
+  /** One preset IF it belongs to `ownerId`; null for unknown OR another owner's. */
+  findByIdForOwner(id: string, ownerId: string): Promise<FilterPreset | null>
+  insert(preset: FilterPreset): Promise<void>
+  /** Persists name/filter edits; NotFoundError when no row with (id, ownerId). */
+  update(preset: FilterPreset): Promise<void>
+  /** Hard-deletes IF owned by `ownerId`; NotFoundError otherwise. */
+  delete(id: string, ownerId: string): Promise<void>
+}
+
 /** The repositories available inside one atomic unit of work. */
 export interface TransactionContext {
   cards: CardRepository
@@ -330,6 +374,7 @@ export interface TransactionContext {
   tags: TagRepository
   policies: PolicyRepository
   events: EventRepository
+  filterPresets: FilterPresetRepository
 }
 
 /**
