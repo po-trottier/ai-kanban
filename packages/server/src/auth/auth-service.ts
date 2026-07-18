@@ -80,20 +80,43 @@ export interface LoginResult {
 export class AuthService {
   private readonly deps: AuthServiceDeps
   /**
-   * Per-account attempt serialization. The backoff alone is check-then-record
-   * with the ~50 ms argon2 verify awaited in between, so K simultaneous
-   * guesses for one email (distributed attacker, each IP within its own rate
-   * limit) would all read `retryAfterMs == 0` before any failure is recorded —
-   * bursts would bypass the control the backoff exists for. Queueing attempts
-   * per email closes that TOCTOU: each attempt starts only after the previous
-   * one recorded its outcome, so the second guess of a burst sees the first
-   * failure and gets 429. Entries are removed as soon as the queue drains, so
-   * the map is bounded by in-flight logins (themselves rate-limited).
+   * Per-account attempt serialization, keyed on the lowercased email. The
+   * backoff alone is check-then-record with the ~50 ms argon2 verify awaited in
+   * between, so K simultaneous guesses for one email (distributed attacker, each
+   * IP within its own rate limit) would all read `retryAfterMs == 0` before any
+   * failure is recorded — bursts would bypass the control the backoff exists
+   * for. Queueing attempts per email closes that TOCTOU: each attempt starts
+   * only after the previous one recorded its outcome, so the second guess of a
+   * burst sees the first failure and gets 429. Shared by BOTH password-verify
+   * surfaces — login AND change-password (each their own guessable oracle).
+   * Entries are removed as soon as the queue drains, so the map is bounded by
+   * in-flight attempts (themselves rate-limited).
    */
-  private readonly loginQueues = new Map<string, Promise<void>>()
+  private readonly attemptQueues = new Map<string, Promise<void>>()
 
   constructor(deps: AuthServiceDeps) {
     this.deps = deps
+  }
+
+  /**
+   * Runs `attempt` only after the prior in-flight attempt for the same account
+   * has recorded its outcome — the shared serialization both verify surfaces
+   * chain through. The returned promise still rejects/resolves with `attempt`'s
+   * own result; the queue only tracks completion (never the value or error).
+   */
+  private serializePerAccount<T>(account: string, attempt: () => Promise<T>): Promise<T> {
+    const key = account.toLowerCase()
+    const prior = this.attemptQueues.get(key) ?? Promise.resolve()
+    const run = prior.then(attempt)
+    const settled = run.then(
+      () => undefined,
+      () => undefined,
+    )
+    this.attemptQueues.set(key, settled)
+    void settled.then(() => {
+      if (this.attemptQueues.get(key) === settled) this.attemptQueues.delete(key)
+    })
+    return run
   }
 
   /**
@@ -104,18 +127,7 @@ export class AuthService {
    * with concurrent attempts for one account serialized (see loginQueues).
    */
   login(email: string, password: string): Promise<LoginResult> {
-    const account = email.toLowerCase()
-    const prior = this.loginQueues.get(account) ?? Promise.resolve()
-    const attempt = prior.then(() => this.attemptLogin(email, password))
-    const settled = attempt.then(
-      () => undefined,
-      () => undefined,
-    )
-    this.loginQueues.set(account, settled)
-    void settled.then(() => {
-      if (this.loginQueues.get(account) === settled) this.loginQueues.delete(account)
-    })
-    return attempt
+    return this.serializePerAccount(email, () => this.attemptLogin(email, password))
   }
 
   private async attemptLogin(email: string, password: string): Promise<LoginResult> {
@@ -194,13 +206,14 @@ export class AuthService {
    * replaces the hash, clears `must_change_password`, and revokes every
    * other session of the user (docs/architecture/rest-api.md#auth--users).
    *
-   * The current-password check shares login's per-account backoff (keyed on
-   * the email): this is the second password-verification surface, and without
-   * it a session-holding attacker (hijacked/kiosk-left session) could guess
-   * the account password here without ever tripping the login control. No
-   * attempt queue like login's — the endpoint already requires an
-   * authenticated session, so the burst-TOCTOU window is not worth the
-   * serialization machinery.
+   * The current-password check shares login's per-account backoff AND its
+   * per-account serialization (keyed on the email): this is the second
+   * password-verification surface, and without it a session-holding attacker
+   * (hijacked/kiosk-left session) could guess the account password here without
+   * ever tripping the login control. The serialization matters as much as the
+   * backoff — change-password has no route-level login bucket, so a concurrent
+   * burst of guesses would otherwise all pass the check-then-record gate before
+   * any failure lands, degrading the throttle to the per-IP limit alone.
    */
   async changePassword(
     userId: string,
@@ -211,14 +224,20 @@ export class AuthService {
     const { uow, hasher, backoff } = this.deps
     const credentials = await uow.read((tx) => tx.userAccounts.findById(userId))
     if (credentials === null) throw new CurrentPasswordMismatchError()
-    const waitMs = backoff.retryAfterMs(credentials.user.email)
-    if (waitMs > 0) throw new BackoffActiveError(Math.ceil(waitMs / 1000))
-    const verified = await hasher.verify(credentials.passwordHash, currentPassword)
-    if (!verified) {
-      backoff.recordFailure(credentials.user.email)
-      throw new CurrentPasswordMismatchError()
-    }
-    backoff.reset(credentials.user.email)
+    const email = credentials.user.email
+    // Serialize the backoff gate + verify + record through the SAME per-account
+    // queue login uses, so a burst's 2nd guess sees the 1st's recorded failure
+    // (closes the check-then-record TOCTOU across the awaited argon2 verify).
+    await this.serializePerAccount(email, async () => {
+      const waitMs = backoff.retryAfterMs(email)
+      if (waitMs > 0) throw new BackoffActiveError(Math.ceil(waitMs / 1000))
+      const verified = await hasher.verify(credentials.passwordHash, currentPassword)
+      if (!verified) {
+        backoff.recordFailure(email)
+        throw new CurrentPasswordMismatchError()
+      }
+      backoff.reset(email)
+    })
 
     const violation = passwordPolicyViolation(newPassword)
     if (violation !== null) throw new PasswordPolicyError(violation)

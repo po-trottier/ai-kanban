@@ -175,6 +175,28 @@ describe('POST /auth/change-password', () => {
     expect(Number(second.headers['retry-after'])).toBeGreaterThan(0)
   })
 
+  it('serializes a simultaneous burst of wrong guesses: it cannot bypass the backoff', async () => {
+    // Mirrors the login burst test: change-password verifies with the same
+    // per-account backoff but has no route-level login bucket, so without
+    // per-account serialization a concurrent burst would all read "no failures
+    // yet" across the awaited argon2 verify — the exact TOCTOU the queue closes.
+    const { cookie } = await t.asRole('user')
+    const guess = (attempt: number) =>
+      t.request(cookie, {
+        method: 'POST',
+        url: '/api/v1/auth/change-password',
+        payload: {
+          currentPassword: `burst-wrong-${String(attempt)}`,
+          newPassword: 'a-perfectly-fine-pw',
+        },
+      })
+
+    const [first, second] = await Promise.all([guess(1), guess(2)])
+
+    // The 2nd sees the 1st's recorded failure → throttled, exactly as login is.
+    expect([first.statusCode, second.statusCode].sort()).toEqual([403, 429])
+  })
+
   it('enforces the password policy: too short and top-10k common are 400', async () => {
     const { password, cookie } = await t.asRole('user')
 
