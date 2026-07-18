@@ -265,7 +265,7 @@ export const strings = {
     legendPriorities: 'Priority',
     legendStates: 'Status',
     legendBlocked: 'Blocked — stuck on an exception; hover the badge for the reason',
-    legendWaiting: 'Waiting — paused on parts or a vendor, with an expected resume date',
+    legendWaiting: 'Waiting — on parts or a vendor, with a date it is expected to resume',
     /** Short badge word for the Overdue legend row (the board shows "Overdue: …"). */
     legendOverdueBadge: 'Overdue',
     legendOverdue: 'Overdue — the expected resume date has passed',
@@ -282,13 +282,15 @@ export const strings = {
     cancelCard: 'Cancel…',
     reopen: 'Reopen',
     blockedBadge: 'Blocked',
+    /** Priority chip hover — the same plain-language meaning the picker shows. */
+    priorityBadgeTooltip: (name: string, meaning: string) => `${name} — ${meaning}`,
     waitingBadge: (reason: string) => `Waiting: ${reason}`,
     overdueBadge: (reason: string) => `Overdue: ${reason}`,
     archivedBadge: 'Archived',
     /** Hover explanations for the color-only status badges (mirrors the legend
      * copy) so a technician never has to open the badge guide to decode them. */
     waitingBadgeTooltip: (reason: string, date: string) =>
-      `Waiting on ${reason} — paused until ${date}, when it resumes automatically.`,
+      `Waiting on ${reason} — expected to resume by ${date}.`,
     overdueBadgeTooltip: (reason: string, date: string) =>
       `Waiting on ${reason} — overdue: the expected resume date (${date}) has passed.`,
     cancelledBadgeTooltip: (resolution: string) =>
@@ -307,6 +309,8 @@ export const strings = {
     archive: 'Archive',
     /** Always-visible board-card fields with clear placeholders (consistency). */
     noEstimate: 'No estimate',
+    /** Estimate chip hover — what the compact "2h"/"1d" figure means. */
+    estimateTooltip: (estimate: string) => `Estimated time to complete: ${estimate}`,
     unassigned: 'Unassigned',
     noLocation: 'No location',
     locationLabel: (name: string) => `Location: ${name}`,
@@ -522,9 +526,9 @@ export const strings = {
     cancelledBannerBody: 'It sits at the bottom of Done. Reopen it to move it back to Ready.',
     waitingBannerTitle: 'Waiting on Parts / Vendor',
     waitingBannerBody: (reason: string, date: string) =>
-      `Paused for ${reason}, expected to resume ${date}. It resumes automatically when moved out of this column.`,
+      `Waiting on ${reason}, expected to resume by ${date}. It resumes automatically when moved out of this column.`,
     waitingBannerOverdue: (reason: string, date: string) =>
-      `Paused for ${reason}. Expected to resume ${date} — now overdue. It resumes when moved out of this column.`,
+      `Waiting on ${reason}. Expected to resume by ${date} — now overdue. It resumes when moved out of this column.`,
     /** Inline edit of the waiting reason + resume date while the card waits. */
     waitingEditHint: 'Update the reason or expected resume date without moving the card.',
     waitingReasonLabel: 'Waiting reason',

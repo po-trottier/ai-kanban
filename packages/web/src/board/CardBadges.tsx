@@ -49,9 +49,18 @@ export function CardBadges({
   return (
     <Group gap="xs">
       {showPriority ? (
-        <Badge color={PRIORITY_COLORS[card.priority]} size="sm" variant="filled">
-          {strings.priorities[card.priority]}
-        </Badge>
+        // Priority meaning on hover — the same plain-language copy the card-detail
+        // priority picker shows (single source in strings.priorityOptions).
+        <Tooltip
+          label={strings.card.priorityBadgeTooltip(
+            strings.priorityOptions[card.priority].name,
+            strings.priorityOptions[card.priority].description,
+          )}
+        >
+          <Badge color={PRIORITY_COLORS[card.priority]} size="sm" variant="filled">
+            {strings.priorities[card.priority]}
+          </Badge>
+        </Tooltip>
       ) : null}
       {card.blocked ? (
         // The reason is the most useful context; surface it on hover so a

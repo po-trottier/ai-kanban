@@ -1,4 +1,5 @@
 import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import {
   fixturePickerUsers,
@@ -234,6 +235,39 @@ describe('Board', () => {
     expect(screen.getByText('Room 101')).toBeInTheDocument()
     expect(screen.getByText('1d')).toBeInTheDocument()
     expect(screen.getByLabelText('2 attachments')).toBeInTheDocument()
+  })
+
+  it('explains the priority, estimate, and location on hover (card tooltips)', async () => {
+    // Arrange — a card with a set estimate and location so all three chips
+    // carry their explanatory tooltip (a truncated label may hide the full text).
+    const user = userEvent.setup()
+    const card = withCardExtras(makeCard('ready', { priority: 'P0', estimateMinutes: 480 }), {
+      locationLabel: 'Room 101',
+    })
+    const board = makeBoard({ ready: [card] })
+    renderWithProviders(
+      <Board
+        board={board}
+        policy={permissivePolicy}
+        role="user"
+        users={fixturePickerUsers}
+        today="2026-07-16"
+        onOpenCard={noop}
+        onMenuAction={noop}
+      />,
+    )
+    // Act — hover the priority chip (each chip is checked in turn below).
+    await user.hover(screen.getByText('P0'))
+    // Assert — priority meaning is the same copy the picker shows.
+    expect(await screen.findByText('Critical — Drop everything')).toBeInTheDocument()
+    // Act — hover the estimate figure.
+    await user.hover(screen.getByText('1d'))
+    // Assert — the compact figure reads as an estimate.
+    expect(await screen.findByText(/Estimated time to complete: 1d/)).toBeInTheDocument()
+    // Act — hover the (truncatable) location label.
+    await user.hover(screen.getByText('Room 101'))
+    // Assert — the full location label shows on hover.
+    expect(await screen.findByText('Location: Room 101')).toBeInTheDocument()
   })
 
   it('renders each tag pill at natural width and clips overflow at the row, not the pill', () => {

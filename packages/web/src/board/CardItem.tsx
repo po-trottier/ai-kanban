@@ -84,9 +84,18 @@ export function CardItem({
           </Text>
         </Group>
         <Group gap="xs" wrap="nowrap">
-          <Badge color={PRIORITY_COLORS[card.priority]} size="sm" variant="filled">
-            {strings.priorities[card.priority]}
-          </Badge>
+          {/* Priority meaning on hover — the same plain-language copy the
+              card-detail priority picker shows (single source in strings). */}
+          <Tooltip
+            label={strings.card.priorityBadgeTooltip(
+              strings.priorityOptions[card.priority].name,
+              strings.priorityOptions[card.priority].description,
+            )}
+          >
+            <Badge color={PRIORITY_COLORS[card.priority]} size="sm" variant="filled">
+              {strings.priorities[card.priority]}
+            </Badge>
+          </Tooltip>
           <CardMenu
             card={card}
             canCancel={canCancel}
@@ -131,24 +140,35 @@ export function CardItem({
       {/* estimate · location · attachments ………… assignee (one fixed row) */}
       <Group justify="space-between" mt="xs" gap="sm" wrap="nowrap">
         <Group gap="sm" wrap="nowrap" className={classes.grow}>
-          <Text size="xs" {...(card.estimateMinutes === null ? { c: 'dimmed' } : {})}>
-            {card.estimateMinutes === null
-              ? strings.card.noEstimate
-              : formatEstimate(card.estimateMinutes)}
-          </Text>
-          {/* Location always renders (placeholder when unset); it ellipsizes so a
-              long room name never grows the card. */}
-          <Group
-            gap={4}
-            wrap="nowrap"
-            className={classes.grow}
-            {...(card.locationLabel === null ? { c: 'dimmed' } : {})}
-          >
-            <PinIcon size={14} />
-            <Text size="xs" truncate>
-              {card.locationLabel ?? strings.card.noLocation}
+          {/* The compact "2h"/"1d" figure reads as an estimate on hover; the
+              "No estimate" placeholder needs no explanation. */}
+          {card.estimateMinutes === null ? (
+            <Text size="xs" c="dimmed">
+              {strings.card.noEstimate}
             </Text>
-          </Group>
+          ) : (
+            <Tooltip label={strings.card.estimateTooltip(formatEstimate(card.estimateMinutes))}>
+              <Text size="xs">{formatEstimate(card.estimateMinutes)}</Text>
+            </Tooltip>
+          )}
+          {/* Location always renders (placeholder when unset); it ellipsizes so a
+              long room name never grows the card — the full label is on hover. */}
+          <Tooltip
+            label={strings.card.locationLabel(card.locationLabel ?? '')}
+            disabled={card.locationLabel === null}
+          >
+            <Group
+              gap={4}
+              wrap="nowrap"
+              className={classes.grow}
+              {...(card.locationLabel === null ? { c: 'dimmed' } : {})}
+            >
+              <PinIcon size={14} />
+              <Text size="xs" truncate>
+                {card.locationLabel ?? strings.card.noLocation}
+              </Text>
+            </Group>
+          </Tooltip>
           {/* Always shown (a zero is clearly "no files", not a missing feature). */}
           <Tooltip label={strings.card.attachmentCountLabel(card.attachmentCount)}>
             <Group

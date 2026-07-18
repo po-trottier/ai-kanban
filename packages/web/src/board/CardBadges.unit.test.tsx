@@ -72,8 +72,21 @@ describe('CardBadges', () => {
     renderWithProviders(<CardBadges card={card} today="2026-07-16" />)
     // Act
     await user.hover(screen.getByText('Waiting: Parts'))
-    // Assert — the tooltip spells out the reason + resume date.
-    expect(await screen.findByText(/paused until/i)).toBeInTheDocument()
+    // Assert — the tooltip reads "expected to resume" (NOT "paused": the
+    // business-hours timer keeps counting while waiting — ADR-019/#102).
+    expect(await screen.findByText(/expected to resume by/i)).toBeInTheDocument()
+    expect(screen.queryByText(/paused/i)).not.toBeInTheDocument()
+  })
+
+  it('explains the priority badge on hover with its plain-language meaning', async () => {
+    // Arrange — the color-only priority chip spells out its meaning on hover.
+    const user = userEvent.setup()
+    const card = makeCard('ready', { priority: 'P0' })
+    renderWithProviders(<CardBadges card={card} today="2026-07-16" />)
+    // Act
+    await user.hover(screen.getByText('P0'))
+    // Assert — reuses the same copy the picker shows (Critical — Drop everything).
+    expect(await screen.findByText('Critical — Drop everything')).toBeInTheDocument()
   })
 
   it('explains the cancelled badge on hover', async () => {
