@@ -149,6 +149,32 @@ describe('BoardQueryService.filteredBoard', () => {
     expect(idsOf(filtered)).toEqual([tagged.id])
   })
 
+  it('unions multiple location filters, each subtree-inclusive (one tree read)', async () => {
+    // Arrange — depot(building) → depotRoom, and a separate garage(building).
+    // Filtering on [depot, garage] must match the depot subtree AND the garage,
+    // deduped and expanded against ONE location-tree read (the DoS-amplifier fix).
+    const scenario = createScenario()
+    const depot = { id: fixtureId(810), parentId: null, kind: 'building' as const, name: 'Depot' }
+    const depotRoom = { id: fixtureId(811), parentId: depot.id, kind: 'room' as const, name: 'R1' }
+    const garage = { id: fixtureId(812), parentId: null, kind: 'building' as const, name: 'Garage' }
+    const shed = { id: fixtureId(813), parentId: null, kind: 'building' as const, name: 'Shed' }
+    for (const location of [depot, depotRoom, garage, shed]) scenario.db.seedLocation(location)
+    const inDepotRoom = scenario.seedCard({
+      laneId: scenario.lanes.ready.id,
+      locationId: depotRoom.id,
+    })
+    const inGarage = scenario.seedCard({ laneId: scenario.lanes.ready.id, locationId: garage.id })
+    scenario.seedCard({ laneId: scenario.lanes.ready.id, locationId: shed.id })
+
+    // Act — depot (via its room subtree) OR garage; depot listed twice to prove dedup.
+    const filtered = await scenario.queries.filteredBoard({
+      locationIds: [depot.id, garage.id, depot.id],
+    })
+
+    // Assert — the depot-room card and the garage card, not the shed card.
+    expect(idsOf(filtered)).toEqual([inDepotRoom.id, inGarage.id].sort((a, b) => a - b))
+  })
+
   it('reports WIP breach from the full active lane count, not the filtered slice', async () => {
     // Arrange — two active cards in a WIP-1 lane; the filter matches only one.
     const scenario = createScenario({ wipLimits: { in_progress: 1 } })

@@ -39,6 +39,21 @@ describe('boardFilterSchema', () => {
     // Assert
     for (const parse of parses) expect(parse).toThrow()
   })
+
+  it('caps every any-of array facet at 50 (authenticated event-loop DoS bound)', () => {
+    // Arrange — one id past the cap on the widest-fanout facet vs exactly at it.
+    const uuid = (n: number) => `10000000-0000-7000-8000-${n.toString(16).padStart(12, '0')}`
+    const overCap = { locationIds: Array.from({ length: 51 }, (_, i) => uuid(i)) }
+    const atCap = { locationIds: Array.from({ length: 50 }, (_, i) => uuid(i)) }
+
+    // Act
+    const parseOver = () => boardFilterSchema.parse(overCap)
+    const parsedAtCap = boardFilterSchema.parse(atCap)
+
+    // Assert — 51 rejected, 50 accepted (real UI selections are tiny).
+    expect(parseOver).toThrow()
+    expect(parsedAtCap.locationIds).toHaveLength(50)
+  })
 })
 
 describe('BUILTIN_FILTER_PRESETS', () => {

@@ -475,10 +475,14 @@ export class BoardQueryService {
     if (filter.tags.length > 0) repoFilter.tags = filter.tags
     if (filter.locationIds.length > 0) {
       // Each selected location expands to its whole subtree (recursively
-      // inclusive), unioned — a building matches its floors and rooms.
+      // inclusive), unioned — a building matches its floors and rooms. Load the
+      // tree ONCE and dedup the roots: a large multi-location filter must never
+      // fan out into a full-table scan per element (authenticated event-loop
+      // DoS — the `.max(50)` cap bounds it, this keeps it a single read).
+      const childrenByParent = childrenByParentOf(await tx.locations.list())
       const expanded = new Set<string>()
-      for (const locationId of filter.locationIds) {
-        for (const id of await locationSubtreeIds(tx, locationId)) expanded.add(id)
+      for (const rootId of new Set(filter.locationIds)) {
+        for (const id of subtreeIds(rootId, childrenByParent)) expanded.add(id)
       }
       repoFilter.locationIds = [...expanded]
     }
@@ -494,13 +498,8 @@ async function activeLaneCards(tx: TransactionContext, laneId: string): Promise<
   return tx.cards.listByLane(laneId, { activeOnly: true })
 }
 
-/**
- * The selected location plus every descendant (building → floors → rooms), so
- * a location filter is recursively inclusive. Walks the flat location list by
- * parentId; an unknown root simply yields itself (matching no card).
- */
-async function locationSubtreeIds(tx: TransactionContext, rootId: string): Promise<string[]> {
-  const all = await tx.locations.list()
+/** Flat location list → parentId → child ids, the reusable subtree index. */
+function childrenByParentOf(all: Location[]): Map<string, string[]> {
   const childrenByParent = new Map<string, string[]>()
   for (const location of all) {
     if (location.parentId === null) continue
@@ -508,6 +507,17 @@ async function locationSubtreeIds(tx: TransactionContext, rootId: string): Promi
     siblings.push(location.id)
     childrenByParent.set(location.parentId, siblings)
   }
+  return childrenByParent
+}
+
+/**
+ * The root plus every descendant (building → floors → rooms) against a
+ * prebuilt index, so a location filter is recursively inclusive. Pure — the
+ * caller builds the index ONCE and expands every rooted id against it (a
+ * multi-location filter must not re-scan the table per element). An unknown
+ * root simply yields itself (matching no card).
+ */
+function subtreeIds(rootId: string, childrenByParent: Map<string, string[]>): string[] {
   const ids: string[] = []
   const stack = [rootId]
   while (stack.length > 0) {
@@ -518,6 +528,15 @@ async function locationSubtreeIds(tx: TransactionContext, rootId: string): Promi
     if (children !== undefined) stack.push(...children)
   }
   return ids
+}
+
+/**
+ * Single-root convenience for the `listCards` path (one location filter): one
+ * `list()` then one expansion. The board-filter path builds the index itself so
+ * it can share it across many roots.
+ */
+async function locationSubtreeIds(tx: TransactionContext, rootId: string): Promise<string[]> {
+  return subtreeIds(rootId, childrenByParentOf(await tx.locations.list()))
 }
 
 /** The card's detail composition — shared by `cardDetail` and `cardDetailWithThread`. */

@@ -16,19 +16,29 @@ import { laneKeySchema, prioritySchema, tagNameSchema } from './entities.ts'
 export const FILTER_SCOPES = ['active', 'archived', 'all'] as const
 export type FilterScope = (typeof FILTER_SCOPES)[number]
 
+/**
+ * Per-facet cap on every any-of array (a trust-boundary bound; single-schema:
+ * the REST body, preset storage, and the frontend form all inherit it). 50
+ * dwarfs any real UI selection — the point is to reject the pathological body
+ * (tens of thousands of ids) that would otherwise fan out into a per-element
+ * subtree scan in `toBoardRepoFilter` and stall the event loop. Mirrors
+ * `listCardsFilterSchema.tags`'s `.max(20)`.
+ */
+const FACET_MAX = 50
+
 export const boardFilterSchema = z.strictObject({
   /** Any-of priorities (P0/P1/P2). */
-  priorities: z.array(prioritySchema).default([]),
+  priorities: z.array(prioritySchema).max(FACET_MAX).default([]),
   /** Any-of lanes/status by lane key. */
-  laneKeys: z.array(laneKeySchema).default([]),
+  laneKeys: z.array(laneKeySchema).max(FACET_MAX).default([]),
   /** Any-of assignee user ids. */
-  assigneeIds: z.array(z.uuid()).default([]),
+  assigneeIds: z.array(z.uuid()).max(FACET_MAX).default([]),
   /** Any-of reporter user ids. */
-  reporterIds: z.array(z.uuid()).default([]),
+  reporterIds: z.array(z.uuid()).max(FACET_MAX).default([]),
   /** Any-of tag names, matched case-insensitively. */
-  tags: z.array(tagNameSchema).default([]),
+  tags: z.array(tagNameSchema).max(FACET_MAX).default([]),
   /** Any-of location ids, each subtree-inclusive (a building matches its rooms). */
-  locationIds: z.array(z.uuid()).default([]),
+  locationIds: z.array(z.uuid()).max(FACET_MAX).default([]),
   /** Archived selector; defaults to live cards only (today's board). */
   scope: z.enum(FILTER_SCOPES).default('active'),
   /** Case-insensitive substring over title + description. */
