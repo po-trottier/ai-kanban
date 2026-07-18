@@ -1,4 +1,5 @@
 import {
+  DEFAULT_THEME,
   DEFAULT_TIMEZONE,
   type ActorKind,
   type CardOrigin,
@@ -8,6 +9,7 @@ import {
   type Priority,
   type Resolution,
   type Role,
+  type Theme,
   type TokenScope,
   type WaitingReason,
 } from '@rivian-kanban/core'
@@ -61,6 +63,8 @@ export const users = sqliteTable(
     isActive: integer('is_active', { mode: 'boolean' }).notNull(),
     /** IANA display time zone; defaults to PST so existing rows backfill on migration. */
     timezone: text('timezone').notNull().default(DEFAULT_TIMEZONE),
+    /** Display theme; defaults to `system` so existing rows backfill on migration. */
+    theme: text('theme').$type<Theme>().notNull().default(DEFAULT_THEME),
     createdAt: text('created_at').notNull(),
   },
   (table) => [

@@ -6,6 +6,7 @@ import {
   type Permission,
   type Priority,
   type Resolution,
+  type Theme,
   type TokenScope,
   type WaitingReason,
 } from '@rivian-kanban/core'
@@ -422,6 +423,13 @@ export const strings = {
     timezoneLabel: 'Time zone',
     timezoneHelp: 'Dates and times across the app are shown in this time zone.',
     timezoneNothingFound: 'No matching time zone',
+    themeLabel: 'Theme',
+    themeHelp: 'Choose light or dark, or follow your system setting.',
+    themes: {
+      light: 'Light',
+      dark: 'Dark',
+      system: 'System',
+    } satisfies Record<Theme, string>,
     saved: 'Preferences saved',
   },
 

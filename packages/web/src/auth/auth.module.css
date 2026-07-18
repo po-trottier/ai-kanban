@@ -22,8 +22,13 @@
   z-index: 1;
 }
 
-/* The brand mark ships white (for dark headers). Darken it so it reads inside
-   the white auth card. */
-.logo {
+/* The brand mark ships WHITE. Inside the auth card it must contrast the card
+   surface: invert to black on the light card, stay white on the dark card.
+   Mantine sets data-mantine-color-scheme on <html> (:root). */
+:root[data-mantine-color-scheme='light'] .logo {
   filter: brightness(0);
+}
+
+:root[data-mantine-color-scheme='dark'] .logo {
+  filter: none;
 }

@@ -9,6 +9,7 @@ import {
   PRIORITIES,
   RESOLUTIONS,
   TAG_NAME_MAX,
+  THEMES,
   TOKEN_SCOPES,
   WAITING_REASONS,
 } from './constants.ts'
@@ -50,6 +51,9 @@ export const timezoneSchema = z
   .string()
   .refine((value) => SUPPORTED_TIME_ZONES.has(value), { message: 'unknown IANA time zone' })
 
+/** The user's display theme; `system` follows the OS/browser color scheme. */
+export const themeSchema = z.enum(THEMES)
+
 export const userSchema = z.strictObject({
   id: z.uuid(),
   email: z.email(),
@@ -60,6 +64,8 @@ export const userSchema = z.strictObject({
   isActive: z.boolean(),
   /** The user's preferred display time zone (data-model.md#users). */
   timezone: timezoneSchema,
+  /** The user's preferred display theme (data-model.md#users). */
+  theme: themeSchema,
   createdAt: isoDateTimeSchema,
 })
 export type User = z.infer<typeof userSchema>

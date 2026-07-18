@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import {
+  DEFAULT_THEME,
   DEFAULT_TIMEZONE,
   Uuidv7IdGenerator,
   type Clock,
@@ -81,6 +82,7 @@ export async function createAdminUser(
     slackUserId: null,
     isActive: true,
     timezone: DEFAULT_TIMEZONE,
+    theme: DEFAULT_THEME,
     createdAt: clock.now().toISOString(),
   }
   await uow.run((tx) => tx.userAccounts.insert(user, passwordHash))

@@ -83,12 +83,14 @@ describe('SetupPage', () => {
     await user.type(screen.getByRole('textbox', { name: 'Display name' }), 'First Admin')
     await user.type(screen.getByLabelText('Password'), 'a-strong-first-password')
     await user.click(screen.getByRole('button', { name: 'Create admin account' }))
-    // Assert — the account fields plus the browser-auto-detected time zone
+    // Assert — the account fields, the browser-auto-detected time zone, and the
+    // default `system` theme (not shown at setup; the browser resolves it).
     expect(fake.lastBody('POST', '/api/v1/setup')).toEqual({
       email: 'first@org.example',
       displayName: 'First Admin',
       password: 'a-strong-first-password',
       timezone: detectBrowserTimezone(),
+      theme: 'system',
     })
   })
 

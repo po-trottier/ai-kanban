@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import {
   createUserInputSchema,
+  DEFAULT_THEME,
   DEFAULT_TIMEZONE,
   ensurePermission,
   NotFoundError,
@@ -80,6 +81,8 @@ export class UserAdminService {
       // Admin-created accounts default to PST (no browser to auto-detect from);
       // the user re-picks their own zone from account settings after signing in.
       timezone: DEFAULT_TIMEZONE,
+      // Defaults to `system` — the browser resolves light/dark at render.
+      theme: DEFAULT_THEME,
       createdAt: this.deps.clock.now().toISOString(),
     }
     await this.deps.uow.run(async (tx) => {

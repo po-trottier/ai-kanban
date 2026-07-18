@@ -270,7 +270,7 @@ describe('must_change_password gate', () => {
     const patch = await t.request(cookie, {
       method: 'PATCH',
       url: '/api/v1/auth/me',
-      payload: { timezone: 'UTC' },
+      payload: { timezone: 'UTC', theme: 'system' },
     })
     expect(patch.statusCode).toBe(403)
     expect(patch.json<{ type: string }>().type).toBe(
@@ -280,22 +280,25 @@ describe('must_change_password gate', () => {
 })
 
 describe('PATCH /auth/me (self-service profile)', () => {
-  it('updates only the caller’s own time zone and persists it to the session', async () => {
+  it('updates the caller’s own time zone and theme and persists them to the session', async () => {
     const user = await t.asRole('user')
     const before = await t.request(user.cookie, { method: 'GET', url: '/api/v1/auth/me' })
-    // Fresh users default to PST (data-model.md#users).
+    // Fresh users default to PST + system theme (data-model.md#users).
     expect(before.json<{ timezone: string }>().timezone).toBe('America/Los_Angeles')
+    expect(before.json<{ theme: string }>().theme).toBe('system')
 
     const patched = await t.request(user.cookie, {
       method: 'PATCH',
       url: '/api/v1/auth/me',
-      payload: { timezone: 'America/New_York' },
+      payload: { timezone: 'America/New_York', theme: 'dark' },
     })
     expect(patched.statusCode).toBe(200)
     expect(patched.json<{ timezone: string }>().timezone).toBe('America/New_York')
+    expect(patched.json<{ theme: string }>().theme).toBe('dark')
 
     const after = await t.request(user.cookie, { method: 'GET', url: '/api/v1/auth/me' })
     expect(after.json<{ timezone: string }>().timezone).toBe('America/New_York')
+    expect(after.json<{ theme: string }>().theme).toBe('dark')
   })
 
   it('rejects an unknown IANA zone with a 400 validation problem', async () => {
@@ -303,18 +306,28 @@ describe('PATCH /auth/me (self-service profile)', () => {
     const bad = await t.request(user.cookie, {
       method: 'PATCH',
       url: '/api/v1/auth/me',
-      payload: { timezone: 'Mars/Olympus_Mons' },
+      payload: { timezone: 'Mars/Olympus_Mons', theme: 'system' },
     })
     expect(bad.statusCode).toBe(400)
   })
 
-  it('refuses any field other than the time zone — no privilege escalation via the profile route', async () => {
+  it('rejects an unknown theme with a 400 validation problem', async () => {
+    const user = await t.asRole('user')
+    const bad = await t.request(user.cookie, {
+      method: 'PATCH',
+      url: '/api/v1/auth/me',
+      payload: { timezone: 'UTC', theme: 'neon' },
+    })
+    expect(bad.statusCode).toBe(400)
+  })
+
+  it('refuses any field other than the display prefs — no privilege escalation via the profile route', async () => {
     const user = await t.asRole('user')
     // strictObject body: the extra `role` is a 400, never a silent promotion.
     const escalate = await t.request(user.cookie, {
       method: 'PATCH',
       url: '/api/v1/auth/me',
-      payload: { timezone: 'UTC', role: 'admin' },
+      payload: { timezone: 'UTC', theme: 'system', role: 'admin' },
     })
     expect(escalate.statusCode).toBe(400)
 
@@ -326,7 +339,7 @@ describe('PATCH /auth/me (self-service profile)', () => {
     const anon = await t.request(null, {
       method: 'PATCH',
       url: '/api/v1/auth/me',
-      payload: { timezone: 'UTC' },
+      payload: { timezone: 'UTC', theme: 'system' },
     })
     expect(anon.statusCode).toBe(401)
   })

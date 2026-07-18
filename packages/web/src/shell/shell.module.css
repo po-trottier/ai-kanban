@@ -25,10 +25,21 @@
   max-width: var(--app-header-search-max-width);
 }
 
+/* The brand mark ships WHITE (for dark surfaces). In light mode invert it to
+   black so it reads on the light header; in dark mode leave it white. Mantine
+   sets data-mantine-color-scheme on <html> (:root). */
 .logo {
   display: block;
   height: var(--app-header-logo-height);
   width: auto;
+}
+
+:root[data-mantine-color-scheme='light'] .logo {
+  filter: brightness(0);
+}
+
+:root[data-mantine-color-scheme='dark'] .logo {
+  filter: none;
 }
 
 /* The board page owns its scrolling; the main area pins to the viewport. */
@@ -67,7 +78,7 @@
 
 .resizeHandle:hover,
 .resizeHandle:focus-visible {
-  background-color: var(--mantine-color-gray-4);
+  background-color: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-3));
   outline: none;
 }
 

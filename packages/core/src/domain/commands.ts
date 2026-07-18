@@ -3,6 +3,7 @@ import {
   CANCEL_RESOLUTIONS,
   CARD_DESCRIPTION_MAX,
   CARD_TITLE_MAX,
+  DEFAULT_THEME,
   DEFAULT_TIMEZONE,
   LOCATION_KINDS,
 } from './constants.ts'
@@ -12,6 +13,7 @@ import {
   prioritySchema,
   roleSchema,
   tagNameSchema,
+  themeSchema,
   timezoneSchema,
   tokenScopeSchema,
   waitingReasonSchema,
@@ -201,6 +203,8 @@ export const setupAdminInputSchema = z.strictObject({
   password: z.string().min(1).max(1024),
   /** Browser-auto-detected at signup; defaults to PST when the client omits it. */
   timezone: timezoneSchema.default(DEFAULT_TIMEZONE),
+  /** Not auto-detected — the browser resolves `system` at render (data-model.md#users). */
+  theme: themeSchema.default(DEFAULT_THEME),
 })
 export type SetupAdminInput = z.infer<typeof setupAdminInputSchema>
 
@@ -217,13 +221,15 @@ export type UpdateUserInput = z.infer<typeof updateUserInputSchema>
 
 /**
  * Self-service profile update (`PATCH /auth/me`, rest-api.md#auth--users): the
- * authenticated user editing THEIR OWN preferences. Deliberately a strictObject
- * of only `timezone` — role, active state, and email stay admin-only, and a
- * strictObject rejects any such extra key at the trust boundary, so this
- * surface can never be used for privilege escalation or mass assignment.
+ * authenticated user editing THEIR OWN display preferences (time zone + theme).
+ * Deliberately a strictObject of only those display fields — role, active
+ * state, and email stay admin-only, and a strictObject rejects any such extra
+ * key at the trust boundary, so this surface can never be used for privilege
+ * escalation or mass assignment.
  */
 export const updateProfileInputSchema = z.strictObject({
   timezone: timezoneSchema,
+  theme: themeSchema,
 })
 export type UpdateProfileInput = z.infer<typeof updateProfileInputSchema>
 

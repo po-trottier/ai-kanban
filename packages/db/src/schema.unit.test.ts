@@ -124,9 +124,15 @@ describe('schema contract (data-model.md)', () => {
 
     // Act
     const hasAll =
-      ['must_change_password', 'password_hash', 'is_active', 'slack_user_id', 'timezone'].every(
-        (column) => userColumns.includes(column),
-      ) && ['token_hash', 'role', 'scope', 'revoked_at'].every((c) => tokenColumns.includes(c))
+      [
+        'must_change_password',
+        'password_hash',
+        'is_active',
+        'slack_user_id',
+        'timezone',
+        'theme',
+      ].every((column) => userColumns.includes(column)) &&
+      ['token_hash', 'role', 'scope', 'revoked_at'].every((c) => tokenColumns.includes(c))
 
     // Assert
     expect(hasAll).toBe(true)

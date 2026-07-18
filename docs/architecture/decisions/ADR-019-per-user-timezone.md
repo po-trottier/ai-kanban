@@ -54,13 +54,28 @@ optional/nullable legacy field. It is:
 
 - One migration column + a required `userSchema` field; the DB default backfills
   existing rows to PST, and every User-construction site sets it explicitly.
-- `PATCH /auth/me` is a new self-service surface: a `strictObject` of only
-  `timezone`, writing the caller's own row (id from the session, never a path
-  param), no `ensureAdmin`, no session revocation — so it can't escalate
-  privilege or be used for IDOR (see rest-api.md and the auth audit).
+- `PATCH /auth/me` is a self-service surface: a `strictObject` of only the
+  display prefs (`timezone`, `theme`), writing the caller's own row (id from the
+  session, never a path param), no `ensureAdmin`, no session revocation — so it
+  can't escalate privilege or be used for IDOR (see rest-api.md and the auth audit).
 - The timezone lives on the `['me']` user in `SessionContext`; a `useUserTimezone()`
   hook is the single source every date render reads, so login/logout/change keep
   it correct with no second store.
 - Rendered output now changes with the user's setting rather than the CI/host
   machine's zone — the date helpers take an explicit zone, which is strictly
   more deterministic than the previous machine-local behavior.
+
+### Per-user theme (light/dark/system)
+
+A display **theme** (`users.theme`, `TEXT NOT NULL DEFAULT 'system'`) joins the
+time zone as a per-user display preference on the same surfaces: a required
+`themeSchema` (`light` | `dark` | `system`) field on `userSchema`, saved
+alongside `timezone` through the same `PATCH /auth/me` (the Preferences modal now
+posts both). Unlike the zone it is **not** auto-detected — `system` maps to
+Mantine's `auto`, which already follows the browser `prefers-color-scheme`, so
+the browser resolves light/dark at render and there is nothing to detect at
+signup. Applied by a small effect in the authed shell that calls
+`useMantineColorScheme().setColorScheme(...)` on `user.theme`. The single
+white-mark logo is kept legible in both schemes with a scheme-keyed CSS filter
+(inverted to black on light, left white on dark) — one asset, no theme-swapped
+image.

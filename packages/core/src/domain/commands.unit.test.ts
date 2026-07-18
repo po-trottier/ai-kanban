@@ -236,20 +236,32 @@ describe('setupAdminInputSchema time zone', () => {
 })
 
 describe('updateProfileInputSchema', () => {
-  it('accepts a valid IANA time zone', () => {
+  it('accepts a valid time zone and theme together', () => {
     // Arrange
-    const body = { timezone: 'Europe/Paris' }
+    const body = { timezone: 'Europe/Paris', theme: 'dark' }
 
     // Act
     const input = updateProfileInputSchema.parse(body)
 
     // Assert
     expect(input.timezone).toBe('Europe/Paris')
+    expect(input.theme).toBe('dark')
   })
 
-  it('rejects any field other than the time zone (no privilege escalation)', () => {
+  it('rejects an unknown theme value', () => {
+    // Arrange
+    const body = { timezone: 'UTC', theme: 'neon' }
+
+    // Act
+    const act = () => updateProfileInputSchema.parse(body)
+
+    // Assert
+    expect(act).toThrow(ZodError)
+  })
+
+  it('rejects any field other than the display prefs (no privilege escalation)', () => {
     // Arrange — a mass-assignment attempt with an extra role key
-    const body = { timezone: 'UTC', role: 'admin' }
+    const body = { timezone: 'UTC', theme: 'system', role: 'admin' }
 
     // Act
     const act = () => updateProfileInputSchema.parse(body)

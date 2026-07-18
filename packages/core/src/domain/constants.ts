@@ -107,3 +107,12 @@ export const DONE_ARCHIVAL_DAYS = 90
  * zone instead.
  */
 export const DEFAULT_TIMEZONE = 'America/Los_Angeles'
+
+/**
+ * Per-user display theme (docs/architecture/data-model.md#users). `system`
+ * follows the OS/browser `prefers-color-scheme` (Mantine's `auto`); the web
+ * never auto-detects a fixed light/dark at setup — the browser picks at render.
+ */
+export const THEMES = ['light', 'dark', 'system'] as const
+export type Theme = (typeof THEMES)[number]
+export const DEFAULT_THEME: Theme = 'system'

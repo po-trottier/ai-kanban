@@ -168,6 +168,7 @@ CREATE TABLE `users` (
 	`slack_user_id` text,
 	`is_active` integer NOT NULL,
 	`timezone` text DEFAULT 'America/Los_Angeles' NOT NULL,
+	`theme` text DEFAULT 'system' NOT NULL,
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint

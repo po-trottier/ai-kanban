@@ -7,11 +7,11 @@ import { renderWithProviders } from '../test/render.tsx'
 import { ProfileSettingsModal } from './ProfileSettingsModal.tsx'
 
 describe('ProfileSettingsModal', () => {
-  it('seeds the current zone and saves a newly picked one via PATCH /auth/me', async () => {
-    // Arrange — fixtureAdmin defaults to PST; the PATCH returns the updated user.
+  it('seeds the current zone + theme and saves newly picked ones via PATCH /auth/me', async () => {
+    // Arrange — fixtureAdmin defaults to PST + system theme; the PATCH echoes the update.
     const user = userEvent.setup()
     const fake = createFakeFetch({
-      'PATCH /api/v1/auth/me': { ...fixtureAdmin, timezone: 'America/New_York' },
+      'PATCH /api/v1/auth/me': { ...fixtureAdmin, timezone: 'America/New_York', theme: 'dark' },
     })
     let closed = false
     renderWithProviders(
@@ -23,19 +23,25 @@ describe('ProfileSettingsModal', () => {
       { fetchFn: fake.fetch },
     )
 
-    // Assert — the picker is seeded from the signed-in user (PST).
+    // Assert — the picker is seeded from the signed-in user (PST) and the theme
+    // control offers all three modes (System is the seeded selection).
     const combo = screen.getByRole('combobox', { name: 'Time zone' })
     expect(combo).toHaveValue('America/Los Angeles')
+    expect(screen.getByRole('radio', { name: 'System' })).toBeChecked()
 
-    // Act — filter to a different zone, pick it, and save.
+    // Act — pick a different zone, switch the theme to Dark, and save.
     await user.click(combo)
     await user.clear(combo)
     await user.type(combo, 'New York')
     await user.click(await screen.findByRole('option', { name: 'America/New York' }))
+    await user.click(screen.getByRole('radio', { name: 'Dark' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
-    // Assert — the PATCH carried the canonical IANA id and the modal closed.
-    expect(fake.lastBody('PATCH', '/api/v1/auth/me')).toEqual({ timezone: 'America/New_York' })
+    // Assert — the PATCH carried both display prefs and the modal closed.
+    expect(fake.lastBody('PATCH', '/api/v1/auth/me')).toEqual({
+      timezone: 'America/New_York',
+      theme: 'dark',
+    })
     expect(closed).toBe(true)
   })
 })

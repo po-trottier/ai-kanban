@@ -71,6 +71,7 @@ export class SqliteUserAccountRepository implements UserAccountRepository {
         slackUserId: users.slackUserId,
         isActive: users.isActive,
         timezone: users.timezone,
+        theme: users.theme,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -116,6 +117,7 @@ export class SqliteUserAccountRepository implements UserAccountRepository {
           slackUserId: user.slackUserId,
           isActive: user.isActive,
           timezone: user.timezone,
+          theme: user.theme,
         })
         .where(eq(users.id, user.id))
         .run()

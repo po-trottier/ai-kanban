@@ -54,6 +54,7 @@ export function userWith(
     slackUserId: null,
     isActive: true,
     timezone: 'America/Los_Angeles',
+    theme: 'system',
     ...overrides,
   }
 }

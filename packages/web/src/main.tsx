@@ -4,7 +4,7 @@ import '@mantine/notifications/styles.css'
 import '@mantine/tiptap/styles.css'
 import './index.css'
 
-import { MantineProvider } from '@mantine/core'
+import { ColorSchemeScript, MantineProvider } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
@@ -25,7 +25,14 @@ const root = document.getElementById('root')
 if (root) {
   createRoot(root).render(
     <StrictMode>
-      <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver}>
+      {/* Sets data-mantine-color-scheme before first paint (no FOUC); `auto`
+          follows prefers-color-scheme until the signed-in user's theme applies. */}
+      <ColorSchemeScript defaultColorScheme="auto" />
+      <MantineProvider
+        theme={theme}
+        cssVariablesResolver={cssVariablesResolver}
+        defaultColorScheme="auto"
+      >
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>
             <ApiContext.Provider value={apiClient}>

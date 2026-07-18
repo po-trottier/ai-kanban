@@ -29,7 +29,7 @@
 }
 
 .dropzone {
-  border: 1px dashed var(--mantine-color-gray-4);
+  border: 1px dashed var(--mantine-color-default-border);
   border-radius: var(--mantine-radius-md);
   padding: var(--mantine-spacing-md);
   text-align: center;

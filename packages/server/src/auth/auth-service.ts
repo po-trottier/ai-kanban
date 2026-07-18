@@ -233,20 +233,19 @@ export class AuthService {
 
   /**
    * Self-service profile update: the authenticated user changes their OWN
-   * preferences (currently just their display time zone). Scoped to the
-   * caller's own row — the route passes `request.authUser.id`, never a
-   * client-supplied id — so there is no admin check and no IDOR surface. The
-   * input schema is a strictObject of only `timezone`, so role/active/email
-   * can never be smuggled in (no privilege escalation). Touches no
-   * password/session state, so unlike the admin update it never revokes
-   * sessions.
+   * display preferences (time zone + theme). Scoped to the caller's own row —
+   * the route passes `request.authUser.id`, never a client-supplied id — so
+   * there is no admin check and no IDOR surface. The input schema is a
+   * strictObject of only the display fields, so role/active/email can never be
+   * smuggled in (no privilege escalation). Touches no password/session state,
+   * so unlike the admin update it never revokes sessions.
    */
   async updateProfile(userId: string, rawInput: unknown): Promise<User> {
     const input = updateProfileInputSchema.parse(rawInput)
     return this.deps.uow.run(async (tx) => {
       const found = await tx.users.findById(userId)
       if (found === null) throw new NotFoundError('user')
-      const updated: User = { ...found, timezone: input.timezone }
+      const updated: User = { ...found, timezone: input.timezone, theme: input.theme }
       await tx.userAccounts.update(updated)
       return updated
     })

@@ -1,4 +1,10 @@
-import { PASSWORD_MIN_LENGTH, timezoneSchema, type SetupAdminInput } from '@rivian-kanban/core'
+import {
+  DEFAULT_THEME,
+  PASSWORD_MIN_LENGTH,
+  themeSchema,
+  timezoneSchema,
+  type SetupAdminInput,
+} from '@rivian-kanban/core'
 import {
   Button,
   Center,
@@ -37,6 +43,9 @@ const setupFormSchema = z.object({
   // Auto-detected from the browser (no visible field); the server defaults it
   // to PST if ever absent. Carried so the first admin's zone matches their machine.
   timezone: timezoneSchema,
+  // Not auto-detected and not shown at setup — the first admin starts on
+  // `system` (the browser resolves light/dark) and re-picks it in Preferences.
+  theme: themeSchema,
 })
 
 /**
@@ -95,7 +104,13 @@ function SetupAccountForm({ onCreated }: { onCreated: () => void }) {
   const setup = useSetupAdmin()
   const form = useForm<SetupAdminInput>({
     resolver: standardSchemaResolver(setupFormSchema),
-    defaultValues: { email: '', displayName: '', password: '', timezone: detectBrowserTimezone() },
+    defaultValues: {
+      email: '',
+      displayName: '',
+      password: '',
+      timezone: detectBrowserTimezone(),
+      theme: DEFAULT_THEME,
+    },
   })
 
   return (

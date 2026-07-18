@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "417ca698-bc3e-4e70-a5fb-a3e4a5ca4ae1",
+  "id": "98a44810-cd23-428c-9fcc-f16b2fd735b5",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -1207,6 +1207,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'America/Los_Angeles'"
+        },
+        "theme": {
+          "name": "theme",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'system'"
         },
         "created_at": {
           "name": "created_at",
