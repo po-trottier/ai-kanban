@@ -182,11 +182,16 @@ The SPA renders the filter as a **filter bar** below the header and above the bo
 - **Presets** (`FilterPresets.tsx`). The combobox lists the two core built-ins
   (`BUILTIN_FILTER_PRESETS` — "My Cards" fills `assigneeIds` with the current user id client-side,
   "Overdue" sets `overdue:true`) plus the user's custom presets from `GET /filter-presets`. Selecting
-  any preset applies its COMPLETE `BoardFilter` (never a partial overlay). The combobox shows a preset
-  as selected ONLY while the live filter still equals its saved filter — once any facet drifts (an
-  edit, or "Reset filters" resetting the bar) the selection clears, so the combobox never lies and
-  re-picking the SAME preset re-applies it (Mantine's `Select` no-ops on re-selecting the current
-  value). Creating a preset is a trailing **"Create new preset"** entry at the bottom of the same
-  dropdown (there is no separate Save icon button): selecting it opens the name dialog and `POST`s the
-  live filter. Rename/delete stay as icon affordances beside the combobox, shown only while a custom
-  preset is the applied selection. All three wire to the CRUD API with loading states and toasts.
+  any preset applies its COMPLETE `BoardFilter` (never a partial overlay). The combobox **reflects
+  state** (#120): it shows the **applied preset's NAME** as its value while the live filter still
+  equals that preset's (effective) filter; once any facet **drifts** (an edit) it shows **"Custom"**
+  (`strings.filterBar.presetsCustom`); and with **no preset context** — a fresh board or after "Reset
+  filters" empties the bar — it shows the **placeholder**. The component tracks the last applied
+  option value (`appliedValue`, a built-in `builtin:<key>` or a custom id) and derives name-vs-Custom
+  from field-wise `boardFilterEquals`; re-picking the SAME preset changes the value away from "Custom"
+  and re-fires `onApply` (Mantine's `Select` no-ops only on re-selecting the already-current value).
+  "Custom" is a display-only value (never a pickable dropdown item). Creating a preset is a trailing
+  **"Create new preset"** entry at the bottom of the same dropdown (there is no separate Save icon
+  button): selecting it opens the name dialog and `POST`s the live filter. Rename/delete stay as icon
+  affordances beside the combobox, shown only while a custom preset is the applied, name-shown
+  selection. All three wire to the CRUD API with loading states and toasts.

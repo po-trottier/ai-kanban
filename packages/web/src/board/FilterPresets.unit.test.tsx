@@ -1,6 +1,7 @@
 import { EMPTY_BOARD_FILTER, type BoardFilter, type FilterPreset } from '@rivian-kanban/core'
-import { screen } from '@testing-library/react'
+import { act, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useEffect, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { createFakeFetch, jsonResponse, type FakeFetch } from '../test/fake-fetch.ts'
 import { fixtureTech, uid } from '../test/fixtures.ts'
@@ -22,20 +23,64 @@ function customPreset(overrides: Partial<FilterPreset> = {}): FilterPreset {
   }
 }
 
+/**
+ * Stateful wrapper mirroring how the bar drives FilterPresets: `filter` lives in
+ * parent state, `onApply` replaces it, and `driftRef` exposes an external setter
+ * so a test can simulate a facet edit (the drift #120 must reflect as "Custom").
+ */
+function StatefulPresets({
+  initial,
+  onApply,
+  onSetterReady,
+}: {
+  initial: BoardFilter
+  onApply: (next: BoardFilter) => void
+  onSetterReady: (set: (next: BoardFilter) => void) => void
+}) {
+  const [filter, setFilter] = useState(initial)
+  // Hand the setter to the test's `drift()` helper via a callback (calling a
+  // function prop in an effect — no prop mutation, so react-hooks is satisfied).
+  useEffect(() => {
+    onSetterReady(setFilter)
+  }, [onSetterReady])
+  return (
+    <FilterPresets
+      filter={filter}
+      onApply={(next) => {
+        setFilter(next)
+        onApply(next)
+      }}
+      currentUserId={ME}
+    />
+  )
+}
+
 function renderPresets(
   presets: FilterPreset[],
   routes: Record<string, unknown> = {},
   filter: BoardFilter = EMPTY_BOARD_FILTER,
 ) {
   const onApply = vi.fn()
+  let setFilter: ((next: BoardFilter) => void) | undefined
   const fake: FakeFetch = createFakeFetch({
     'GET /api/v1/filter-presets': presets,
     ...routes,
   })
-  renderWithProviders(<FilterPresets filter={filter} onApply={onApply} currentUserId={ME} />, {
-    fetchFn: fake.fetch,
-  })
-  return { onApply, fake }
+  renderWithProviders(
+    <StatefulPresets
+      initial={filter}
+      onApply={onApply}
+      onSetterReady={(set) => {
+        setFilter = set
+      }}
+    />,
+    { fetchFn: fake.fetch },
+  )
+  // Simulate an external facet edit (the bar mutating the filter after apply).
+  const drift = (next: BoardFilter) => {
+    act(() => setFilter?.(next))
+  }
+  return { onApply, fake, drift }
 }
 
 async function pickPreset(user: ReturnType<typeof userEvent.setup>, name: string) {
@@ -96,17 +141,49 @@ describe('FilterPresets', () => {
   })
 
   it('hides the rename/delete affordances once the live filter drifts from the applied preset', async () => {
-    // Arrange — the bar's live filter has drifted from the preset (as it does
-    // after an edit or "Reset filters"), so the combobox reflects NO selection
-    // even after a pick — which is what lets re-picking the same option re-fire
-    // onApply (Mantine's Select no-ops on re-selecting the already-current value).
+    // Arrange — apply a custom preset (matches: affordances show)…
     const preset = customPreset()
     const user = userEvent.setup()
-    renderPresets([preset], {}, EMPTY_BOARD_FILTER)
-    // Act — pick the preset while the live filter does not match it.
+    const { drift } = renderPresets([preset], {}, preset.filter)
     await pickPreset(user, preset.name)
-    // Assert — no selection is shown, so the delete affordance never appears.
+    expect(screen.getByRole('button', { name: 'Delete this preset' })).toBeInTheDocument()
+    // Act — a facet edit drifts the live filter away from the preset.
+    drift({ ...preset.filter, q: 'drifted' })
+    // Assert — the drifted state reads "Custom", not the preset, so its
+    // rename/delete affordances are gone (#120).
     expect(screen.queryByRole('button', { name: 'Delete this preset' })).not.toBeInTheDocument()
+  })
+
+  it('shows the applied preset NAME as the combobox value while the live filter matches (#120)', async () => {
+    // Arrange — the bar's live filter equals the preset's (the applied state).
+    const preset = customPreset()
+    const user = userEvent.setup()
+    renderPresets([preset], {}, preset.filter)
+    // Act — apply the preset.
+    await pickPreset(user, preset.name)
+    // Assert — the combobox reads the preset's name, not the placeholder.
+    expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveValue(preset.name)
+  })
+
+  it('shows "Custom" once the live filter drifts from the applied preset (#120)', async () => {
+    // Arrange — a preset is applied and matches the live filter…
+    const preset = customPreset()
+    const user = userEvent.setup()
+    const { drift } = renderPresets([preset], {}, preset.filter)
+    await pickPreset(user, preset.name)
+    // Act — the live filter drifts (a facet edit).
+    drift({ ...preset.filter, q: 'drifted' })
+    // Assert — the combobox reads "Custom", not the preset name or placeholder.
+    expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveValue('Custom')
+  })
+
+  it('shows the placeholder (no preset context) for a fresh/empty filter (#120)', () => {
+    // Arrange — the default, unfiltered board with a preset available but none applied.
+    const preset = customPreset()
+    // Act — render with the empty filter (nothing has been applied).
+    renderPresets([preset], {}, EMPTY_BOARD_FILTER)
+    // Assert — the combobox is empty (its placeholder shows), not a name or Custom.
+    expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveValue('')
   })
 
   it('saves the current filter as a new named preset (POST)', async () => {

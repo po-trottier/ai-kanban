@@ -383,6 +383,10 @@ export const strings = {
     presetsPlaceholder: 'Choose a preset',
     presetsBuiltInGroup: 'Built-in',
     presetsCustomGroup: 'My presets',
+    /** Shown as the combobox value when the live filter has drifted from the
+     * applied preset (an edited facet) — the selection is neither a named preset
+     * nor empty (#120). */
+    presetsCustom: 'Custom',
     /** Trailing dropdown action that opens the save-preset flow. */
     presetsCreateGroup: 'Actions',
     presetsCreate: 'Create new preset',
