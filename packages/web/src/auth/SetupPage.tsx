@@ -21,6 +21,8 @@ import { detectBrowserTimezone } from '../settings/timezone-select-data.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
+import { AuthShell } from './AuthShell.tsx'
+import classes from './auth.module.css'
 import { SetupLocations } from './SetupLocations.tsx'
 
 /**
@@ -68,7 +70,7 @@ export function SetupPage() {
   }
 
   return (
-    <Center h="100vh">
+    <AuthShell>
       <Paper withBorder shadow="sm" p="xl" radius="md" w={SIZES.authCardWidth}>
         {step === 'account' ? (
           <SetupAccountForm
@@ -84,7 +86,7 @@ export function SetupPage() {
           />
         )}
       </Paper>
-    </Center>
+    </AuthShell>
   )
 }
 
@@ -107,7 +109,14 @@ function SetupAccountForm({ onCreated }: { onCreated: () => void }) {
     >
       <Stack gap="md">
         <Stack gap="xs">
-          <Image src="/logo.png" alt="" h={SIZES.authLogoHeight} w="auto" fit="contain" />
+          <Image
+            src="/logo.png"
+            alt=""
+            h={SIZES.authLogoHeight}
+            w="auto"
+            fit="contain"
+            className={classes.logo}
+          />
           <Title order={2} size="h4" c="dimmed">
             {strings.appTitle}
           </Title>

@@ -20,6 +20,8 @@ import { isUnauthorizedError } from '../api/problem.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
+import { AuthShell } from './AuthShell.tsx'
+import classes from './auth.module.css'
 
 /** Login credentials are an auth concern, not a core domain shape. */
 const loginFormSchema = z.object({
@@ -52,7 +54,7 @@ export function LoginPage() {
   }
 
   return (
-    <Center h="100vh">
+    <AuthShell>
       <Paper withBorder shadow="sm" p="xl" radius="md" w={SIZES.authCardWidth}>
         <form
           noValidate
@@ -68,7 +70,14 @@ export function LoginPage() {
         >
           <Stack gap="md">
             <Stack gap="xs">
-              <Image src="/logo.png" alt="" h={SIZES.authLogoHeight} w="auto" fit="contain" />
+              <Image
+                src="/logo.png"
+                alt=""
+                h={SIZES.authLogoHeight}
+                w="auto"
+                fit="contain"
+                className={classes.logo}
+              />
               <Title order={2} size="h4" c="dimmed">
                 {strings.appTitle}
               </Title>
@@ -107,6 +116,6 @@ export function LoginPage() {
           </Stack>
         </form>
       </Paper>
-    </Center>
+    </AuthShell>
   )
 }

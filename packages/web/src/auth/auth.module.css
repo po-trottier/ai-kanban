@@ -1,0 +1,29 @@
+.screen {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mantine-spacing-md);
+  background-color: var(--mantine-color-dark-9);
+  background-size: cover;
+  background-position: center;
+}
+
+/* Dark scrim so the white card and its form text stay legible over any photo. */
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--mantine-color-dark-9) 60%, transparent);
+}
+
+.card {
+  position: relative;
+  z-index: 1;
+}
+
+/* The brand mark ships white (for dark headers). Darken it so it reads inside
+   the white auth card. */
+.logo {
+  filter: brightness(0);
+}
