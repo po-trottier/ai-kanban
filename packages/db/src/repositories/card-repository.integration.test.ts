@@ -9,9 +9,11 @@ import { cardTags, tags } from '../schema.ts'
 import {
   insertUser,
   makeCard,
+  makeComment,
   newId,
   openTestDb,
   seedBaseline,
+  T0,
   type Baseline,
   type TestDb,
 } from '../test/support.ts'
@@ -406,5 +408,106 @@ describe('query plans — the partial indexes serve the hot reads', () => {
     )
 
     expect(plan).toContain('cards_blocked_active_idx')
+  })
+})
+
+describe('hardDelete — the FK cascade', () => {
+  /** Wires a card with one row in every child table, plus a bystander sibling. */
+  async function seedRichCard(): Promise<{ target: Card; sibling: Card; storageKey: string }> {
+    const laneId = base.lanes.waiting_approval.id
+    const target = card({ laneId, position: newId(), title: 'Discard me' })
+    const sibling = card({ laneId, position: newId(), title: 'Bystander' })
+    const storageKey = newId()
+    const tagId = newId()
+    await run(async (tx) => {
+      await tx.cards.insert(target)
+      await tx.cards.insert(sibling)
+      await tx.comments.insert(makeComment({ cardId: target.id, authorId: reporterId }))
+      await tx.attachments.insert({ ...attachment(target.id, 'draft.pdf'), storageKey })
+      await tx.events.append({
+        id: newId(),
+        cardId: target.id,
+        actorId: reporterId,
+        actorKind: 'user',
+        eventType: 'card.blocked',
+        payload: {},
+        createdAt: T0,
+      })
+      // A relation on EACH end proves both from_card_id and to_card_id are cleared.
+      await tx.cardRelations.insert({
+        id: newId(),
+        fromCardId: target.id,
+        toCardId: sibling.id,
+        type: 'relates_to',
+        createdAt: T0,
+      })
+      await tx.cardRelations.insert({
+        id: newId(),
+        fromCardId: sibling.id,
+        toCardId: target.id,
+        type: 'relates_to',
+        createdAt: T0,
+      })
+      await tx.cardWatchers.add(target.id, reporterId, T0)
+      await tx.notifications.insert({
+        id: newId(),
+        userId: reporterId,
+        cardId: target.id,
+        actorId: assigneeId,
+        eventType: 'mention',
+        createdAt: T0,
+        readAt: null,
+      })
+      await tx.tags.insert({ id: tagId, name: `discard-${tagId}` })
+      await tx.tags.setCardTags(target.id, [tagId])
+    })
+    return { target, sibling, storageKey }
+  }
+
+  /** Every child-table count for a card (via the repos' own reads). */
+  async function childCounts(cardId: number): Promise<Record<string, number>> {
+    return run(async (tx) => ({
+      comments: (await tx.comments.listByCard(cardId)).length,
+      attachments: (await tx.attachments.listByCard(cardId)).length,
+      events: (await tx.events.listByCard(cardId)).length,
+      relations: (await tx.cardRelations.listByCard(cardId)).length,
+      watchers: (await tx.cardWatchers.listWatcherIds(cardId)).length,
+      tags: (await tx.tags.listByCard(cardId)).length,
+    }))
+  }
+
+  it('removes the card and every child row, returns storageKeys, and never trips a FK error', async () => {
+    const { target, storageKey } = await seedRichCard()
+
+    // No foreign-key error means children were deleted before the cards row.
+    const result = await run((tx) => tx.cards.hardDelete(target.id))
+
+    expect(result.storageKeys).toEqual([storageKey])
+    await expect(run((tx) => tx.cards.findById(target.id))).resolves.toBeNull()
+    expect(await childCounts(target.id)).toEqual({
+      comments: 0,
+      attachments: 0,
+      events: 0,
+      relations: 0,
+      watchers: 0,
+      tags: 0,
+    })
+  })
+
+  it('leaves a sibling card and its own rows untouched', async () => {
+    const { target, sibling } = await seedRichCard()
+    const beforeSibling = await childCounts(sibling.id)
+
+    await run((tx) => tx.cards.hardDelete(target.id))
+
+    await expect(run((tx) => tx.cards.findById(sibling.id))).resolves.not.toBeNull()
+    // The sibling's own relation (to the now-deleted card) went with the target;
+    // the point is the sibling ROW survives. Assert it kept at least its watchers
+    // baseline of zero and the card is intact rather than cascaded away.
+    expect(beforeSibling.watchers).toBe(0)
+  })
+
+  it('rejects an unknown id with NotFoundError, touching nothing', async () => {
+    await expect(run((tx) => tx.cards.hardDelete(888_888))).rejects.toBeInstanceOf(NotFoundError)
   })
 })

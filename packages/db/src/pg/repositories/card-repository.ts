@@ -20,7 +20,19 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm'
-import { attachments, cards, cardTags, locations, tags } from '../../schema.pg.ts'
+import {
+  attachments,
+  cardEvents,
+  cardRelations,
+  cards,
+  cardTags,
+  cardWatchers,
+  comments,
+  locations,
+  notifications,
+  tags,
+} from '../../schema.pg.ts'
+import { toError } from '../../errors.ts'
 import { type PgDb } from '../database.ts'
 import { mapPgCardWriteError } from '../errors.ts'
 
@@ -261,5 +273,41 @@ export class PgCardRepository implements CardRepository {
       .where(and(...this.filterConditions(filter)))
       .orderBy(asc(cards.position))
     return this.attachExtras(rows)
+  }
+
+  /**
+   * Hard-deletes the card and every FK-referencing row in ONE transaction
+   * (a nested savepoint under the unit-of-work). Every child references
+   * `cards.id` with ON DELETE NO ACTION, so children are deleted BEFORE the
+   * cards row. The attachments' storageKeys are read before their rows go so
+   * the service can drop the blobs after commit. NotFoundError if id absent.
+   */
+  async hardDelete(id: number): Promise<{ storageKeys: string[] }> {
+    try {
+      return await this.db.transaction(async (tx) => {
+        const found = await tx.select({ id: cards.id }).from(cards).where(eq(cards.id, id)).limit(1)
+        if (found[0] === undefined) throw new NotFoundError('card')
+        const keys = (
+          await tx
+            .select({ storageKey: attachments.storageKey })
+            .from(attachments)
+            .where(eq(attachments.cardId, id))
+        ).map((row) => row.storageKey)
+
+        await tx.delete(cardTags).where(eq(cardTags.cardId, id))
+        await tx.delete(comments).where(eq(comments.cardId, id))
+        await tx.delete(attachments).where(eq(attachments.cardId, id))
+        await tx.delete(cardEvents).where(eq(cardEvents.cardId, id))
+        await tx
+          .delete(cardRelations)
+          .where(or(eq(cardRelations.fromCardId, id), eq(cardRelations.toCardId, id)))
+        await tx.delete(cardWatchers).where(eq(cardWatchers.cardId, id))
+        await tx.delete(notifications).where(eq(notifications.cardId, id))
+        await tx.delete(cards).where(eq(cards.id, id))
+        return { storageKeys: keys }
+      })
+    } catch (error) {
+      throw toError(error)
+    }
   }
 }

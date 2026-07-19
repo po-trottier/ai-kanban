@@ -44,6 +44,7 @@ async function runJob(clock: FixedClock): Promise<{ archived: number }> {
     ids: new Uuidv7IdGenerator(),
     eventBus: t.wired.deps.eventBus,
     notifier: t.wired.notifier,
+    blobStore: t.wired.deps.blobStore,
     boardId: t.wired.boardId,
     systemUserId: t.wired.systemUserId,
   })

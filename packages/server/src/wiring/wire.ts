@@ -229,7 +229,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
 
   const shared = { uow, clock, ids, eventBus }
   const services: AppDeps['services'] = {
-    cards: new CardService({ ...shared, notifier, boardId, systemUserId }),
+    cards: new CardService({ ...shared, notifier, blobStore, boardId, systemUserId }),
     comments: new CommentService(shared),
     attachments: new AttachmentService({ ...shared, blobStore }),
     queries: new BoardQueryService({ uow, clock, boardId }),

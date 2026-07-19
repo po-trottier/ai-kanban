@@ -461,6 +461,32 @@ class InMemoryCardRepository implements CardRepository {
     )
     if (duplicate) throw new DuplicatePositionError()
   }
+
+  /**
+   * Removes the card and every sibling row referencing it (the 7 FK relations
+   * the real cascade covers), returning the deleted attachments' storageKeys.
+   * Exercises the real delete semantics in core tests so a wrong cascade in the
+   * adapter can't hide behind a passing core suite. NotFoundError if id absent.
+   */
+  hardDelete(id: number): Promise<{ storageKeys: string[] }> {
+    if (!this.state.cards.some((card) => card.id === id)) {
+      return Promise.reject(new NotFoundError('card'))
+    }
+    const storageKeys = this.state.attachments
+      .filter((attachment) => attachment.cardId === id)
+      .map((attachment) => attachment.storageKey)
+    this.state.cardTags = this.state.cardTags.filter((row) => row.cardId !== id)
+    this.state.comments = this.state.comments.filter((comment) => comment.cardId !== id)
+    this.state.attachments = this.state.attachments.filter((row) => row.cardId !== id)
+    this.state.events = this.state.events.filter((event) => event.cardId !== id)
+    this.state.cardRelations = this.state.cardRelations.filter(
+      (relation) => relation.fromCardId !== id && relation.toCardId !== id,
+    )
+    this.state.cardWatchers = this.state.cardWatchers.filter((row) => row.cardId !== id)
+    this.state.notifications = this.state.notifications.filter((row) => row.cardId !== id)
+    this.state.cards = this.state.cards.filter((card) => card.id !== id)
+    return Promise.resolve({ storageKeys })
+  }
 }
 
 class InMemoryCommentRepository implements CommentRepository {

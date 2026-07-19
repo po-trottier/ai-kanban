@@ -8,7 +8,11 @@ import {
   type Actor,
   type Card,
 } from '@rivian-kanban/core'
-import { CapturingEventBus, CapturingNotifier } from '@rivian-kanban/core/testing'
+import {
+  CapturingEventBus,
+  CapturingNotifier,
+  InMemoryBlobStore,
+} from '@rivian-kanban/core/testing'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { structuralSeed } from './seed.ts'
 import { insertUser, openTestDb, type TestDb } from './test/support.ts'
@@ -48,6 +52,7 @@ beforeAll(() => {
     ids,
     eventBus,
     notifier,
+    blobStore: new InMemoryBlobStore(),
     boardId,
     systemUserId: structural.systemUserId,
   })

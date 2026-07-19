@@ -21,8 +21,19 @@ import {
   type SQL,
 } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
-import { mapCardWriteError } from '../errors.ts'
-import { attachments, cards, cardTags, locations, tags } from '../schema.ts'
+import { mapCardWriteError, toError } from '../errors.ts'
+import {
+  attachments,
+  cardEvents,
+  cardRelations,
+  cards,
+  cardTags,
+  cardWatchers,
+  comments,
+  locations,
+  notifications,
+  tags,
+} from '../schema.ts'
 
 /** Escapes LIKE wildcards so `q` is a literal substring match (`ESCAPE '\'`). */
 function escapeLike(needle: string): string {
@@ -278,5 +289,44 @@ export class SqliteCardRepository implements CardRepository {
       .orderBy(asc(cards.position))
       .all()
     return Promise.resolve(this.attachExtras(rows))
+  }
+
+  /**
+   * Hard-deletes the card and every FK-referencing row in ONE transaction.
+   * Every child table references `cards.id` with ON DELETE NO ACTION, so with
+   * `foreign_keys = ON` we delete all children BEFORE the cards row (mirroring
+   * SqliteLocationRepository.delete). The attachments' storageKeys are read
+   * before their rows go so the service can drop the blobs after commit.
+   * NotFoundError when the id does not exist.
+   */
+  hardDelete(id: number): Promise<{ storageKeys: string[] }> {
+    try {
+      const storageKeys = this.db.transaction((tx) => {
+        if (tx.select({ id: cards.id }).from(cards).where(eq(cards.id, id)).get() === undefined) {
+          throw new NotFoundError('card')
+        }
+        const keys = tx
+          .select({ storageKey: attachments.storageKey })
+          .from(attachments)
+          .where(eq(attachments.cardId, id))
+          .all()
+          .map((row) => row.storageKey)
+
+        tx.delete(cardTags).where(eq(cardTags.cardId, id)).run()
+        tx.delete(comments).where(eq(comments.cardId, id)).run()
+        tx.delete(attachments).where(eq(attachments.cardId, id)).run()
+        tx.delete(cardEvents).where(eq(cardEvents.cardId, id)).run()
+        tx.delete(cardRelations)
+          .where(or(eq(cardRelations.fromCardId, id), eq(cardRelations.toCardId, id)))
+          .run()
+        tx.delete(cardWatchers).where(eq(cardWatchers.cardId, id)).run()
+        tx.delete(notifications).where(eq(notifications.cardId, id)).run()
+        tx.delete(cards).where(eq(cards.id, id)).run()
+        return keys
+      })
+      return Promise.resolve({ storageKeys })
+    } catch (error) {
+      return Promise.reject(toError(error))
+    }
   }
 }

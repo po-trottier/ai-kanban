@@ -135,6 +135,14 @@ export interface CardRepository {
    * Omitting `page` returns all matches.
    */
   query(filter: CardQueryFilter, page?: { after?: CursorKey; limit?: number }): Promise<Card[]>
+  /**
+   * Hard-deletes the card and every FK-referencing row in one transaction,
+   * children-first. Returns the deleted attachments' storageKeys so the service
+   * can best-effort delete their blobs after commit. NotFoundError if id absent.
+   * ponytail: deletes card_events, crossing the ADR-005 append-only invariant —
+   * gated to fresh intake drafts by the service; see the ADR-005 addendum.
+   */
+  hardDelete(id: number): Promise<{ storageKeys: string[] }>
 }
 
 export interface CommentRepository {

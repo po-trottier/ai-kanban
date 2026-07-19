@@ -20,6 +20,8 @@ export type PolicyAction =
   | { type: 'card.cancel' }
   | { type: 'card.reopen' }
   | { type: 'card.archive' }
+  /** Discard a just-created draft: owner-only, no grantable admin override (v1). */
+  | { type: 'card.delete'; reporterId: string }
   | { type: 'card.block' }
   | { type: 'card.unblock' }
   | { type: 'comment.add' }
@@ -136,6 +138,9 @@ export function evaluatePolicy(
     case 'attachment.remove':
       if (actor.id === action.uploaderId) return ALLOW
       return grant(actor, 'attachment.deleteOthers', policy)
+    case 'card.delete':
+      // Owner-only: no grantable admin-delete permission exists in v1.
+      return actor.id === action.reporterId ? ALLOW : denied('card-owner-only')
     case 'card.cancel':
       return grant(actor, 'card.cancel', policy)
     case 'card.reopen':

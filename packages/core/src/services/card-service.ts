@@ -17,7 +17,13 @@ import { type Actor, type Card, type User } from '../domain/entities.ts'
 import { type AuditedCardField, type CardEvent } from '../domain/events.ts'
 import { evaluatePolicy } from '../policy/policy-engine.ts'
 import { type TransactionContext, type UnitOfWork } from '../ports/repositories.ts'
-import { type Clock, type EventBus, type IdGenerator, type NotifierPort } from '../ports/runtime.ts'
+import {
+  type BlobStorePort,
+  type Clock,
+  type EventBus,
+  type IdGenerator,
+  type NotifierPort,
+} from '../ports/runtime.ts'
 import {
   activePolicy,
   decide,
@@ -40,6 +46,8 @@ export interface CardServiceDeps {
   ids: IdGenerator
   eventBus: EventBus
   notifier: NotifierPort
+  /** Blob storage — the discard flow drops a draft's attachment blobs post-commit. */
+  blobStore: BlobStorePort
   boardId: string
   /** The seeded automation user — hidden from pickers, never a valid assignee. */
   systemUserId: string
@@ -581,6 +589,45 @@ export class CardService {
     })
     publishCardHints(this.deps.eventBus, result.card, result.events)
     return result.card
+  }
+
+  /**
+   * Discards (hard-deletes) a just-created draft: the creator removes their own
+   * card and every FK-referencing row in one transaction while it is still in
+   * intake (docs/product/workflow.md, ADR-005 addendum). No audit event is
+   * written — the card's short trail is erased with it.
+   *
+   * Policy checks: `card.delete` (owner-only, no admin override); the card must
+   * still sit in `intake` (409 otherwise); stale `expectedVersion` conflicts
+   * (409). Deliberately NOT gated on `version === 1` — editing a draft in the
+   * create view bumps the version, and discard-after-edit must still work.
+   * Audit events: none.
+   */
+  async delete(actor: Actor, cardId: number, expectedVersion: number): Promise<void> {
+    const storageKeys = await this.deps.uow.run(async (tx) => {
+      const card = requireFound(await tx.cards.findById(cardId), 'card')
+      const policy = await activePolicy(tx, card.boardId)
+      decide(evaluatePolicy(actor, { type: 'card.delete', reporterId: card.reporterId }, policy))
+      ensureVersion(card, expectedVersion)
+      const lane = await laneOfCard(tx, card)
+      if (lane.key !== 'intake') {
+        throw new ConflictError('only a card still in intake can be discarded', card)
+      }
+      return (await tx.cards.hardDelete(cardId)).storageKeys
+    })
+    // Best-effort blob cleanup after commit (mirrors AttachmentService.remove):
+    // the rows are gone, so an orphaned blob is strictly better than a failure.
+    // ponytail: no "card removed" SSE hint — CardSseHint.type is closed over
+    // CARD_EVENT_TYPES and no card.deleted event exists (none is appended);
+    // the discarding client invalidates its own board. Add a hint type if a
+    // second client needs live removal.
+    for (const key of storageKeys) {
+      try {
+        await this.deps.blobStore.delete(key)
+      } catch {
+        // Best-effort: the card and its metadata are already gone.
+      }
+    }
   }
 
   /**

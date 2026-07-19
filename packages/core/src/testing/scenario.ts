@@ -159,7 +159,13 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
   }
 
   const shared = { uow: db, clock, ids, eventBus }
-  const cards = new CardService({ ...shared, notifier, boardId, systemUserId: systemUser.id })
+  const cards = new CardService({
+    ...shared,
+    notifier,
+    blobStore,
+    boardId,
+    systemUserId: systemUser.id,
+  })
   const comments = new CommentService(shared)
   const attachments = new AttachmentService({ ...shared, blobStore })
   const queries = new BoardQueryService({ uow: db, clock, boardId })

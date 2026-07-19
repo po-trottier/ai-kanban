@@ -359,6 +359,67 @@ describe('POST /cards/:id/block + unblock', () => {
   })
 })
 
+describe('DELETE /cards/:id — discard a just-created intake draft', () => {
+  async function del(
+    card: { id: number; version: number },
+    options: { cookie?: string; ifMatch?: string; omitIfMatch?: boolean } = {},
+  ) {
+    const headers = options.omitIfMatch
+      ? {}
+      : { 'if-match': options.ifMatch ?? `"${String(card.version)}"` }
+    return t.request(options.cookie ?? cookie, {
+      method: 'DELETE',
+      url: `/api/v1/cards/${String(card.id)}`,
+      headers,
+    })
+  }
+
+  it('204s with a valid If-Match and the card is gone', async () => {
+    const card = await createCard('Discard me')
+
+    const response = await del(card)
+
+    expect(response.statusCode).toBe(204)
+    const gone = await t.request(cookie, { method: 'GET', url: `/api/v1/cards/${String(card.id)}` })
+    expect(gone.statusCode).toBe(404)
+  })
+
+  it('rejects a missing (400) and a malformed (400) If-Match', async () => {
+    const card = await createCard('Needs If-Match')
+
+    const missing = await del(card, { omitIfMatch: true })
+    const malformed = await del(card, { ifMatch: 'not-a-version' })
+
+    expect(missing.statusCode).toBe(400)
+    expect(malformed.statusCode).toBe(400)
+  })
+
+  it('409s a stale version', async () => {
+    const card = await createCard('Stale discard')
+    // Bump the version so the original If-Match is stale.
+    await patch(card, { title: 'Edited draft' })
+
+    const response = await del(card)
+
+    expect(response.statusCode).toBe(409)
+  })
+
+  it('403s a non-owner (owner-only discard)', async () => {
+    const card = await createCard('Not yours')
+    const { cookie: otherCookie } = await t.asRole('admin')
+
+    const response = await del(card, { cookie: otherCookie })
+
+    expect(response.statusCode).toBe(403)
+  })
+
+  it('404s an unknown id', async () => {
+    const response = await del({ id: 987_654, version: 1 })
+
+    expect(response.statusCode).toBe(404)
+  })
+})
+
 describe('archived cards are read-only', () => {
   it('409s card-archived on edits, comments, and moves', async () => {
     const card = await createCard('Archived')

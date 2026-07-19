@@ -21,6 +21,7 @@ import {
   cardEventResponseSchema,
   cardIdParamsSchema,
   cardResponseSchema,
+  emptyBodySchema,
   ifMatchHeadersSchema,
   pageResponseOf,
 } from './schemas.ts'
@@ -141,6 +142,22 @@ export function cardRoutes(deps: AppDeps) {
           expectedVersion: expectedVersionOf(request),
         })
         return sendCard(reply, card)
+      },
+    )
+
+    r.delete(
+      '/cards/:id',
+      {
+        config: { bodyless: true },
+        schema: {
+          params: cardIdParamsSchema,
+          headers: ifMatchHeadersSchema,
+          response: { 204: emptyBodySchema },
+        },
+      },
+      async (request, reply) => {
+        await cards.delete(actorOf(request), request.params.id, expectedVersionOf(request))
+        await reply.code(204).send(null)
       },
     )
 

@@ -8,7 +8,12 @@ import {
   type Actor,
   type Card,
 } from '@rivian-kanban/core'
-import { CapturingEventBus, CapturingNotifier, userWith } from '@rivian-kanban/core/testing'
+import {
+  CapturingEventBus,
+  CapturingNotifier,
+  InMemoryBlobStore,
+  userWith,
+} from '@rivian-kanban/core/testing'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { openPgliteConnection, type PgConnection } from './connection.ts'
 import { structuralSeedPg } from './seed.ts'
@@ -79,6 +84,7 @@ beforeAll(async () => {
     ids,
     eventBus,
     notifier,
+    blobStore: new InMemoryBlobStore(),
     boardId,
     systemUserId: structural.systemUserId,
   })

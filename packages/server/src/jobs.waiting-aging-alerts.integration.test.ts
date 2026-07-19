@@ -50,6 +50,7 @@ async function runJob(): Promise<{ alerted: number }> {
     ids: new Uuidv7IdGenerator(),
     eventBus: t.wired.deps.eventBus,
     notifier,
+    blobStore: t.wired.deps.blobStore,
     boardId: t.wired.boardId,
     systemUserId: t.wired.systemUserId,
   })
