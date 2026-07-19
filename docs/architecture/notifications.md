@@ -130,6 +130,11 @@ has an inline autocomplete: typing `@name` opens a dropdown backed by the **asyn
 and picking a user inserts `@Display Name` and records their id. The composer sends the mentioned ids
 alongside the comment.
 
+When a comment is displayed, each `@Display Name` run that matches a known user's display name is
+rendered as a **styled inline tag** (`renderCommentBody`, `packages/web/src/card/renderMentions.tsx`)
+— purely presentational, matched against the loaded roster (longest name wins so multi-word names
+aren't clipped); the stored body text is unchanged and an unknown `@handle` stays plain.
+
 Server-side (`CommentService.add`), each mentioned user (de-duped, must exist, never the author):
 
 - **auto-watches** the card (they now follow it), and
