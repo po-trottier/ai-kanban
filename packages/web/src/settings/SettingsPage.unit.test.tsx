@@ -54,7 +54,7 @@ describe('SettingsPage', () => {
     renderApp({ fetchFn: fake.fetch, route: '/settings' })
     // Act
     await user.click(await screen.findByRole('tab', { name: 'Columns' }))
-    const label = await screen.findByRole('textbox', { name: 'Column label (ready)' })
+    const label = await screen.findByRole('textbox', { name: 'Column label (Ready)' })
     await user.clear(label)
     await user.type(label, 'Approved')
     await user.click(nth(screen.getAllByRole('button', { name: 'Save' }), 2))

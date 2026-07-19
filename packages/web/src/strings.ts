@@ -109,11 +109,10 @@ export const strings = {
     createToken: 'Create the token and reveal its secret once',
     // Lanes admin.
     saveLane: 'Save this column’s label and WIP limit',
-    moveLaneUp: 'Move this column left',
-    moveLaneDown: 'Move this column right',
+    dragLane: 'Drag to reorder this column',
     deleteLane: 'Delete this column',
     deleteSystemLane: 'Built-in workflow columns cannot be deleted',
-    addColumn: 'Add this column to the board',
+    addColumn: 'Add a new column, then rename it inline',
     // Policy admin.
     addRole: 'Add a new role to the permissions matrix',
     savePolicy: 'Save the roles, permissions, and workflow policy',
@@ -803,10 +802,12 @@ export const strings = {
     savedNamed: (lane: string) => `${lane} updated`,
     rowLabel: (lane: string) => `Column ${lane}`,
     orderHeader: 'Order',
+    /** Accessible name for the per-row drag handle (the visible grip icon). */
+    dragHandleLabel: (lane: string) => `Reorder ${lane}`,
     actionsHeader: '',
-    addTitle: 'Add a column',
-    addPlaceholder: 'New column name',
-    addButton: 'Add column',
+    /** Default label a freshly-added column gets — the admin renames it inline. */
+    newColumnDefault: 'New column',
+    addButton: 'Add',
     laneAdded: (lane: string) => `${lane} added`,
     laneDeleted: 'Column deleted',
     deleteConfirmTitle: 'Delete column?',

@@ -1,0 +1,16 @@
+/* Board-columns admin styles — token-only values (ADR-016 rule 7). */
+
+/* The drag handle cell: grab cursor so the whole row reads as reorderable. */
+.handle {
+  cursor: grab;
+}
+
+/* A row mid-drag dims like a board card being dragged (board.module.css). */
+.rowDragging {
+  opacity: 0.5;
+}
+
+/* Anchor the DropIndicator to the dragged-over row. */
+.row {
+  position: relative;
+}
