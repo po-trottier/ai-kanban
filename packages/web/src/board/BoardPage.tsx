@@ -7,7 +7,7 @@ import {
 } from '@rivian-kanban/core'
 import { announce } from '@atlaskit/pragmatic-drag-and-drop-live-region'
 import { useDebouncedValue } from '@mantine/hooks'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { isEmptyFilter, useBoard, useCardAction } from '../api/board.ts'
@@ -47,21 +47,22 @@ export function BoardPage() {
   const me = useCurrentUser()
   // The shell's full-width strip the filter bar portals into (#128).
   const filterSlot = useFilterBarSlot()
-  // The live filter is URL state (docs/architecture/board-filters.md#frontend):
-  // the bar edits it through `setFilter`, which writes the query string
-  // (`replace:true` so a burst of edits doesn't pile up back-history), so a
-  // filtered board is shareable by just copying the link. The DEBOUNCED value
-  // drives the fetch, collapsing a burst of facet/text edits into one
-  // `POST /board/query`.
+  // The live filter is React state SEEDED from the URL (so a shared link opens
+  // pre-filtered) and MIRRORED back into the URL on every change, so a filtered
+  // board stays shareable by copying the link (docs/architecture/board-filters.md
+  // #frontend). State — not the URL — backs the bar's controlled inputs, so fast
+  // typing and re-applying a preset never round-trip through an async navigation
+  // (that lag drops keystrokes and races the presets state). The DEBOUNCED value
+  // drives the fetch, collapsing a burst of edits into one `POST /board/query`.
   const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
-  const filter = useMemo(() => filterFromSearchParams(searchParams), [searchParams])
-  const setFilter = useCallback(
-    (next: BoardFilter) => {
-      setSearchParams(filterToSearchParams(next), { replace: true })
-    },
-    [setSearchParams],
-  )
+  const [filter, setFilter] = useState<BoardFilter>(() => filterFromSearchParams(searchParams))
+  // One-way mirror: the URL is an output, seeded once above. `replace` keeps a
+  // burst of edits out of back-history; the current path is preserved, so the
+  // query rides along even while a card panel is open over the board.
+  useEffect(() => {
+    setSearchParams(filterToSearchParams(filter), { replace: true })
+  }, [filter, setSearchParams])
   const [debouncedFilter] = useDebouncedValue(filter, FILTER_DEBOUNCE_MS)
   const boardQuery = useBoard(debouncedFilter)
   const policyQuery = usePolicy()
