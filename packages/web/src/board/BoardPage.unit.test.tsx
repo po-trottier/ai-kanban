@@ -171,6 +171,27 @@ describe('BoardPage filter bar (server-side filtering)', () => {
     expect(fake.lastBody('POST', '/api/v1/board/query')).toMatchObject({ q: 'faucet' })
   })
 
+  it('applies a filter straight from the URL on load (a shared link)', async () => {
+    // Arrange — a deep link whose query string already narrows the board; the
+    // filter is URL state, so opening the link must filter without any typing.
+    const match = makeCard('intake', { title: 'Leaking faucet' })
+    const other = makeCard('ready', { title: 'Broken window' })
+    const fake = boardApp(
+      { intake: [match], ready: [other] },
+      { 'POST /api/v1/board/query': makeBoard({ intake: [match] }) },
+    )
+    // Act — render the app AT the shared URL.
+    renderApp({ fetchFn: fake.fetch, route: '/?q=faucet' })
+    // Assert — the narrowed board loads (non-match absent), the request carried
+    // the URL's query, and the search box reflects it.
+    expect(await screen.findByLabelText('Leaking faucet')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Broken window')).not.toBeInTheDocument()
+    })
+    expect(fake.lastBody('POST', '/api/v1/board/query')).toMatchObject({ q: 'faucet' })
+    expect(screen.getByRole('textbox', { name: 'Filter cards' })).toHaveValue('faucet')
+  })
+
   it('returns to the unfiltered board (GET /board) when Reset filters is pressed', async () => {
     // Arrange — the filtered endpoint narrows to one card; clearing must go back
     // to the unfiltered GET /board (both cards), which is the empty-filter path.

@@ -15,7 +15,7 @@ import {
 import { DatePickerInput } from '@mantine/dates'
 import { RotateCcw, Save, ShieldOff } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useLocation, useNavigate, useParams } from 'react-router'
 import { WAITING_REASONS, type Card, type WaitingReason } from '@rivian-kanban/core'
 import { useBoard, useCardAction, useUpdateCard } from '../api/board.ts'
 import {
@@ -80,12 +80,15 @@ export function CardPanelRoute() {
  */
 export function CardPanel({ cardId }: { cardId: string }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const labelId = useId()
   const detailQuery = useCardDetail(cardId)
   const card = detailQuery.data?.card
 
+  // Back to the board, PRESERVING the filter query (the live filter is URL
+  // state) so closing the panel restores the same filtered board it opened over.
   const close = () => {
-    void navigate('/')
+    void navigate({ pathname: '/', search: location.search })
   }
 
   // Escape closes the panel regardless of where focus sits (the docked Aside
@@ -105,13 +108,13 @@ export function CardPanel({ cardId }: { cardId: string }) {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
       if (document.querySelector('.mantine-Modal-content') !== null) return
-      void navigate('/')
+      void navigate({ pathname: '/', search: location.search })
     }
     window.addEventListener('keydown', onKey, true)
     return () => {
       window.removeEventListener('keydown', onKey, true)
     }
-  }, [navigate])
+  }, [navigate, location.search])
 
   return (
     <div

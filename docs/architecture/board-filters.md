@@ -163,8 +163,19 @@ surface shared presets to everyone.
 The SPA renders the filter as a **filter bar** below the header and above the board
 (`packages/web/src/board/FilterBar.tsx`), replacing the former advanced-search modal and the
 `/search` page (both removed). It holds no server state of its own — it is a controlled view of one
-`BoardFilter` in `BoardPage` state.
+`BoardFilter` that lives in the **URL query string**.
 
+- **Shareable via the URL (the live filter IS URL state).** The filter isn't React state — it's
+  derived from the URL query string (`board/filter-url.ts`), and every edit writes it back via
+  `useSearchParams` (`replace: true`, so a burst of keystrokes doesn't flood back-history). So
+  **sharing a filtered board is just sharing the link** — no preset needed — and a deep link opens
+  pre-filtered. Each facet is its own param, arrays as **repeated** params
+  (`?priority=P0&priority=P1&q=pump&scope=archived&overdue=1`) so a tag or free-text value with
+  commas/spaces round-trips with nothing to escape; empty facets are omitted (an unfiltered board is a
+  clean `/`). Decoding re-validates through `boardFilterSchema` (the URL is a trust boundary), so a
+  hand-edited or stale link that no longer parses falls back to the empty filter rather than throwing.
+  Drilling into a card (`/cards/:id`) and closing the panel both **preserve** the query, so the same
+  filtered board is restored.
 - **Placement (#128).** The bar sits in a **full-width strip ABOVE the board+detail-panel row**, not
   inside the region the resizable detail panel squeezes. The shell (`shell/AppLayout.tsx`) lays
   `AppShell.Main` out as a column: a fixed `filterSlot` strip on top, then a flex row of the board

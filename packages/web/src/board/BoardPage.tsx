@@ -1,5 +1,4 @@
 import {
-  EMPTY_BOARD_FILTER,
   type BoardCard,
   type BoardFilter,
   type CancelResolution,
@@ -8,10 +7,11 @@ import {
 } from '@rivian-kanban/core'
 import { announce } from '@atlaskit/pragmatic-drag-and-drop-live-region'
 import { useDebouncedValue } from '@mantine/hooks'
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Outlet, useNavigate } from 'react-router'
+import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { isEmptyFilter, useBoard, useCardAction } from '../api/board.ts'
+import { filterFromSearchParams, filterToSearchParams } from './filter-url.ts'
 import { isWaitingLane, laneKeyOfCard, type MoveIntent } from '../api/board-cache.ts'
 import { useLocations, usePolicy, useTags, useUsers } from '../api/meta.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
@@ -47,9 +47,21 @@ export function BoardPage() {
   const me = useCurrentUser()
   // The shell's full-width strip the filter bar portals into (#128).
   const filterSlot = useFilterBarSlot()
-  // The live filter the bar edits; the DEBOUNCED value drives the fetch so a
-  // burst of facet/text edits collapses into one `POST /board/query`.
-  const [filter, setFilter] = useState<BoardFilter>(EMPTY_BOARD_FILTER)
+  // The live filter is URL state (docs/architecture/board-filters.md#frontend):
+  // the bar edits it through `setFilter`, which writes the query string
+  // (`replace:true` so a burst of edits doesn't pile up back-history), so a
+  // filtered board is shareable by just copying the link. The DEBOUNCED value
+  // drives the fetch, collapsing a burst of facet/text edits into one
+  // `POST /board/query`.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
+  const filter = useMemo(() => filterFromSearchParams(searchParams), [searchParams])
+  const setFilter = useCallback(
+    (next: BoardFilter) => {
+      setSearchParams(filterToSearchParams(next), { replace: true })
+    },
+    [setSearchParams],
+  )
   const [debouncedFilter] = useDebouncedValue(filter, FILTER_DEBOUNCE_MS)
   const boardQuery = useBoard(debouncedFilter)
   const policyQuery = usePolicy()
@@ -152,7 +164,9 @@ export function BoardPage() {
   }
 
   const openCard = (cardId: string) => {
-    void navigate(`/cards/${cardId}`)
+    // Keep the filter query on the URL when drilling into a card, so closing the
+    // panel returns to the SAME filtered board (the link stays shareable too).
+    void navigate({ pathname: `/cards/${cardId}`, search: location.search })
   }
 
   const onMenuAction = (card: BoardCard, action: CardMenuAction) => {
