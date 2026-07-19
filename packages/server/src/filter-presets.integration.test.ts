@@ -142,13 +142,15 @@ describe('filter-preset CRUD (per-user)', () => {
   })
 
   it('isolates presets per user — another user cannot see or edit them (404)', async () => {
-    // Arrange — owner creates a preset.
+    // Arrange — owner creates a preset (private by default).
     const created = await t.request(cookie, {
       method: 'POST',
       url: '/api/v1/filter-presets',
       payload: { name: 'Private', filter: {} },
     })
-    const preset = created.json<{ id: string }>()
+    const preset = created.json<{ id: string; shared: boolean }>()
+    // Default is per-user private.
+    expect(preset.shared).toBe(false)
     const other = await t.asRole('user')
 
     // Act — a different user lists, edits, and deletes it.
@@ -170,5 +172,64 @@ describe('filter-preset CRUD (per-user)', () => {
     expect(otherList.json<{ id: string }[]>().some((p) => p.id === preset.id)).toBe(false)
     expect(otherEdit.statusCode).toBe(404)
     expect(otherDelete.statusCode).toBe(404)
+  })
+
+  it('a SHARED preset is visible to everyone but editable only by its owner', async () => {
+    // Arrange — the owner shares a preset with the team.
+    const created = await t.request(cookie, {
+      method: 'POST',
+      url: '/api/v1/filter-presets',
+      payload: { name: 'Team view', filter: { overdue: true }, shared: true },
+    })
+    expect(created.json<{ shared: boolean }>().shared).toBe(true)
+    const preset = created.json<{ id: string }>()
+    const other = await t.asRole('user')
+
+    // Act — a different user lists (sees it), then tries to edit and delete it.
+    const otherList = await t.request(other.cookie, {
+      method: 'GET',
+      url: '/api/v1/filter-presets',
+    })
+    const otherEdit = await t.request(other.cookie, {
+      method: 'PATCH',
+      url: `/api/v1/filter-presets/${preset.id}`,
+      payload: { name: 'Hijacked' },
+    })
+    const otherDelete = await t.request(other.cookie, {
+      method: 'DELETE',
+      url: `/api/v1/filter-presets/${preset.id}`,
+    })
+
+    // Assert — a shared preset shows in the other user's list, but mutating it
+    // is owner-only (both 404, exactly like an unknown id).
+    expect(otherList.json<{ id: string }[]>().some((p) => p.id === preset.id)).toBe(true)
+    expect(otherEdit.statusCode).toBe(404)
+    expect(otherDelete.statusCode).toBe(404)
+  })
+
+  it('the owner can (un)share an existing preset via PATCH', async () => {
+    // Arrange — a private preset.
+    const created = await t.request(cookie, {
+      method: 'POST',
+      url: '/api/v1/filter-presets',
+      payload: { name: 'Toggle share', filter: {} },
+    })
+    const preset = created.json<{ id: string }>()
+
+    // Act — share it, then un-share it.
+    const shared = await t.request(cookie, {
+      method: 'PATCH',
+      url: `/api/v1/filter-presets/${preset.id}`,
+      payload: { shared: true },
+    })
+    const unshared = await t.request(cookie, {
+      method: 'PATCH',
+      url: `/api/v1/filter-presets/${preset.id}`,
+      payload: { shared: false },
+    })
+
+    // Assert — the flag flips both ways.
+    expect(shared.json<{ shared: boolean }>().shared).toBe(true)
+    expect(unshared.json<{ shared: boolean }>().shared).toBe(false)
   })
 })

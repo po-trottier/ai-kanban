@@ -17,6 +17,7 @@ function customPreset(overrides: Partial<FilterPreset> = {}): FilterPreset {
     ownerId: ME,
     name: 'Urgent archived',
     filter: { ...EMPTY_BOARD_FILTER, priorities: ['P0'], scope: 'archived' },
+    shared: false,
     createdAt: '2026-07-10T09:00:00.000Z',
     updatedAt: '2026-07-10T09:00:00.000Z',
     ...overrides,
@@ -205,9 +206,38 @@ describe('FilterPresets', () => {
     await openCreatePreset(user)
     await user.type(screen.getByRole('textbox', { name: 'Preset name' }), 'Boiler P1')
     await user.click(screen.getByRole('button', { name: 'Save preset' }))
-    // Assert — the POST body carries the name + the current filter, and a toast fires.
+    // Assert — the POST body carries the name + the current filter (private by
+    // default: shared:false), and a toast fires.
     expect(await screen.findByText('Preset saved')).toBeInTheDocument()
-    expect(fake.lastBody('POST', '/api/v1/filter-presets')).toEqual({ name: 'Boiler P1', filter })
+    expect(fake.lastBody('POST', '/api/v1/filter-presets')).toEqual({
+      name: 'Boiler P1',
+      filter,
+      shared: false,
+    })
+  })
+
+  it('saves a SHARED preset when the share toggle is enabled (POST shared:true)', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const filter: BoardFilter = { ...EMPTY_BOARD_FILTER, priorities: ['P1'] }
+    const created = customPreset({ id: uid(602), name: 'Team P1', filter, shared: true })
+    const { fake } = renderPresets(
+      [],
+      { 'POST /api/v1/filter-presets': jsonResponse(created, 201) },
+      filter,
+    )
+    // Act — open the save dialog, name it, flip "Share with the team", save.
+    await openCreatePreset(user)
+    await user.type(screen.getByRole('textbox', { name: 'Preset name' }), 'Team P1')
+    await user.click(screen.getByRole('switch', { name: /Share with the team/ }))
+    await user.click(screen.getByRole('button', { name: 'Save preset' }))
+    // Assert — the POST body shares the preset with the team.
+    expect(await screen.findByText('Preset saved')).toBeInTheDocument()
+    expect(fake.lastBody('POST', '/api/v1/filter-presets')).toEqual({
+      name: 'Team P1',
+      filter,
+      shared: true,
+    })
   })
 
   it('disables Save until a name is entered', async () => {
@@ -245,10 +275,49 @@ describe('FilterPresets', () => {
     await user.type(field, 'Renamed')
     await user.click(screen.getByRole('button', { name: 'Rename' }))
     // Assert
-    expect(await screen.findByText('Preset renamed')).toBeInTheDocument()
+    expect(await screen.findByText('Preset updated')).toBeInTheDocument()
     expect(fake.lastBody('PATCH', `/api/v1/filter-presets/${preset.id}`)).toEqual({
       name: 'Renamed',
     })
+  })
+
+  it('shares the selected owned preset from the share affordance (PATCH shared:true)', async () => {
+    // Arrange — an applied, owned, currently-private preset (affordances show).
+    const preset = customPreset({ shared: false })
+    const user = userEvent.setup()
+    const { fake } = renderPresets(
+      [preset],
+      { [`PATCH /api/v1/filter-presets/${preset.id}`]: jsonResponse({ ...preset, shared: true }) },
+      preset.filter,
+    )
+    await pickPreset(user, preset.name)
+    // Act — click the share affordance (a private preset offers "Share this preset").
+    await user.click(screen.getByRole('button', { name: 'Share this preset' }))
+    // Assert — the PATCH flips shared:true and a toast confirms.
+    expect(await screen.findByText('Preset updated')).toBeInTheDocument()
+    expect(fake.lastBody('PATCH', `/api/v1/filter-presets/${preset.id}`)).toEqual({ shared: true })
+  })
+
+  it("applies a teammate's shared preset but shows no owner affordances", async () => {
+    // Arrange — a shared preset owned by SOMEONE ELSE (listed under "Shared with you").
+    const theirs = customPreset({
+      id: uid(603),
+      ownerId: uid(999),
+      name: 'Ops daily',
+      shared: true,
+    })
+    const user = userEvent.setup()
+    const { onApply } = renderPresets([theirs], {}, theirs.filter)
+    // Act — apply it from the dropdown.
+    await pickPreset(user, theirs.name)
+    // Assert — its complete filter applies, but a teammate's shared preset is
+    // apply-only: no rename / share / delete (those are owner-only, else 404).
+    expect(onApply).toHaveBeenCalledWith(theirs.filter)
+    expect(screen.queryByRole('button', { name: 'Delete this preset' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Share this preset' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Stop sharing this preset' }),
+    ).not.toBeInTheDocument()
   })
 
   it('deletes the selected custom preset (DELETE)', async () => {

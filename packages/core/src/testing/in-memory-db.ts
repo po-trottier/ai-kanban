@@ -952,11 +952,12 @@ class InMemoryFilterPresetRepository implements FilterPresetRepository {
     this.state = state
   }
 
-  listByOwner(ownerId: string): Promise<FilterPreset[]> {
+  listVisibleTo(userId: string): Promise<FilterPreset[]> {
     return Promise.resolve(
       clone(
         this.state.filterPresets
-          .filter((preset) => preset.ownerId === ownerId)
+          // Own presets plus every team-shared one (mirrors the SQL OR).
+          .filter((preset) => preset.ownerId === userId || preset.shared)
           // Newest-first (createdAt DESC, id DESC) — mirrors the SQL adapter.
           .sort((a, b) =>
             a.createdAt === b.createdAt

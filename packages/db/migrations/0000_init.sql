@@ -113,12 +113,14 @@ CREATE TABLE `filter_presets` (
 	`owner_id` text NOT NULL,
 	`name` text NOT NULL,
 	`filter` text NOT NULL,
+	`shared` integer DEFAULT false NOT NULL,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL,
 	FOREIGN KEY (`owner_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE INDEX `filter_presets_owner_id_created_at_idx` ON `filter_presets` (`owner_id`,`created_at`);--> statement-breakpoint
+CREATE INDEX `filter_presets_shared_created_at_idx` ON `filter_presets` (`created_at`) WHERE "filter_presets"."shared" = 1;--> statement-breakpoint
 CREATE TABLE `lanes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`board_id` text NOT NULL,

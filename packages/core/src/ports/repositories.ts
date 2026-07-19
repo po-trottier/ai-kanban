@@ -375,19 +375,22 @@ export interface EventRepository {
 }
 
 /**
- * Per-user saved board filters (docs/architecture/board-filters.md). Every
- * method is scoped by `ownerId` — a user only ever sees or edits their own
- * presets, so an id owned by another user is indistinguishable from a missing
- * one (the service maps both to 404). Rows are hard-deleted (no soft delete —
- * a preset carries no audit weight).
+ * Saved board filters (docs/architecture/board-filters.md). **Per-user by
+ * default**: a preset is private to its owner unless `shared` is set, which
+ * makes it visible team-wide. Reads (`listVisibleTo`) return the user's own
+ * presets plus every shared one; every WRITE stays scoped by `ownerId`, so an
+ * id owned by another user is indistinguishable from a missing one to a writer
+ * (the service maps both to 404) — a shared preset is readable by all but
+ * editable only by its owner. Rows are hard-deleted (no soft delete — a preset
+ * carries no audit weight).
  */
 export interface FilterPresetRepository {
-  /** The owner's presets, newest-first. */
-  listByOwner(ownerId: string): Promise<FilterPreset[]>
+  /** Presets visible to `userId`: their own plus every team-shared one, newest-first. */
+  listVisibleTo(userId: string): Promise<FilterPreset[]>
   /** One preset IF it belongs to `ownerId`; null for unknown OR another owner's. */
   findByIdForOwner(id: string, ownerId: string): Promise<FilterPreset | null>
   insert(preset: FilterPreset): Promise<void>
-  /** Persists name/filter edits; NotFoundError when no row with (id, ownerId). */
+  /** Persists name/filter/shared edits; NotFoundError when no row with (id, ownerId). */
   update(preset: FilterPreset): Promise<void>
   /** Hard-deletes IF owned by `ownerId`; NotFoundError otherwise. */
   delete(id: string, ownerId: string): Promise<void>

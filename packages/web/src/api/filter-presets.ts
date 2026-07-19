@@ -30,7 +30,7 @@ export function useCreateFilterPreset() {
   })
 }
 
-/** `PATCH /filter-presets/:id` — rename and/or replace the saved filter. */
+/** `PATCH /filter-presets/:id` — rename, replace the saved filter, and/or (un)share. */
 export function useUpdateFilterPreset() {
   const api = useApi()
   const queryClient = useQueryClient()
@@ -38,7 +38,7 @@ export function useUpdateFilterPreset() {
     mutationFn: ({ id, patch }: { id: string; patch: UpdateFilterPresetInput }) =>
       api.patch(`/filter-presets/${id}`, filterPresetResponseSchema, { body: patch }),
     onSuccess: () => {
-      notifySuccess(strings.filterBar.presetRenamed)
+      notifySuccess(strings.filterBar.presetUpdated)
       void queryClient.invalidateQueries({ queryKey: queryKeys.filterPresets })
     },
     onError: notifyError,

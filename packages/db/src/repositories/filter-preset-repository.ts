@@ -4,16 +4,17 @@ import {
   type FilterPreset,
   type FilterPresetRepository,
 } from '@rivian-kanban/core'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, or } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { filterPresets } from '../schema.ts'
 
 /**
- * Per-user saved board filters (docs/architecture/board-filters.md). Every
- * method is scoped by `ownerId`: a preset owned by another user reads as absent,
- * so the service maps both unknown and not-owned to 404 and never confirms
- * another user's preset exists. `filter` is a JSON column — the drizzle row
- * carries `unknown`, cast to the port's `BoardFilter` on hydration.
+ * Saved board filters (docs/architecture/board-filters.md). Reads
+ * (`listVisibleTo`) return the caller's own presets plus every team-shared one;
+ * every WRITE is scoped by `ownerId`, so a preset owned by another user reads as
+ * absent to a writer — the service maps both unknown and not-owned to 404 and
+ * never confirms another user's preset exists. `filter` is a JSON column — the
+ * drizzle row carries `unknown`, cast to the port's `BoardFilter` on hydration.
  */
 export class SqliteFilterPresetRepository implements FilterPresetRepository {
   private readonly db: BetterSQLite3Database
@@ -26,11 +27,12 @@ export class SqliteFilterPresetRepository implements FilterPresetRepository {
     return { ...row, filter: row.filter as BoardFilter }
   }
 
-  listByOwner(ownerId: string): Promise<FilterPreset[]> {
+  listVisibleTo(userId: string): Promise<FilterPreset[]> {
     const rows = this.db
       .select()
       .from(filterPresets)
-      .where(eq(filterPresets.ownerId, ownerId))
+      // The caller's own presets plus every team-shared one.
+      .where(or(eq(filterPresets.ownerId, userId), eq(filterPresets.shared, true)))
       .orderBy(desc(filterPresets.createdAt), desc(filterPresets.id))
       .all()
     return Promise.resolve(rows.map((row) => SqliteFilterPresetRepository.hydrate(row)))
@@ -53,7 +55,12 @@ export class SqliteFilterPresetRepository implements FilterPresetRepository {
   update(preset: FilterPreset): Promise<void> {
     const result = this.db
       .update(filterPresets)
-      .set({ name: preset.name, filter: preset.filter, updatedAt: preset.updatedAt })
+      .set({
+        name: preset.name,
+        filter: preset.filter,
+        shared: preset.shared,
+        updatedAt: preset.updatedAt,
+      })
       .where(and(eq(filterPresets.id, preset.id), eq(filterPresets.ownerId, preset.ownerId)))
       .run()
     if (result.changes === 0) return Promise.reject(new NotFoundError('filter preset'))

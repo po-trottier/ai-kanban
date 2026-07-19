@@ -59,6 +59,7 @@ function preset(overrides: Partial<FilterPreset> & Pick<FilterPreset, 'ownerId'>
     id: newId(),
     name: 'Preset',
     filter: EMPTY_BOARD_FILTER,
+    shared: false,
     createdAt: T0,
     updatedAt: T0,
     ...overrides,
@@ -162,11 +163,27 @@ describe('FilterPresetRepository — per-user CRUD isolation', () => {
     })
 
     // Act
-    const aliceList = await run((tx) => tx.filterPresets.listByOwner(alice))
+    const aliceList = await run((tx) => tx.filterPresets.listVisibleTo(alice))
 
-    // Assert — newest-first, and Bob's preset is absent from Alice's list.
+    // Assert — newest-first, and Bob's PRIVATE preset is absent from Alice's list.
     expect(aliceList.map((p) => p.name)).toEqual(['Newer', 'Older'])
     expect(aliceList.some((p) => p.ownerId === bob)).toBe(false)
+  })
+
+  it("includes another user's SHARED preset but not their private one", async () => {
+    // Arrange — Bob has one shared and one private preset.
+    const shared = preset({ ownerId: bob, name: "Bob's shared", shared: true })
+    const priv = preset({ ownerId: bob, name: "Bob's private", shared: false })
+    await run(async (tx) => {
+      for (const p of [shared, priv]) await tx.filterPresets.insert(p)
+    })
+
+    // Act — Alice's visible list.
+    const aliceList = await run((tx) => tx.filterPresets.listVisibleTo(alice))
+
+    // Assert — the shared one is visible to Alice; the private one is not.
+    expect(aliceList.some((p) => p.id === shared.id)).toBe(true)
+    expect(aliceList.some((p) => p.id === priv.id)).toBe(false)
   })
 
   it('scopes findById by owner — another user cannot read the row', async () => {

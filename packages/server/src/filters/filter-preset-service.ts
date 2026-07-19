@@ -10,12 +10,13 @@ import {
 } from '@rivian-kanban/core'
 
 /**
- * Per-user saved board filters (docs/architecture/board-filters.md). Managing
- * your OWN presets is an identity right, not an RBAC-gated surface — like
- * editing your own comment — so there is no `manage*` permission check here;
- * every method is scoped to `actor.id`. A preset owned by another user is
- * indistinguishable from a missing one (both 404), so the server never
- * confirms another user's preset exists.
+ * Saved board filters (docs/architecture/board-filters.md). Managing your OWN
+ * presets is an identity right, not an RBAC-gated surface — like editing your
+ * own comment — so there is no `manage*` permission check here. Reads return the
+ * caller's own presets plus every team-shared one (`listVisibleTo`); every WRITE
+ * is scoped to `actor.id`, so a preset owned by another user is indistinguishable
+ * from a missing one (both 404) — a shared preset is applyable by all but
+ * editable only by its owner.
  *
  * Custom (CRUD) presets only; the two built-ins (`BUILTIN_FILTER_PRESETS`) are
  * core constants the frontend renders, never rows.
@@ -33,9 +34,9 @@ export class FilterPresetService {
     this.deps = deps
   }
 
-  /** The caller's presets, newest-first. */
+  /** Presets visible to the caller — their own plus shared ones, newest-first. */
   async list(actor: Actor): Promise<FilterPreset[]> {
-    return this.deps.uow.read((tx) => tx.filterPresets.listByOwner(actor.id))
+    return this.deps.uow.read((tx) => tx.filterPresets.listVisibleTo(actor.id))
   }
 
   /** Creates a preset owned by the caller (ownerId from the session, never the body). */
@@ -47,6 +48,7 @@ export class FilterPresetService {
       ownerId: actor.id,
       name: input.name,
       filter: input.filter,
+      shared: input.shared,
       createdAt: nowIso,
       updatedAt: nowIso,
     }
@@ -54,7 +56,7 @@ export class FilterPresetService {
     return preset
   }
 
-  /** Renames and/or replaces the filter — only if owned by the caller (else 404). */
+  /** Renames, replaces the filter, and/or (un)shares — only if owned by the caller (else 404). */
   async update(actor: Actor, presetId: string, rawInput: unknown): Promise<FilterPreset> {
     const input = updateFilterPresetInputSchema.parse(rawInput)
     return this.deps.uow.run(async (tx) => {
@@ -64,6 +66,7 @@ export class FilterPresetService {
         ...existing,
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.filter !== undefined ? { filter: input.filter } : {}),
+        ...(input.shared !== undefined ? { shared: input.shared } : {}),
         updatedAt: this.deps.clock.now().toISOString(),
       }
       await tx.filterPresets.update(updated)

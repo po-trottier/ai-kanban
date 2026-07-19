@@ -12,11 +12,12 @@ import {
   InputBase,
   Modal,
   Stack,
+  Switch,
   TextInput,
   Tooltip,
   useCombobox,
 } from '@mantine/core'
-import { Pencil, Save, Trash2 } from 'lucide-react'
+import { Pencil, Save, Share2, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import {
   useCreateFilterPreset,
@@ -33,7 +34,7 @@ export interface FilterPresetsProps {
   filter: BoardFilter
   /** Applies a preset: SETS THE COMPLETE filter state (never a partial overlay). */
   onApply: (filter: BoardFilter) => void
-  /** Fills the "My Cards" built-in preset's assignee at render time. */
+  /** Fills the "My Cards" built-in preset's assignee, and tells own vs shared presets apart. */
   currentUserId: string
 }
 
@@ -60,6 +61,13 @@ const CUSTOM_VALUE = 'state:custom'
 const BUILTIN_LABELS: Record<(typeof BUILTIN_FILTER_PRESETS)[number]['key'], string> = {
   my_cards: strings.filterBar.builtinMyCards,
   overdue: strings.filterBar.builtinOverdue,
+}
+
+/** A dropdown option; `shared` renders a small share glyph so shared presets read as shared. */
+interface PresetOption {
+  value: string
+  label: string
+  shared: boolean
 }
 
 /**
@@ -110,21 +118,23 @@ function resolveAppliedFilter(
 }
 
 /**
- * The presets combobox + the rename / delete affordances. Built-ins (My Cards,
- * Overdue) render from core constants; custom presets come from
- * `GET /filter-presets`. Selecting any preset applies its COMPLETE `BoardFilter`
- * — every facet, not an overlay. "My Cards" fills its assignee with the current
- * user id client-side (only the client knows "me"). A trailing "Save preset"
- * entry (a floppy-disk glyph) at the bottom of the dropdown opens the save-preset
- * flow (ITEM 3) — there is no separate Save icon button beside the combobox.
+ * The presets combobox + the rename / share / delete affordances. Built-ins (My
+ * Cards, Overdue) render from core constants; custom presets come from
+ * `GET /filter-presets` — the caller's OWN presets plus any teammate's shared
+ * ones. Selecting any preset applies its COMPLETE `BoardFilter` (every facet,
+ * not an overlay). "My Cards" fills its assignee with the current user id
+ * client-side (only the client knows "me"). A trailing "Save preset" entry (a
+ * floppy-disk glyph) opens the save flow.
  *
- * The combobox value REFLECTS state (#120): it shows the APPLIED preset's name
- * while the live filter still equals it, "Custom" once any facet drifts from
- * that preset, and the placeholder when no preset is the current context (fresh,
- * or "Reset filters"). `appliedValue` is the last applied option value (a
- * built-in `builtin:<key>` or a custom preset id); equality against the applied
- * preset's effective filter decides name-vs-Custom, and re-picking the SAME
- * preset changes the value away from Custom and re-fires onApply.
+ * Presets are **per-user private by default**; the owner can share one with the
+ * whole team. Own presets sit under "My presets" (a share glyph marks the ones
+ * you've shared); teammates' shared presets sit under "Shared with you" and are
+ * apply-only — the rename / share / delete affordances show only for an APPLIED
+ * preset you OWN (a shared preset is editable only by its owner).
+ *
+ * The combobox value REFLECTS state (#120): the APPLIED preset's name while the
+ * live filter still equals it, "Custom" once any facet drifts, the placeholder
+ * when no preset is the current context.
  */
 export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsProps) {
   const presets = useFilterPresets()
@@ -146,6 +156,10 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
   >(null)
 
   const customPresets = presets.data ?? []
+  // Own presets vs teammates' shared ones (the server only returns another
+  // user's preset when it is shared, so any non-owned row here is a shared one).
+  const myPresets = customPresets.filter((preset) => preset.ownerId === currentUserId)
+  const sharedPresets = customPresets.filter((preset) => preset.ownerId !== currentUserId)
 
   // The effective filter for the applied preset value, resolving a built-in's
   // client-side fill ("My Cards" → me) exactly as `applyValue` did on apply, or a
@@ -162,19 +176,37 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
   const selectedValue =
     appliedFilter === null || isEmpty ? null : matchesApplied ? appliedValue : CUSTOM_VALUE
 
-  // The rename/delete affordances belong to an APPLIED CUSTOM preset the box is
-  // currently showing by name (a built-in has neither; a drifted preset reads
-  // "Custom", the empty filter reads the placeholder — neither is it).
-  const selectedPreset =
+  // The rename/share/delete affordances belong to an APPLIED preset you OWN that
+  // the box is currently showing by name (a built-in has none; a teammate's
+  // shared preset is apply-only; a drifted preset reads "Custom"; the empty
+  // filter reads the placeholder — none of those is editable here).
+  const editablePreset =
     selectedValue !== null && selectedValue === appliedValue
-      ? (customPresets.find((preset) => preset.id === appliedValue) ?? null)
+      ? (myPresets.find((preset) => preset.id === appliedValue) ?? null)
       : null
+  // Scope the share affordance's spinner to a share toggle specifically, so a
+  // rename in flight doesn't also spin the share icon (both use `updatePreset`).
+  const sharePending =
+    updatePreset.isPending &&
+    editablePreset !== null &&
+    updatePreset.variables.id === editablePreset.id &&
+    updatePreset.variables.patch.shared !== undefined
 
-  const builtinData = BUILTIN_FILTER_PRESETS.map((preset) => ({
+  const builtinData: PresetOption[] = BUILTIN_FILTER_PRESETS.map((preset) => ({
     value: `${BUILTIN_PREFIX}${preset.key}`,
     label: BUILTIN_LABELS[preset.key],
+    shared: false,
   }))
-  const customData = customPresets.map((preset) => ({ value: preset.id, label: preset.name }))
+  const myData: PresetOption[] = myPresets.map((preset) => ({
+    value: preset.id,
+    label: preset.name,
+    shared: preset.shared,
+  }))
+  const sharedData: PresetOption[] = sharedPresets.map((preset) => ({
+    value: preset.id,
+    label: preset.name,
+    shared: true,
+  }))
 
   // The COLLAPSED display label. A drifted preset reads "Custom" (a sentinel that
   // is never a dropdown option — the whole point of using Combobox over Select),
@@ -184,8 +216,9 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
       ? null
       : selectedValue === CUSTOM_VALUE
         ? strings.filterBar.presetsCustom
-        : ([...builtinData, ...customData].find((option) => option.value === selectedValue)
-            ?.label ?? null)
+        : ([...builtinData, ...myData, ...sharedData].find(
+            (option) => option.value === selectedValue,
+          )?.label ?? null)
 
   // onOptionSubmit only ever fires for a real dropdown row (a preset or the
   // "Save preset" action) — "Custom" is display-only and never submitted.
@@ -245,17 +278,20 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
             <Combobox.Options>
               <Combobox.Group label={strings.filterBar.presetsBuiltInGroup}>
                 {builtinData.map((option) => (
-                  <Combobox.Option value={option.value} key={option.value}>
-                    {option.label}
-                  </Combobox.Option>
+                  <PresetOptionRow key={option.value} option={option} />
                 ))}
               </Combobox.Group>
-              {customData.length > 0 ? (
+              {myData.length > 0 ? (
                 <Combobox.Group label={strings.filterBar.presetsCustomGroup}>
-                  {customData.map((option) => (
-                    <Combobox.Option value={option.value} key={option.value}>
-                      {option.label}
-                    </Combobox.Option>
+                  {myData.map((option) => (
+                    <PresetOptionRow key={option.value} option={option} />
+                  ))}
+                </Combobox.Group>
+              ) : null}
+              {sharedData.length > 0 ? (
+                <Combobox.Group label={strings.filterBar.presetsSharedGroup}>
+                  {sharedData.map((option) => (
+                    <PresetOptionRow key={option.value} option={option} />
                   ))}
                 </Combobox.Group>
               ) : null}
@@ -273,7 +309,7 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
             </Combobox.Options>
           </Combobox.Dropdown>
         </Combobox>
-        {selectedPreset !== null ? (
+        {editablePreset !== null ? (
           <>
             <Tooltip label={strings.filterBar.tooltips.renamePreset} withArrow>
               <ActionIcon
@@ -281,10 +317,38 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
                 color="gray"
                 aria-label={strings.filterBar.renamePreset}
                 onClick={() => {
-                  setDialog({ kind: 'rename', preset: selectedPreset })
+                  setDialog({ kind: 'rename', preset: editablePreset })
                 }}
               >
                 <Pencil size={16} aria-hidden />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip
+              label={
+                editablePreset.shared
+                  ? strings.filterBar.tooltips.unsharePreset
+                  : strings.filterBar.tooltips.sharePreset
+              }
+              withArrow
+            >
+              <ActionIcon
+                variant={editablePreset.shared ? 'light' : 'subtle'}
+                color={editablePreset.shared ? 'blue' : 'gray'}
+                aria-label={
+                  editablePreset.shared
+                    ? strings.filterBar.unsharePreset
+                    : strings.filterBar.sharePreset
+                }
+                aria-pressed={editablePreset.shared}
+                loading={sharePending}
+                onClick={() => {
+                  updatePreset.mutate({
+                    id: editablePreset.id,
+                    patch: { shared: !editablePreset.shared },
+                  })
+                }}
+              >
+                <Share2 size={16} aria-hidden />
               </ActionIcon>
             </Tooltip>
             <Tooltip label={strings.filterBar.tooltips.deletePreset} withArrow>
@@ -294,7 +358,7 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
                 aria-label={strings.filterBar.deletePreset}
                 loading={deletePreset.isPending}
                 onClick={() => {
-                  deletePreset.mutate(selectedPreset.id, {
+                  deletePreset.mutate(editablePreset.id, {
                     onSuccess: () => {
                       setAppliedValue(null)
                     },
@@ -313,13 +377,14 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
           title={strings.filterBar.savePresetTitle}
           confirmLabel={strings.filterBar.saveConfirm}
           confirmTooltip={strings.filterBar.tooltips.savePreset}
+          withShare
           loading={createPreset.isPending}
           onClose={() => {
             setDialog(null)
           }}
-          onSubmit={(name) => {
+          onSubmit={({ name, shared }) => {
             createPreset.mutate(
-              { name, filter },
+              { name, filter, shared },
               {
                 onSuccess: (created) => {
                   setAppliedValue(created.id)
@@ -341,7 +406,7 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
           onClose={() => {
             setDialog(null)
           }}
-          onSubmit={(name) => {
+          onSubmit={({ name }) => {
             updatePreset.mutate(
               { id: dialog.preset.id, patch: { name } },
               {
@@ -357,12 +422,29 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
   )
 }
 
-/** The name-entry modal shared by save and rename. */
+/** One dropdown row; a shared preset carries a share glyph before its name. */
+function PresetOptionRow({ option }: { option: PresetOption }) {
+  return (
+    <Combobox.Option value={option.value}>
+      {option.shared ? (
+        <Group gap="xs" wrap="nowrap">
+          <Share2 size={14} aria-hidden />
+          {option.label}
+        </Group>
+      ) : (
+        option.label
+      )}
+    </Combobox.Option>
+  )
+}
+
+/** The name-entry modal shared by save and rename; save also offers a share toggle. */
 function PresetNameDialog({
   title,
   confirmLabel,
   confirmTooltip,
   initialName = '',
+  withShare = false,
   loading,
   onClose,
   onSubmit,
@@ -371,18 +453,20 @@ function PresetNameDialog({
   confirmLabel: string
   confirmTooltip: string
   initialName?: string
+  withShare?: boolean
   loading: boolean
   onClose: () => void
-  onSubmit: (name: string) => void
+  onSubmit: (values: { name: string; shared: boolean }) => void
 }) {
   const [name, setName] = useState(initialName)
+  const [shared, setShared] = useState(false)
   const trimmed = name.trim()
   return (
     <Modal opened onClose={onClose} title={title} centered>
       <form
         onSubmit={(event) => {
           event.preventDefault()
-          if (trimmed !== '') onSubmit(trimmed)
+          if (trimmed !== '') onSubmit({ name: trimmed, shared })
         }}
       >
         <Stack gap="md">
@@ -396,6 +480,16 @@ function PresetNameDialog({
               setName(event.currentTarget.value)
             }}
           />
+          {withShare ? (
+            <Switch
+              label={strings.filterBar.shareToggle}
+              description={strings.filterBar.shareToggleHint}
+              checked={shared}
+              onChange={(event) => {
+                setShared(event.currentTarget.checked)
+              }}
+            />
+          ) : null}
           <Group justify="flex-end">
             <HintButton tooltip={strings.tooltips.cancelDialog} variant="default" onClick={onClose}>
               {strings.common.cancel}

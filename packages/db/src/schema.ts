@@ -348,17 +348,26 @@ export const filterPresets = sqliteTable(
   'filter_presets',
   {
     id: text('id').primaryKey(),
-    /** The only user who can see or edit the preset (per-user private). */
+    /** The owner; the only user who can edit the preset (writes are owner-scoped). */
     ownerId: text('owner_id')
       .notNull()
       .references(() => users.id),
     name: text('name').notNull(),
     /** Zod-validated BoardFilter JSON (boardFilterSchema). */
     filter: text('filter', { mode: 'json' }).notNull(),
+    /** Team-shared (visible to everyone) vs per-user private (default). */
+    shared: integer('shared', { mode: 'boolean' }).notNull().default(false),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
-  // The per-owner newest-first list (`WHERE owner_id = ? ORDER BY created_at
-  // DESC, id DESC`) — the only query surface.
-  (table) => [index('filter_presets_owner_id_created_at_idx').on(table.ownerId, table.createdAt)],
+  (table) => [
+    // The visible-to-user list is `WHERE owner_id = ? OR shared = 1 ORDER BY
+    // created_at DESC, id DESC`. The owner leg is served by this index…
+    index('filter_presets_owner_id_created_at_idx').on(table.ownerId, table.createdAt),
+    // …and the (small) shared leg by this partial index, so the team-shared
+    // set is served ordered without scanning every user's private presets.
+    index('filter_presets_shared_created_at_idx')
+      .on(table.createdAt)
+      .where(sql`${table.shared} = 1`),
+  ],
 )

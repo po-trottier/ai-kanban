@@ -50,16 +50,20 @@ export type BoardFilter = z.infer<typeof boardFilterSchema>
 export const EMPTY_BOARD_FILTER: BoardFilter = boardFilterSchema.parse({})
 
 /**
- * A stored, user-owned filter preset (docs/architecture/board-filters.md). The
- * CUSTOM (CRUD) presets; the two built-ins below are core constants the
- * frontend renders, never rows. Per-user private — every read/write is scoped
- * to `ownerId`.
+ * A stored filter preset (docs/architecture/board-filters.md). The CUSTOM
+ * (CRUD) presets; the two built-ins below are core constants the frontend
+ * renders, never rows. **Per-user by default** (`shared: false`) — a private
+ * preset only its owner can see or apply. The owner may flip `shared` to make
+ * it visible team-wide: shared presets are READABLE by everyone but every
+ * WRITE (rename, replace-filter, re-share, delete) stays scoped to `ownerId`.
  */
 export const filterPresetSchema = z.strictObject({
   id: z.uuid(),
   ownerId: z.uuid(),
   name: z.string().min(1).max(60),
   filter: boardFilterSchema,
+  /** Team-shared (visible to everyone) vs per-user private (the default). */
+  shared: z.boolean(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 })
@@ -69,17 +73,20 @@ export type FilterPreset = z.infer<typeof filterPresetSchema>
 export const createFilterPresetInputSchema = z.strictObject({
   name: z.string().trim().min(1).max(60),
   filter: boardFilterSchema,
+  /** Share with the whole team; defaults to private (per-user). */
+  shared: z.boolean().default(false),
 })
 export type CreateFilterPresetInput = z.infer<typeof createFilterPresetInputSchema>
 
-/** `PATCH /filter-presets/:id` — rename and/or replace the saved filter. */
+/** `PATCH /filter-presets/:id` — rename, replace the saved filter, and/or (un)share. */
 export const updateFilterPresetInputSchema = z
   .strictObject({
     name: z.string().trim().min(1).max(60).optional(),
     filter: boardFilterSchema.optional(),
+    shared: z.boolean().optional(),
   })
   .refine((patch) => Object.keys(patch).length > 0, {
-    message: 'at least one of name or filter is required',
+    message: 'at least one of name, filter, or shared is required',
   })
 export type UpdateFilterPresetInput = z.infer<typeof updateFilterPresetInputSchema>
 

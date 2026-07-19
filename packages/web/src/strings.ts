@@ -385,6 +385,8 @@ export const strings = {
     presetsPlaceholder: 'Choose a preset',
     presetsBuiltInGroup: 'Built-in',
     presetsCustomGroup: 'My presets',
+    /** Presets other users have shared with the whole team. */
+    presetsSharedGroup: 'Shared with you',
     /** Shown as the combobox value when the live filter has drifted from the
      * applied preset (an edited facet) — the selection is neither a named preset
      * nor empty (#120). */
@@ -408,9 +410,15 @@ export const strings = {
     deletePresetTitle: 'Delete preset',
     deletePresetConfirm: (name: string) => `Delete the “${name}” preset?`,
     deleteConfirm: 'Delete preset',
+    /** Sharing: a toggle in the save dialog + a per-preset affordance. Presets
+     * are per-user private by default; sharing makes one visible team-wide. */
+    shareToggle: 'Share with the team',
+    shareToggleHint: 'Everyone can see and apply this preset',
+    sharePreset: 'Share this preset',
+    unsharePreset: 'Stop sharing this preset',
     /** Toasts confirming a preset mutation. */
     presetSaved: 'Preset saved',
-    presetRenamed: 'Preset renamed',
+    presetUpdated: 'Preset updated',
     presetDeleted: 'Preset deleted',
     /** Tooltips (every control carries one). */
     tooltips: {
@@ -427,6 +435,8 @@ export const strings = {
       savePreset: 'Save the current filters as a named preset you can reapply',
       renamePreset: 'Give this preset a new name',
       deletePreset: 'Remove this saved preset',
+      sharePreset: 'Let the whole team see and apply this preset',
+      unsharePreset: 'Make this preset private to you again',
       disabledEmptyPresetName: 'Enter a preset name first',
     },
     /** Board-level message when the filter matches nothing anywhere. */
