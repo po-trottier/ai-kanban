@@ -33,7 +33,16 @@ export function DescriptionEditor({ value, disabled = false, onChange }: Descrip
   // editor but our own keystrokes never re-parse (which would jump the cursor).
   const lastEmitted = useRef(value)
   const editor = useEditor({
-    extensions: [StarterKit, Markdown],
+    // Links open in a new tab with a safe rel by default. StarterKit bundles the
+    // Link extension (ADR-018); these HTMLAttributes seed every link's target/rel
+    // (covering paste + autolink), and the toolbar's `initialExternal` toggle sets
+    // target="_blank" on links inserted from the control.
+    extensions: [
+      StarterKit.configure({
+        link: { HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } },
+      }),
+      Markdown,
+    ],
     content: value,
     editable: !disabled,
     // Client-only SPA, but defer first render so React 19 strict mode doesn't
@@ -87,7 +96,9 @@ export function DescriptionEditor({ value, disabled = false, onChange }: Descrip
             <RichTextEditor.Blockquote />
           </RichTextEditor.ControlsGroup>
           <RichTextEditor.ControlsGroup>
-            <RichTextEditor.Link />
+            {/* Toggle defaults ON so a link inserted from the toolbar opens in a
+                new tab; the Link extension's HTMLAttributes add the safe rel. */}
+            <RichTextEditor.Link initialExternal />
             <RichTextEditor.Unlink />
           </RichTextEditor.ControlsGroup>
         </RichTextEditor.Toolbar>

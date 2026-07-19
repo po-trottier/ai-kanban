@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { renderWithProviders } from '../test/render.tsx'
 import { DescriptionEditor } from './DescriptionEditor.tsx'
@@ -33,6 +34,23 @@ describe('DescriptionEditor', () => {
     // Assert — Mantine RichTextEditor renders labelled control buttons
     expect(await screen.findByRole('button', { name: /bold/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /bullet list/i })).toBeInTheDocument()
+  })
+
+  it('opens a link inserted from the toolbar in a new tab by default', async () => {
+    // Arrange — a link needs a text range to mark, so type then select it all.
+    const user = userEvent.setup()
+    renderWithProviders(<DescriptionEditor value="" onChange={() => undefined} />)
+    const editor = await screen.findByRole('textbox', { name: 'Description' })
+    await user.click(editor)
+    await user.keyboard('docs{Control>}a{/Control}')
+    // Act — open the Link control, enter a URL, and save.
+    await user.click(screen.getByRole('button', { name: 'Link' }))
+    await user.type(await screen.findByRole('textbox', { name: 'Enter URL' }), 'https://a.test')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    // Assert — the rendered anchor opens in a new tab with a safe rel.
+    const link = await screen.findByRole('link', { name: 'docs' })
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
   it('is read-only when disabled', async () => {
