@@ -10,6 +10,7 @@ import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
 import { MentionTextarea } from './MentionTextarea.tsx'
+import { renderCommentBody } from './renderMentions.tsx'
 import classes from './card.module.css'
 
 export interface CommentsThreadProps {
@@ -332,7 +333,7 @@ function CommentItem({
         </Stack>
       ) : (
         <Text size="sm" mt="xs" className={classes.commentBody}>
-          {comment.body}
+          {renderCommentBody(comment.body, userNames.values())}
         </Text>
       )}
       {!deleted && !editing && !readOnly ? (
@@ -350,6 +351,8 @@ function CommentItem({
             <HintButton
               size="compact-xs"
               variant="subtle"
+              // Secondary/faded: a gray subtle button, not the primary hue.
+              color="gray"
               tooltip={strings.tooltips.editComment}
               leftSection={<Pencil size={14} aria-hidden />}
               // Short visible label; the accessible name stays 'Edit comment'.
@@ -367,9 +370,9 @@ function CommentItem({
               variant="subtle"
               tooltip={strings.tooltips.deleteComment}
               leftSection={<Trash2 size={14} aria-hidden />}
-              // Muted, not alarming red; accessible name stays 'Delete comment'.
-              color="gray"
-              c="dimmed"
+              // Destructive: the app's danger idiom (color="red"), matching the
+              // attachment/relation delete actions. Accessible name unchanged.
+              color="red"
               aria-label={strings.comments.deleteLabel}
               onClick={() => {
                 onDelete(comment.id)

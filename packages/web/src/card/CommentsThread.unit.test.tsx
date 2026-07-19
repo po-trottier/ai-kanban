@@ -181,6 +181,34 @@ describe('CommentsThread', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('styles delete as danger (red) and edit as secondary (gray)', () => {
+    // Arrange — an own comment so both edit and delete actions render.
+    const cardId = makeCard('intake').id
+    const mine = makeComment({ id: uid(90), cardId, authorId: fixtureAdmin.id })
+    // Act
+    renderWithProviders(
+      <CommentsThread
+        comments={[mine]}
+        currentUserId={fixtureAdmin.id}
+        userNames={userNames}
+        canDeleteOthers={false}
+        onAdd={noop}
+        onEdit={noop}
+        onDelete={noop}
+      />,
+    )
+    // Assert — Mantine resolves `color` into the button's inline `--button-color`
+    // var, so delete reads red (the app's danger idiom) and edit reads gray.
+    // (toHaveStyle can't compare CSS custom props in happy-dom, so read the raw
+    // style string.)
+    expect(screen.getByRole('button', { name: 'Delete comment' }).getAttribute('style')).toContain(
+      '--button-color: var(--mantine-color-red-light-color)',
+    )
+    expect(screen.getByRole('button', { name: 'Edit comment' }).getAttribute('style')).toContain(
+      '--button-color: var(--mantine-color-gray-light-color)',
+    )
+  })
+
   it("offers delete (never edit) on others' comments when the policy allows it", () => {
     // Arrange — permissive default: the deleteOthersComments gate is absent
     const cardId = makeCard('intake').id
