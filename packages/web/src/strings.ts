@@ -355,6 +355,7 @@ export const strings = {
     queryLabel: 'Filter cards',
     queryPlaceholder: 'Search cards…',
     queryClear: 'Clear the text filter',
+    filterBusy: 'Filtering…',
     /** Any-of enumerable facets, rendered as MultiSelect pill dropdowns. */
     priorityLabel: 'Priority',
     priorityGroupLabel: 'Filter by priority',

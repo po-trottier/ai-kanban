@@ -10,6 +10,46 @@
   padding-block-end: var(--mantine-spacing-sm);
   border-bottom: 1px solid var(--mantine-color-default-border);
   margin-block-end: var(--mantine-spacing-sm);
+  /* Anchor the indeterminate progress bar to the bar's bottom edge. */
+  position: relative;
+}
+
+/* Indeterminate "filtering in progress" bar riding the bar's bottom border,
+   shown whenever a filter change is applying (debounce + fetch). A sliding
+   segment (no known duration → indeterminate) is the clear, uniform cue for
+   every filter. Honors reduced-motion by holding a static centered segment. */
+.progress {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: -1px;
+  block-size: 2px;
+  overflow: hidden;
+}
+
+.progress::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inline-size: 30%;
+  border-radius: var(--mantine-radius-xl);
+  background-color: var(--mantine-primary-color-filled);
+  animation: filter-bar-progress 900ms ease-in-out infinite;
+}
+
+@keyframes filter-bar-progress {
+  from {
+    inset-inline-start: -30%;
+  }
+  to {
+    inset-inline-start: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress::before {
+    animation: none;
+    inset-inline-start: 35%;
+  }
 }
 
 /* The free-text query has a readable fixed width; it does NOT grow, so the

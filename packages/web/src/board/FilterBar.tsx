@@ -30,6 +30,9 @@ import classes from './filter-bar.module.css'
 export interface FilterBarProps {
   filter: BoardFilter
   onChange: (filter: BoardFilter) => void
+  /** A filtered board fetch is pending or in flight (incl. the debounce window):
+   *  shows a spinner in the search box so an edit reads as "working" immediately. */
+  busy?: boolean
   tags: string[]
   locations: Location[]
   /** The current user's id — fills the "My Cards" built-in preset. */
@@ -51,7 +54,14 @@ export interface FilterBarProps {
  * + controlled: it holds no state, just renders `filter` and calls `onChange`
  * with the next `BoardFilter`.
  */
-export function FilterBar({ filter, onChange, tags, locations, currentUserId }: FilterBarProps) {
+export function FilterBar({
+  filter,
+  onChange,
+  busy = false,
+  tags,
+  locations,
+  currentUserId,
+}: FilterBarProps) {
   const set = <K extends keyof BoardFilter>(key: K, value: BoardFilter[K]) => {
     onChange({ ...filter, [key]: value })
   }
@@ -232,6 +242,17 @@ export function FilterBar({ filter, onChange, tags, locations, currentUserId }: 
           </Tooltip>
         </Group>
       </Group>
+      {/* An indeterminate progress bar along the bar's bottom edge whenever ANY
+          filter change is applying (the debounce window + the fetch), so every
+          filter — search or facet — reads as "working" immediately, not only
+          once the debounced request fires ~300ms later. */}
+      {busy ? (
+        <div
+          role="progressbar"
+          aria-label={strings.filterBar.filterBusy}
+          className={classes.progress}
+        />
+      ) : null}
     </div>
   )
 }

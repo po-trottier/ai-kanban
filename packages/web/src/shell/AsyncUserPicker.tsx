@@ -1,4 +1,10 @@
-import { MultiSelect, type MultiSelectProps, type OptionsFilter, Select } from '@mantine/core'
+import {
+  Loader,
+  MultiSelect,
+  type MultiSelectProps,
+  type OptionsFilter,
+  Select,
+} from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { type ReactNode, useMemo, useState } from 'react'
 import { useResolveUsers, useUserSearch } from '../api/meta.ts'
@@ -61,6 +67,10 @@ function asyncProps(loading: boolean, search: string, setSearch: (value: string)
     onSearchChange: setSearch,
     nothingFoundMessage: loading ? strings.common.loading : strings.userPicker.nothingFound,
     filter: passthroughFilter,
+    // A spinner in the input while a server search is in flight — the previous
+    // matches stay listed (keepPreviousData), so without this there'd be no cue
+    // that typing is fetching new results.
+    rightSection: loading ? <Loader size="xs" aria-label={strings.common.loading} /> : undefined,
   }
 }
 

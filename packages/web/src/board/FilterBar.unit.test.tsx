@@ -31,13 +31,14 @@ const baseRoutes = {
   'GET /api/v1/users/search': userSearchHandler,
 }
 
-function renderBar(filter: BoardFilter = EMPTY_BOARD_FILTER) {
+function renderBar(filter: BoardFilter = EMPTY_BOARD_FILTER, busy = false) {
   const onChange = vi.fn()
   const fake = createFakeFetch(baseRoutes)
   renderWithProviders(
     <FilterBar
       filter={filter}
       onChange={onChange}
+      busy={busy}
       tags={['HVAC', 'urgent']}
       locations={[{ id: uid(300), parentId: null, name: 'Building A', kind: 'building' }]}
       currentUserId={fixtureTech.id}
@@ -48,6 +49,26 @@ function renderBar(filter: BoardFilter = EMPTY_BOARD_FILTER) {
 }
 
 describe('FilterBar', () => {
+  it('shows the filtering progress bar while any filter change is applying', () => {
+    // Arrange — the parent marks the bar busy (a filter edit is registered but not
+    // yet fetched — the debounce window — or the request is in flight).
+    const busy = true
+    // Act
+    renderBar(EMPTY_BOARD_FILTER, busy)
+    // Assert — a "Filtering…" progress bar shows so every filter edit reads as
+    // working immediately, rather than the board sitting still for ~300ms.
+    expect(screen.getByRole('progressbar', { name: 'Filtering…' })).toBeInTheDocument()
+  })
+
+  it('hides the filtering progress bar when idle', () => {
+    // Arrange
+    const busy = false
+    // Act
+    renderBar(EMPTY_BOARD_FILTER, busy)
+    // Assert
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+  })
+
   it('adds a priority through the multi-select (any-of) and reports the next filter', async () => {
     // Arrange
     const user = userEvent.setup()

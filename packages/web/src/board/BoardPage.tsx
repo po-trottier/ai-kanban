@@ -196,6 +196,13 @@ export function BoardPage() {
   // change is refetching over the retained previous board (keepPreviousData).
   const boardLoading =
     boardQuery.isPending || (boardQuery.isFetching && boardQuery.isPlaceholderData)
+  // A filter edit is REGISTERED but not yet fetched during the 300ms debounce
+  // window (the debounced value hasn't caught up to `filter` — `useDebouncedValue`
+  // returns the same reference once settled, so an inequality means "pending").
+  // Fold it into the busy flag so activity shows the instant the user edits a
+  // filter, not only when the debounced request finally fires (otherwise the
+  // board looks frozen for ~300ms after each keystroke).
+  const boardBusy = boardLoading || filter !== debouncedFilter
 
   return (
     <>
@@ -209,6 +216,7 @@ export function BoardPage() {
             <FilterBar
               filter={filter}
               onChange={setFilter}
+              busy={boardBusy}
               tags={(tagsQuery.data ?? []).map((tag) => tag.name)}
               locations={locationsQuery.data ?? []}
               currentUserId={me.id}
