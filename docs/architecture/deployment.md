@@ -7,13 +7,17 @@ one named volume.
 
 ```
 docker compose
-├── app         # Node 24, Fastify: SPA + REST + MCP + SSE + Bolt (Socket Mode) + croner jobs
-│   └── volume: /data  → app.sqlite (+WAL) and blobs/
-└── litestream  # optional sidecar: streams WAL pages to S3-compatible storage
+├── postgres    # PostgreSQL 17 — the production database (ADR-020); named volume pgdata
+└── app         # Node 24, Fastify: SPA + REST + MCP + SSE + Bolt (Socket Mode) + croner jobs
+    └── volume: /data  → blobs/ (DATABASE_URL points at the postgres service)
 ```
 
-- The app container is the **only** writer to the database — never scale it beyond 1 replica
-  while on SQLite.
+- **docker-compose runs on PostgreSQL** ([ADR-020](decisions/ADR-020-postgresql-support.md)): the
+  app reads `DATABASE_URL` and the SQLite-only paths below (single-writer rule, WAL/VACUUM
+  snapshots, Litestream) do not apply. The **dev server** (`npm run dev`) still uses SQLite.
+- SQLite single-node (below) remains a supported lightweight alternative: unset `DATABASE_URL`,
+  set `DATABASE_PATH`, and the app container becomes the **only** writer — never scale it beyond
+  1 replica while on SQLite.
 - TLS terminates at the org reverse proxy in front; the proxy must disable response buffering
   for `/api/v1/stream` (SSE) — e.g. nginx `X-Accel-Buffering: no`.
 - **Client IP derivation** (per-IP rate limits depend on it): the proxy must set/overwrite
@@ -122,9 +126,12 @@ that still answers nothing on `/readyz` needs an operator (`docker compose resta
 `restart: unless-stopped` only covers exits and crashes (acceptable per the brief-downtime
 decision above).
 
-## Postgres migration (when HA or multi-instance is needed)
+## PostgreSQL
 
-One coordinated move, planned together: Drizzle schema rewrite (`sqlite-core` → `pg-core`) +
-regenerated migrations, EventBus port → LISTEN/NOTIFY, scheduler port → external scheduler
-(pg-boss), Litestream → pg_dump/WAL archiving, then replicas become possible. Repository ports,
-conservative column types, and the dependency-cruiser rules exist to keep this mechanical.
+The data layer runs on **PostgreSQL** for production (set `DATABASE_URL`;
+[ADR-020](decisions/ADR-020-postgresql-support.md)) — the `sqlite-core` → `pg-core` rewrite behind
+the unchanged repository ports: a `pgTable` schema, async repositories, an async unit of work, and
+a single `0000_init` pg migration. `docker-compose.yml` launches `postgres:17` and points the app at
+it; back up with standard pg tooling (`pg_dump` / WAL archiving) instead of Litestream. Remaining
+HA follow-ups (still open): the in-process EventBus → `LISTEN/NOTIFY` and the croner scheduler →
+an external scheduler before scaling the app past one replica.
