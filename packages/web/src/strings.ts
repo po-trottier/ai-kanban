@@ -596,6 +596,10 @@ export const strings = {
       'The estimate is the working time (Mon–Fri, 9am–5pm) between now and this date.',
     assigneeLabel: 'Assignee',
     locationLabel: 'Location',
+    /** Shown in place of the location picker when no locations exist yet. */
+    noLocations: 'No locations yet',
+    noLocationsHint: 'Create locations in',
+    noLocationsSettingsLink: 'Settings',
     tagsLabel: 'Tags',
     reporterLabel: 'Reporter',
     createdLabel: 'Created',

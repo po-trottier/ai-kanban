@@ -44,4 +44,14 @@ describe('LocationPicker', () => {
     // Assert
     expect(screen.getByText('Pick a location')).toBeInTheDocument()
   })
+
+  it('replaces an empty picker with a clear message + a Settings link', () => {
+    // Arrange
+    const noop = () => undefined
+    // Act — no locations exist in the instance.
+    renderWithProviders(<LocationPicker locations={[]} value={null} onChange={noop} />)
+    // Assert — a disabled field says so and points to Settings, not a tiny empty box.
+    expect(screen.getByPlaceholderText('No locations yet')).toBeDisabled()
+    expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument()
+  })
 })
