@@ -1,50 +1,22 @@
-import {
-  RELATION_TYPES,
-  type CardRelationView,
-  type CreateCardRelationInput,
-  type RelationType,
-} from '@rivian-kanban/core'
-import {
-  ActionIcon,
-  Anchor,
-  Badge,
-  Group,
-  Loader,
-  Select,
-  Stack,
-  Text,
-  Tooltip,
-  type OptionsFilter,
-} from '@mantine/core'
-import { useDebouncedValue } from '@mantine/hooks'
-import { Trash2 } from 'lucide-react'
+import { type CardRelationView } from '@rivian-kanban/core'
+import { ActionIcon, Anchor, Badge, Group, Stack, Text, Tooltip } from '@mantine/core'
+import { Link2, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import {
-  useCardRelations,
-  useCardSearch,
-  useCreateRelation,
-  useDeleteRelation,
-} from '../api/relations.ts'
-import { type CardSearchItem } from '../api/schemas.ts'
+import { useCardRelations, useCreateRelation, useDeleteRelation } from '../api/relations.ts'
 import { formatTicketNumber } from '../lib/format.ts'
 import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
-
-/** Debounce keystrokes so a burst of typing collapses into one card search. */
-const SEARCH_DEBOUNCE_MS = 275
-
-/** We own fetching (the server returned the matches), so show every option as-is. */
-const passthroughFilter: OptionsFilter = ({ options }) => options
+import { AddRelationModal } from './AddRelationModal.tsx'
 
 /**
  * The card's typed relations in the detail panel (docs/architecture/card-relations.md).
- * Lists each related card with the relationship as seen from THIS card (Blocks /
- * Blocked by / Duplicates / Duplicated by / Relates to), links through to it,
- * and — unless the card is archived (read-only) — offers an add row: a
- * relationship type + an async card search for the target. Relations never
- * appear on board card previews, only here.
+ * A quiet LIST of related cards, each labelled with the relationship as seen from
+ * THIS card (Blocks / Blocked by / Duplicates / Duplicated by / Relates to) and
+ * linking through to it, plus — unless the card is archived (read-only) — a single
+ * "Add relationship" button that opens a modal with the required fields. Relations
+ * never appear on board card previews, only here.
  */
 export function RelationsSection({
   cardId,
@@ -58,6 +30,7 @@ export function RelationsSection({
   const createRelation = useCreateRelation(cardId)
   const navigate = useNavigate()
   const location = useLocation()
+  const [adding, setAdding] = useState(false)
 
   const relations = relationsQuery.data ?? []
 
@@ -96,15 +69,37 @@ export function RelationsSection({
         </Stack>
       )}
       {readOnly ? null : (
-        <AddRelationForm
+        <Group>
+          <HintButton
+            tooltip={strings.relations.tooltips.addButton}
+            variant="default"
+            size="xs"
+            leftSection={<Link2 size={16} aria-hidden />}
+            onClick={() => {
+              setAdding(true)
+            }}
+          >
+            {strings.relations.addButton}
+          </HintButton>
+        </Group>
+      )}
+      {adding ? (
+        <AddRelationModal
           currentCardId={Number(cardId)}
           existingIds={relations.map((relation) => relation.card.id)}
           saving={createRelation.isPending}
           onAdd={(input) => {
-            createRelation.mutate(input)
+            createRelation.mutate(input, {
+              onSuccess: () => {
+                setAdding(false)
+              },
+            })
+          }}
+          onClose={() => {
+            setAdding(false)
           }}
         />
-      )}
+      ) : null}
     </Stack>
   )
 }
@@ -147,94 +142,6 @@ function RelationRow({
           </ActionIcon>
         </Tooltip>
       )}
-    </Group>
-  )
-}
-
-/** The add-a-relation row: a relationship type + an async card-search target. */
-function AddRelationForm({
-  currentCardId,
-  existingIds,
-  saving,
-  onAdd,
-}: {
-  currentCardId: number
-  existingIds: number[]
-  saving: boolean
-  onAdd: (input: CreateCardRelationInput) => void
-}) {
-  const [type, setType] = useState<RelationType>('blocks')
-  const [target, setTarget] = useState<CardSearchItem | null>(null)
-  const [search, setSearch] = useState('')
-  const [debounced] = useDebouncedValue(search, SEARCH_DEBOUNCE_MS)
-  const searchQuery = useCardSearch(debounced)
-
-  // Never offer this card or one already related; pin the selected card so its
-  // label always resolves even after the search text moves on.
-  const exclude = new Set<number>([currentCardId, ...existingIds])
-  const byId = new Map<number, CardSearchItem>()
-  if (target !== null) byId.set(target.id, target)
-  for (const card of searchQuery.data?.items ?? []) {
-    if (!exclude.has(card.id) && !byId.has(card.id)) byId.set(card.id, card)
-  }
-  const cardOption = (card: CardSearchItem) => ({
-    value: String(card.id),
-    label: `${formatTicketNumber(card.id)} — ${card.title}`,
-  })
-  const options = [...byId.values()].map(cardOption)
-  const typeOptions = RELATION_TYPES.map((value) => ({
-    value,
-    label: strings.relations.labels[value].outgoing,
-  }))
-  const loading = searchQuery.isFetching
-
-  const submit = () => {
-    if (target === null) return
-    onAdd({ toCardId: target.id, type })
-    setTarget(null)
-    setSearch('')
-  }
-
-  return (
-    <Group align="flex-end" gap="sm" wrap="nowrap">
-      <Select
-        label={strings.relations.typeLabel}
-        data={typeOptions}
-        value={type}
-        allowDeselect={false}
-        onChange={(value) => {
-          if (value !== null) setType(value)
-        }}
-      />
-      <Select
-        label={strings.relations.targetLabel}
-        placeholder={strings.relations.targetPlaceholder}
-        data={options}
-        value={target === null ? null : String(target.id)}
-        onChange={(value) => {
-          setTarget(value === null ? null : (byId.get(Number(value)) ?? null))
-        }}
-        searchable
-        searchValue={search}
-        onSearchChange={setSearch}
-        filter={passthroughFilter}
-        nothingFoundMessage={
-          loading ? strings.common.loading : strings.relations.targetNothingFound
-        }
-        rightSection={
-          loading ? <Loader size="xs" aria-label={strings.common.loading} /> : undefined
-        }
-        comboboxProps={{ withinPortal: true }}
-        style={{ flex: 1 }}
-      />
-      <HintButton
-        tooltip={strings.relations.tooltips.add}
-        loading={saving}
-        disabledReason={target === null ? strings.relations.tooltips.disabledNoTarget : false}
-        onClick={submit}
-      >
-        {strings.relations.add}
-      </HintButton>
     </Group>
   )
 }

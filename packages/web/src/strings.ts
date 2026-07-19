@@ -451,7 +451,10 @@ export const strings = {
   relations: {
     sectionTitle: 'Relations',
     empty: 'No related cards yet.',
-    /** The add-a-relation row: pick a relationship + a target card. */
+    /** Opens the add-relationship modal. */
+    addButton: 'Add relationship',
+    /** The add-a-relation modal: pick a relationship + a target card. */
+    modalTitle: 'Add relationship',
     typeLabel: 'Relationship',
     targetLabel: 'Related card',
     targetPlaceholder: 'Search cards by title or #number…',
@@ -470,7 +473,8 @@ export const strings = {
       relates_to: { outgoing: 'Relates to', incoming: 'Relates to' },
     } satisfies Record<RelationType, Record<RelationDirection, string>>,
     tooltips: {
-      add: 'Link this card to another — blocks, duplicates, or relates to',
+      addButton: 'Link this card to another — blocks, duplicates, or relates to',
+      add: 'Add the relation to this card',
       remove: 'Remove this relation',
       disabledNoTarget: 'Search for and pick a card to relate first',
     },

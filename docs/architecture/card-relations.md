@@ -11,6 +11,14 @@ A deliberately small, researched set (the common core of Linear / GitHub / Jira,
 used `clones`/`fixes`). A relation is stored as **one directed row** (`from → to`) with a type; the
 other card renders the **inverse**.
 
+**Every relation is two-way.** Linking `A blocks B` makes B read "Blocked by A" with no second row and
+no write-side fan-out: the inverse is surfaced **lazily at read time**. A card's relation list is every
+row touching it on _either_ end (`listByCard` = `from_card_id = ? OR to_card_id = ?`); each row is
+resolved from the viewing card's perspective — `outgoing` when it is the `from` (forward label),
+`incoming` when it is the `to` (inverse label). So "Blocks ↔ Blocked by", "Duplicates ↔ Duplicated by",
+and the symmetric "Relates to ↔ Relates to" all appear on both cards from the single stored edge. The
+`(type, direction) → label` mapping below is the one place inverses are defined.
+
 | Type         | Direction   | `from` card reads | `to` card reads   | Meaning                                            |
 | ------------ | ----------- | ----------------- | ----------------- | -------------------------------------------------- |
 | `blocks`     | directional | **Blocks**        | **Blocked by**    | the operational dependency between work orders     |
@@ -73,8 +81,11 @@ OTHER card. `outgoing` = the requesting card is `from` (reads the forward label)
 ## Frontend
 
 `packages/web/src/card/RelationsSection.tsx`, rendered in the detail panel's **Details** tab (below
-Attachments). It lists each related card with the relationship as seen from the open card, links
-through to the other card (preserving the board filter query in the URL), and — unless the card is
-archived (read-only) — offers an **add row**: a relationship-type select plus an **async card search**
-that reuses `GET /cards?q=` (title / ticket-number substring), excluding the current card and any
-already-related one. Relations are **never** rendered on board card previews.
+Attachments). It is a **quiet list**: each related card shows the relationship as seen from the open
+card (a grey badge) and links through to the other card (preserving the board filter query in the URL),
+with a subtle red remove action per row. Unless the card is archived (read-only), a single **"Add
+relationship"** button (lucide `Link2`) sits below the list and opens `AddRelationModal.tsx` — a modal
+holding the two required fields (a relationship-type select + an **async card search** that reuses
+`GET /cards?q=` on title / ticket-number substring, excluding the current card and any already-related
+one) plus Cancel / Add. The modal closes itself once the relation is created. Relations are **never**
+rendered on board card previews.

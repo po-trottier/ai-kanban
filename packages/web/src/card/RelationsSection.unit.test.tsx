@@ -61,17 +61,21 @@ describe('RelationsSection', () => {
     })
     renderWithProviders(<RelationsSection cardId="5" />, { fetchFn: fake.fetch })
     await screen.findByText('No related cards yet.')
-    // Act — search for the target card, pick it, add (type defaults to Blocks).
-    await user.click(screen.getByRole('combobox', { name: 'Related card' }))
+    // Act — open the modal, search for the target card, pick it, add (type
+    // defaults to Blocks).
+    await user.click(screen.getByRole('button', { name: 'Add relationship' }))
+    await user.click(await screen.findByRole('combobox', { name: 'Related card' }))
     await user.type(screen.getByRole('combobox', { name: 'Related card' }), 'Install')
     await user.click(await screen.findByRole('option', { name: /#9 — Install fixtures/ }))
     await user.click(screen.getByRole('button', { name: 'Add relation' }))
-    // Assert — the POST carries the picked card id + the chosen type; a toast fires.
+    // Assert — the POST carries the picked card id + the chosen type; a toast
+    // fires and the modal closes on success.
     expect(await screen.findByText('Relation added')).toBeInTheDocument()
     expect(fake.lastBody('POST', '/api/v1/cards/5/relations')).toEqual({
       toCardId: 9,
       type: 'blocks',
     })
+    expect(screen.queryByRole('button', { name: 'Add relation' })).not.toBeInTheDocument()
   })
 
   it('removes a relation (DELETE)', async () => {
@@ -103,14 +107,31 @@ describe('RelationsSection', () => {
     ).toBe(true)
   })
 
-  it('is read-only when archived: no add row, no remove buttons', async () => {
+  it('is read-only when archived: no add button, no remove buttons', async () => {
     // Arrange
     const fake = createFakeFetch({ 'GET /api/v1/cards/5/relations': [view()] })
     // Act
     renderWithProviders(<RelationsSection cardId="5" readOnly />, { fetchFn: fake.fetch })
     await screen.findByText('Blocks')
     // Assert — relations are shown, but nothing can be added or removed.
-    expect(screen.queryByRole('button', { name: 'Add relation' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add relationship' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Remove relation/ })).not.toBeInTheDocument()
+  })
+
+  it('opens and cancels the add-relationship modal without posting', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const fake = createFakeFetch({
+      'GET /api/v1/cards/5/relations': [],
+      'GET /api/v1/cards': { items: [], nextCursor: null },
+    })
+    renderWithProviders(<RelationsSection cardId="5" />, { fetchFn: fake.fetch })
+    await screen.findByText('No related cards yet.')
+    // Act — open the modal, then cancel it.
+    await user.click(screen.getByRole('button', { name: 'Add relationship' }))
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }))
+    // Assert — the modal is gone and nothing was posted.
+    expect(screen.queryByRole('button', { name: 'Add relation' })).not.toBeInTheDocument()
+    expect(fake.calls.some((call) => call.method === 'POST')).toBe(false)
   })
 })
