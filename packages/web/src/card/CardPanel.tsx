@@ -329,8 +329,12 @@ function CardPanelBody({ cardId }: { cardId: string }) {
                 updateCard.mutate({ card: detail.card, changes })
               }}
             >
-              {/* Attachments and Relations sit between the fields and the
+              {/* Relations then Attachments sit between the fields and the
                   timestamps; the Save button stays sticky below everything. */}
+              <Divider />
+              {/* Typed links to other cards (blocks / duplicates / relates to) —
+                  shown only here, never on board card previews. */}
+              <RelationsSection cardId={cardId} readOnly={archived} />
               <Divider />
               <AttachmentsSection
                 attachments={detail.attachments}
@@ -346,10 +350,6 @@ function CardPanelBody({ cardId }: { cardId: string }) {
                   deleteAttachment.mutate(attachmentId)
                 }}
               />
-              <Divider />
-              {/* Typed links to other cards (blocks / duplicates / relates to) —
-                  shown only here, never on board card previews. */}
-              <RelationsSection cardId={cardId} readOnly={archived} />
             </CardDetailsForm>
           </Stack>
         </Tabs.Panel>

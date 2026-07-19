@@ -53,7 +53,9 @@ export function CardFieldInputs({
   disabled = false,
 }: CardFieldInputsProps) {
   return (
-    <>
+    // Generous vertical rhythm so the fields are easy to scan (both the detail
+    // panel and the create panel render this same roster).
+    <Stack gap="lg">
       <TextInput
         label={
           <FieldLabel label={strings.detail.titleLabel} help={strings.fieldHelp.title} required />
@@ -178,6 +180,6 @@ export function CardFieldInputs({
           />
         )}
       />
-    </>
+    </Stack>
   )
 }

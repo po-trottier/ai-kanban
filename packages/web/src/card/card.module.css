@@ -25,11 +25,13 @@
 }
 
 /* Comments tab = a bounded flex column: the LIST scrolls, the top-level
-   composer below it stays pinned so composing is always reachable. */
+   composer below it stays pinned so composing is always reachable. The gap
+   keeps the composer from touching the list (e.g. the "no comments yet" line). */
 .commentsArea {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  gap: var(--mantine-spacing-md);
 }
 
 /* The scroll region. Capped so it never pushes the composer off-screen; the

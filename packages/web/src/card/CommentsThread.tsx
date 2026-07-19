@@ -466,7 +466,9 @@ function Composer({
     wasPending.current = pending
   }, [pending])
   return (
-    <Stack gap="xs">
+    // gap "sm" so the submit button never touches the textarea (esp. the
+    // indented "Post reply" composer).
+    <Stack gap="sm">
       <MentionTextarea
         aria-label={label}
         placeholder={strings.comments.composerPlaceholder}

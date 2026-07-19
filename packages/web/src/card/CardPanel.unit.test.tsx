@@ -351,22 +351,22 @@ describe('CardPanel', () => {
     expect(screen.queryByRole('button', { name: 'Delete their-photo.png' })).not.toBeInTheDocument()
   })
 
-  it('orders the Details tab fields → attachments → relations → timestamps → sticky Save', async () => {
+  it('orders the Details tab fields → relations → attachments → timestamps → sticky Save', async () => {
     // Arrange
     const fake = panelApp()
     // Act
     renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     await screen.findByRole('textbox', { name: /Title/ })
-    // Assert — the fields, the Attachments section (its FieldLabel help names the
-    // 25 MB / 10-file caps), the Relations heading, the Updated timestamp, and
-    // the Save button all render in the intended top-to-bottom order, with Save
-    // last (it is the sticky footer pinned at the panel bottom).
+    // Assert — the fields, the Relations heading, the Attachments section (its
+    // FieldLabel help names the 25 MB / 10-file caps), the Updated timestamp, and
+    // the Save button all render in the intended top-to-bottom order (relations
+    // before attachments, #146), with Save last (the sticky footer at the bottom).
     const title = screen.getByRole('textbox', { name: /Title/ })
     const attachmentsHelp = screen.getByRole('button', { name: /25 MB each/ })
     const relations = screen.getByText('Relations')
     const updated = screen.getByText(/^Updated:/)
     const save = screen.getByRole('button', { name: 'Save changes' })
-    const inOrder = [title, attachmentsHelp, relations, updated, save]
+    const inOrder = [title, relations, attachmentsHelp, updated, save]
     for (let i = 0; i < inOrder.length - 1; i += 1) {
       // Each element PRECEDES the next in document order (mask includes bit 4).
       expect(inOrder[i]?.compareDocumentPosition(inOrder[i + 1] as Node)).toBe(
