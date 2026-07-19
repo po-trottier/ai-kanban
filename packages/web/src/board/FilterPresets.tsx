@@ -274,7 +274,7 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
               </InputBase>
             </Combobox.Target>
           </Tooltip>
-          <Combobox.Dropdown>
+          <Combobox.Dropdown className={classes.presetDropdown}>
             <Combobox.Options>
               <Combobox.Group label={strings.filterBar.presetsBuiltInGroup}>
                 {builtinData.map((option) => (

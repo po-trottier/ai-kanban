@@ -78,11 +78,18 @@
   width: var(--app-filter-pill-width);
 }
 
-/* The presets combobox: a fixed width (same token as the pill facets) so its
-   dropdown — which inherits the target width — is wide enough that entries like
-   "Save preset" sit on a single line instead of wrapping. */
+/* The presets combobox target: a fixed width (same token as the pill facets) so
+   the collapsed control keeps the bar's constant footprint. */
 .preset {
   width: var(--app-filter-pill-width);
+}
+
+/* The presets dropdown inherits the (narrow) target width, which clipped wider
+   rows like "Save preset" onto two lines. `min-width: max-content` lets the
+   dropdown grow to its widest option so every entry sits on one line, while the
+   inline target width still sets the floor. */
+.presetDropdown {
+  min-width: max-content;
 }
 
 /* Keep selected pills on a SINGLE row and clip the overflow so many values can't
