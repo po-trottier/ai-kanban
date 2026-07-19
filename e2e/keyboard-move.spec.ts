@@ -36,6 +36,10 @@ test('moves a card via the Move to… menu using only the keyboard', async ({ pa
   await page.keyboard.press('Tab')
   await expect(page.getByRole('combobox', { name: 'Column' })).toBeFocused()
   await page.keyboard.press('ArrowDown') // opens the dropdown on Intake
+  // Wait for the listbox to actually render before navigating: on a slow CI
+  // runner the next ArrowDown can fire before the dropdown is ready and get
+  // dropped, landing the highlight on the wrong option.
+  await expect(page.getByRole('listbox')).toBeVisible()
   await page.keyboard.press('ArrowDown') // Waiting for Approval
   await page.keyboard.press('ArrowDown') // Ready
   await page.keyboard.press('Enter')
@@ -44,6 +48,7 @@ test('moves a card via the Move to… menu using only the keyboard', async ({ pa
   await page.keyboard.press('Tab')
   await expect(page.getByRole('combobox', { name: 'Position' })).toBeFocused()
   await page.keyboard.press('ArrowDown') // opens the dropdown on First (top)
+  await expect(page.getByRole('listbox')).toBeVisible()
   await page.keyboard.press('Enter') // confirms First (top)
   await expect(page.getByRole('combobox', { name: 'Position' })).toHaveValue('First (top)')
 
