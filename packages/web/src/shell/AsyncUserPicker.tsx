@@ -27,7 +27,10 @@ interface Option {
  * card's assignee (even a deactivated one, absent from search) still renders its
  * name. Selected options come first so the picker shows them even before typing.
  */
-function useAsyncUserOptions(selectedIds: readonly string[]): {
+function useAsyncUserOptions(
+  selectedIds: readonly string[],
+  currentUserId?: string,
+): {
   options: Option[]
   search: string
   setSearch: (value: string) => void
@@ -42,16 +45,22 @@ function useAsyncUserOptions(selectedIds: readonly string[]): {
     const byId = new Map<string, Option>()
     // Selected first so they head the list; search results fill the rest.
     for (const user of [...(resolveQuery.data ?? []), ...(searchQuery.data ?? [])]) {
-      if (!byId.has(user.id)) byId.set(user.id, toOption(user))
+      if (!byId.has(user.id)) byId.set(user.id, toOption(user, currentUserId))
     }
     return [...byId.values()]
-  }, [resolveQuery.data, searchQuery.data])
+  }, [resolveQuery.data, searchQuery.data, currentUserId])
 
   return { options, search, setSearch, loading: searchQuery.isFetching }
 }
 
-function toOption(user: PickerUser): Option {
-  return { value: user.id, label: user.displayName }
+// Mark the current user's option/pill so "me" is easy to find and pick — the
+// same label drives both the dropdown option and the selected pill.
+function toOption(user: PickerUser, currentUserId?: string): Option {
+  const label =
+    user.id === currentUserId
+      ? `${user.displayName}${strings.userPicker.youSuffix}`
+      : user.displayName
+  return { value: user.id, label }
 }
 
 // We own fetching (the server already returned the matches for the current
@@ -83,6 +92,8 @@ export interface AsyncUserMultiSelectProps {
   // which `exactOptionalPropertyTypes` won't assign to a bare `?:` optional.
   className?: string | undefined
   classNames?: MultiSelectProps['classNames']
+  /** The "me" id: its option/pill label gets a "(you)" suffix so it's easy to pick. */
+  currentUserId?: string
 }
 
 /**
@@ -98,8 +109,9 @@ export function AsyncUserMultiSelect({
   placeholder,
   className,
   classNames,
+  currentUserId,
 }: AsyncUserMultiSelectProps) {
-  const { options, search, setSearch, loading } = useAsyncUserOptions(value)
+  const { options, search, setSearch, loading } = useAsyncUserOptions(value, currentUserId)
   return (
     <MultiSelect
       {...(className === undefined ? {} : { className })}

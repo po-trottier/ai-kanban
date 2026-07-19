@@ -153,6 +153,7 @@ export function FilterBar({
               onChange={(next) => {
                 set('assigneeIds', next)
               }}
+              currentUserId={currentUserId}
             />
 
             <UserPillFacet
@@ -163,6 +164,7 @@ export function FilterBar({
               onChange={(next) => {
                 set('reporterIds', next)
               }}
+              currentUserId={currentUserId}
             />
 
             <Divider orientation="vertical" className={classes.divider} />
@@ -294,12 +296,14 @@ function UserPillFacet({
   tooltip,
   value,
   onChange,
+  currentUserId,
 }: {
   label: string
   placeholder: string
   tooltip: string
   value: string[]
   onChange: (next: string[]) => void
+  currentUserId: string
 }) {
   return (
     <Tooltip label={tooltip} withArrow>
@@ -310,6 +314,7 @@ function UserPillFacet({
         placeholder={placeholder}
         className={classes.pill}
         classNames={{ pillsList: classes.pillsList }}
+        currentUserId={currentUserId}
       />
     </Tooltip>
   )

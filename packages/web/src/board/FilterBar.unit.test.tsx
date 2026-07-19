@@ -121,11 +121,31 @@ describe('FilterBar', () => {
         ),
       ).toBe(true)
     })
-    await user.click(await screen.findByRole('option', { name: fixtureTech.displayName }))
+    // fixtureTech is the current user (renderBar passes its id as currentUserId),
+    // so its option label carries the "(you)" suffix marking "me".
+    await user.click(
+      await screen.findByRole('option', { name: `${fixtureTech.displayName} (you)` }),
+    )
     // Assert — the pick updated the filter to the matched assignee.
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ assigneeIds: [fixtureTech.id] }),
     )
+  })
+
+  it('marks the current user with "(you)" in the assignee picker options', async () => {
+    // Arrange — renderBar passes fixtureTech.id as currentUserId ("me").
+    const user = userEvent.setup()
+    renderBar()
+    // Act — open the Assignee picker; the empty-`q` search lists every user.
+    await user.click(screen.getByRole('combobox', { name: 'Assignee' }))
+    // Assert — the current user's option is suffixed with "(you)"; another user's
+    // option keeps its plain display name.
+    expect(
+      await screen.findByRole('option', { name: `${fixtureTech.displayName} (you)` }),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('option', { name: fixtureAdmin.displayName }),
+    ).toBeInTheDocument()
   })
 
   it('resolves a pre-selected assignee id to its name via the ids endpoint', async () => {

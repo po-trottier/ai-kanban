@@ -643,6 +643,8 @@ export const strings = {
   userPicker: {
     /** Shown in the dropdown when a search returns no matching users. */
     nothingFound: 'No matching users',
+    /** Appended to the current user's option/pill label so "me" is easy to spot. */
+    youSuffix: ' (you)',
   },
 
   estimateUnits: {
