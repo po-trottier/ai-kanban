@@ -67,6 +67,12 @@ Each run resets its temp data dir (`e2e/scripts/prepare.mjs`) before booting the
 dir deliberately survives the run — the server still holds the SQLite file when any teardown
 hook could fire on Windows — and the next run's reset owns the cleanup.
 
+`prepare.mjs` builds the SPA **only if `packages/web/dist` is missing** — the server serves the
+built bundle, so one build is reused across a CI job's many specs. The gotcha for LOCAL runs
+(incl. `npm run check`): after a frontend change, a stale `dist` is served, so e2e silently
+tests the OLD UI and can pass while CI (clean checkout, always a fresh build) fails on the new
+UI. When an e2e failure disagrees with the source, `rm -rf packages/web/dist` and re-run.
+
 ## CI pipeline
 
 GitHub Actions, gates in order:
