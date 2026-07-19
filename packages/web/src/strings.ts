@@ -499,6 +499,8 @@ export const strings = {
     tabDetails: 'Details',
     tabComments: 'Comments',
     tabHistory: 'History',
+    /** The lane/state dropdown: change a card's column without dragging it. */
+    stateLabel: 'State',
     titleLabel: 'Title',
     descriptionLabel: 'Description',
     descriptionHelp:

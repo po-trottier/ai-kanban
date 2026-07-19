@@ -36,7 +36,9 @@ the comment thread, and the full history.
 ## Moving cards
 
 Drag cards between columns and up/down within a column. Alternatively — keyboard or touch —
-use the card's **⋯ → Move to…** menu to pick a column and position.
+use the card's **⋯ → Move to…** menu to pick a column and position. From a card's detail panel
+you can also change its column with the **State** dropdown (it drops the card at the bottom of
+the chosen column).
 
 - Moving into **Waiting on Parts / Vendor** always asks _why_ (parts, vendor, access, info,
   funding) and _when work should resume_. When that date passes, the assignee gets a Slack

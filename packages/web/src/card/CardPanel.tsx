@@ -48,6 +48,7 @@ import {
 import { isOverdueResume } from '@rivian-kanban/core'
 import { AttachmentsSection } from './AttachmentsSection.tsx'
 import { CardDetailsForm } from './CardDetailsForm.tsx'
+import { CardStateSelect } from './CardStateSelect.tsx'
 import { CommentsThread } from './CommentsThread.tsx'
 import { HistoryList } from './HistoryList.tsx'
 import classes from './card.module.css'
@@ -243,6 +244,15 @@ function CardPanelBody({ cardId }: { cardId: string }) {
         onSaveWaiting={(changes) => {
           updateCard.mutate({ card: detail.card, changes })
         }}
+      />
+      {/* Change the card's lane from the panel (not only by dragging on the
+          board); archived cards are read-only until reopened. */}
+      <CardStateSelect
+        card={detail.card}
+        board={boardQuery.data}
+        policy={policy}
+        role={me.role}
+        disabled={archived}
       />
       {/* Priority lives in the panel header; this row carries status only. */}
       <CardBadges card={detail.card} today={utcToday()} showPriority={false} />
