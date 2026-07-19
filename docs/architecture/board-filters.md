@@ -213,8 +213,8 @@ The SPA renders the filter as a **filter bar** below the header and above the bo
   precisely so the collapsed display can differ from the option list: **"Custom" is a display-only
   label that is NEVER a dropdown row** (`strings.filterBar.presetsCustom`) — to persist a drifted
   filter the user saves it as a named preset. Every click fires `onOptionSubmit`, so re-picking the
-  SAME preset always re-applies it. Creating a preset is a trailing **"Create new preset"** entry at
-  the bottom of the dropdown (there is no separate Save icon button): selecting it opens the name
-  dialog and `POST`s the live filter. Rename/delete stay as icon affordances beside the combobox,
+  SAME preset always re-applies it. Creating a preset is a trailing **"Save preset"** entry (a lucide
+  floppy-disk `Save` glyph) at the bottom of the dropdown (there is no separate Save icon button):
+  selecting it opens the name dialog and `POST`s the live filter. Rename/delete stay as icon affordances beside the combobox,
   shown only while a custom preset is the applied, name-shown selection. All three wire to the CRUD API
   with loading states and toasts.

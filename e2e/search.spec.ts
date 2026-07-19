@@ -120,12 +120,12 @@ test('saves the current filter as a preset, then reapplies it (per-user CRUD)', 
   await openBoard(page)
 
   // Filter down to the loading-dock card, then save it as a named preset via the
-  // presets dropdown's "Create new preset" entry (the Save icon button is gone).
+  // presets dropdown's "Save preset" entry (no separate Save icon button).
   await filterBoard(page, 'loading-dock')
   await expect(boardCard(page, 'Repair loading-dock leveler')).toBeVisible()
   const name = `Dock ${randomUUID()}`
   await page.getByRole('combobox', { name: 'Preset' }).click()
-  await page.getByRole('option', { name: 'Create new preset' }).click()
+  await page.getByRole('option', { name: 'Save preset' }).click()
   await page.getByRole('textbox', { name: 'Preset name' }).fill(name)
   await page.getByRole('button', { name: 'Save preset', exact: true }).click()
   await expect(page.getByText('Preset saved')).toBeVisible()

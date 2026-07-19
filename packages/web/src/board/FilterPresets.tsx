@@ -16,7 +16,7 @@ import {
   Tooltip,
   useCombobox,
 } from '@mantine/core'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Save, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import {
   useCreateFilterPreset,
@@ -26,6 +26,7 @@ import {
 } from '../api/filter-presets.ts'
 import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
+import classes from './filter-bar.module.css'
 
 export interface FilterPresetsProps {
   /** The current filter — saved verbatim when the user creates/overwrites a preset. */
@@ -40,9 +41,9 @@ export interface FilterPresetsProps {
 const BUILTIN_PREFIX = 'builtin:'
 
 /**
- * Sentinel value for the trailing "Create new preset" dropdown entry. Selecting
- * it opens the save-preset flow instead of applying a filter (ITEM 3) — the
- * save trigger lives inside the dropdown, not as a separate icon button.
+ * Sentinel value for the trailing "Save preset" dropdown entry. Selecting it
+ * opens the save-preset flow instead of applying a filter (ITEM 3) — the save
+ * trigger lives inside the dropdown, not as a separate icon button.
  */
 const CREATE_VALUE = 'action:create'
 
@@ -52,7 +53,7 @@ const CREATE_VALUE = 'action:create'
  * It is never a dropdown option — the target renders the word "Custom" directly
  * (Combobox lets the collapsed display differ from the option list), so "Custom"
  * shows when collapsed but is never a pickable row. To keep a drifted filter, the
- * user saves it as a named preset ("Create new preset").
+ * user saves it as a named preset ("Save preset").
  */
 const CUSTOM_VALUE = 'state:custom'
 
@@ -113,9 +114,9 @@ function resolveAppliedFilter(
  * Overdue) render from core constants; custom presets come from
  * `GET /filter-presets`. Selecting any preset applies its COMPLETE `BoardFilter`
  * — every facet, not an overlay. "My Cards" fills its assignee with the current
- * user id client-side (only the client knows "me"). A trailing "Create new
- * preset" entry at the bottom of the dropdown opens the save-preset flow
- * (ITEM 3) — there is no separate Save icon button.
+ * user id client-side (only the client knows "me"). A trailing "Save preset"
+ * entry (a floppy-disk glyph) at the bottom of the dropdown opens the save-preset
+ * flow (ITEM 3) — there is no separate Save icon button beside the combobox.
  *
  * The combobox value REFLECTS state (#120): it shows the APPLIED preset's name
  * while the live filter still equals it, "Custom" once any facet drifts from
@@ -187,7 +188,7 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
             ?.label ?? null)
 
   // onOptionSubmit only ever fires for a real dropdown row (a preset or the
-  // "Create new preset" action) — "Custom" is display-only and never submitted.
+  // "Save preset" action) — "Custom" is display-only and never submitted.
   const applyValue = (value: string) => {
     if (value === CREATE_VALUE) {
       setDialog({ kind: 'save' })
@@ -226,6 +227,7 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
                 component="button"
                 type="button"
                 pointer
+                className={classes.preset}
                 aria-label={strings.filterBar.presetsLabel}
                 rightSection={<Combobox.Chevron />}
                 rightSectionPointerEvents="none"
@@ -257,10 +259,15 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
                   ))}
                 </Combobox.Group>
               ) : null}
-              {/* The trailing "Create new preset" action opens the save dialog. */}
+              {/* The trailing "Save preset" action opens the save dialog. A
+                  floppy-disk glyph marks it as the save affordance; nowrap keeps
+                  the icon + label on one line. */}
               <Combobox.Group label={strings.filterBar.presetsCreateGroup}>
                 <Combobox.Option value={CREATE_VALUE}>
-                  {strings.filterBar.presetsCreate}
+                  <Group gap="xs" wrap="nowrap">
+                    <Save size={16} aria-hidden />
+                    {strings.filterBar.presetsCreate}
+                  </Group>
                 </Combobox.Option>
               </Combobox.Group>
             </Combobox.Options>

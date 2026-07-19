@@ -390,7 +390,7 @@ export const strings = {
     presetsCustom: 'Custom',
     /** Trailing dropdown action that opens the save-preset flow. */
     presetsCreateGroup: 'Actions',
-    presetsCreate: 'Create new preset',
+    presetsCreate: 'Save preset',
     /** Built-in preset display names (mirror core BUILTIN_FILTER_PRESETS). */
     builtinMyCards: 'My Cards',
     builtinOverdue: 'Overdue',

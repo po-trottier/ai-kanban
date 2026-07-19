@@ -38,6 +38,13 @@
   width: var(--app-filter-pill-width);
 }
 
+/* The presets combobox: a fixed width (same token as the pill facets) so its
+   dropdown — which inherits the target width — is wide enough that entries like
+   "Save preset" sit on a single line instead of wrapping. */
+.preset {
+  width: var(--app-filter-pill-width);
+}
+
 /* Keep selected pills on a SINGLE row and clip the overflow so many values can't
    grow the control's height. Combined with the fixed width above, the control's
    box is constant whether 0 or many values are selected (Mantine Styles API:
