@@ -61,4 +61,15 @@ describe('SettingsPage', () => {
     // Assert
     expect(await screen.findByText('Stale lane')).toBeInTheDocument()
   })
+
+  it('opens the tab named by ?tab= so deep links (e.g. Locations) land right', async () => {
+    // Arrange
+    const fake = settingsApp()
+    // Act — the empty LocationPicker links here.
+    renderApp({ fetchFn: fake.fetch, route: '/settings?tab=locations' })
+    // Assert
+    expect(
+      await screen.findByRole('tab', { name: 'Locations', selected: true }),
+    ).toBeInTheDocument()
+  })
 })

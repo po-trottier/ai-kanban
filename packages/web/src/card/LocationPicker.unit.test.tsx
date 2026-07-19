@@ -50,8 +50,12 @@ describe('LocationPicker', () => {
     const noop = () => undefined
     // Act — no locations exist in the instance.
     renderWithProviders(<LocationPicker locations={[]} value={null} onChange={noop} />)
-    // Assert — a disabled field says so and points to Settings, not a tiny empty box.
+    // Assert — a disabled field says so and deep-links straight to the Locations
+    // settings tab, not a tiny empty box.
     expect(screen.getByPlaceholderText('No locations yet')).toBeDisabled()
-    expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '/settings?tab=locations',
+    )
   })
 })

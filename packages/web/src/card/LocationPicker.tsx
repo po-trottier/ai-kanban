@@ -43,7 +43,7 @@ export function LocationPicker({
         description={
           <>
             {strings.detail.noLocationsHint}{' '}
-            <Anchor component={Link} to="/settings">
+            <Anchor component={Link} to="/settings?tab=locations" size="xs">
               {strings.detail.noLocationsSettingsLink}
             </Anchor>
           </>

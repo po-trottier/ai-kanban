@@ -1,4 +1,5 @@
 import { Container, Stack, Tabs, Title } from '@mantine/core'
+import { useSearchParams } from 'react-router'
 import { usePutPolicy } from '../api/admin.ts'
 import { useBoard } from '../api/board.ts'
 import { usePolicy } from '../api/meta.ts'
@@ -24,6 +25,10 @@ export function SettingsPage() {
   const policy = usePolicy()
   const board = useBoard()
   const putPolicy = usePutPolicy()
+  // The active tab is mirrored in the URL (?tab=locations) so deep links — e.g.
+  // the empty LocationPicker's "Settings" link — open the right tab directly.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') ?? 'preferences'
 
   const can = (permission: Parameters<typeof roleGrants>[2]) =>
     roleGrants(policy.data, me.role, permission)
@@ -43,7 +48,13 @@ export function SettingsPage() {
         <Title order={2} size="h3">
           {strings.settings.pageTitle}
         </Title>
-        <Tabs defaultValue="preferences" keepMounted={false}>
+        <Tabs
+          value={activeTab}
+          onChange={(next) => {
+            setSearchParams(next === null ? {} : { tab: next }, { replace: true })
+          }}
+          keepMounted={false}
+        >
           <Tabs.List>
             <Tabs.Tab value="preferences">{strings.settings.tabPreferences}</Tabs.Tab>
             {canUsers ? <Tabs.Tab value="users">{strings.settings.tabUsers}</Tabs.Tab> : null}
