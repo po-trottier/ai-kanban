@@ -168,7 +168,11 @@ describe('BoardPage filter bar (server-side filtering)', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Broken window')).not.toBeInTheDocument()
     })
-    expect(fake.lastBody('POST', '/api/v1/board/query')).toMatchObject({ q: 'faucet' })
+    // Poll for the debounced query: the board can narrow on an earlier keystroke,
+    // so the final `q: 'faucet'` request may still be in flight here (CI flake).
+    await waitFor(() => {
+      expect(fake.lastBody('POST', '/api/v1/board/query')).toMatchObject({ q: 'faucet' })
+    })
   })
 
   it('applies a filter straight from the URL on load (a shared link)', async () => {
