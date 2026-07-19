@@ -48,7 +48,7 @@ export const SYSTEM_USER_EMAIL = 'system@rivian-kanban.local'
 export const PLACEHOLDER_PASSWORD_HASH = '!placeholder:not-a-valid-argon2id-hash!'
 
 /** The 7 seeded lanes in board order, labels per docs/product/workflow.md. */
-const LANE_SEEDS: readonly { key: LaneKey; label: string; wipLimit: number | null }[] = [
+export const LANE_SEEDS: readonly { key: LaneKey; label: string; wipLimit: number | null }[] = [
   { key: 'intake', label: 'Intake', wipLimit: null },
   { key: 'waiting_approval', label: 'Waiting for Approval', wipLimit: null },
   { key: 'ready', label: 'Ready', wipLimit: null },

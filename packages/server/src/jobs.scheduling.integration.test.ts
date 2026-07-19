@@ -3,7 +3,7 @@ import { pino } from 'pino'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { scheduleJobs, type ScheduledJobs } from './wiring/jobs.ts'
 import { SqliteSnapshotStore } from './wiring/sqlite-snapshot-store.ts'
-import { createTestApp, type TestApp } from './test/support.ts'
+import { createTestApp, sqliteConnectionOf, type TestApp } from './test/support.ts'
 
 /**
  * Croner wiring smoke test (docs/dev/testing.md): the five documented jobs
@@ -36,7 +36,7 @@ function schedule(snapshotDir: string): ScheduledJobs {
     boardId: t.wired.boardId,
     systemUserId: t.wired.systemUserId,
     auth: t.wired.deps.services.auth,
-    snapshots: new SqliteSnapshotStore(t.wired.connection, snapshotDir),
+    snapshots: new SqliteSnapshotStore(sqliteConnectionOf(t.wired), snapshotDir),
     metrics: t.wired.deps.metrics,
     logger: silentLog,
   })

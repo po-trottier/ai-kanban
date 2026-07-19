@@ -23,6 +23,12 @@ const envSchema = z
     /** Known reverse-proxy hop count — client-IP rate limits depend on it. */
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
     DATABASE_PATH: z.string().min(1).default('./data/app.sqlite'),
+    /**
+     * Postgres connection string. When set, the app runs on PostgreSQL
+     * (production; docker-compose launches it) instead of the SQLite file at
+     * DATABASE_PATH — the dev server keeps using SQLite (ADR-020).
+     */
+    DATABASE_URL: z.string().min(1).optional(),
     BLOB_DIR: z.string().min(1).default('./data/blobs'),
     /** Nightly online-backup snapshots land here (deployment.md#database-operations). */
     SNAPSHOT_DIR: z.string().min(1).default('./data/snapshots'),

@@ -28,11 +28,7 @@ export class PgCardRelationRepository implements CardRelationRepository {
   }
 
   async findById(id: string): Promise<CardRelation | null> {
-    const rows = await this.db
-      .select()
-      .from(cardRelations)
-      .where(eq(cardRelations.id, id))
-      .limit(1)
+    const rows = await this.db.select().from(cardRelations).where(eq(cardRelations.id, id)).limit(1)
     return rows[0] ?? null
   }
 

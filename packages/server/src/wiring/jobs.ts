@@ -38,7 +38,8 @@ export interface ScheduledJobsDeps {
   /** The structural-seed automation user, acting for archival audit events. */
   systemUserId: string
   auth: { deleteExpiredSessions(): Promise<number> }
-  snapshots: SnapshotStore
+  /** The nightly VACUUM-snapshot store — SQLite only; null on Postgres (its own backup). */
+  snapshots: SnapshotStore | null
   metrics: AppMetrics
   logger: AdapterLogger
 }
@@ -90,13 +91,19 @@ export function scheduleJobs(deps: ScheduledJobsDeps): ScheduledJobs {
   // Schedules are container-local time (UTC in the image). The dailies are
   // spread across the night, snapshot first so a bad maintenance night still
   // has a fresh backup.
+  const snapshots = deps.snapshots
   const jobs: ScheduledJob[] = [
     define('waitingAgingAlerts', '0 * * * *', () =>
       runWaitingAgingAlerts({ cards: deps.cards, notifier: deps.notifier, logger }),
     ),
-    define('sqliteSnapshot', '0 2 * * *', () =>
-      runSqliteSnapshot({ snapshots: deps.snapshots, clock: deps.clock, logger }),
-    ),
+    // The VACUUM snapshot is SQLite-only; on Postgres this job is not scheduled.
+    ...(snapshots === null
+      ? []
+      : [
+          define('sqliteSnapshot', '0 2 * * *', () =>
+            runSqliteSnapshot({ snapshots, clock: deps.clock, logger }),
+          ),
+        ]),
     define('doneArchival', '20 3 * * *', () => deps.cards.archiveExpired(systemActor)),
     define('positionRebalance', '40 3 * * *', () =>
       runPositionRebalance({ uow: deps.uow, logger, boardId: deps.boardId }),

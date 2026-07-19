@@ -14,11 +14,13 @@ import { type MetricsCollectors } from '../metrics/metrics.ts'
  * momentarily absent.
  */
 export function createMetricCollectors(deps: {
-  databasePath: string
+  /** The SQLite file path — WAL + volume gauges; undefined on Postgres (skipped). */
+  databasePath: string | undefined
   blobStore: LocalBlobStore
 }): MetricsCollectors {
   return {
     async walSizeBytes() {
+      if (deps.databasePath === undefined) return 0
       try {
         return (await stat(`${deps.databasePath}-wal`)).size
       } catch {
@@ -27,6 +29,7 @@ export function createMetricCollectors(deps: {
     },
     blobDirBytes: () => deps.blobStore.totalBytes(),
     async volumeFreeBytes() {
+      if (deps.databasePath === undefined) return 0
       try {
         // The database directory is the data volume (/data in the image).
         const stats = await statfs(dirname(deps.databasePath))

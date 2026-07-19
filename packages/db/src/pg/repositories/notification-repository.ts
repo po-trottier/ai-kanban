@@ -42,10 +42,10 @@ export class PgNotificationRepository implements NotificationRepository {
 
   async unreadCount(userId: string): Promise<number> {
     const rows = await this.db
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: sql<string>`count(*)` })
       .from(notifications)
       .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)))
-    return Number(rows[0]?.count ?? 0)
+    return Number(rows[0]?.count ?? '0')
   }
 
   async markRead(id: string, userId: string, readAt: string): Promise<void> {

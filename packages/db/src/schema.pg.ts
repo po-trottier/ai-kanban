@@ -18,6 +18,7 @@ import {
 import { sql } from 'drizzle-orm'
 import {
   boolean,
+  customType,
   index,
   integer,
   jsonb,
@@ -28,6 +29,17 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
+
+/**
+ * TEXT with byte-wise (`C`) collation. SQLite compares TEXT byte-wise by
+ * default; a production Postgres usually defaults to a locale collation, which
+ * would reorder the base-62 fractional position keys (mixed case). Pinning the
+ * column to `COLLATE "C"` keeps `ORDER BY position` byte-wise on any Postgres,
+ * preserving the ADR-006 fractional-ordering contract.
+ */
+const byteText = customType<{ data: string }>({
+  dataType: () => 'text COLLATE "C"',
+})
 
 /**
  * The PostgreSQL mirror of `schema.ts` (ADR-020) — the mechanical
@@ -44,7 +56,9 @@ export const users = pgTable(
   'users',
   {
     id: text('id').primaryKey(),
-    email: text('email').notNull().unique(),
+    // Uniqueness is enforced case-insensitively by users_email_ci_unique below
+    // (stronger than a plain unique), so a single constraint name covers dups.
+    email: text('email').notNull(),
     displayName: text('display_name').notNull(),
     role: text('role').$type<Role>().notNull(),
     passwordHash: text('password_hash').notNull(),
@@ -117,7 +131,8 @@ export const cards = pgTable(
     laneId: text('lane_id')
       .notNull()
       .references(() => lanes.id),
-    position: text('position').notNull(),
+    // Byte-wise collation so the base-62 fractional keys order correctly (ADR-006).
+    position: byteText('position').notNull(),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
     priority: text('priority').$type<Priority>().notNull(),

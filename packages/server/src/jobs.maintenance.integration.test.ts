@@ -9,7 +9,7 @@ import { FixedClock } from '@rivian-kanban/core/testing'
 import { runSessionPurge } from './jobs/session-purge.ts'
 import { runSqliteSnapshot, SNAPSHOT_RETAIN_COUNT } from './jobs/sqlite-snapshot.ts'
 import { SqliteSnapshotStore } from './wiring/sqlite-snapshot-store.ts'
-import { createTestApp, sessionCookieOf, type TestApp } from './test/support.ts'
+import { createTestApp, sessionCookieOf, sqliteConnectionOf, type TestApp } from './test/support.ts'
 
 /**
  * The maintenance pair against a real temp SQLite database: the daily session
@@ -70,7 +70,7 @@ describe('sqlite snapshot job', () => {
       { title: 'survives the snapshot' },
     )
     const dir = join(t.env.DATABASE_PATH, '..', 'snapshots')
-    const snapshots = new SqliteSnapshotStore(t.wired.connection, dir)
+    const snapshots = new SqliteSnapshotStore(sqliteConnectionOf(t.wired), dir)
 
     const summary = await runSqliteSnapshot({
       snapshots,
@@ -102,7 +102,7 @@ describe('sqlite snapshot job', () => {
     await mkdir(dir, { recursive: true })
     await writeFile(join(dir, 'app-2026-07-16.sqlite.tmp'), 'truncated partial')
     await writeFile(join(dir, 'app-2026-07-10.sqlite.tmp'), 'older interrupted run')
-    const snapshots = new SqliteSnapshotStore(t.wired.connection, dir)
+    const snapshots = new SqliteSnapshotStore(sqliteConnectionOf(t.wired), dir)
 
     const summary = await runSqliteSnapshot({
       snapshots,
@@ -122,7 +122,7 @@ describe('sqlite snapshot job', () => {
     // A directory squatting on the target name makes the final rename fail —
     // any failure between the backup and publish must clean up its partial.
     await mkdir(join(dir, 'occupied.sqlite'), { recursive: true })
-    const snapshots = new SqliteSnapshotStore(t.wired.connection, dir)
+    const snapshots = new SqliteSnapshotStore(sqliteConnectionOf(t.wired), dir)
 
     await expect(snapshots.backupInto('occupied.sqlite')).rejects.toThrow()
 
@@ -136,7 +136,7 @@ describe('sqlite snapshot job', () => {
     const dates = ['07-01', '07-02', '07-03', '07-04', '07-05', '07-06', '07-07', '07-08']
     for (const date of dates) await writeFile(join(dir, `app-2026-${date}.sqlite`), 'old')
     await writeFile(join(dir, 'README.txt'), 'not a snapshot')
-    const snapshots = new SqliteSnapshotStore(t.wired.connection, dir)
+    const snapshots = new SqliteSnapshotStore(sqliteConnectionOf(t.wired), dir)
     const clock = new FixedClock('2026-07-16T12:00:00.000Z')
 
     const first = await runSqliteSnapshot({ snapshots, clock, logger: silentLog })

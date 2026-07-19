@@ -5,9 +5,10 @@ import {
   type ServiceTokenRepository,
 } from '@rivian-kanban/core'
 import { and, desc, eq, isNull } from 'drizzle-orm'
-import { isUniqueViolation, toError } from '../../errors.ts'
+import { toError } from '../../errors.ts'
 import { serviceTokens } from '../../schema.pg.ts'
 import { type PgDb } from '../database.ts'
+import { isPgUniqueViolation } from '../errors.ts'
 
 /**
  * MCP/automation bearer credentials (ADR-009). Rows are never deleted:
@@ -50,7 +51,7 @@ export class PgServiceTokenRepository implements ServiceTokenRepository {
       await this.db.insert(serviceTokens).values(token)
     } catch (error) {
       // The DB-enforced credential-uniqueness backstop (port contract).
-      if (isUniqueViolation(error, ['service_tokens.token_hash'])) {
+      if (isPgUniqueViolation(error, ['service_tokens_token_hash_unique'])) {
         throw new ConflictError('service token hash already exists')
       }
       throw toError(error)
@@ -74,11 +75,7 @@ export class PgServiceTokenRepository implements ServiceTokenRepository {
   async rotateHash(id: string, tokenHash: string): Promise<ServiceToken> {
     // Read first (like revoke): a dead credential cannot be revived, and an
     // unknown id and a revoked one need different errors.
-    const rows = await this.db
-      .select()
-      .from(serviceTokens)
-      .where(eq(serviceTokens.id, id))
-      .limit(1)
+    const rows = await this.db.select().from(serviceTokens).where(eq(serviceTokens.id, id)).limit(1)
     const row = rows[0]
     if (row === undefined) throw new NotFoundError('service token')
     if (row.revokedAt !== null) throw new ConflictError('service token is revoked')

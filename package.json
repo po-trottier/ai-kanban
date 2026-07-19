@@ -23,6 +23,12 @@
           "scripts/screenshots.mjs"
         ]
       },
+      "packages/db": {
+        "drizzle": [
+          "drizzle.config.ts",
+          "drizzle.config.pg.ts"
+        ]
+      },
       "packages/server": {
         "ignoreDependencies": [
           "pino-pretty"

@@ -3,6 +3,7 @@ import { and, asc, eq } from 'drizzle-orm'
 import { toError } from '../../errors.ts'
 import { lanes } from '../../schema.pg.ts'
 import { type PgDb } from '../database.ts'
+import { isPgForeignKeyViolation } from '../errors.ts'
 
 export class PgLaneRepository implements LaneRepository {
   private readonly db: PgDb
@@ -60,11 +61,8 @@ export class PgLaneRepository implements LaneRepository {
       if (removed.length === 0) throw new NotFoundError('lane')
     } catch (error) {
       // A foreign-key violation means a card still points at the lane.
-      const wrapped = toError(error)
-      if (wrapped instanceof Error && /foreign key/i.test(wrapped.message)) {
-        throw new ConflictError('lane still has cards')
-      }
-      throw wrapped
+      if (isPgForeignKeyViolation(error)) throw new ConflictError('lane still has cards')
+      throw toError(error)
     }
   }
 

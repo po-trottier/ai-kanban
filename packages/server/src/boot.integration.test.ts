@@ -61,7 +61,7 @@ describe('demo seed boot (SEED_DEMO_DATA)', () => {
     try {
       expect(again.demoCredentials).toEqual([])
     } finally {
-      again.connection.close()
+      await again.close()
     }
   })
 })
@@ -95,7 +95,7 @@ describe('deterministic demo credentials (SEED_DEMO_PASSWORD)', () => {
       expect(login.statusCode).toBe(200)
     } finally {
       await app.close()
-      wired.connection.close()
+      await wired.close()
       rmSync(dir, { recursive: true, force: true })
     }
   })
@@ -132,7 +132,7 @@ describe('production gate on demo data', () => {
       )
       expect(demoUser).toBeNull()
     } finally {
-      wired.connection.close()
+      await wired.close()
       rmSync(dir, { recursive: true, force: true })
     }
   })
@@ -239,7 +239,7 @@ describe('the app factory used by production wiring', () => {
       })
     } finally {
       await app.close()
-      wired.connection.close()
+      await wired.close()
       rmSync(dir, { recursive: true, force: true })
     }
   })

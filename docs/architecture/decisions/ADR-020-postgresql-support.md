@@ -1,6 +1,6 @@
 # ADR-020: PostgreSQL support for production
 
-Status: **Accepted — implementation staged** (2026-07)
+Status: **Accepted — implemented** (2026-07)
 
 ## Context
 
@@ -25,8 +25,6 @@ better-sqlite3 being synchronous**, and that assumption is load-bearing:
 - **Every repository** (~20) is typed `BetterSQLite3Database` and calls the synchronous
   `.all()/.get()/.run()`. Postgres uses the async driver.
 
-This is why it is **staged**, not a one-commit change.
-
 ## Decision
 
 Support PostgreSQL for production behind the existing **ports** (`core` `UnitOfWork` /
@@ -35,25 +33,30 @@ Support PostgreSQL for production behind the existing **ports** (`core` `UnitOfW
 hexagonal boundary already isolates them. Dev and the test suite keep SQLite; production
 `docker-compose up` launches a Postgres service and points the app at it.
 
-## Implementation plan
+## Implementation
 
-1. **Dialect-neutral repository code.** Rewrite the repositories to `await` the Drizzle query builder
-   (it is thenable on both dialects) instead of the better-sqlite3-only `.all()/.get()/.run()`, and
-   take the Drizzle handle + the schema tables by injection rather than importing the SQLite schema
-   directly. Keep column shapes identical (ISO-string timestamps in `text`, integers, `0/1` booleans)
-   so one repository body serves both.
-2. **Parallel `pgTable` schema** (`schema.pg.ts`) mirroring `schema.ts` column-for-column, plus a
-   drizzle-kit Postgres migration set (`migrations/pg/`). v0 rule still holds: one `0000_init`.
-3. **Async unit of work** for Postgres: real `BEGIN/COMMIT` on a pooled client with `SERIALIZABLE`
-   (or `REPEATABLE READ` + retry) transactions — no in-process serialization queue, because Postgres
-   gives real transactional isolation. The SQLite `SqliteUnitOfWork` stays for dev.
-4. **Connection factory** picks the engine from env and returns the matching `DbConnection` +
-   `UnitOfWork`; the composition root (`wire.ts`) is otherwise unchanged.
-5. **docker-compose**: add a `postgres:17` service with a named volume and healthcheck; the `app`
-   service depends on it and sets `DATABASE_URL`. SQLite + Litestream stays as the documented
-   lightweight single-node alternative.
-6. **Tests**: run the integration suite against **both** engines — SQLite temp files as today, and a
-   Postgres service in CI (a `services: postgres` job) — so the ports are proven identical on both.
+1. **Parallel `pgTable` schema** — `packages/db/src/schema.pg.ts` mirrors `schema.ts`
+   column-for-column (ISO-string TEXT timestamps, `jsonb` for JSON, native `boolean`, and
+   `position text COLLATE "C"` so the base-62 fractional keys order byte-wise on any Postgres). A
+   drizzle-kit Postgres migration set lives at `migrations/pg/` (one `0000_init`, v0 rule).
+2. **Async pg repositories** — `packages/db/src/pg/repositories/*` implement the same core ports over
+   the async Drizzle pg builder; pg SQLSTATE error mapping (`pg/errors.ts`) reproduces the
+   DuplicatePositionError / conflict contract.
+3. **Async unit of work** — `PostgresUnitOfWork` runs a real `db.transaction()` per unit of work; no
+   in-process serialization queue (Postgres gives genuine isolation + multi-writer concurrency). The
+   SQLite `SqliteUnitOfWork` stays for dev.
+4. **Engine factory** — `createDataLayer` (in `packages/db`) picks Postgres when `DATABASE_URL` is
+   set, else SQLite; the composition root (`wire.ts`) consumes a uniform `DataLayer`. The
+   SQLite-only operational surface (VACUUM snapshots, the db-size metric) is simply absent on
+   Postgres.
+5. **docker-compose** — a `postgres:17` service with a named volume + healthcheck; the `app` service
+   depends on it and sets `DATABASE_URL`.
+6. **Verification** — two integration tests exercise Postgres via **PGlite** (an in-process WASM
+   Postgres — real pg, no server, runs in the normal CI): `db/src/pg/services.integration.test.ts`
+   (the core services over the pg unit of work — lifecycle, waiting-lane, the UNIQUE(lane,position)
+   backstop, optimistic locking, comments, board snapshot) and `server/src/postgres-app.integration.test.ts`
+   (the whole HTTP app booted on Postgres). A dedicated CI job against a real `postgres` service is
+   a straightforward follow-up hardening step.
 
 ## Consequences
 

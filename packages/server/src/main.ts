@@ -46,7 +46,7 @@ const shutdown = async (signal: string): Promise<void> => {
     })
   }
   await app.close()
-  wired.connection.close()
+  await wired.close()
   process.exit(0)
 }
 process.on('SIGINT', () => void shutdown('SIGINT'))
@@ -77,7 +77,9 @@ jobs = scheduleJobs({
   boardId: wired.boardId,
   systemUserId: wired.systemUserId,
   auth: wired.deps.services.auth,
-  snapshots: new SqliteSnapshotStore(wired.connection, env.SNAPSHOT_DIR),
+  // VACUUM snapshots are SQLite-only; on Postgres (connection null) there is none.
+  snapshots:
+    wired.connection === null ? null : new SqliteSnapshotStore(wired.connection, env.SNAPSHOT_DIR),
   metrics: wired.deps.metrics,
   logger: app.log,
 })
@@ -108,7 +110,7 @@ if (env.SLACK_ENABLED && env.SLACK_BOT_TOKEN !== undefined && env.SLACK_TEAM_ID 
     // silent outage. Close Fastify and the db cleanly before exiting.
     app.log.error(error)
     await app.close()
-    wired.connection.close()
+    await wired.close()
     process.exit(1)
   }
 }

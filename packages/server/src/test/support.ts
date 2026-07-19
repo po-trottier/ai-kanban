@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Uuidv7IdGenerator, type Card, type Role, type User } from '@rivian-kanban/core'
 import { cardWith, userWith } from '@rivian-kanban/core/testing'
+import { type DbConnection } from '@rivian-kanban/db'
 import {
   type FastifyInstance,
   type InjectOptions,
@@ -59,6 +60,12 @@ export function sessionCookieOf(response: InjectResponse): string {
   const cookie = response.cookies.find((candidate) => candidate.name === 'sid')
   if (cookie === undefined) throw new Error('response set no session cookie')
   return cookie.value
+}
+
+/** The SQLite connection a default (non-pg) test boot always has — for the sqlite-only paths. */
+export function sqliteConnectionOf(wired: WiredApp): DbConnection {
+  if (wired.connection === null) throw new Error('expected a SQLite-backed test app')
+  return wired.connection
 }
 
 export async function createTestApp(options: TestAppOptions = {}): Promise<TestApp> {
@@ -152,7 +159,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
     env,
     cleanup: async () => {
       await app.close()
-      wired.connection.close()
+      await wired.close()
       rmSync(dir, { recursive: true, force: true })
     },
     createUser,

@@ -18,12 +18,10 @@ import {
   type User,
 } from '@rivian-kanban/core'
 import {
-  demoSeed,
+  createDataLayer,
   demoUserEmail,
-  openDatabase,
   PLACEHOLDER_PASSWORD_HASH,
-  structuralSeed,
-  SqliteUnitOfWork,
+  type DataLayer,
   type DbConnection,
 } from '@rivian-kanban/db'
 import { WebClient } from '@slack/web-api'
@@ -76,6 +74,11 @@ export interface WireOptions {
   spaRoot?: string | null
   /** Slack Web API origin override (local fixture servers in tests). */
   slackApiUrl?: string
+  /**
+   * A pre-built data layer, bypassing the DATABASE_URL/DATABASE_PATH factory —
+   * lets a test boot the full app on an in-process PGlite Postgres (ADR-020).
+   */
+  dataLayer?: DataLayer
 }
 
 interface DemoCredential {
@@ -85,7 +88,10 @@ interface DemoCredential {
 
 export interface WiredApp {
   deps: AppDeps
-  connection: DbConnection
+  /** The SQLite connection (VACUUM snapshots + db-size metric) — null on Postgres. */
+  connection: DbConnection | null
+  /** Closes the underlying data layer (SQLite handles or the pg pool). */
+  close: () => Promise<void>
   hasher: PasswordHasher
   systemUserId: string
   boardId: string
@@ -123,11 +129,18 @@ function defaultSpaRoot(): string | null {
 
 export async function wireApp(env: Env, options: WireOptions = {}): Promise<WiredApp> {
   // MIGRATIONS_DIR is only set where the source tree is not present (the
-  // bundled image); dev/test boots resolve packages/db's own migrations.
-  const connection = openDatabase(env.DATABASE_PATH, env.MIGRATIONS_DIR)
-  const { boardId, systemUserId } = structuralSeed(connection.db)
-
-  const uow = new SqliteUnitOfWork(connection)
+  // bundled image); dev/test boots resolve packages/db's own migrations. The
+  // engine is chosen here: DATABASE_URL → Postgres (production), else the
+  // SQLite file at DATABASE_PATH (dev) — ADR-020.
+  const dataLayer =
+    options.dataLayer ??
+    (await createDataLayer({
+      databaseUrl: env.DATABASE_URL,
+      databasePath: env.DATABASE_PATH,
+      sqliteMigrationsDir: env.MIGRATIONS_DIR,
+      pgMigrationsDir: env.MIGRATIONS_DIR === undefined ? undefined : `${env.MIGRATIONS_DIR}/pg`,
+    }))
+  const { uow, boardId, systemUserId } = dataLayer
   const clock = new SystemClock()
   const ids = new Uuidv7IdGenerator()
   const eventBus = new InProcessEventBus()
@@ -186,12 +199,17 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
   // One registry per wired app (never prom-client's global): production has
   // one, and every integration-test boot owns an isolated metric set.
   const metrics = new AppMetrics(
-    createMetricCollectors({ databasePath: env.DATABASE_PATH, blobStore }),
+    createMetricCollectors({
+      // The db-size metric is SQLite-only (a file on disk); Postgres exposes its
+      // own metrics out of band, so it is simply absent there.
+      databasePath: dataLayer.sqliteConnection === null ? undefined : env.DATABASE_PATH,
+      blobStore,
+    }),
   )
 
   const demoCredentials: DemoCredential[] = []
   if (env.SEED_DEMO_DATA && env.NODE_ENV !== 'production') {
-    demoSeed(connection.db)
+    dataLayer.seedDemo()
     // The db package deliberately seeds unverifiable placeholder hashes;
     // real argon2id hashing is this package's concern. First boot mints
     // one-time passwords; later boots (or changed passwords) are untouched.
@@ -245,7 +263,8 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
 
   return {
     deps: { config, logger, uow, clock, eventBus, blobStore, metrics, services, systemUserId },
-    connection,
+    connection: dataLayer.sqliteConnection,
+    close: dataLayer.close,
     hasher,
     systemUserId,
     boardId,

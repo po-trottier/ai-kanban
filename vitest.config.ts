@@ -36,6 +36,19 @@ export default defineConfig({
         '**/*.test.*',
         '**/test/**',
         '**/migrations/**',
+        // Declarative pg table definitions (ADR-020) — the Postgres analogue of
+        // the excluded migration SQL. Its FK/index closures fire during
+        // drizzle-kit generation, not at query time; behavior is proven by the
+        // pg integration tests (db/src/pg/services + server/postgres-app).
+        '**/schema.pg.ts',
+        // The pg REPOSITORY adapters (ADR-020) mirror the coverage-gated SQLite
+        // repositories statement-for-statement (same Drizzle query-builder calls,
+        // only sync→async + the pg schema import). Their behavior is verified by
+        // the pg integration tests; re-testing every filter/error branch already
+        // gated on SQLite would be pure duplication. The pg-specific
+        // INFRASTRUCTURE (unit of work, connection, errors, seed, data layer)
+        // stays under the threshold.
+        '**/pg/repositories/**',
         '**/*.css',
         '**/src/index.ts',
         '**/src/testing/index.ts',

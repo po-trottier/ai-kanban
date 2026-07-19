@@ -8,5 +8,7 @@
  */
 
 export * from './connection.ts'
+export * from './data-layer.ts'
+export * from './pg/connection.ts'
 export * from './unit-of-work.ts'
 export * from './seed.ts'
