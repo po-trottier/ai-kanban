@@ -289,6 +289,7 @@ function CardPanelBody({ cardId }: { cardId: string }) {
               currentUserId={me.id}
               canDeleteOthers={canDeleteOthersAttachments}
               uploading={uploadAttachment.isPending}
+              deletingId={deleteAttachment.isPending ? deleteAttachment.variables : null}
               readOnly={archived}
               onUpload={(file) => {
                 uploadAttachment.mutate(file)

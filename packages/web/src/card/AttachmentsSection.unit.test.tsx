@@ -49,6 +49,28 @@ describe('AttachmentsSection', () => {
     expect(screen.getByText('quote.pdf')).toBeInTheDocument()
   })
 
+  it('spins only the delete icon of the attachment whose delete is in flight', () => {
+    // Arrange — two attachments; one (a) is mid-delete via deletingId.
+    const a = makeAttachment({ id: uid(103), filename: 'a.png' })
+    const b = makeAttachment({ id: uid(104), filename: 'b.png' })
+    // Act
+    renderWithProviders(
+      <AttachmentsSection
+        attachments={[a, b]}
+        currentUserId={fixtureAdmin.id}
+        canDeleteOthers={false}
+        uploading={false}
+        deletingId={a.id}
+        onUpload={noop}
+        onDelete={noop}
+      />,
+    )
+    // Assert — a's trash icon shows its in-flight (loading → disabled) state so the
+    // user sees the delete is happening; b's stays active.
+    expect(screen.getByRole('button', { name: 'Delete a.png' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Delete b.png' })).toBeEnabled()
+  })
+
   it('explains what can be attached with an info tooltip on the section label', () => {
     // Arrange
     const attachments: Attachment[] = []

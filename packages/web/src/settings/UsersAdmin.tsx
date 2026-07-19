@@ -1,4 +1,4 @@
-import { Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
+import { Group, Loader, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
 import { Ban, KeyRound, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useCreateUser, usePatchUser } from '../api/admin.ts'
@@ -23,6 +23,19 @@ export function UsersAdmin() {
 
   const showTempPassword = (password: string | undefined) => {
     if (password !== undefined) setTempPassword(password)
+  }
+
+  // One shared `patchUser` mutation backs the role change, password reset, and
+  // deactivate — so its `isPending` alone would spin every row at once. Scope
+  // each spinner to the exact row + action by inspecting the in-flight variables.
+  const patchPending = (userId: string, kind: 'role' | 'reset' | 'deactivate'): boolean => {
+    if (!patchUser.isPending || patchUser.variables.userId !== userId) return false
+    const { input } = patchUser.variables
+    return kind === 'role'
+      ? input.role !== undefined
+      : kind === 'reset'
+        ? input.resetPassword === true
+        : input.isActive === false
   }
 
   return (
@@ -68,6 +81,10 @@ export function UsersAdmin() {
                   data={roleOptions}
                   value={user.role}
                   allowDeselect={false}
+                  // Spin (and lock) just this row's role picker while its change
+                  // is in flight, so the admin sees the save is happening.
+                  disabled={patchPending(user.id, 'role')}
+                  rightSection={patchPending(user.id, 'role') ? <Loader size="xs" /> : undefined}
                   onChange={(role) => {
                     if (role !== null) {
                       patchUser.mutate({ userId: user.id, input: { role: role } })
@@ -81,6 +98,7 @@ export function UsersAdmin() {
                     tooltip={strings.tooltips.resetPassword}
                     size="compact-xs"
                     variant="light"
+                    loading={patchPending(user.id, 'reset')}
                     leftSection={<KeyRound size={14} aria-hidden />}
                     onClick={() => {
                       patchUser.mutate(
@@ -199,10 +217,17 @@ export function UsersAdmin() {
               <HintButton
                 tooltip={strings.tooltips.deactivateUser}
                 color="red"
+                loading={patchPending(deactivating.id, 'deactivate')}
                 leftSection={<Ban size={16} aria-hidden />}
                 onClick={() => {
-                  patchUser.mutate({ userId: deactivating.id, input: { isActive: false } })
-                  setDeactivating(null)
+                  patchUser.mutate(
+                    { userId: deactivating.id, input: { isActive: false } },
+                    {
+                      onSuccess: () => {
+                        setDeactivating(null)
+                      },
+                    },
+                  )
                 }}
               >
                 {strings.users.deactivate}

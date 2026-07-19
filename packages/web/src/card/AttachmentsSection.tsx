@@ -32,6 +32,8 @@ export interface AttachmentsSectionProps {
   /** Policy affordance: the `deleteOthersAttachments` gate (ADR-013). */
   canDeleteOthers: boolean
   uploading: boolean
+  /** Id of the attachment whose delete is in flight (spins that row's trash icon). */
+  deletingId?: string | null
   /** Archived cards are read-only except reopen (workflow.md#terminal-states). */
   readOnly?: boolean
   onUpload: (file: File) => void
@@ -44,6 +46,7 @@ export function AttachmentsSection({
   currentUserId,
   canDeleteOthers,
   uploading,
+  deletingId = null,
   readOnly = false,
   onUpload,
   onDelete,
@@ -117,6 +120,7 @@ export function AttachmentsSection({
                     variant="subtle"
                     color="red"
                     size="sm"
+                    loading={deletingId === attachment.id}
                     aria-label={strings.attachments.deleteLabel(attachment.filename)}
                     onClick={() => {
                       onDelete(attachment.id)
