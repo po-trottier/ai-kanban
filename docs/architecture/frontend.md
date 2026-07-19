@@ -100,24 +100,34 @@ carrying both form libraries would fail knip's unused-dependency gate — one fo
 same single-schema guarantee. Card field edits submit only dirty fields so the audit trail
 gets one event per real change.
 
-### Card-form layout (detail panel + New Card modal)
+### Card-form layout (detail panel + create view)
 
-The 7-field roster is one component (`card/CardFieldInputs`) driven by the core schema, so
-the detail panel's edit form and the New Card modal stay in lockstep — adding a field is a
-one-file edit both pick up. Both wrap it in the SAME scroll-and-pin layout:
+There is NO separate "new card" form. **New card** (`shell/NewCardButton`) creates a real draft
+immediately — in Intake, with an "Untitled" placeholder title (the core schema requires a
+non-empty one) — then opens the REAL detail panel on it in **create view**. So creating and
+editing a card are one code path: the same shared body (the `detailsBody` in `card/CardPanel`)
+renders the same components either way. The 7-field roster is one component
+(`card/CardFieldInputs`) driven by the core schema, so adding a field is a one-file edit both
+views pick up.
 
-- **Order (top to bottom).** Detail panel's Details tab: the **State** dropdown
-  (`card/CardStateSelect`, moved out of the panel header and INTO the tab), then the editable
-  fields (`card/CardDetailsForm`), then Attachments, then Relations, then the Created/Updated
-  timestamps. The New Card modal: fields, then its attachments.
-- **Sticky footer.** The action bar — the detail panel's full-width **Save changes**, the
-  modal's **Cancel / Create** — is `card/StickyFooter` (one `.stickyFooter` CSS-module class,
+- **Create view vs. edit view.** Signalled by router `location.state.created` on the navigation
+  that opens the panel (it doesn't survive a hard refresh — a refreshed draft simply reads as a
+  normal card, still editable). Create view drops the Comments/History tabs and the explicit
+  **Save** button: the fields AUTO-SAVE (`CardDetailsForm autoSave` — a debounced `form.watch`
+  PATCHes only the dirty subset, the exact manual-save path), so a **Discard / Done** footer
+  replaces Save. Discard hard-deletes the fresh draft (`useDeleteCard` → `DELETE /cards/:id`,
+  owner-only + intake-only server gate) then closes; Done just closes (the auto-saved card
+  stays). State, relations, and attachments already mutate immediately against the card id, so
+  they need no create/edit branch. Edit view keeps the tabs and explicit Save unchanged.
+- **Order (top to bottom).** The **State** dropdown (`card/CardStateSelect`, moved out of the
+  panel header and INTO the Details tab), then the editable fields (`card/CardDetailsForm`),
+  then Relations, then Attachments, then the Created/Updated timestamps.
+- **Sticky footer.** The action bar — edit view's full-width **Save changes**, create view's
+  **Discard / Done** — is `card/StickyFooter` (one `.stickyFooter` CSS-module class,
   `position: sticky; bottom: 0` with a top border + `--mantine-color-body` background). It
-  stays visible while the body scrolls: the panel's own `.panelBody` is the scroll container;
-  the modal caps its `body` slot (`.modalScrollBody`, `classNames={{ body }}`) so it scrolls
-  too. Save sits OUTSIDE the scrolling `<form>` and submits it via the native `form={id}`
-  association (the form owns its own dirty state — nothing is lifted); the "unsaved changes"
-  warning rides just above it.
+  stays visible while the panel's `.panelBody` scroll container scrolls. Save sits OUTSIDE the
+  scrolling `<form>` and submits it via the native `form={id}` association (the form owns its
+  own dirty state — nothing is lifted); the "unsaved changes" warning rides just above it.
 - **Status color.** The State dropdown is tinted with the SAME theme hue the board card
   badges paint (`board/card-status.ts` → `cardStatusColor`: blocked=grape, waiting=yellow,
   overdue=pink, cancelled=dark, archived=gray) so the panel echoes its board card; a plain

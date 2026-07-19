@@ -69,6 +69,8 @@ export const strings = {
     // Board / cards.
     newCard: 'Create a new work order — it lands in Intake',
     createCard: 'Create the work order in Intake',
+    newCardDone: 'Keep this card and return to the board',
+    newCardDiscard: 'Delete this draft and return to the board',
     openCard: 'Open this card’s details',
     move: 'Move the card to a chosen column and position',
     block: 'Flag the card as blocked with a reason',
@@ -739,8 +741,13 @@ export const strings = {
   },
 
   newCard: {
-    modalTitle: 'New card',
     created: 'Card created in Intake',
+    /** A new draft's title until the user renames it (core requires non-empty). */
+    placeholderTitle: 'Untitled',
+    /** Create-view footer: keep the card, or throw the fresh draft away. */
+    done: 'Done',
+    discard: 'Discard',
+    discarded: 'Draft discarded',
   },
 
   settings: {

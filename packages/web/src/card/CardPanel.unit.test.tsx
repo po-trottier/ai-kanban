@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import {
@@ -52,6 +52,7 @@ function panelApp(extra: Record<string, unknown> = {}): FakeFetch {
     },
     [`GET /api/v1/cards/${String(card.id)}/comments`]: [],
     [`GET /api/v1/cards/${String(card.id)}/events`]: { items: [], nextCursor: null },
+    [`GET /api/v1/cards/${String(card.id)}/relations`]: [],
     ...extra,
   })
 }
@@ -86,17 +87,23 @@ describe('CardPanel', () => {
   })
 
   it('renders non-modal on desktop so the board behind stays interactive', async () => {
-    // Arrange — desktop is the default viewport in the test environment
+    // Arrange — desktop is the default viewport in the test environment.
     const user = userEvent.setup()
-    const fake = panelApp()
+    const fake = panelApp({ 'POST /api/v1/cards': makeCard('intake', { title: 'Untitled' }) })
     renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     await screen.findByRole('dialog', { name: /Fix pump/ })
-    // Act — operate the shell BEHIND the open drawer: a modal drawer would
-    // swallow the outside click (and close on it) instead of letting it land.
+    // Act — operate the shell BEHIND the open panel: a modal drawer would swallow
+    // this outside click instead of letting it land on the header's New card button.
     await user.click(screen.getByRole('button', { name: 'New card' }))
-    // Assert — the New card modal opened and the drawer is still open.
-    expect(await screen.findByRole('button', { name: 'Create' })).toBeInTheDocument()
-    expect(screen.getByRole('dialog', { name: /Fix pump/ })).toBeInTheDocument()
+    // Assert — the click landed: New card created a draft (POST /cards).
+    await waitFor(() => {
+      expect(
+        fake.calls.some(
+          (call) =>
+            call.method === 'POST' && (call.url.split('?')[0] ?? call.url) === '/api/v1/cards',
+        ),
+      ).toBe(true)
+    })
   })
 
   it('saves edited fields with If-Match from the card version', async () => {
@@ -373,6 +380,58 @@ describe('CardPanel', () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
       )
     }
+  })
+
+  it('opens the create view: same body, but no Save button and no Comments/History tabs', async () => {
+    // Arrange — the New card flow signals create view via router state.created.
+    const fake = panelApp()
+    // Act
+    renderApp({
+      fetchFn: fake.fetch,
+      route: `/cards/${String(card.id)}`,
+      state: { created: true },
+    })
+    await screen.findByRole('textbox', { name: /Title/ })
+    // Assert — the SAME relations + attachments sections render, but there is no
+    // explicit Save (fields auto-save) and no Comments/History tabs; instead a
+    // Discard/Done footer.
+    expect(screen.getByText('Relations')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Comments' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'History' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument()
+  })
+
+  it('discards a draft via DELETE /cards/:id and closes the panel', async () => {
+    // Arrange — Discard hard-deletes the fresh draft then returns to the board.
+    const fake = panelApp({
+      [`DELETE /api/v1/cards/${String(card.id)}`]: new Response(null, { status: 204 }),
+    })
+    // Act
+    renderApp({
+      fetchFn: fake.fetch,
+      route: `/cards/${String(card.id)}`,
+      state: { created: true },
+    })
+    await screen.findByRole('textbox', { name: /Title/ })
+    // fireEvent (not userEvent): the footer's `Group grow` layout trips
+    // userEvent's happy-dom visibility heuristic, though the button is a normal
+    // clickable button in the browser. A direct click event is the honest test.
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    // Assert — a DELETE hit the card id, and the panel closed (dialog gone).
+    await waitFor(() => {
+      expect(
+        fake.calls.some(
+          (call) =>
+            call.method === 'DELETE' &&
+            (call.url.split('?')[0] ?? call.url) === `/api/v1/cards/${String(card.id)}`,
+        ),
+      ).toBe(true)
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /Card details/ })).not.toBeInTheDocument()
+    })
   })
 
   it('puts the State dropdown inside the Details tab (not above the tabs)', async () => {

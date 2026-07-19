@@ -22,7 +22,12 @@ import { applyMoveToBoard, type MoveIntent } from './board-cache.ts'
 import { queryKeys } from './keys.ts'
 import { notifyCardError, notifyError, notifySuccess } from './notify.ts'
 import { movedToMessage } from './toast-messages.tsx'
-import { boardResponseSchema, commentResponseSchema, type BoardResponse } from './schemas.ts'
+import {
+  boardResponseSchema,
+  commentResponseSchema,
+  type BoardResponse,
+  type CardDetailResponse,
+} from './schemas.ts'
 
 /**
  * The board, narrowed by a `BoardFilter`. Each filter is its own query (keyed
@@ -178,16 +183,50 @@ export function useUpdateCard() {
     }: {
       card: Card
       changes: Omit<UpdateCardInput, 'expectedVersion'>
+      /**
+       * Suppresses the success toast — the create view auto-saves on every
+       * debounced field edit, so a toast per keystroke-pause would be noise.
+       */
+      silent?: boolean
     }) =>
       api.patch(`/cards/${String(card.id)}`, cardSchema, { body: changes, ifMatch: card.version }),
-    onSuccess: (updated) => {
-      notifySuccess(strings.detail.fieldsSaved)
+    onSuccess: (updated, { silent }) => {
+      // Write the freshly-bumped card straight into the detail cache so a rapid
+      // NEXT save (the create view's auto-save) reads the new version at once
+      // rather than racing the invalidation refetch — otherwise the second
+      // PATCH sends a stale If-Match and 409s. keepDirtyValues in CardDetailsForm
+      // preserves any in-progress edit across the re-seed, so the detail panel's
+      // explicit-Save flow is unaffected.
+      queryClient.setQueryData<CardDetailResponse>(queryKeys.card(String(updated.id)), (old) =>
+        old ? { ...old, card: updated } : old,
+      )
+      if (silent !== true) notifySuccess(strings.detail.fieldsSaved)
       invalidateCard(queryClient, updated.id)
     },
     onError: (error, { card }) => {
       notifyCardError(error)
       invalidateCard(queryClient, card.id)
     },
+  })
+}
+
+/**
+ * Hard-deletes (discards) a fresh intake draft via `DELETE /cards/:id`
+ * (If-Match from the current version). Used by the create view's Discard.
+ */
+export function useDeleteCard() {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (card: Card) =>
+      api.deleteVoid(`/cards/${String(card.id)}`, { ifMatch: card.version }),
+    onSuccess: (_result, card) => {
+      notifySuccess(strings.newCard.discarded)
+      // The card is gone: drop it from every board variant and forget its detail.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.board })
+      queryClient.removeQueries({ queryKey: queryKeys.card(String(card.id)) })
+    },
+    onError: notifyCardError,
   })
 }
 

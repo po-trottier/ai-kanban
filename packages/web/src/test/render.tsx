@@ -18,6 +18,8 @@ export interface RenderOptions {
   /** Session user provided via context (defaults to the fixture admin). */
   user?: User | null
   route?: string
+  /** Router location state for the initial entry (e.g. the create-view signal). */
+  state?: unknown
 }
 
 function testQueryClient(): QueryClient {
@@ -50,7 +52,11 @@ export function renderWithProviders(ui: ReactNode, options: RenderOptions = {}):
 /** Full-app render through the real route table (deep links, auth gate). */
 export function renderApp(options: RenderOptions = {}): RenderResult {
   const client = new ApiClient(options.fetchFn ?? failingFetch)
-  const router = createMemoryRouter(routes, { initialEntries: [options.route ?? '/'] })
+  const initialEntry =
+    options.state === undefined
+      ? (options.route ?? '/')
+      : { pathname: options.route ?? '/', state: options.state }
+  const router = createMemoryRouter(routes, { initialEntries: [initialEntry] })
   return render(
     <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} env="test">
       <QueryClientProvider client={testQueryClient()}>

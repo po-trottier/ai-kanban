@@ -78,9 +78,9 @@
   border-radius: var(--mantine-radius-sm);
 }
 
-/* The Save / Cancel-Create action bar: pinned to the bottom of its scroll
-   container (the panel body or the modal body) so it stays visible while the
-   fields, attachments, relations, and timestamps scroll above it. A top border
+/* The action bar — edit view's Save, create view's Discard/Done: pinned to the
+   bottom of its scroll container (the panel body) so it stays visible while the
+   fields, relations, attachments, and timestamps scroll above it. A top border
    + solid body background separate it from the content sliding underneath. The
    negative margins pull it flush to the container's padded edges so the border
    spans full width; the padding re-establishes the inset for its own controls.
@@ -94,13 +94,4 @@
   padding: var(--mantine-spacing-md);
   border-top: 1px solid var(--mantine-color-default-border);
   background-color: var(--mantine-color-body);
-}
-
-/* New Card modal body: cap its height and let it scroll so the sticky footer
-   (Cancel / Create) pins to the bottom, matching the detail panel. The cap
-   leaves room for the modal header/margins within the viewport. Applied to the
-   Mantine Modal `body` slot via `classNames`. */
-.modalScrollBody {
-  max-height: min(70vh, 40rem);
-  overflow-y: auto;
 }

@@ -17,7 +17,7 @@ import { Bell, BellOff, RotateCcw, Save, ShieldOff } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { WAITING_REASONS, type Card, type WaitingReason } from '@rivian-kanban/core'
-import { useBoard, useCardAction, useUpdateCard } from '../api/board.ts'
+import { useBoard, useCardAction, useDeleteCard, useUpdateCard } from '../api/board.ts'
 import { useCardWatch, useUnwatchCard, useWatchCard } from '../api/watch.ts'
 import {
   useAddComment,
@@ -53,6 +53,7 @@ import { CardStateSelect } from './CardStateSelect.tsx'
 import { CommentsThread } from './CommentsThread.tsx'
 import { RelationsSection } from './RelationsSection.tsx'
 import { HistoryList } from './HistoryList.tsx'
+import { StickyFooter } from './StickyFooter.tsx'
 import classes from './card.module.css'
 
 /**
@@ -219,6 +220,8 @@ export function WatchToggle({ cardId }: { cardId: string }) {
 
 function CardPanelBody({ cardId }: { cardId: string }) {
   const me = useCurrentUser()
+  const navigate = useNavigate()
+  const location = useLocation()
   const detailQuery = useCardDetail(cardId)
   const commentsQuery = useComments(cardId)
   const eventsQuery = useCardEvents(cardId)
@@ -230,6 +233,7 @@ function CardPanelBody({ cardId }: { cardId: string }) {
 
   const updateCard = useUpdateCard()
   const cardAction = useCardAction()
+  const deleteCard = useDeleteCard()
   const addComment = useAddComment(cardId)
   const editComment = useEditComment(cardId)
   const deleteComment = useDeleteComment(cardId)
@@ -260,6 +264,95 @@ function CardPanelBody({ cardId }: { cardId: string }) {
   const canUnblock = detail.card.blocked
   // Archived cards are read-only except reopen (workflow.md#terminal-states).
   const archived = detail.card.archivedAt !== null
+  // The create view (New card → this panel) is signalled by router state on the
+  // navigation that opened it. It reuses the SAME body — State, fields, relations,
+  // attachments — with no tabs and no Save button: fields auto-save (the card
+  // already exists) and the footer offers Discard (hard-delete the draft) / Done.
+  const createMode = (location.state as { created?: boolean } | null)?.created ?? false
+  const close = () => {
+    void navigate({ pathname: '/', search: location.search })
+  }
+
+  // The Details-tab body — the EXACT same components the create view renders, so
+  // "new card" and "edit card" are one code path. `autoSave` toggles the sticky
+  // Save button vs. debounced auto-save; State, relations, and attachments
+  // already mutate immediately against the card id, so they need no branch.
+  const detailsBody = (
+    <Stack gap="md">
+      {/* The state dropdown lives INSIDE Details (near the top), not above the
+          tabs; archived cards are read-only until reopened. It reuses the same
+          status color the board card badges show. */}
+      <CardStateSelect
+        card={detail.card}
+        board={boardQuery.data}
+        policy={policy}
+        role={me.role}
+        disabled={archived}
+      />
+      <CardDetailsForm
+        detail={detail}
+        locations={locationsQuery.data ?? []}
+        knownTags={(tagsQuery.data ?? []).map((tag) => tag.name)}
+        saving={updateCard.isPending}
+        disabled={archived}
+        autoSave={createMode}
+        onSave={(changes) => {
+          updateCard.mutate({ card: detail.card, changes, silent: createMode })
+        }}
+      >
+        {/* Relations then Attachments sit between the fields and the timestamps;
+            the Save button (edit mode) stays sticky below everything. */}
+        <Divider />
+        {/* Typed links to other cards (blocks / duplicates / relates to) —
+            shown only here, never on board card previews. */}
+        <RelationsSection cardId={cardId} readOnly={archived} />
+        <Divider />
+        <AttachmentsSection
+          attachments={detail.attachments}
+          currentUserId={me.id}
+          canDeleteOthers={canDeleteOthersAttachments}
+          uploading={uploadAttachment.isPending}
+          deletingId={deleteAttachment.isPending ? deleteAttachment.variables : null}
+          readOnly={archived}
+          onUpload={(file) => {
+            uploadAttachment.mutate(file)
+          }}
+          onDelete={(attachmentId) => {
+            deleteAttachment.mutate(attachmentId)
+          }}
+        />
+      </CardDetailsForm>
+    </Stack>
+  )
+
+  // Create view: the shared body plus a Discard/Done footer — no tabs, no
+  // status banners (a fresh intake draft has none). Discard hard-deletes the
+  // draft (owner-only, intake-only server gate) then closes; Done just closes.
+  if (createMode) {
+    return (
+      <Stack gap="md">
+        {detailsBody}
+        <StickyFooter>
+          <Group grow>
+            <HintButton
+              variant="light"
+              color="red"
+              tooltip={strings.tooltips.newCardDiscard}
+              loading={deleteCard.isPending}
+              onClick={() => {
+                deleteCard.mutate(detail.card, { onSuccess: close })
+              }}
+            >
+              {strings.newCard.discard}
+            </HintButton>
+            <HintButton tooltip={strings.tooltips.newCardDone} onClick={close}>
+              {strings.newCard.done}
+            </HintButton>
+          </Group>
+        </StickyFooter>
+      </Stack>
+    )
+  }
 
   return (
     <Stack gap="md">
@@ -308,50 +401,7 @@ function CardPanelBody({ cardId }: { cardId: string }) {
           <Tabs.Tab value="history">{strings.detail.tabHistory}</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="details" pt="md">
-          <Stack gap="md">
-            {/* The state dropdown lives INSIDE Details (near the top), not above
-                the tabs; archived cards are read-only until reopened. It reuses
-                the same status color the board card badges show. */}
-            <CardStateSelect
-              card={detail.card}
-              board={boardQuery.data}
-              policy={policy}
-              role={me.role}
-              disabled={archived}
-            />
-            <CardDetailsForm
-              detail={detail}
-              locations={locationsQuery.data ?? []}
-              knownTags={(tagsQuery.data ?? []).map((tag) => tag.name)}
-              saving={updateCard.isPending}
-              disabled={archived}
-              onSave={(changes) => {
-                updateCard.mutate({ card: detail.card, changes })
-              }}
-            >
-              {/* Relations then Attachments sit between the fields and the
-                  timestamps; the Save button stays sticky below everything. */}
-              <Divider />
-              {/* Typed links to other cards (blocks / duplicates / relates to) —
-                  shown only here, never on board card previews. */}
-              <RelationsSection cardId={cardId} readOnly={archived} />
-              <Divider />
-              <AttachmentsSection
-                attachments={detail.attachments}
-                currentUserId={me.id}
-                canDeleteOthers={canDeleteOthersAttachments}
-                uploading={uploadAttachment.isPending}
-                deletingId={deleteAttachment.isPending ? deleteAttachment.variables : null}
-                readOnly={archived}
-                onUpload={(file) => {
-                  uploadAttachment.mutate(file)
-                }}
-                onDelete={(attachmentId) => {
-                  deleteAttachment.mutate(attachmentId)
-                }}
-              />
-            </CardDetailsForm>
-          </Stack>
+          {detailsBody}
         </Tabs.Panel>
         <Tabs.Panel value="comments" pt="md">
           <CommentsThread

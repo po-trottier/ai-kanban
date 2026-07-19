@@ -1,5 +1,6 @@
 import { updateCardInputSchema, type Location, type UpdateCardInput } from '@rivian-kanban/core'
 import { Group, Stack, Text } from '@mantine/core'
+import { useDebouncedCallback } from '@mantine/hooks'
 import { Save } from 'lucide-react'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { useEffect, useId, type ReactNode } from 'react'
@@ -27,9 +28,15 @@ export interface CardDetailsFormProps {
   /** Archived cards are read-only except reopen (workflow.md#terminal-states). */
   disabled?: boolean
   /**
+   * The create view has no Save button: instead of the sticky footer, a
+   * debounced watcher PATCHes edited fields automatically (the card already
+   * exists). The detail panel leaves this false and keeps explicit Save.
+   */
+  autoSave?: boolean
+  /**
    * Sections that belong to the Details tab but NOT the edit form — Attachments
    * and Relations. They render between the fields and the timestamps so the tab
-   * reads fields → attachments → relations → timestamps → (sticky Save), while
+   * reads fields → relations → attachments → timestamps → (sticky Save), while
    * the form element still wraps only the editable fields.
    */
   children?: ReactNode
@@ -49,6 +56,7 @@ export function CardDetailsForm({
   knownTags,
   saving,
   disabled = false,
+  autoSave = false,
   children,
   onSave,
 }: CardDetailsFormProps) {
@@ -63,7 +71,8 @@ export function CardDetailsForm({
   // formState is a subscription Proxy: dirtyFields must be read during
   // render or its per-field tracking is skipped, and the submit handler then
   // sees a stale map (observed live: edit title, then priority — priority
-  // silently dropped from the PATCH). Reading it here subscribes it.
+  // silently dropped from the PATCH). Reading it here subscribes it — which
+  // also keeps the auto-save callback's `form.formState.dirtyFields` read fresh.
   const { dirtyFields, isDirty } = form.formState
 
   // A fresh server state (SSE refetch, save) updates the non-dirty fields;
@@ -71,6 +80,30 @@ export function CardDetailsForm({
   useEffect(() => {
     form.reset(valuesOf(detail), { keepDirtyValues: true })
   }, [form, detail])
+
+  // Create view: no Save button, so save the edited fields automatically once
+  // typing pauses. Same submit path as the manual Save — validate, then send
+  // ONLY the dirty subset — just triggered by a debounced field watcher instead
+  // of a click. Invalid input (e.g. a title cleared to empty) fails validation
+  // and is simply not sent, exactly like the manual path.
+  const autoSaveDirty = useDebouncedCallback(() => {
+    void form.handleSubmit((values) => {
+      const changes = pickDirty(values, form.formState.dirtyFields)
+      if (Object.keys(changes).length > 0) onSave(changes)
+    })()
+  }, 700)
+  useEffect(() => {
+    if (!autoSave) return
+    // form.subscribe (not form.watch): watch() returns a non-memoizable function
+    // that makes the React Compiler bail on this component; subscribe is the
+    // compiler-safe API and returns its own unsubscribe.
+    return form.subscribe({
+      formState: { values: true },
+      callback: () => {
+        autoSaveDirty()
+      },
+    })
+  }, [autoSave, form, autoSaveDirty])
 
   return (
     <>
@@ -111,7 +144,7 @@ export function CardDetailsForm({
           {strings.detail.updatedLabel}: {formatDateTime(card.updatedAt, timezone)}
         </Text>
       </Group>
-      {disabled ? null : (
+      {disabled || autoSave ? null : (
         <StickyFooter>
           <Stack gap="xs">
             {/* Warns a user who edited a field not to switch tabs/close before
