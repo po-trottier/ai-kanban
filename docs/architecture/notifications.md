@@ -82,15 +82,15 @@ sync.
 
 `notifications` (`packages/db`):
 
-| Column       | Type          | Notes                                            |
-| ------------ | ------------- | ------------------------------------------------ |
-| `id`         | UUIDv7        |                                                  |
-| `user_id`    | text FK       | the RECIPIENT                                    |
-| `card_id`    | integer FK    | the card the event was on                        |
-| `actor_id`   | text          | who acted; **no FK** — may be a service-token id |
-| `event_type` | text          | the triggering `CardEventType`                   |
-| `created_at` | ISO-8601 UTC  |                                                  |
-| `read_at`    | ISO-8601 UTC? | null while unread                                |
+| Column       | Type          | Notes                                               |
+| ------------ | ------------- | --------------------------------------------------- |
+| `id`         | UUIDv7        |                                                     |
+| `user_id`    | text FK       | the RECIPIENT                                       |
+| `card_id`    | integer FK    | the card the event was on                           |
+| `actor_id`   | text          | who acted; **no FK** — may be a service-token id    |
+| `event_type` | text          | `NotificationKind` (a `CardEventType` or `mention`) |
+| `created_at` | ISO-8601 UTC  |                                                     |
+| `read_at`    | ISO-8601 UTC? | null while unread                                   |
 
 Indexed on `(user_id, created_at)` — the per-user newest-first page.
 

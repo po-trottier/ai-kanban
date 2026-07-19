@@ -7,10 +7,10 @@ import { actorOf } from './user-routes.ts'
 import { emptyBodySchema, filterPresetResponseSchema, idParamsSchema } from './schemas.ts'
 
 /**
- * Per-user saved board filters (docs/architecture/board-filters.md). Every route
- * is scoped to the acting user: a user only ever sees or edits their OWN
- * presets. No `manage*` permission — managing your own presets is an identity
- * right (like editing your own comment). An id owned by another user is 404.
+ * Saved board filters (docs/architecture/board-filters.md). Reads surface the
+ * acting user's OWN presets plus every SHARED preset; writes stay owner-scoped
+ * (an id owned by another user is 404). No `manage*` permission — managing your
+ * own presets is an identity right (like editing your own comment).
  */
 export function filterPresetRoutes(deps: AppDeps) {
   return function routes(app: FastifyInstance): void {

@@ -77,29 +77,29 @@ While `must_change_password` is set, every route except change-password/logout/m
 
 ### Filter presets
 
-Per-user saved board filters (no `manage*` permission — managing your own presets is an identity
-right, like editing your own comment). Every route is scoped to the caller's own rows; an id owned
-by another user is `404` (indistinguishable from unknown). Full spec:
-[board-filters.md](board-filters.md#presets).
+Saved board filters (no `manage*` permission — managing your own presets is an identity right, like
+editing your own comment). A preset can be **shared with the team** (`shared: true`): READS surface
+your own presets **plus every shared one**, while WRITES stay owner-scoped — an id you don't own is
+`404` (indistinguishable from unknown). Full spec: [board-filters.md](board-filters.md#presets).
 
-| Method & path              | Role | Description                                                                         |
-| -------------------------- | ---- | ----------------------------------------------------------------------------------- |
-| GET /filter-presets        | any  | the caller's presets, newest-first                                                  |
-| POST /filter-presets       | any  | `{ name, filter }` (filter is a `boardFilterSchema`) → `201` the created preset     |
-| PATCH /filter-presets/:id  | any  | `{ name?, filter? }` — rename and/or replace the filter (`404` if not the caller's) |
-| DELETE /filter-presets/:id | any  | `204` (`404` if not the caller's)                                                   |
+| Method & path              | Role | Description                                                                                    |
+| -------------------------- | ---- | ---------------------------------------------------------------------------------------------- |
+| GET /filter-presets        | any  | your presets + everyone's shared presets, newest-first                                         |
+| POST /filter-presets       | any  | `{ name, filter, shared? }` (filter is a `boardFilterSchema`; `shared` defaults false) → `201` |
+| PATCH /filter-presets/:id  | any  | `{ name?, filter?, shared? }` — rename / replace filter / toggle sharing (`404` if not yours)  |
+| DELETE /filter-presets/:id | any  | `204` (`404` if not the caller's)                                                              |
 
 (The two built-in presets — "My Cards", "Overdue" — are core constants the SPA renders, NOT rows,
 so they have no endpoint.)
 
 ### Comments
 
-| Method & path            | Role                       | Description                  |
-| ------------------------ | -------------------------- | ---------------------------- |
-| GET /cards/:id/comments  | any                        | full thread, oldest-first    |
-| POST /cards/:id/comments | any                        | `{ body, parentCommentId? }` |
-| PATCH /comments/:id      | author                     | edit own comment             |
-| DELETE /comments/:id     | author (policy for others) | soft delete                  |
+| Method & path            | Role                       | Description                                                                                                                                        |
+| ------------------------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET /cards/:id/comments  | any                        | full thread, oldest-first                                                                                                                          |
+| POST /cards/:id/comments | any                        | `{ body, parentCommentId?, mentions? }` — `mentions` is up to 50 @-mentioned user ids ([notifications.md](notifications.md#-mentions-in-comments)) |
+| PATCH /comments/:id      | author                     | edit own comment                                                                                                                                   |
+| DELETE /comments/:id     | author (policy for others) | soft delete                                                                                                                                        |
 
 ### Relations
 
@@ -137,14 +137,14 @@ spec: [notifications.md](notifications.md).
 
 ### History & metadata
 
-| Method & path         | Role | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| --------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| GET /cards/:id/events | any  | audit trail for a card, oldest-first; filter `type`; cursor-paginated. Each event carries the stored `actorKind` + `actorId` (unchanged). For `actorKind: 'mcp'` the response ALSO carries two DERIVED, optional fields — `actorLabel` (the service-token name) and `onBehalfOfUserId` (the user who minted the token, its `createdBy`) — resolved at read time so clients render "<token> on behalf of <user>". Non-admins cannot list service tokens, so the server enriches these; the stored `actorId` stays the token id. |
-| GET /events           | any  | board-wide activity feed: card events across ALL cards, NEWEST-first; cursor-paginated. Filters (all optional): `since` (ISO datetime — defaults to 24h before now; an invalid value is 400), `type`, `cardId`, `actorKind`. Same enriched-event shape as `GET /cards/:id/events` (mcp events carry `actorLabel`/`onBehalfOfUserId`).                                                                                                                                                                                          |
-| GET /lanes            | any  | the board's lanes in board (position) order: `id, key, label, position, wipLimit`                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| GET /locations        | any  | tree; CRUD via POST/PATCH/DELETE requires `manageLocations` (403 `permission:manageLocations`). DELETE removes the location and its whole subtree (building → floors → rooms) in one transaction and clears `location_id` on any card that referenced a removed node (location is optional — the card survives); deleting a location with children never conflicts, missing id is 404                                                                                                                                          |
-| GET /tags             | any  | known tags for autocomplete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| GET /stream           | any  | SSE: `{ type, cardId, version, eventId }` invalidation hints                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Method & path         | Role     | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET /cards/:id/events | any      | audit trail for a card, oldest-first; filter `type`; cursor-paginated. Each event carries the stored `actorKind` + `actorId` (unchanged). For `actorKind: 'mcp'` the response ALSO carries two DERIVED, optional fields — `actorLabel` (the service-token name) and `onBehalfOfUserId` (the user who minted the token, its `createdBy`) — resolved at read time so clients render "<token> on behalf of <user>". Non-admins cannot list service tokens, so the server enriches these; the stored `actorId` stays the token id. |
+| GET /events           | _policy_ | activity feed, NEWEST-first, cursor-paginated. With `viewAllActivity` it is board-wide (events across ALL cards); WITHOUT it the caller is scoped to their OWN activity (the seeded `user` role lacks it, `admin` grants it). Filters (all optional): `since` (ISO datetime — defaults to 24h before now; an invalid value is 400), `type`, `cardId`, `actorKind`. Same enriched-event shape as `GET /cards/:id/events` (mcp events carry `actorLabel`/`onBehalfOfUserId`).                                                    |
+| GET /lanes            | any      | the board's lanes in board (position) order: `id, key, label, position, wipLimit`                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| GET /locations        | any      | tree; CRUD via POST/PATCH/DELETE requires `manageLocations` (403 `permission:manageLocations`). DELETE removes the location and its whole subtree (building → floors → rooms) in one transaction and clears `location_id` on any card that referenced a removed node (location is optional — the card survives); deleting a location with children never conflicts, missing id is 404                                                                                                                                          |
+| GET /tags             | any      | known tags for autocomplete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| GET /stream           | any      | SSE: `{ type, cardId, version, eventId }` invalidation hints                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 ### Admin
 

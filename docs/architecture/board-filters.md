@@ -43,6 +43,10 @@ and the presets; the server owns the query.
 Within a facet the values are OR-ed (any-of); across facets they are AND-ed (a card must satisfy
 every non-empty facet). This is the natural "narrow by each control" behavior of a filter bar.
 
+In the assignee and reporter pickers the **current user's** option and selected pill are marked
+"(you)" so filtering to your own cards is one glance away (`AsyncUserPicker`). This is display-only —
+`assigneeIds`/`reporterIds` stay plain user-id arrays, never a `me` sentinel.
+
 There is **no lane/status facet** (#121). Filtering by lane only hid board columns — not a useful
 narrowing — so the field is gone from the schema, the query, and the bar. The **`scope`** facet
 (active / archived / all) stays: reaching archived cards is genuinely useful. (v0/no-legacy: the

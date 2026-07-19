@@ -14,7 +14,9 @@ break the same-transaction guarantee or degenerate into a pass-through.
 ## Decision
 
 The core service roster is: **CardService, CommentService, AttachmentService,
-BoardQueryService, PolicyService**.
+BoardQueryService, PolicyService** — plus the later feature services **WatchService,
+NotificationService, and CardRelationService** (per-card watch subscriptions, the notification
+inbox + fan-out, and typed card relations), each following the same rules below.
 
 - Audit-event **writes** are a cross-cutting concern: each mutating service builds events via a
   shared internal helper (validated against the canonical `card_events` schema) and appends

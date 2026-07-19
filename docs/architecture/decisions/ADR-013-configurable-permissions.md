@@ -57,9 +57,11 @@ custom roles and toggle each permission per role from the dashboard.
   The permission set (`PERMISSIONS`, a const tuple in `packages/core/src/domain/policy.ts`) is:
   `card.create`, `card.update`, `card.move`, `card.cancel`, `card.reopen`, `card.archive`,
   `card.block`, `card.unblock`, `comment.add`, `comment.deleteOthers`, `attachment.add`,
-  `attachment.deleteOthers`, and the six manage\* surfaces `manageUsers`, `manageRoles`,
-  `manageLocations`, `manageLanes`, `managePolicy`, `manageTokens`. (`card.reorder` folds into
-  `card.move` — a same-lane reorder is part of the move permission and skips topology.)
+  `attachment.deleteOthers`, `viewAllActivity` (a READ gate — the cross-user activity feed
+  `GET /events` / MCP `list_activity`; without it a caller is scoped to their own activity), and
+  the six manage\* surfaces `manageUsers`, `manageRoles`, `manageLocations`, `manageLanes`,
+  `managePolicy`, `manageTokens`. (`card.reorder` folds into `card.move` — a same-lane reorder is
+  part of the move permission and skips topology.)
 
   Two schema refinements guard the document: role keys must be UNIQUE, and at least one role
   must grant `manageRoles` (otherwise a policy could lock everyone out of ever editing roles
