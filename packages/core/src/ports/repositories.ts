@@ -285,6 +285,16 @@ export interface LaneRepository {
   findByKey(boardId: string, key: string): Promise<Lane | null>
   /** Persists label/wipLimit edits; NotFoundError when the id does not exist. */
   update(lane: Lane): Promise<void>
+  /** Appends an admin-created column (its position is the caller's next slot). */
+  insert(lane: Lane): Promise<void>
+  /**
+   * Removes a lane. The caller guarantees it is deletable (not a seeded lane)
+   * and empty; a lingering card reference surfaces as a ConflictError.
+   * NotFoundError when the id does not exist.
+   */
+  remove(laneId: string): Promise<void>
+  /** Rewrites lane positions to match `orderedIds` (board order), in one transaction. */
+  reorder(boardId: string, orderedIds: string[]): Promise<void>
 }
 
 export interface LocationRepository {

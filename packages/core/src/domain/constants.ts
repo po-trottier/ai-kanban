@@ -3,6 +3,17 @@
  * vocabulary from docs/product/workflow.md and docs/architecture/data-model.md.
  */
 
+/**
+ * The SEED lane keys — the bootstrap vocabulary the structural seed writes
+ * (docs/product/workflow.md). Lane keys are DATA now, like roles: admins add,
+ * rename, reorder, and remove columns from board settings, so this is only the
+ * default set, not the closed universe. The seeded lanes carry the workflow
+ * behavior (intake entry, in-progress work-start stamp, waiting discipline,
+ * done terminal), so they are PROTECTED from deletion; admin-added lanes are
+ * plain. A lane key's validity is a runtime check against the board's live
+ * lanes (an unknown move target 404s), never against this list. `LaneKey`
+ * stays a bare string, like `Role`.
+ */
 export const LANE_KEYS = [
   'intake',
   'waiting_approval',
@@ -12,7 +23,14 @@ export const LANE_KEYS = [
   'review',
   'done',
 ] as const
-export type LaneKey = (typeof LANE_KEYS)[number]
+/** The seed keys as a closed union — for helpers that key a record by the 7 seeded lanes. */
+export type SeedLaneKey = (typeof LANE_KEYS)[number]
+export type LaneKey = string
+
+/** Seeded lanes carry workflow behavior and cannot be deleted (only renamed/reordered). */
+export function isSystemLaneKey(key: string): boolean {
+  return (LANE_KEYS as readonly string[]).includes(key)
+}
 
 /**
  * The SEED role keys (ADR-013): `user` and `admin` are the two roles the

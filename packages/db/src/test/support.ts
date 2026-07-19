@@ -6,7 +6,7 @@ import {
   type Card,
   type Comment,
   type Lane,
-  type LaneKey,
+  type SeedLaneKey,
   type User,
 } from '@rivian-kanban/core'
 import { cardWith, commentWith, userWith } from '@rivian-kanban/core/testing'
@@ -43,7 +43,7 @@ export function openTestDb(): TestDb {
 export interface Baseline {
   boardId: string
   systemUserId: string
-  lanes: Record<LaneKey, Lane>
+  lanes: Record<SeedLaneKey, Lane>
 }
 
 /** Structural seed + lane lookup — the FK-valid floor repository tests build on. */
@@ -53,7 +53,10 @@ export function seedBaseline(connection: DbConnection): Baseline {
   return {
     boardId,
     systemUserId,
-    lanes: Object.fromEntries(laneRows.map((lane) => [lane.key, lane])) as Record<LaneKey, Lane>,
+    lanes: Object.fromEntries(laneRows.map((lane) => [lane.key, lane])) as Record<
+      SeedLaneKey,
+      Lane
+    >,
   }
 }
 

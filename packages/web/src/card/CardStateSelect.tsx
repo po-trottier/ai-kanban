@@ -87,7 +87,9 @@ export function CardStateSelect({
 
   const onChange = (value: string | null) => {
     if (value === null || value === currentKey) return
-    const toLane = value as LaneKey
+    // Lane keys are plain strings now (configurable columns); an unknown target
+    // is validated server-side (the move 404s), so no cast is needed here.
+    const toLane = value
     // Entering the waiting lane (from a non-waiting lane) needs a reason + date.
     if (isWaitingLane(toLane) && !(currentKey !== null && isWaitingLane(currentKey))) {
       setWaitingTarget(toLane)

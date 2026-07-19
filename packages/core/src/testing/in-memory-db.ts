@@ -771,6 +771,28 @@ class InMemoryLaneRepository implements LaneRepository {
     this.state.lanes.splice(index, 1, clone(lane))
     return Promise.resolve()
   }
+
+  insert(lane: Lane): Promise<void> {
+    this.state.lanes.push(clone(lane))
+    return Promise.resolve()
+  }
+
+  remove(laneId: string): Promise<void> {
+    const index = this.state.lanes.findIndex((candidate) => candidate.id === laneId)
+    if (index === -1) return Promise.reject(new NotFoundError('lane'))
+    this.state.lanes.splice(index, 1)
+    return Promise.resolve()
+  }
+
+  reorder(boardId: string, orderedIds: string[]): Promise<void> {
+    orderedIds.forEach((laneId, position) => {
+      const lane = this.state.lanes.find(
+        (candidate) => candidate.boardId === boardId && candidate.id === laneId,
+      )
+      if (lane !== undefined) lane.position = position
+    })
+    return Promise.resolve()
+  }
 }
 
 class InMemoryLocationRepository implements LocationRepository {

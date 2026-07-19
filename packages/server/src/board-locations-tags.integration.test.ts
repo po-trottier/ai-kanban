@@ -573,3 +573,165 @@ describe('GET /events (board-wide activity feed)', () => {
     expect(viewerIds).not.toContain(otherCardId)
   })
 })
+
+// Runs last: these mutate the board's columns (add/reorder/delete), so they are
+// kept after every "7 seeded lanes" assertion above.
+describe('POST/DELETE /lanes + reorder (admin — configurable columns)', () => {
+  async function boardLanes(): Promise<{ id: string; key: string; label: string }[]> {
+    const response = await t.request(adminCookie, { method: 'GET', url: '/api/v1/board' })
+    return response
+      .json<{ lanes: { lane: { id: string; key: string; label: string } }[] }>()
+      .lanes.map((entry) => entry.lane)
+  }
+
+  async function addLane(label: string): Promise<{ id: string; key: string }> {
+    const created = await t.request(adminCookie, {
+      method: 'POST',
+      url: '/api/v1/lanes',
+      payload: { label },
+    })
+    expect(created.statusCode).toBe(201)
+    return created.json<{ id: string; key: string }>()
+  }
+
+  it('adds a column at the end with a slug key derived from the label', async () => {
+    const created = await t.request(adminCookie, {
+      method: 'POST',
+      url: '/api/v1/lanes',
+      payload: { label: 'On Hold' },
+    })
+
+    expect(created.statusCode).toBe(201)
+    expect(created.json<{ key: string; label: string; wipLimit: number | null }>()).toMatchObject({
+      key: 'on_hold',
+      label: 'On Hold',
+      wipLimit: null,
+    })
+    expect((await boardLanes()).at(-1)?.key).toBe('on_hold')
+  })
+
+  it('derives unique slug keys, handling collisions and odd labels', async () => {
+    const first = await addLane('Extra')
+    const second = await addLane('Extra') // same label → deduped key
+    const digits = await t.request(adminCookie, {
+      method: 'POST',
+      url: '/api/v1/lanes',
+      payload: { label: '123 Zone' }, // leading digit → prefixed
+    })
+    const symbols = await t.request(adminCookie, {
+      method: 'POST',
+      url: '/api/v1/lanes',
+      payload: { label: '!!!' }, // no slug chars → fallback
+    })
+
+    expect(first.key).toBe('extra')
+    expect(second.key).toBe('extra_2')
+    expect(digits.json<{ key: string }>().key).toBe('lane_123_zone')
+    expect(symbols.json<{ key: string }>().key).toBe('lane')
+  })
+
+  it('reorders columns and the board reflects the new order', async () => {
+    const before = await boardLanes()
+    const last = before.at(-1)
+    if (last === undefined) throw new Error('no lanes')
+    // Rotate the last column to the front.
+    const rotated = [last.id, ...before.slice(0, -1).map((lane) => lane.id)]
+
+    const response = await t.request(adminCookie, {
+      method: 'POST',
+      url: '/api/v1/lanes/reorder',
+      payload: { orderedIds: rotated },
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect((await boardLanes()).map((lane) => lane.id)).toEqual(rotated)
+  })
+
+  it('rejects a reorder that is not a full permutation (409)', async () => {
+    const lanes = await boardLanes()
+    const first = lanes[0]
+    if (first === undefined) throw new Error('no lanes')
+
+    const response = await t.request(adminCookie, {
+      method: 'POST',
+      url: '/api/v1/lanes/reorder',
+      payload: { orderedIds: [first.id] },
+    })
+
+    expect(response.statusCode).toBe(409)
+  })
+
+  it('deletes an empty admin-added column', async () => {
+    const lane = await addLane('Scratch')
+
+    const del = await t.request(adminCookie, { method: 'DELETE', url: `/api/v1/lanes/${lane.id}` })
+
+    expect(del.statusCode).toBe(204)
+    expect((await boardLanes()).some((candidate) => candidate.id === lane.id)).toBe(false)
+  })
+
+  it('refuses to delete a seeded workflow column (409) and 404s an unknown lane', async () => {
+    const done = (await boardLanes()).find((lane) => lane.key === 'done')
+    if (done === undefined) throw new Error('no done lane')
+
+    const seeded = await t.request(adminCookie, {
+      method: 'DELETE',
+      url: `/api/v1/lanes/${done.id}`,
+    })
+    const missing = await t.request(adminCookie, {
+      method: 'DELETE',
+      url: '/api/v1/lanes/00000000-0000-7000-8000-00000000dead',
+    })
+
+    expect(seeded.statusCode).toBe(409)
+    expect(missing.statusCode).toBe(404)
+  })
+
+  it('refuses to delete a column that still has cards (409)', async () => {
+    const lane = await addLane('Parking')
+    const card = await t.request(adminCookie, {
+      method: 'POST',
+      url: '/api/v1/cards',
+      payload: { title: 'Parked' },
+    })
+    const created = card.json<{ id: number; version: number }>()
+    const moved = await t.request(adminCookie, {
+      method: 'POST',
+      url: `/api/v1/cards/${String(created.id)}/move`,
+      headers: { 'if-match': `"${String(created.version)}"` },
+      payload: { toLane: lane.key },
+    })
+    expect(moved.statusCode).toBe(200)
+
+    const response = await t.request(adminCookie, {
+      method: 'DELETE',
+      url: `/api/v1/lanes/${lane.id}`,
+    })
+
+    expect(response.statusCode).toBe(409)
+  })
+
+  it('requires manageLanes for create, reorder, and delete (403)', async () => {
+    const technician = await t.asRole('user')
+    const lanes = await boardLanes()
+
+    const create = await t.request(technician.cookie, {
+      method: 'POST',
+      url: '/api/v1/lanes',
+      payload: { label: 'Nope' },
+    })
+    const reorder = await t.request(technician.cookie, {
+      method: 'POST',
+      url: '/api/v1/lanes/reorder',
+      payload: { orderedIds: lanes.map((lane) => lane.id) },
+    })
+    const del = await t.request(technician.cookie, {
+      method: 'DELETE',
+      url: `/api/v1/lanes/${lanes[0]?.id ?? ''}`,
+    })
+
+    expect(create.statusCode).toBe(403)
+    expect(reorder.statusCode).toBe(403)
+    expect(del.statusCode).toBe(403)
+  })
+})

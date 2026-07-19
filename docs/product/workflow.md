@@ -1,11 +1,18 @@
 # Workflow: Lanes, Transitions, and Policies
 
-The lane set was derived from how CMMS/work-order systems (UpKeep, MaintainX, Brightly,
+The lane set below was derived from how CMMS/work-order systems (UpKeep, MaintainX, Brightly,
 Facilitron, Maintenance Connection) model work-order lifecycles, adapted to kanban practice.
-Lanes are **seeded data rows** with stable machine keys and editable display labels — never a DB
+Lanes are **configurable data rows** with slug machine keys and editable display labels — never a DB
 enum — so renames need no migration and the audit trail stays queryable.
 
-## Lanes (in board order)
+**Columns are admin-configurable** (Settings → board columns, gated by `manageLanes`): admins
+**add, rename, reorder, and WIP-cap** columns and **delete** their own (empty) ones. The 7 SEEDED
+lanes below carry the workflow behavior (intake entry, in-progress work-start, waiting discipline,
+done terminal), so they keep their keys and cannot be deleted — but they can still be renamed,
+reordered, and WIP-capped. Admin-added columns are plain: cards move freely into them (movement is
+permissive by default — `transitionEnforcement: false`).
+
+## Lanes (default board, in board order)
 
 | #   | Key                    | Default label             | Meaning                                                                                                                                                    |
 | --- | ---------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |

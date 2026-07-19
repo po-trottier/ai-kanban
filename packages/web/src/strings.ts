@@ -109,6 +109,11 @@ export const strings = {
     createToken: 'Create the token and reveal its secret once',
     // Lanes admin.
     saveLane: 'Save this column’s label and WIP limit',
+    moveLaneUp: 'Move this column left',
+    moveLaneDown: 'Move this column right',
+    deleteLane: 'Delete this column',
+    deleteSystemLane: 'Built-in workflow columns cannot be deleted',
+    addColumn: 'Add this column to the board',
     // Policy admin.
     addRole: 'Add a new role to the permissions matrix',
     savePolicy: 'Save the roles, permissions, and workflow policy',
@@ -795,6 +800,15 @@ export const strings = {
     /** Row-scoped confirmation that names which column was saved. */
     savedNamed: (lane: string) => `${lane} updated`,
     rowLabel: (lane: string) => `Column ${lane}`,
+    orderHeader: 'Order',
+    actionsHeader: '',
+    addTitle: 'Add a column',
+    addPlaceholder: 'New column name',
+    addButton: 'Add column',
+    laneAdded: (lane: string) => `${lane} added`,
+    laneDeleted: 'Column deleted',
+    intro:
+      'Columns are your board workflow. Rename them, set WIP limits, reorder them, and add your own. The built-in workflow columns keep their behavior and cannot be deleted.',
   },
 
   policy: {

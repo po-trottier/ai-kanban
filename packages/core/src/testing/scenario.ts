@@ -1,5 +1,5 @@
 import { generateKeyBetween } from 'fractional-indexing'
-import { LANE_KEYS, type LaneKey, type Role } from '../domain/constants.ts'
+import { LANE_KEYS, type Role, type SeedLaneKey } from '../domain/constants.ts'
 import { type Actor, type Card, type Lane, type User } from '../domain/entities.ts'
 import { DEFAULT_POLICY_DOCUMENT, type PolicyDocument } from '../domain/policy.ts'
 import { AttachmentService } from '../services/attachment-service.ts'
@@ -54,7 +54,7 @@ export interface ScenarioOptions {
    * every policy consultation fails with NotFoundError (no silent fallback).
    */
   omitPolicyRecord?: boolean
-  wipLimits?: Partial<Record<LaneKey, number>>
+  wipLimits?: Partial<Record<SeedLaneKey, number>>
   nowIso?: string
 }
 
@@ -66,7 +66,7 @@ export interface Scenario {
   notifier: CapturingNotifier
   blobStore: InMemoryBlobStore
   boardId: string
-  lanes: Record<LaneKey, Lane>
+  lanes: Record<SeedLaneKey, Lane>
   users: Record<FixtureUserKey, User>
   systemUser: User
   actors: Record<FixtureUserKey, Actor> & {
@@ -112,7 +112,7 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
       db.seedLane(lane)
       return [key, lane] as const
     }),
-  ) as Record<LaneKey, Lane>
+  ) as Record<SeedLaneKey, Lane>
 
   const users = Object.fromEntries(
     FIXTURE_USERS.map(({ key, role }, index) => {

@@ -265,7 +265,7 @@ export const updateProfileInputSchema = z.strictObject({
 })
 export type UpdateProfileInput = z.infer<typeof updateProfileInputSchema>
 
-/** Label and WIP limit only — lane keys/positions are structural (seeded). */
+/** Label and WIP limit edits (any lane). */
 export const updateLaneInputSchema = z
   .strictObject({
     label: z.string().trim().min(1).max(50).optional(),
@@ -276,6 +276,27 @@ export const updateLaneInputSchema = z
     message: 'at least one of label or wipLimit is required',
   })
 export type UpdateLaneInput = z.infer<typeof updateLaneInputSchema>
+
+/**
+ * Admin adds a column: a label and optional WIP limit. The stable machine key
+ * is generated server-side from the label (admins never type keys), and the
+ * new lane is appended at the end of the board.
+ */
+export const createLaneInputSchema = z.strictObject({
+  label: z.string().trim().min(1).max(50),
+  wipLimit: z.number().int().positive().nullable().default(null),
+})
+export type CreateLaneInput = z.infer<typeof createLaneInputSchema>
+
+/**
+ * Admin reorders columns: the full ordered list of lane ids, left to right.
+ * The server validates it is a permutation of the board's lanes before it
+ * rewrites positions.
+ */
+export const reorderLanesInputSchema = z.strictObject({
+  orderedIds: z.array(z.uuid()).min(1),
+})
+export type ReorderLanesInput = z.infer<typeof reorderLanesInputSchema>
 
 export const createLocationInputSchema = z.strictObject({
   parentId: z.uuid().nullable().default(null),

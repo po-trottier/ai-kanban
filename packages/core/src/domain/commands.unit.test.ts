@@ -114,9 +114,11 @@ describe('moveCardInputSchema', () => {
     expect(input.toLane).toBe('ready')
   })
 
-  it('rejects an unknown lane key', () => {
-    // Arrange
-    const body = { toLane: 'trash', expectedVersion: 1 }
+  it('rejects a malformed lane key', () => {
+    // Arrange — lane keys are configurable data now, so only the SHAPE is
+    // checked here (a slug); an unknown-but-well-formed key is rejected at move
+    // time instead (the target lane 404s). Spaces/caps fail the slug.
+    const body = { toLane: 'Trash Bin', expectedVersion: 1 }
 
     // Act
     const act = () => moveCardInputSchema.parse(body)

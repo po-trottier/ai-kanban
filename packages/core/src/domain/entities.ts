@@ -4,7 +4,6 @@ import {
   CARD_DESCRIPTION_MAX,
   CARD_ORIGINS,
   CARD_TITLE_MAX,
-  LANE_KEYS,
   LOCATION_KINDS,
   PRIORITIES,
   RESOLUTIONS,
@@ -31,7 +30,16 @@ export const isoDateSchema = z.iso.date()
  * engine (default-deny for an unknown key).
  */
 export const roleSchema = z.string().min(1).max(40)
-export const laneKeySchema = z.enum(LANE_KEYS)
+/**
+ * A lane KEY, not a fixed enum (like `roleSchema`): lanes are configurable data
+ * (admins add/rename/reorder/remove columns). Shape is validated here — a slug
+ * of lowercase letters, digits, and underscores; that the key EXISTS on the
+ * board is a runtime check (move targets 404 when unknown), not an enum.
+ */
+export const laneKeySchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9_]*$/, 'lowercase letters, digits, and underscores; must start a letter')
+  .max(40)
 export const prioritySchema = z.enum(PRIORITIES)
 export const waitingReasonSchema = z.enum(WAITING_REASONS)
 export const tokenScopeSchema = z.enum(TOKEN_SCOPES)

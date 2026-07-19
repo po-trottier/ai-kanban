@@ -1,5 +1,6 @@
 import {
   laneSchema,
+  type CreateLaneInput,
   type CreateLocationInput,
   type CreateServiceTokenInput,
   type CreateUserInput,
@@ -8,6 +9,7 @@ import {
   type UpdateUserInput,
 } from '@rivian-kanban/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 import { strings } from '../strings.ts'
 import { useApi } from './api-context.ts'
 import { queryKeys } from './keys.ts'
@@ -61,6 +63,48 @@ export function usePatchLane() {
     onSuccess: (_lane, { label }) => {
       // Name the column so a table of identical Save buttons confirms clearly.
       notifySuccess(label === undefined ? strings.lanes.saved : strings.lanes.savedNamed(label))
+      void queryClient.invalidateQueries({ queryKey: queryKeys.board })
+    },
+    onError: notifyError,
+  })
+}
+
+/** `POST /lanes` — adds a column at the end of the board. */
+export function useCreateLane() {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateLaneInput) => api.post('/lanes', laneSchema, { body: input }),
+    onSuccess: (lane) => {
+      notifySuccess(strings.lanes.laneAdded(lane.label))
+      void queryClient.invalidateQueries({ queryKey: queryKeys.board })
+    },
+    onError: notifyError,
+  })
+}
+
+/** `POST /lanes/reorder` — rewrites column order from the full ordered id list. */
+export function useReorderLanes() {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (orderedIds: string[]) =>
+      api.post('/lanes/reorder', z.array(laneSchema), { body: { orderedIds } }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.board })
+    },
+    onError: notifyError,
+  })
+}
+
+/** `DELETE /lanes/:id` — removes an empty, admin-added column. */
+export function useDeleteLane() {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (laneId: string) => api.deleteVoid(`/lanes/${laneId}`),
+    onSuccess: () => {
+      notifySuccess(strings.lanes.laneDeleted)
       void queryClient.invalidateQueries({ queryKey: queryKeys.board })
     },
     onError: notifyError,

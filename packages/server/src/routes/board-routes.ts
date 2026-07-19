@@ -4,8 +4,10 @@ import {
   activityFeedRequestSchema,
   affectsBoardSnapshot,
   boardFilterSchema,
+  createLaneInputSchema,
   createLocationInputSchema,
   policyDocumentSchema,
+  reorderLanesInputSchema,
   updateLaneInputSchema,
   updateLocationInputSchema,
 } from '@rivian-kanban/core'
@@ -128,6 +130,31 @@ export function boardRoutes(deps: AppDeps) {
       async (request) => queries.filteredBoard(request.body),
     )
 
+    r.post(
+      '/lanes',
+      {
+        schema: {
+          body: createLaneInputSchema,
+          response: { 201: laneResponseSchema },
+        },
+      },
+      async (request, reply) => {
+        const lane = await lanes.create(actorOf(request), request.body)
+        return reply.code(201).send(lane)
+      },
+    )
+
+    r.post(
+      '/lanes/reorder',
+      {
+        schema: {
+          body: reorderLanesInputSchema,
+          response: { 200: z.array(laneResponseSchema) },
+        },
+      },
+      async (request) => lanes.reorder(actorOf(request), request.body),
+    )
+
     r.patch(
       '/lanes/:id',
       {
@@ -138,6 +165,21 @@ export function boardRoutes(deps: AppDeps) {
         },
       },
       async (request) => lanes.update(actorOf(request), request.params.id, request.body),
+    )
+
+    r.delete(
+      '/lanes/:id',
+      {
+        config: { bodyless: true },
+        schema: {
+          params: idParamsSchema,
+          response: { 204: emptyBodySchema },
+        },
+      },
+      async (request, reply) => {
+        await lanes.remove(actorOf(request), request.params.id)
+        await reply.code(204).send(null)
+      },
     )
 
     r.get(

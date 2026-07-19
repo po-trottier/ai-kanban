@@ -219,7 +219,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     auth: new AuthService({ uow, clock, hasher, backoff }),
     setup: new SetupService({ uow, clock, ids, hasher, systemUserId }),
     users: new UserAdminService({ ...shared, hasher, boardId, systemUserId }),
-    lanes: new LaneAdminService({ uow, eventBus, boardId }),
+    lanes: new LaneAdminService({ uow, eventBus, ids, boardId }),
     locations: new LocationAdminService({ ...shared, boardId }),
     tokens: new ServiceTokenService({ uow, clock, ids, boardId }),
     filterPresets: new FilterPresetService({ uow, clock, ids }),
