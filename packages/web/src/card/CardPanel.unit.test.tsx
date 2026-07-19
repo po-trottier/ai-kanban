@@ -429,9 +429,14 @@ describe('CardPanel', () => {
         ),
       ).toBe(true)
     })
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: /Card details/ })).not.toBeInTheDocument()
-    })
+    // Generous timeout: closing routes back to the board and unmounts the aside,
+    // a multi-step update chain that can exceed the 1s default on a loaded runner.
+    await waitFor(
+      () => {
+        expect(screen.queryByRole('dialog', { name: /Card details/ })).not.toBeInTheDocument()
+      },
+      { timeout: 4000 },
+    )
   })
 
   it('puts the State dropdown inside the Details tab (not above the tabs)', async () => {

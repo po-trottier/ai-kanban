@@ -220,11 +220,14 @@ export function useDeleteCard() {
   return useMutation({
     mutationFn: (card: Card) =>
       api.deleteVoid(`/cards/${String(card.id)}`, { ifMatch: card.version }),
-    onSuccess: (_result, card) => {
+    onSuccess: () => {
       notifySuccess(strings.newCard.discarded)
-      // The card is gone: drop it from every board variant and forget its detail.
+      // The card is gone: drop it from every board variant. We deliberately do
+      // NOT removeQueries the card detail here — the panel is navigating away
+      // (its Discard closes it), and removing an actively-observed query forces
+      // an immediate refetch that re-renders the closing panel; the orphaned
+      // detail entry is harmless and gc'd on its own.
       void queryClient.invalidateQueries({ queryKey: queryKeys.board })
-      queryClient.removeQueries({ queryKey: queryKeys.card(String(card.id)) })
     },
     onError: notifyCardError,
   })

@@ -32,7 +32,7 @@ test('editing a lane WIP limit reflects on the board badge', async ({ page, cont
 
   // Unique-ish per run so the field is dirty even against a reused local server.
   const limit = String((Date.now() % 89) + 11)
-  await page.getByLabel('WIP limit (waiting_approval)').fill(limit)
+  await page.getByLabel('WIP limit (Waiting for Approval)').fill(limit)
   await page
     .getByLabel('Column Waiting for Approval')
     .getByRole('button', { name: 'Save', exact: true })
