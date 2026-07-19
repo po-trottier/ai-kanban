@@ -4,7 +4,18 @@ import {
   type BoardFilter,
   type FilterPreset,
 } from '@rivian-kanban/core'
-import { ActionIcon, Group, Modal, Select, Stack, TextInput, Tooltip } from '@mantine/core'
+import {
+  ActionIcon,
+  Combobox,
+  Group,
+  Input,
+  InputBase,
+  Modal,
+  Stack,
+  TextInput,
+  Tooltip,
+  useCombobox,
+} from '@mantine/core'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import {
@@ -36,10 +47,12 @@ const BUILTIN_PREFIX = 'builtin:'
 const CREATE_VALUE = 'action:create'
 
 /**
- * Display-only combobox value shown when a preset is applied but the live filter
- * has since drifted from it (an edited facet, #120). It is a synthetic option
- * that never appears in the dropdown — only in the value — so the box reads
- * "Custom" instead of falling back to the placeholder or lying with a name.
+ * Display-only sentinel for the combobox's COLLAPSED label when a preset is
+ * applied but the live filter has since drifted from it (an edited facet, #120).
+ * It is never a dropdown option — the target renders the word "Custom" directly
+ * (Combobox lets the collapsed display differ from the option list), so "Custom"
+ * shows when collapsed but is never a pickable row. To keep a drifted filter, the
+ * user saves it as a named preset ("Create new preset").
  */
 const CUSTOM_VALUE = 'state:custom'
 
@@ -117,6 +130,11 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
   const createPreset = useCreateFilterPreset()
   const updatePreset = useUpdateFilterPreset()
   const deletePreset = useDeleteFilterPreset()
+  const combobox = useCombobox({
+    onDropdownClose: () => {
+      combobox.resetSelectedOption()
+    },
+  })
 
   // The last applied preset option value (built-in `builtin:<key>` or custom id),
   // the "preset context". Cleared on "Reset filters" (a null selection) and on
@@ -156,35 +174,23 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
     label: BUILTIN_LABELS[preset.key],
   }))
   const customData = customPresets.map((preset) => ({ value: preset.id, label: preset.name }))
-  const data = [
-    { group: strings.filterBar.presetsBuiltInGroup, items: builtinData },
-    ...(customData.length > 0
-      ? [{ group: strings.filterBar.presetsCustomGroup, items: customData }]
-      : []),
-    // The trailing "Create new preset" action (its own group renders as a
-    // separated footer entry) opens the save dialog (ITEM 3).
-    {
-      group: strings.filterBar.presetsCreateGroup,
-      items: [{ value: CREATE_VALUE, label: strings.filterBar.presetsCreate }],
-    },
-    // "Custom" is a display-only value (never in a real group so it can't be
-    // picked), included ONLY when it's the current value so the Select resolves
-    // its label instead of blanking (#120).
-    ...(selectedValue === CUSTOM_VALUE
-      ? [{ group: '', items: [{ value: CUSTOM_VALUE, label: strings.filterBar.presetsCustom }] }]
-      : []),
-  ]
 
-  const applyValue = (value: string | null) => {
-    if (value === null) {
-      // "Reset filters" / clearing the box: drop the preset context entirely.
-      setAppliedValue(null)
-      return
-    }
-    if (value === CREATE_VALUE || value === CUSTOM_VALUE) {
-      // Create opens the save flow; Custom is display-only. Neither applies a
-      // filter or changes the preset context.
-      if (value === CREATE_VALUE) setDialog({ kind: 'save' })
+  // The COLLAPSED display label. A drifted preset reads "Custom" (a sentinel that
+  // is never a dropdown option — the whole point of using Combobox over Select),
+  // an applied preset reads its own name, and no context reads the placeholder.
+  const displayLabel =
+    selectedValue === null
+      ? null
+      : selectedValue === CUSTOM_VALUE
+        ? strings.filterBar.presetsCustom
+        : ([...builtinData, ...customData].find((option) => option.value === selectedValue)
+            ?.label ?? null)
+
+  // onOptionSubmit only ever fires for a real dropdown row (a preset or the
+  // "Create new preset" action) — "Custom" is display-only and never submitted.
+  const applyValue = (value: string) => {
+    if (value === CREATE_VALUE) {
+      setDialog({ kind: 'save' })
       return
     }
     if (value.startsWith(BUILTIN_PREFIX)) {
@@ -207,17 +213,59 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
   return (
     <>
       <Group gap={4} align="center" wrap="nowrap">
-        <Tooltip label={strings.filterBar.tooltips.presets} withArrow>
-          <Select
-            aria-label={strings.filterBar.presetsLabel}
-            placeholder={strings.filterBar.presetsPlaceholder}
-            data={data}
-            value={selectedValue}
-            onChange={applyValue}
-            clearable
-            comboboxProps={{ withinPortal: true }}
-          />
-        </Tooltip>
+        <Combobox
+          store={combobox}
+          onOptionSubmit={(value) => {
+            applyValue(value)
+            combobox.closeDropdown()
+          }}
+        >
+          <Tooltip label={strings.filterBar.tooltips.presets} withArrow>
+            <Combobox.Target targetType="button" withExpandedAttribute>
+              <InputBase
+                component="button"
+                type="button"
+                pointer
+                aria-label={strings.filterBar.presetsLabel}
+                rightSection={<Combobox.Chevron />}
+                rightSectionPointerEvents="none"
+                onClick={() => {
+                  combobox.toggleDropdown()
+                }}
+              >
+                {displayLabel ?? (
+                  <Input.Placeholder>{strings.filterBar.presetsPlaceholder}</Input.Placeholder>
+                )}
+              </InputBase>
+            </Combobox.Target>
+          </Tooltip>
+          <Combobox.Dropdown>
+            <Combobox.Options>
+              <Combobox.Group label={strings.filterBar.presetsBuiltInGroup}>
+                {builtinData.map((option) => (
+                  <Combobox.Option value={option.value} key={option.value}>
+                    {option.label}
+                  </Combobox.Option>
+                ))}
+              </Combobox.Group>
+              {customData.length > 0 ? (
+                <Combobox.Group label={strings.filterBar.presetsCustomGroup}>
+                  {customData.map((option) => (
+                    <Combobox.Option value={option.value} key={option.value}>
+                      {option.label}
+                    </Combobox.Option>
+                  ))}
+                </Combobox.Group>
+              ) : null}
+              {/* The trailing "Create new preset" action opens the save dialog. */}
+              <Combobox.Group label={strings.filterBar.presetsCreateGroup}>
+                <Combobox.Option value={CREATE_VALUE}>
+                  {strings.filterBar.presetsCreate}
+                </Combobox.Option>
+              </Combobox.Group>
+            </Combobox.Options>
+          </Combobox.Dropdown>
+        </Combobox>
         {selectedPreset !== null ? (
           <>
             <Tooltip label={strings.filterBar.tooltips.renamePreset} withArrow>

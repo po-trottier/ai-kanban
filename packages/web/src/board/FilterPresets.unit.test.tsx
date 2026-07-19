@@ -162,10 +162,10 @@ describe('FilterPresets', () => {
     // Act — apply the preset.
     await pickPreset(user, preset.name)
     // Assert — the combobox reads the preset's name, not the placeholder.
-    expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveValue(preset.name)
+    expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveTextContent(preset.name)
   })
 
-  it('shows "Custom" once the live filter drifts from the applied preset (#120)', async () => {
+  it('shows "Custom" once the live filter drifts, but never as a dropdown option (#120)', async () => {
     // Arrange — a preset is applied and matches the live filter…
     const preset = customPreset()
     const user = userEvent.setup()
@@ -173,8 +173,13 @@ describe('FilterPresets', () => {
     await pickPreset(user, preset.name)
     // Act — the live filter drifts (a facet edit).
     drift({ ...preset.filter, q: 'drifted' })
-    // Assert — the combobox reads "Custom", not the preset name or placeholder.
-    expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveValue('Custom')
+    // Assert — the collapsed combobox reads "Custom", not the preset name.
+    expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveTextContent('Custom')
+    // …and "Custom" is NEVER a pickable row: opening the dropdown lists only real
+    // presets + the create action (to persist a drifted filter you save it).
+    await user.click(screen.getByRole('combobox', { name: 'Preset' }))
+    expect(screen.queryByRole('option', { name: 'Custom' })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Create new preset' })).toBeInTheDocument()
   })
 
   it('shows the placeholder (no preset context) for a fresh/empty filter (#120)', () => {
@@ -182,8 +187,8 @@ describe('FilterPresets', () => {
     const preset = customPreset()
     // Act — render with the empty filter (nothing has been applied).
     renderPresets([preset], {}, EMPTY_BOARD_FILTER)
-    // Assert — the combobox is empty (its placeholder shows), not a name or Custom.
-    expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveValue('')
+    // Assert — the collapsed combobox shows its placeholder, not a name or Custom.
+    expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveTextContent('Choose a preset')
   })
 
   it('saves the current filter as a new named preset (POST)', async () => {
