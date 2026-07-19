@@ -120,8 +120,9 @@ describe('LanesAdmin', () => {
     expect(
       await screen.findByRole('button', { name: 'Delete this column (Intake)' }),
     ).toBeDisabled()
-    // Act — delete the admin-added column.
+    // Act — delete the admin-added column, confirming the guard dialog.
     await user.click(screen.getByRole('button', { name: 'Delete this column (On Hold)' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete column' }))
     // Assert
     expect(fake.calls.some((call) => call.method === 'DELETE' && call.url.includes(customId))).toBe(
       true,

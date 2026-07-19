@@ -2,7 +2,6 @@ import { type NotificationKind, type NotificationView } from '@rivian-kanban/cor
 import {
   ActionIcon,
   Box,
-  Button,
   Divider,
   Group,
   Indicator,
@@ -27,6 +26,8 @@ import {
 import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDateTime, formatTicketNumber } from '../lib/format.ts'
 import { strings } from '../strings.ts'
+import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
+import { HintButton } from './HintButton.tsx'
 import classes from './notification-bell.module.css'
 
 /**
@@ -96,7 +97,7 @@ export function NotificationBell() {
       </Popover.Target>
       <Popover.Dropdown p={0}>
         <Group justify="space-between" p="sm" wrap="nowrap">
-          <Text fw={600}>{strings.notifications.title}</Text>
+          <Text fw={EMPHASIS_FONT_WEIGHT}>{strings.notifications.title}</Text>
           <SegmentedControl
             size="xs"
             value={unreadOnly ? 'unread' : 'all'}
@@ -132,17 +133,18 @@ export function NotificationBell() {
         </ScrollArea.Autosize>
         <Divider />
         <Group justify="flex-end" p="xs">
-          <Button
+          <HintButton
             size="xs"
             variant="subtle"
-            disabled={unread === 0}
+            tooltip={strings.notifications.markAllReadTooltip}
+            disabledReason={unread === 0 ? strings.notifications.markAllReadEmpty : undefined}
             loading={markAll.isPending}
             onClick={() => {
               markAll.mutate()
             }}
           >
             {strings.notifications.markAllRead}
-          </Button>
+          </HintButton>
         </Group>
       </Popover.Dropdown>
     </Popover>
@@ -171,7 +173,7 @@ function NotificationRow({
       <Group gap="sm" wrap="nowrap" p="sm" align="flex-start">
         <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
           <Text size="sm" lineClamp={2}>
-            <Text span fw={600}>
+            <Text span fw={EMPHASIS_FONT_WEIGHT}>
               {actor}
             </Text>{' '}
             {verb}

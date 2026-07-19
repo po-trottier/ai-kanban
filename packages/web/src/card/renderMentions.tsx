@@ -32,7 +32,13 @@ export function renderCommentBody(body: string, displayNames: Iterable<string>):
       if (match !== undefined) {
         flushPlain()
         nodes.push(
-          <Text key={index} span c="indigo" fw={EMPHASIS_FONT_WEIGHT} inherit>
+          <Text
+            key={index}
+            span
+            c="var(--mantine-primary-color-filled)"
+            fw={EMPHASIS_FONT_WEIGHT}
+            inherit
+          >
             @{match}
           </Text>,
         )

@@ -107,7 +107,9 @@ export function AddRelationModal({
             tooltip={strings.relations.tooltips.add}
             leftSection={<Link2 size={16} aria-hidden />}
             loading={saving}
-            disabledReason={target === null ? strings.relations.tooltips.disabledNoTarget : false}
+            disabledReason={
+              target === null ? strings.relations.tooltips.disabledNoTarget : undefined
+            }
             onClick={submit}
           >
             {strings.relations.add}

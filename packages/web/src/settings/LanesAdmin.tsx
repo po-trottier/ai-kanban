@@ -14,6 +14,7 @@ import { useState } from 'react'
 import { useCreateLane, useDeleteLane, usePatchLane, useReorderLanes } from '../api/admin.ts'
 import { useBoard } from '../api/board.ts'
 import { type LaneSnapshot } from '../api/schemas.ts'
+import { ConfirmModal } from '../shell/ConfirmModal.tsx'
 import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { HintButton } from '../shell/HintButton.tsx'
 import { SkeletonRows } from '../shell/SkeletonRows.tsx'
@@ -94,6 +95,7 @@ function LaneRow({ snapshot, index, count, reordering, onMove }: LaneRowProps) {
   const deleteLane = useDeleteLane()
   const [label, setLabel] = useState(snapshot.lane.label)
   const [wipLimit, setWipLimit] = useState<number | null>(snapshot.lane.wipLimit)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const dirty = label !== snapshot.lane.label || wipLimit !== snapshot.lane.wipLimit
   const isSystem = isSystemLaneKey(snapshot.lane.key)
 
@@ -190,13 +192,31 @@ function LaneRow({ snapshot, index, count, reordering, onMove }: LaneRowProps) {
               disabled={isSystem || deleteLane.isPending}
               loading={deleteLane.isPending}
               onClick={() => {
-                deleteLane.mutate(snapshot.lane.id)
+                setConfirmingDelete(true)
               }}
             >
               <Trash2 size={16} aria-hidden />
             </ActionIcon>
           </span>
         </Tooltip>
+        {confirmingDelete ? (
+          <ConfirmModal
+            title={strings.lanes.deleteConfirmTitle}
+            body={strings.lanes.deleteConfirmBody(snapshot.lane.label)}
+            confirmLabel={strings.lanes.deleteConfirmLabel}
+            loading={deleteLane.isPending}
+            onConfirm={() => {
+              deleteLane.mutate(snapshot.lane.id, {
+                onSuccess: () => {
+                  setConfirmingDelete(false)
+                },
+              })
+            }}
+            onClose={() => {
+              setConfirmingDelete(false)
+            }}
+          />
+        ) : null}
       </Table.Td>
     </Table.Tr>
   )

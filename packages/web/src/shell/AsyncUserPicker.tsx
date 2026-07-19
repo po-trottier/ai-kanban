@@ -50,7 +50,9 @@ function useAsyncUserOptions(
     return [...byId.values()]
   }, [resolveQuery.data, searchQuery.data, currentUserId])
 
-  return { options, search, setSearch, loading: searchQuery.isFetching }
+  // Spin during the initial `?ids=` resolve too, not just free-text search, so
+  // opening a card with an assignee shows progress instead of a blank field.
+  return { options, search, setSearch, loading: searchQuery.isFetching || resolveQuery.isFetching }
 }
 
 // Mark the current user's option/pill so "me" is easy to find and pick — the

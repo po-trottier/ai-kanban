@@ -502,6 +502,8 @@ export const strings = {
     empty: 'You’re all caught up.',
     emptyUnread: 'No unread notifications.',
     markAllRead: 'Mark all as read',
+    markAllReadTooltip: 'Mark every notification as read',
+    markAllReadEmpty: 'You have no unread notifications',
     allRead: 'All notifications marked as read',
     filterAll: 'All',
     filterUnread: 'Unread',
@@ -807,6 +809,10 @@ export const strings = {
     addButton: 'Add column',
     laneAdded: (lane: string) => `${lane} added`,
     laneDeleted: 'Column deleted',
+    deleteConfirmTitle: 'Delete column?',
+    deleteConfirmBody: (lane: string) =>
+      `Delete the “${lane}” column? This can’t be undone. A column that still has cards can’t be deleted.`,
+    deleteConfirmLabel: 'Delete column',
     intro:
       'Columns are your board workflow. Rename them, set WIP limits, reorder them, and add your own. The built-in workflow columns keep their behavior and cannot be deleted.',
   },
