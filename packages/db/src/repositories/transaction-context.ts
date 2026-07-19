@@ -1,6 +1,7 @@
 import { type TransactionContext } from '@rivian-kanban/core'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { SqliteAttachmentRepository } from './attachment-repository.ts'
+import { SqliteCardRelationRepository } from './card-relation-repository.ts'
 import { SqliteCardRepository } from './card-repository.ts'
 import { SqliteCommentRepository } from './comment-repository.ts'
 import { SqliteEventRepository } from './event-repository.ts'
@@ -34,5 +35,6 @@ export function createTransactionContext(db: BetterSQLite3Database): Transaction
     policies: new SqlitePolicyRepository(db),
     events: new SqliteEventRepository(db),
     filterPresets: new SqliteFilterPresetRepository(db),
+    cardRelations: new SqliteCardRelationRepository(db),
   }
 }

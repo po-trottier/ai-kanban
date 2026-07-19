@@ -14,11 +14,13 @@ import {
 import { ConflictError, DuplicatePositionError, NotFoundError } from '../domain/errors.ts'
 import { type CardEvent, type CardEventType } from '../domain/events.ts'
 import { type FilterPreset } from '../domain/filters.ts'
+import { type CardRelation, type RelationType } from '../domain/relations.ts'
 import { type BoardPolicy } from '../domain/policy.ts'
 import {
   type AttachmentRepository,
   type BoardCardRow,
   type CardQueryFilter,
+  type CardRelationRepository,
   type CardRepository,
   type CommentRepository,
   type EventRepository,
@@ -71,6 +73,7 @@ interface DbState {
   policies: BoardPolicy[]
   events: CardEvent[]
   filterPresets: FilterPreset[]
+  cardRelations: CardRelation[]
 }
 
 function emptyState(): DbState {
@@ -89,6 +92,7 @@ function emptyState(): DbState {
     policies: [],
     events: [],
     filterPresets: [],
+    cardRelations: [],
   }
 }
 
@@ -135,6 +139,7 @@ export class InMemoryDb implements UnitOfWork {
       policies: new InMemoryPolicyRepository(state),
       events: new InMemoryEventRepository(state),
       filterPresets: new InMemoryFilterPresetRepository(state),
+      cardRelations: new InMemoryCardRelationRepository(state),
     }
   }
 
@@ -196,6 +201,11 @@ export class InMemoryDb implements UnitOfWork {
   /** Seeds a filter preset directly (per-user isolation / list-order tests). */
   seedFilterPreset(preset: FilterPreset): void {
     this.state.filterPresets.push(clone(preset))
+  }
+
+  /** Seeds a card relation directly (relation list/resolve tests). */
+  seedCardRelation(relation: CardRelation): void {
+    this.state.cardRelations.push(clone(relation))
   }
 
   getCard(id: number): Card {
@@ -995,6 +1005,56 @@ class InMemoryFilterPresetRepository implements FilterPresetRepository {
     )
     if (index === -1) return Promise.reject(new NotFoundError('filter preset'))
     this.state.filterPresets.splice(index, 1)
+    return Promise.resolve()
+  }
+}
+
+class InMemoryCardRelationRepository implements CardRelationRepository {
+  private readonly state: DbState
+
+  constructor(state: DbState) {
+    this.state = state
+  }
+
+  listByCard(cardId: number): Promise<CardRelation[]> {
+    return Promise.resolve(
+      clone(
+        this.state.cardRelations
+          .filter((relation) => relation.fromCardId === cardId || relation.toCardId === cardId)
+          // Newest-first (createdAt DESC, id DESC) — mirrors the SQL adapter.
+          .sort((a, b) =>
+            a.createdAt === b.createdAt
+              ? binaryCompare(b.id, a.id)
+              : binaryCompare(b.createdAt, a.createdAt),
+          ),
+      ),
+    )
+  }
+
+  findById(id: string): Promise<CardRelation | null> {
+    const relation = this.state.cardRelations.find((candidate) => candidate.id === id)
+    return Promise.resolve(relation ? clone(relation) : null)
+  }
+
+  exists(fromCardId: number, toCardId: number, type: RelationType): Promise<boolean> {
+    return Promise.resolve(
+      this.state.cardRelations.some(
+        (relation) =>
+          relation.fromCardId === fromCardId &&
+          relation.toCardId === toCardId &&
+          relation.type === type,
+      ),
+    )
+  }
+
+  insert(relation: CardRelation): Promise<void> {
+    this.state.cardRelations.push(clone(relation))
+    return Promise.resolve()
+  }
+
+  delete(id: string): Promise<void> {
+    const index = this.state.cardRelations.findIndex((candidate) => candidate.id === id)
+    if (index !== -1) this.state.cardRelations.splice(index, 1)
     return Promise.resolve()
   }
 }

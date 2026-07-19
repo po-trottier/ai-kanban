@@ -43,6 +43,19 @@ CREATE TABLE `card_events` (
 );
 --> statement-breakpoint
 CREATE INDEX `card_events_card_id_created_at_idx` ON `card_events` (`card_id`,`created_at`);--> statement-breakpoint
+CREATE TABLE `card_relations` (
+	`id` text PRIMARY KEY NOT NULL,
+	`from_card_id` integer NOT NULL,
+	`to_card_id` integer NOT NULL,
+	`type` text NOT NULL,
+	`created_at` text NOT NULL,
+	FOREIGN KEY (`from_card_id`) REFERENCES `cards`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`to_card_id`) REFERENCES `cards`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `card_relations_from_to_type_unique` ON `card_relations` (`from_card_id`,`to_card_id`,`type`);--> statement-breakpoint
+CREATE INDEX `card_relations_from_card_idx` ON `card_relations` (`from_card_id`);--> statement-breakpoint
+CREATE INDEX `card_relations_to_card_idx` ON `card_relations` (`to_card_id`);--> statement-breakpoint
 CREATE TABLE `card_tags` (
 	`card_id` integer NOT NULL,
 	`tag_id` text NOT NULL,

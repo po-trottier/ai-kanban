@@ -14,6 +14,7 @@ import {
 import { type BoardCardExtras } from '../domain/envelopes.ts'
 import { type CardEvent, type CardEventType } from '../domain/events.ts'
 import { type FilterPreset } from '../domain/filters.ts'
+import { type CardRelation, type RelationType } from '../domain/relations.ts'
 import { type BoardPolicy } from '../domain/policy.ts'
 
 /**
@@ -396,6 +397,23 @@ export interface FilterPresetRepository {
   delete(id: string, ownerId: string): Promise<void>
 }
 
+/**
+ * Typed card-to-card relations (docs/architecture/card-relations.md). One
+ * directed row per relation (`from → to` + type); a card's relations are every
+ * row touching it on either end. No soft delete — a relation carries no audit
+ * weight.
+ */
+export interface CardRelationRepository {
+  /** Every relation touching `cardId` (as `from` OR `to`), newest-first. */
+  listByCard(cardId: number): Promise<CardRelation[]>
+  findById(id: string): Promise<CardRelation | null>
+  /** True when an identical `(fromCardId, toCardId, type)` row already exists. */
+  exists(fromCardId: number, toCardId: number, type: RelationType): Promise<boolean>
+  insert(relation: CardRelation): Promise<void>
+  /** Hard-deletes by id; a no-op when the id is unknown (the service pre-checks). */
+  delete(id: string): Promise<void>
+}
+
 /** The repositories available inside one atomic unit of work. */
 export interface TransactionContext {
   cards: CardRepository
@@ -411,6 +429,7 @@ export interface TransactionContext {
   policies: PolicyRepository
   events: EventRepository
   filterPresets: FilterPresetRepository
+  cardRelations: CardRelationRepository
 }
 
 /**

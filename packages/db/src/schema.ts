@@ -7,6 +7,7 @@ import {
   type LaneKey,
   type LocationKind,
   type Priority,
+  type RelationType,
   type Resolution,
   type Role,
   type Theme,
@@ -369,5 +370,37 @@ export const filterPresets = sqliteTable(
     index('filter_presets_shared_created_at_idx')
       .on(table.createdAt)
       .where(sql`${table.shared} = 1`),
+  ],
+)
+
+/**
+ * Typed card-to-card relations (docs/architecture/card-relations.md). One
+ * directed row per relation (`from → to` + type); a card's relations are every
+ * row touching it on either end.
+ */
+export const cardRelations = sqliteTable(
+  'card_relations',
+  {
+    id: text('id').primaryKey(),
+    fromCardId: integer('from_card_id')
+      .notNull()
+      .references(() => cards.id),
+    toCardId: integer('to_card_id')
+      .notNull()
+      .references(() => cards.id),
+    type: text('type').$type<RelationType>().notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    // No exact duplicate of a directed relation.
+    uniqueIndex('card_relations_from_to_type_unique').on(
+      table.fromCardId,
+      table.toCardId,
+      table.type,
+    ),
+    // `listByCard` is `WHERE from_card_id = ? OR to_card_id = ?`; an index on
+    // each end serves its leg (SQLite OR-unions the two).
+    index('card_relations_from_card_idx').on(table.fromCardId),
+    index('card_relations_to_card_idx').on(table.toCardId),
   ],
 )

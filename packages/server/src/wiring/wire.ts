@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import {
   AttachmentService,
   BoardQueryService,
+  CardRelationService,
   CardService,
   CommentService,
   PolicyService,
@@ -219,6 +220,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     locations: new LocationAdminService({ ...shared, boardId }),
     tokens: new ServiceTokenService({ uow, clock, ids, boardId }),
     filterPresets: new FilterPresetService({ uow, clock, ids }),
+    relations: new CardRelationService({ uow, clock, ids }),
   }
 
   const config: AppConfig = {

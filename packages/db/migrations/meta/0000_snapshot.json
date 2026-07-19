@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8e4be115-8d9e-4428-839d-169d65c65e2f",
+  "id": "3efa6445-5cf9-4ca6-8062-923a53ffc5fe",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -301,6 +301,102 @@
           "tableTo": "cards",
           "columnsFrom": [
             "card_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "card_relations": {
+      "name": "card_relations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "from_card_id": {
+          "name": "from_card_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "to_card_id": {
+          "name": "to_card_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "card_relations_from_to_type_unique": {
+          "name": "card_relations_from_to_type_unique",
+          "columns": [
+            "from_card_id",
+            "to_card_id",
+            "type"
+          ],
+          "isUnique": true
+        },
+        "card_relations_from_card_idx": {
+          "name": "card_relations_from_card_idx",
+          "columns": [
+            "from_card_id"
+          ],
+          "isUnique": false
+        },
+        "card_relations_to_card_idx": {
+          "name": "card_relations_to_card_idx",
+          "columns": [
+            "to_card_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "card_relations_from_card_id_cards_id_fk": {
+          "name": "card_relations_from_card_id_cards_id_fk",
+          "tableFrom": "card_relations",
+          "tableTo": "cards",
+          "columnsFrom": [
+            "from_card_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "card_relations_to_card_id_cards_id_fk": {
+          "name": "card_relations_to_card_id_cards_id_fk",
+          "tableFrom": "card_relations",
+          "tableTo": "cards",
+          "columnsFrom": [
+            "to_card_id"
           ],
           "columnsTo": [
             "id"

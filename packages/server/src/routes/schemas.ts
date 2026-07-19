@@ -9,6 +9,7 @@ import {
   boardSnapshotSchemaOf,
   CARD_EVENT_TYPES,
   cardDetailSchemaOf,
+  cardRelationViewSchema,
   cardSchema,
   filterPresetSchema,
   laneSchema,
@@ -64,6 +65,16 @@ export const serviceTokenResponseSchema = z.object(
 export const filterPresetResponseSchema = z.object({
   ...filterPresetSchema.shape,
   filter: z.object(boardFilterSchema.shape),
+})
+
+/**
+ * A card relation resolved for display (docs/architecture/card-relations.md) —
+ * the stored type/direction plus the OTHER card's summary, as a stripping
+ * wrapper composed from the canonical `cardRelationViewSchema` (single schema).
+ */
+export const cardRelationResponseSchema = z.object({
+  ...cardRelationViewSchema.shape,
+  card: z.object(cardRelationViewSchema.shape.card.shape),
 })
 
 /** Soft-deleted comment bodies are blanked by core before serialization. */

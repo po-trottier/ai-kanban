@@ -2,6 +2,7 @@ import {
   type Actor,
   type AttachmentService,
   type BoardQueryService,
+  type CardRelationService,
   type CardService,
   type Clock,
   type CommentService,
@@ -89,6 +90,7 @@ interface AppServices {
   locations: LocationAdminService
   tokens: ServiceTokenService
   filterPresets: FilterPresetService
+  relations: CardRelationService
 }
 
 export interface AppDeps {

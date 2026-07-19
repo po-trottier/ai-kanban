@@ -50,6 +50,7 @@ import { AttachmentsSection } from './AttachmentsSection.tsx'
 import { CardDetailsForm } from './CardDetailsForm.tsx'
 import { CardStateSelect } from './CardStateSelect.tsx'
 import { CommentsThread } from './CommentsThread.tsx'
+import { RelationsSection } from './RelationsSection.tsx'
 import { HistoryList } from './HistoryList.tsx'
 import classes from './card.module.css'
 
@@ -311,6 +312,10 @@ function CardPanelBody({ cardId }: { cardId: string }) {
                 deleteAttachment.mutate(attachmentId)
               }}
             />
+            <Divider />
+            {/* Typed links to other cards (blocks / duplicates / relates to) —
+                shown only here, never on board card previews. */}
+            <RelationsSection cardId={cardId} readOnly={archived} />
           </Stack>
         </Tabs.Panel>
         <Tabs.Panel value="comments" pt="md">

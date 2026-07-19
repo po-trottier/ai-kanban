@@ -4,6 +4,7 @@ import { type Actor, type Card, type Lane, type User } from '../domain/entities.
 import { DEFAULT_POLICY_DOCUMENT, type PolicyDocument } from '../domain/policy.ts'
 import { AttachmentService } from '../services/attachment-service.ts'
 import { BoardQueryService } from '../services/board-query-service.ts'
+import { CardRelationService } from '../services/relation-service.ts'
 import { CardService } from '../services/card-service.ts'
 import { CommentService } from '../services/comment-service.ts'
 import { PolicyService } from '../services/policy-service.ts'
@@ -78,6 +79,7 @@ export interface Scenario {
   attachments: AttachmentService
   queries: BoardQueryService
   policies: PolicyService
+  relations: CardRelationService
   /** Seeds a card directly into committed state, auto-positioned in its lane. */
   seedCard(overrides?: Partial<Card>): Card
 }
@@ -158,6 +160,7 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
   const attachments = new AttachmentService({ ...shared, blobStore })
   const queries = new BoardQueryService({ uow: db, clock, boardId })
   const policies = new PolicyService({ ...shared, boardId })
+  const relations = new CardRelationService({ uow: db, clock, ids })
 
   let seedCounter = 100
   const lastPositionByLane = new Map<string, string>()
@@ -198,6 +201,7 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
     attachments,
     queries,
     policies,
+    relations,
     seedCard,
   }
 }

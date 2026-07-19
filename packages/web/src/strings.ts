@@ -5,6 +5,8 @@ import {
   type LocationKind,
   type Permission,
   type Priority,
+  type RelationDirection,
+  type RelationType,
   type Resolution,
   type Theme,
   type TokenScope,
@@ -442,6 +444,35 @@ export const strings = {
     /** Board-level message when the filter matches nothing anywhere. */
     noMatchesTitle: 'No cards match your filters',
     noMatchesHint: 'Widen the scope or clear a facet to see more cards.',
+  },
+
+  /** Typed card-to-card relations, shown in the detail panel (not on board cards). */
+  relations: {
+    sectionTitle: 'Relations',
+    empty: 'No related cards yet.',
+    /** The add-a-relation row: pick a relationship + a target card. */
+    typeLabel: 'Relationship',
+    targetLabel: 'Related card',
+    targetPlaceholder: 'Search cards by title or #number…',
+    targetNothingFound: 'No matching cards',
+    add: 'Add relation',
+    remove: (title: string) => `Remove relation to ${title}`,
+    added: 'Relation added',
+    removed: 'Relation removed',
+    /**
+     * The human label from (type, direction): the OUTGOING sense is the plain
+     * verb; the INCOMING sense is the passive inverse (symmetric types repeat).
+     */
+    labels: {
+      blocks: { outgoing: 'Blocks', incoming: 'Blocked by' },
+      duplicates: { outgoing: 'Duplicates', incoming: 'Duplicated by' },
+      relates_to: { outgoing: 'Relates to', incoming: 'Relates to' },
+    } satisfies Record<RelationType, Record<RelationDirection, string>>,
+    tooltips: {
+      add: 'Link this card to another — blocks, duplicates, or relates to',
+      remove: 'Remove this relation',
+      disabledNoTarget: 'Search for and pick a card to relate first',
+    },
   },
 
   move: {

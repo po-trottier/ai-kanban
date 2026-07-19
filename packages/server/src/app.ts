@@ -20,6 +20,7 @@ import { boardRoutes } from './routes/board-routes.ts'
 import { cardRoutes } from './routes/card-routes.ts'
 import { commentRoutes } from './routes/comment-routes.ts'
 import { filterPresetRoutes } from './routes/filter-preset-routes.ts'
+import { relationRoutes } from './routes/relation-routes.ts'
 import { metaRoutes } from './routes/meta-routes.ts'
 import { operationalRoutes } from './routes/operational-routes.ts'
 import { serviceTokenRoutes } from './routes/service-token-routes.ts'
@@ -95,6 +96,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       boardRoutes(deps)(api)
       cardRoutes(deps)(api)
       commentRoutes(deps)(api)
+      relationRoutes(deps)(api)
       attachmentRoutes(deps, quota)(api)
       serviceTokenRoutes(deps)(api)
       filterPresetRoutes(deps)(api)

@@ -27,4 +27,8 @@ export const queryKeys = {
   card: (cardId: string) => ['card', cardId] as const,
   comments: (cardId: string) => ['comments', cardId] as const,
   events: (cardId: string) => ['events', cardId] as const,
+  /** A card's typed relations (both directions), resolved to the other cards. */
+  relations: (cardId: string) => ['relations', cardId] as const,
+  /** Card search for the relation-target picker — one entry per query text. */
+  cardSearch: (q: string) => ['cards', 'search', q] as const,
 }

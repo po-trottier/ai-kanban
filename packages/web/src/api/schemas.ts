@@ -4,6 +4,7 @@ import {
   boardSnapshotSchemaOf,
   cardDetailSchemaOf,
   cardEventSchema,
+  cardRelationViewSchema,
   cardSchema,
   filterPresetSchema,
   laneSchema,
@@ -111,3 +112,16 @@ export const createdServiceTokenSchema = z.object({
 /** `GET /filter-presets` — the caller's saved board filters (core's stored shape). */
 export const filterPresetResponseSchema = filterPresetSchema
 export const filterPresetsResponseSchema = z.array(filterPresetSchema)
+
+/** `GET`/`POST /cards/:id/relations` — a relation resolved to the other card. */
+export const cardRelationResponseSchema = cardRelationViewSchema
+export const cardRelationsResponseSchema = z.array(cardRelationViewSchema)
+
+/**
+ * `GET /cards?q=` for the relation-target picker: only the id + title are read,
+ * so the page items are parsed leanly (extra card fields are stripped). Uses the
+ * same `pageSchemaOf` envelope the server serializes, so the shape can't drift.
+ */
+const cardSearchItemSchema = z.object({ id: z.number().int().positive(), title: z.string() })
+export type CardSearchItem = z.infer<typeof cardSearchItemSchema>
+export const cardSearchResponseSchema = pageSchemaOf(cardSearchItemSchema)
