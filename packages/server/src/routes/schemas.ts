@@ -12,6 +12,7 @@ import {
   cardRelationViewSchema,
   cardSchema,
   filterPresetSchema,
+  notificationViewSchema,
   laneSchema,
   locationSchema,
   pageSchemaOf,
@@ -79,6 +80,15 @@ export const cardRelationResponseSchema = z.object({
 
 /** `GET`/`PUT`/`DELETE /cards/:id/watch` — the acting user's watch state. */
 export const watchStateResponseSchema = z.object({ watching: z.boolean() })
+
+/**
+ * A notification resolved for the inbox (docs/architecture/notifications.md) —
+ * the stripping wrapper over the canonical `notificationViewSchema`.
+ */
+export const notificationResponseSchema = z.object(notificationViewSchema.shape)
+
+/** `GET /notifications/unread-count` + the mark-read responses. */
+export const unreadCountResponseSchema = z.object({ unread: z.number().int().nonnegative() })
 
 /** Soft-deleted comment bodies are blanked by core before serialization. */
 export const commentResponseSchema = z.object(redactedCommentSchema.shape)

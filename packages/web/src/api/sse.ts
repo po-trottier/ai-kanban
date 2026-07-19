@@ -7,6 +7,10 @@ import { queryKeys } from './keys.ts'
  * the query keys to refetch, keeping REST the single serialization path.
  */
 export function hintInvalidations(hint: SseHint): readonly (readonly string[])[] {
+  // Any card-scoped event can mint a notification for a watcher, so every such
+  // hint refreshes the inbox + bell badge (prefix key). The 30s inbox poll is
+  // the backstop if the fan-out hasn't committed by the time this fires.
+  const NOTIFICATIONS = ['notifications'] as const
   switch (hint.type) {
     case 'policy.updated':
       return [queryKeys.policy]
@@ -21,17 +25,22 @@ export function hintInvalidations(hint: SseHint): readonly (readonly string[])[]
     case 'comment.deleted': {
       // Query keys are stringy (URL params are strings); the hint id is an int.
       const cardId = String(hint.cardId)
-      return [queryKeys.comments(cardId), queryKeys.events(cardId)]
+      return [queryKeys.comments(cardId), queryKeys.events(cardId), NOTIFICATIONS]
     }
     case 'attachment.added':
     case 'attachment.removed': {
       const cardId = String(hint.cardId)
-      return [queryKeys.card(cardId), queryKeys.events(cardId)]
+      return [queryKeys.card(cardId), queryKeys.events(cardId), NOTIFICATIONS]
     }
     default: {
       // card.* — board summaries, the card detail, and its history all change.
       const cardId = String(hint.cardId)
-      const keys = [queryKeys.board, queryKeys.card(cardId), queryKeys.events(cardId)]
+      const keys = [
+        queryKeys.board,
+        queryKeys.card(cardId),
+        queryKeys.events(cardId),
+        NOTIFICATIONS,
+      ]
       // A create or a field edit can mint a new free-form tag (the tags table
       // is insert-only, so no other card event alters the vocabulary): refresh
       // the Tags facet so a tag another user just introduced appears here too.

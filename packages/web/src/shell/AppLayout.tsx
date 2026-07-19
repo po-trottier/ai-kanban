@@ -12,6 +12,7 @@ import { BoardLegend } from './BoardLegend.tsx'
 import { CardPanelSlotContext } from './card-panel-slot.ts'
 import { FilterBarSlotContext } from './filter-bar-slot.ts'
 import { NewCardButton } from './NewCardButton.tsx'
+import { NotificationBell } from './NotificationBell.tsx'
 import { PanelResizeHandle } from './PanelResizeHandle.tsx'
 import { SseBridge } from './SseBridge.tsx'
 import { useCardPanelWidth } from './use-card-panel-width.ts'
@@ -77,6 +78,7 @@ export function AppLayout() {
                     bar below the header now, so the header centre is empty. */}
                 <NewCardButton />
                 <BoardLegend />
+                <NotificationBell />
                 <Menu position="bottom-end">
                   <Menu.Target>
                     <Tooltip label={strings.header.accountMenu}>

@@ -20,6 +20,7 @@ import { boardRoutes } from './routes/board-routes.ts'
 import { cardRoutes } from './routes/card-routes.ts'
 import { commentRoutes } from './routes/comment-routes.ts'
 import { filterPresetRoutes } from './routes/filter-preset-routes.ts'
+import { notificationRoutes } from './routes/notification-routes.ts'
 import { relationRoutes } from './routes/relation-routes.ts'
 import { watchRoutes } from './routes/watch-routes.ts'
 import { metaRoutes } from './routes/meta-routes.ts'
@@ -99,6 +100,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       commentRoutes(deps)(api)
       relationRoutes(deps)(api)
       watchRoutes(deps)(api)
+      notificationRoutes(deps)(api)
       attachmentRoutes(deps, quota)(api)
       serviceTokenRoutes(deps)(api)
       filterPresetRoutes(deps)(api)

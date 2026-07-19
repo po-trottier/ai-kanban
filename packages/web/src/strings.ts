@@ -1,6 +1,7 @@
 import {
   PASSWORD_MIN_LENGTH,
   type CancelResolution,
+  type CardEventType,
   type LaneKey,
   type LocationKind,
   type Permission,
@@ -483,6 +484,37 @@ export const strings = {
     unwatched: 'No longer watching this card',
     tooltipWatch: 'Get notified when this card changes',
     tooltipUnwatch: 'Stop getting notifications for this card',
+  },
+
+  /** The notification inbox (bell in the header). */
+  notifications: {
+    bellLabel: 'Notifications',
+    title: 'Notifications',
+    empty: 'You’re all caught up.',
+    emptyUnread: 'No unread notifications.',
+    markAllRead: 'Mark all as read',
+    allRead: 'All notifications marked as read',
+    filterAll: 'All',
+    filterUnread: 'Unread',
+    /** The bell's accessible name carries the unread count for assistive tech. */
+    bellWithUnread: (n: number) => `Notifications, ${String(n)} unread`,
+    /** Who acted, when the actor is not a known user (mcp/automation). */
+    systemActor: 'The system',
+    /** The verb phrase per triggering event; the row reads "<actor> <verb>: <card>". */
+    verbs: {
+      'card.created': 'created a card',
+      'card.status_changed': 'moved a card',
+      'card.field_changed': 'updated a card',
+      'card.blocked': 'blocked a card',
+      'card.unblocked': 'unblocked a card',
+      'card.cancelled': 'cancelled a card',
+      'card.reopened': 'reopened a card',
+      'card.archived': 'archived a card',
+      'comment.added': 'commented on a card',
+      'attachment.added': 'added an attachment to a card',
+      'attachment.removed': 'removed an attachment from a card',
+    } satisfies Partial<Record<CardEventType, string>>,
+    verbFallback: 'updated a card',
   },
 
   move: {

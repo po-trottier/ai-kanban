@@ -8,6 +8,7 @@ import {
   CardService,
   CardWatchService,
   CommentService,
+  NotificationService,
   PolicyService,
   ROLES,
   SystemClock,
@@ -30,6 +31,7 @@ import { type FastifyBaseLogger } from 'fastify'
 import { pino } from 'pino'
 import { LocalBlobStore } from '../adapters/blob/local-blob-store.ts'
 import { InProcessEventBus } from '../adapters/event-bus.ts'
+import { subscribeNotificationFanOut } from '../notifications/fan-out.ts'
 import { SlackNotifier } from '../adapters/slack-notifier.ts'
 import { AuthService } from '../auth/auth-service.ts'
 import { SetupService } from '../auth/setup-service.ts'
@@ -223,7 +225,11 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     filterPresets: new FilterPresetService({ uow, clock, ids }),
     relations: new CardRelationService({ uow, clock, ids }),
     watch: new CardWatchService({ uow, clock }),
+    notifications: new NotificationService({ uow, clock, ids }),
   }
+
+  // App-lifetime subscriber: turn committed card events into watcher notifications.
+  subscribeNotificationFanOut(eventBus, services.notifications)
 
   const config: AppConfig = {
     nodeEnv: env.NODE_ENV,

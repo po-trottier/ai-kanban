@@ -162,6 +162,19 @@ CREATE TABLE `locations` (
 	FOREIGN KEY (`parent_id`) REFERENCES `locations`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE TABLE `notifications` (
+	`id` text PRIMARY KEY NOT NULL,
+	`user_id` text NOT NULL,
+	`card_id` integer NOT NULL,
+	`actor_id` text,
+	`event_type` text NOT NULL,
+	`created_at` text NOT NULL,
+	`read_at` text,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`card_id`) REFERENCES `cards`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX `notifications_user_id_created_at_idx` ON `notifications` (`user_id`,`created_at`);--> statement-breakpoint
 CREATE TABLE `service_tokens` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,

@@ -14,6 +14,7 @@ import {
 import { ConflictError, DuplicatePositionError, NotFoundError } from '../domain/errors.ts'
 import { type CardEvent, type CardEventType } from '../domain/events.ts'
 import { type FilterPreset } from '../domain/filters.ts'
+import { type Notification } from '../domain/notifications.ts'
 import { type CardRelation, type RelationType } from '../domain/relations.ts'
 import { type BoardPolicy } from '../domain/policy.ts'
 import {
@@ -28,6 +29,7 @@ import {
   type FilterPresetRepository,
   type LaneRepository,
   type LocationRepository,
+  type NotificationRepository,
   type PolicyRepository,
   type ServiceTokenRepository,
   type SessionRepository,
@@ -82,6 +84,7 @@ interface DbState {
   filterPresets: FilterPreset[]
   cardRelations: CardRelation[]
   cardWatchers: CardWatcherRow[]
+  notifications: Notification[]
 }
 
 function emptyState(): DbState {
@@ -102,6 +105,7 @@ function emptyState(): DbState {
     filterPresets: [],
     cardRelations: [],
     cardWatchers: [],
+    notifications: [],
   }
 }
 
@@ -150,6 +154,7 @@ export class InMemoryDb implements UnitOfWork {
       filterPresets: new InMemoryFilterPresetRepository(state),
       cardRelations: new InMemoryCardRelationRepository(state),
       cardWatchers: new InMemoryCardWatcherRepository(state),
+      notifications: new InMemoryNotificationRepository(state),
     }
   }
 
@@ -226,6 +231,16 @@ export class InMemoryDb implements UnitOfWork {
   /** Committed watcher user ids for a card (asserting auto-watch behavior). */
   watcherIdsFor(cardId: number): string[] {
     return this.state.cardWatchers.filter((row) => row.cardId === cardId).map((row) => row.userId)
+  }
+
+  /** Seeds a notification directly (inbox list / read-state tests). */
+  seedNotification(notification: Notification): void {
+    this.state.notifications.push(clone(notification))
+  }
+
+  /** Committed notifications for a recipient (asserting fan-out behavior). */
+  notificationsFor(userId: string): Notification[] {
+    return clone(this.state.notifications.filter((row) => row.userId === userId))
   }
 
   getCard(id: number): Card {
@@ -898,6 +913,11 @@ class InMemoryEventRepository implements EventRepository {
     return Promise.resolve()
   }
 
+  findById(id: string): Promise<CardEvent | null> {
+    const event = this.state.events.find((candidate) => candidate.id === id)
+    return Promise.resolve(event ? clone(event) : null)
+  }
+
   listByCard(
     cardId: number,
     options?: { types?: readonly CardEventType[]; after?: CursorKey; limit?: number },
@@ -1112,5 +1132,60 @@ class InMemoryCardWatcherRepository implements CardWatcherRepository {
     )
     if (index !== -1) this.state.cardWatchers.splice(index, 1)
     return Promise.resolve()
+  }
+}
+
+class InMemoryNotificationRepository implements NotificationRepository {
+  private readonly state: DbState
+
+  constructor(state: DbState) {
+    this.state = state
+  }
+
+  insert(notification: Notification): Promise<void> {
+    this.state.notifications.push(clone(notification))
+    return Promise.resolve()
+  }
+
+  listForUser(
+    userId: string,
+    options: { limit: number; unreadOnly?: boolean },
+  ): Promise<Notification[]> {
+    const rows = this.state.notifications
+      .filter((row) => row.userId === userId)
+      .filter((row) => options.unreadOnly !== true || row.readAt === null)
+      // Newest-first (createdAt DESC, id DESC) — mirrors the SQL adapter.
+      .sort((a, b) =>
+        a.createdAt === b.createdAt
+          ? binaryCompare(b.id, a.id)
+          : binaryCompare(b.createdAt, a.createdAt),
+      )
+      .slice(0, options.limit)
+    return Promise.resolve(clone(rows))
+  }
+
+  unreadCount(userId: string): Promise<number> {
+    return Promise.resolve(
+      this.state.notifications.filter((row) => row.userId === userId && row.readAt === null).length,
+    )
+  }
+
+  markRead(id: string, userId: string, readAt: string): Promise<void> {
+    const row = this.state.notifications.find(
+      (candidate) => candidate.id === id && candidate.userId === userId,
+    )
+    if (row?.readAt === null) row.readAt = readAt
+    return Promise.resolve()
+  }
+
+  markAllRead(userId: string, readAt: string): Promise<number> {
+    let count = 0
+    for (const row of this.state.notifications) {
+      if (row.userId === userId && row.readAt === null) {
+        row.readAt = readAt
+        count += 1
+      }
+    }
+    return Promise.resolve(count)
   }
 }

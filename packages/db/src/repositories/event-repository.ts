@@ -28,6 +28,12 @@ export class SqliteEventRepository implements EventRepository {
     }
   }
 
+  /** One event by id (notification fan-out resolves the actor), payload validated. */
+  findById(id: string): Promise<CardEvent | null> {
+    const row = this.db.select().from(cardEvents).where(eq(cardEvents.id, id)).get()
+    return Promise.resolve(row === undefined ? null : cardEventSchema.parse(row))
+  }
+
   /**
    * Per-card history, oldest-first on (createdAt ASC, id ASC); `after` returns
    * rows strictly newer than the cursor tuple — the pinned port contract.

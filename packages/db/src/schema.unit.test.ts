@@ -13,6 +13,7 @@ import {
   filterPresets,
   lanes,
   locations,
+  notifications,
   serviceTokens,
   sessions,
   tags,
@@ -42,6 +43,7 @@ const ALL_TABLES: readonly AnySQLiteTable[] = [
   filterPresets,
   cardRelations,
   cardWatchers,
+  notifications,
 ]
 
 function columnNames(table: AnySQLiteTable): string[] {
@@ -214,6 +216,8 @@ describe('schema contract (data-model.md)', () => {
       filter_presets: ['owner_id -> users(id)'],
       card_relations: ['from_card_id -> cards(id)', 'to_card_id -> cards(id)'],
       card_watchers: ['card_id -> cards(id)', 'user_id -> users(id)'],
+      // actor_id is deliberately FK-free (may hold a service-token id).
+      notifications: ['user_id -> users(id)', 'card_id -> cards(id)'],
     }
 
     // Act

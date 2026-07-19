@@ -7,6 +7,7 @@ import {
   cardRelationViewSchema,
   cardSchema,
   filterPresetSchema,
+  notificationViewSchema,
   laneSchema,
   locationSchema,
   pageSchemaOf,
@@ -119,6 +120,10 @@ export const cardRelationsResponseSchema = z.array(cardRelationViewSchema)
 
 /** `GET`/`PUT /cards/:id/watch` — the acting user's watch state. */
 export const watchStateResponseSchema = z.object({ watching: z.boolean() })
+
+/** `GET /notifications` — the resolved inbox rows; `unread` is the bell badge. */
+export const notificationsResponseSchema = z.array(notificationViewSchema)
+export const unreadCountResponseSchema = z.object({ unread: z.number().int().nonnegative() })
 
 /**
  * `GET /cards?q=` for the relation-target picker: only the id + title are read,

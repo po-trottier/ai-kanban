@@ -112,6 +112,21 @@ Typed card-to-card links, shown only in the detail panel. Full spec:
 | POST /cards/:id/relations          | any  | `{ toCardId, type }` → `201`; self/duplicate `409`, unknown target `404` |
 | DELETE /cards/:id/relations/:relId | any  | `204` — must touch `:id` (else `404`)                                    |
 
+### Watching & notifications
+
+Per-card watch subscriptions + the in-app notification inbox, all scoped to the acting user. Full
+spec: [notifications.md](notifications.md).
+
+| Method & path                   | Role | Description                                         |
+| ------------------------------- | ---- | --------------------------------------------------- |
+| GET /cards/:id/watch            | any  | `{ watching }` — the caller's watch state           |
+| PUT /cards/:id/watch            | any  | start watching (idempotent) → `{ watching: true }`  |
+| DELETE /cards/:id/watch         | any  | stop watching (idempotent) → `{ watching: false }`  |
+| GET /notifications              | any  | inbox, newest-first (`?unreadOnly=true`, `?limit=`) |
+| GET /notifications/unread-count | any  | `{ unread }` — the bell badge                       |
+| POST /notifications/:id/read    | any  | mark one read → `{ unread }`                        |
+| POST /notifications/read-all    | any  | bulk: mark all read → `{ unread: 0 }`               |
+
 ### Attachments
 
 | Method & path               | Role                         | Description                                                                                                                                                                                                                                      |

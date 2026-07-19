@@ -424,3 +424,31 @@ export const cardWatchers = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.cardId, table.userId] })],
 )
+
+/**
+ * In-app notifications (docs/architecture/notifications.md). One row per
+ * (recipient, triggering card event). `actor_id` is deliberately FK-free — like
+ * `card_events.actor_id`, it may hold a service-token id. Insert-only until read
+ * (`read_at`).
+ */
+export const notifications = sqliteTable(
+  'notifications',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    cardId: integer('card_id')
+      .notNull()
+      .references(() => cards.id),
+    /** User id or service-token id — deliberately no FK (mirrors card_events). */
+    actorId: text('actor_id'),
+    eventType: text('event_type').$type<CardEventType>().notNull(),
+    createdAt: text('created_at').notNull(),
+    /** Null while unread. */
+    readAt: text('read_at'),
+  },
+  // The inbox read: `WHERE user_id = ? [AND read_at IS NULL] ORDER BY created_at
+  // DESC, id DESC` — this index serves the per-user newest-first page.
+  (table) => [index('notifications_user_id_created_at_idx').on(table.userId, table.createdAt)],
+)

@@ -59,3 +59,65 @@ The card detail panel header carries a **bell toggle** (`packages/web/src/card/C
 `WatchToggle`): a filled bell when watching, an outline (`BellOff`) when not; the label/tooltip name
 the action ("Watch this card" / "Stop watching this card"). Clicking flips the state via the API and
 toasts the result. Auto-watched cards (yours to report or assigned to you) show as already watching.
+
+## The notification inbox
+
+A **notification** is one row per _(recipient, triggering card event)_. When a watched card changes,
+every watcher **except the actor** (you never notify yourself) gets a notification.
+
+### Fan-out
+
+Fan-out is a **post-commit, best-effort** step, decoupled from the mutation: the server subscribes a
+listener to the in-process EventBus (`packages/server/src/notifications/fan-out.ts`) that, on each
+card hint, reads the committed event, looks up the card's watchers, and inserts a notification for
+each recipient (`NotificationService.fanOutForEvent`). A fan-out failure never undoes the mutation
+that already happened. Only **notifiable** events fan out — a within-lane reorder, a PII redaction,
+and comment edits/deletes are skipped (`NOTIFIABLE_EVENT_TYPES`); everything else (a move, field
+edit, block / cancel / reopen, a new comment or attachment, and card creation — which reaches a
+freshly-assigned assignee) does. A notification stores only the triggering `eventType` + the card and
+actor ids; the human message is rendered client-side, so there is no denormalized copy to keep in
+sync.
+
+### Data model
+
+`notifications` (`packages/db`):
+
+| Column       | Type          | Notes                                            |
+| ------------ | ------------- | ------------------------------------------------ |
+| `id`         | UUIDv7        |                                                  |
+| `user_id`    | text FK       | the RECIPIENT                                    |
+| `card_id`    | integer FK    | the card the event was on                        |
+| `actor_id`   | text          | who acted; **no FK** — may be a service-token id |
+| `event_type` | text          | the triggering `CardEventType`                   |
+| `created_at` | ISO-8601 UTC  |                                                  |
+| `read_at`    | ISO-8601 UTC? | null while unread                                |
+
+Indexed on `(user_id, created_at)` — the per-user newest-first page.
+
+### API
+
+Every route is scoped to the acting user — you only ever list or mark your OWN notifications.
+
+| Method & path                     | Response                 | Description                                                 |
+| --------------------------------- | ------------------------ | ----------------------------------------------------------- |
+| `GET /notifications`              | `200 NotificationView[]` | inbox, newest-first (`?unreadOnly=true` filters, `?limit=`) |
+| `GET /notifications/unread-count` | `200 { unread }`         | the bell badge                                              |
+| `POST /notifications/:id/read`    | `200 { unread }`         | mark one read (returns the fresh count)                     |
+| `POST /notifications/read-all`    | `200 { unread: 0 }`      | bulk: mark the whole inbox read                             |
+
+A `NotificationView` resolves the row for display:
+`{ id, cardId, cardTitle, eventType, actorName | null, createdAt, read }`.
+
+### Frontend
+
+The header carries a **bell with an unread badge** (`packages/web/src/shell/NotificationBell.tsx`).
+Clicking opens a popover: a filter toggle (**All / Unread**), the notifications newest-first (each
+reading "_actor_ _verb_" + the card, bold + tinted while unread), and a **"Mark all as read"** bulk
+action. Opening a notification marks it read and navigates to the card (preserving the URL filter).
+The inbox **polls every 30s** and refetches on card SSE hints, so new notifications appear without a
+reload; targeting the SSE refresh to only the recipients (rather than a broadcast) is a deliberate
+follow-up.
+
+**Not spam.** Watch defaults keep the set relevant (your reported/assigned cards); you never notify
+yourself; noise events (reorders, comment edits) are filtered out; and unwatching or "mark all read"
+are one click.

@@ -9,6 +9,7 @@ import { SqliteEventRepository } from './event-repository.ts'
 import { SqliteFilterPresetRepository } from './filter-preset-repository.ts'
 import { SqliteLaneRepository } from './lane-repository.ts'
 import { SqliteLocationRepository } from './location-repository.ts'
+import { SqliteNotificationRepository } from './notification-repository.ts'
 import { SqlitePolicyRepository } from './policy-repository.ts'
 import { SqliteServiceTokenRepository } from './service-token-repository.ts'
 import { SqliteSessionRepository } from './session-repository.ts'
@@ -38,5 +39,6 @@ export function createTransactionContext(db: BetterSQLite3Database): Transaction
     filterPresets: new SqliteFilterPresetRepository(db),
     cardRelations: new SqliteCardRelationRepository(db),
     cardWatchers: new SqliteCardWatcherRepository(db),
+    notifications: new SqliteNotificationRepository(db),
   }
 }

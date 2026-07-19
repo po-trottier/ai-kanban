@@ -21,6 +21,8 @@ export * from '../../core/src/domain/filters.ts'
 /** @public */
 export * from '../../core/src/domain/relations.ts'
 /** @public */
+export * from '../../core/src/domain/notifications.ts'
+/** @public */
 export * from '../../core/src/domain/events.ts'
 /** @public */
 export * from '../../core/src/domain/policy.ts'

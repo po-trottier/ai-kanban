@@ -1,0 +1,19 @@
+/* One notification row in the bell dropdown. A full-width, left-aligned button
+   so the whole row is the click target; unread rows carry a subtle tint. */
+.row {
+  display: block;
+  inline-size: 100%;
+  text-align: start;
+}
+
+.row:hover {
+  background-color: var(--mantine-color-default-hover);
+}
+
+.unread {
+  background-color: var(--mantine-primary-color-light);
+}
+
+.unread:hover {
+  background-color: var(--mantine-primary-color-light-hover);
+}

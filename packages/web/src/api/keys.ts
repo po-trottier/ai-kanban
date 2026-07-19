@@ -33,4 +33,7 @@ export const queryKeys = {
   cardSearch: (q: string) => ['cards', 'search', q] as const,
   /** The acting user's watch state for a card. */
   cardWatch: (cardId: string) => ['card-watch', cardId] as const,
+  /** The notification inbox — one entry per unread-filter; `unread-count` is the badge. */
+  notifications: (unreadOnly: boolean) => ['notifications', unreadOnly] as const,
+  notificationsUnread: ['notifications', 'unread-count'] as const,
 }

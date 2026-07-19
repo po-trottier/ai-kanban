@@ -14,6 +14,7 @@ import {
 import { type BoardCardExtras } from '../domain/envelopes.ts'
 import { type CardEvent, type CardEventType } from '../domain/events.ts'
 import { type FilterPreset } from '../domain/filters.ts'
+import { type Notification } from '../domain/notifications.ts'
 import { type CardRelation, type RelationType } from '../domain/relations.ts'
 import { type BoardPolicy } from '../domain/policy.ts'
 
@@ -327,6 +328,8 @@ export interface PolicyRepository {
 export interface EventRepository {
   /** Append-only — the audit trail is never updated or deleted (ADR-005). */
   append(event: CardEvent): Promise<void>
+  /** One event by id, or null — the notification fan-out resolves the actor. */
+  findById(id: string): Promise<CardEvent | null>
   /**
    * Per-card history, oldest-first: `ORDER BY createdAt ASC, id ASC`. When
    * `after` is set, returns only rows strictly newer than the cursor tuple,
@@ -432,6 +435,26 @@ export interface CardWatcherRepository {
   remove(cardId: number, userId: string): Promise<void>
 }
 
+/**
+ * In-app notifications (docs/architecture/notifications.md). One row per
+ * (recipient, triggering card event). Insert-only until read; reads are scoped
+ * to the recipient (`userId`), so a user only ever sees or marks their own.
+ */
+export interface NotificationRepository {
+  insert(notification: Notification): Promise<void>
+  /** The user's notifications, newest-first; `unreadOnly` restricts to unread. Capped by `limit`. */
+  listForUser(
+    userId: string,
+    options: { limit: number; unreadOnly?: boolean },
+  ): Promise<Notification[]>
+  /** Count of the user's UNREAD notifications (the bell badge). */
+  unreadCount(userId: string): Promise<number>
+  /** Marks one notification read IF it belongs to `userId`; no-op otherwise. */
+  markRead(id: string, userId: string, readAt: string): Promise<void>
+  /** Marks every unread notification of `userId` read; returns the count affected. */
+  markAllRead(userId: string, readAt: string): Promise<number>
+}
+
 /** The repositories available inside one atomic unit of work. */
 export interface TransactionContext {
   cards: CardRepository
@@ -449,6 +472,7 @@ export interface TransactionContext {
   filterPresets: FilterPresetRepository
   cardRelations: CardRelationRepository
   cardWatchers: CardWatcherRepository
+  notifications: NotificationRepository
 }
 
 /**

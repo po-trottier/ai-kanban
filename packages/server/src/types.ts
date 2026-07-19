@@ -7,6 +7,7 @@ import {
   type CardWatchService,
   type Clock,
   type CommentService,
+  type NotificationService,
   type PolicyService,
   type UnitOfWork,
   type User,
@@ -93,6 +94,7 @@ interface AppServices {
   filterPresets: FilterPresetService
   relations: CardRelationService
   watch: CardWatchService
+  notifications: NotificationService
 }
 
 export interface AppDeps {

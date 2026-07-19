@@ -17,8 +17,13 @@ describe('hintInvalidations', () => {
     } as const
     // Act
     const keys = hintInvalidations(hint)
-    // Assert
-    expect(keys).toEqual([queryKeys.board, queryKeys.card(key), queryKeys.events(key)])
+    // Assert — the inbox refreshes too, since a card event can mint a notification.
+    expect(keys).toEqual([
+      queryKeys.board,
+      queryKeys.card(key),
+      queryKeys.events(key),
+      ['notifications'],
+    ])
   })
 
   it('refreshes the Tags facet only for the card events that can mint a tag', () => {
@@ -36,6 +41,7 @@ describe('hintInvalidations', () => {
       queryKeys.board,
       queryKeys.card(key),
       queryKeys.events(key),
+      ['notifications'],
       queryKeys.tags,
     ])
     expect(fieldChanged).toContainEqual(queryKeys.tags)
@@ -49,8 +55,8 @@ describe('hintInvalidations', () => {
     const hint = { type: 'comment.added', cardId, version: 3, eventId: uid(2) } as const
     // Act
     const keys = hintInvalidations(hint)
-    // Assert
-    expect(keys).toEqual([queryKeys.comments(key), queryKeys.events(key)])
+    // Assert — plus the inbox (a new comment can notify watchers).
+    expect(keys).toEqual([queryKeys.comments(key), queryKeys.events(key), ['notifications']])
   })
 
   it('maps board-scoped hints to their config caches (ADR-008)', () => {

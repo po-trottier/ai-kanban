@@ -1,0 +1,198 @@
+import { type CardEventType, type NotificationView } from '@rivian-kanban/core'
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Divider,
+  Group,
+  Indicator,
+  Popover,
+  ScrollArea,
+  SegmentedControl,
+  Stack,
+  Text,
+  Tooltip,
+  UnstyledButton,
+} from '@mantine/core'
+import { Bell } from 'lucide-react'
+import { useState } from 'react'
+import { useLocation, useNavigate } from 'react-router'
+import { cx } from '../lib/cx.ts'
+import {
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useNotifications,
+  useUnreadCount,
+} from '../api/notifications.ts'
+import { useUserTimezone } from '../auth/session-context.ts'
+import { formatDateTime, formatTicketNumber } from '../lib/format.ts'
+import { strings } from '../strings.ts'
+import classes from './notification-bell.module.css'
+
+/**
+ * The header notification inbox (docs/architecture/notifications.md). A bell with
+ * an unread badge opens a popover listing the acting user's notifications
+ * newest-first, filterable to unread-only. Opening a card marks that
+ * notification read; a bulk "Mark all as read" clears the badge. The inbox
+ * polls (30s) and refetches on card SSE hints, so new notifications appear
+ * without a reload.
+ */
+export function NotificationBell() {
+  const [opened, setOpened] = useState(false)
+  const [unreadOnly, setUnreadOnly] = useState(false)
+  const unreadQuery = useUnreadCount()
+  const notificationsQuery = useNotifications(unreadOnly)
+  const markRead = useMarkNotificationRead()
+  const markAll = useMarkAllNotificationsRead()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const timezone = useUserTimezone()
+
+  const unread = unreadQuery.data?.unread ?? 0
+  const items = notificationsQuery.data ?? []
+
+  const openCard = (notification: NotificationView) => {
+    if (!notification.read) markRead.mutate(notification.id)
+    setOpened(false)
+    // Preserve the board filter query (URL state) when jumping to the card.
+    void navigate({ pathname: `/cards/${String(notification.cardId)}`, search: location.search })
+  }
+
+  return (
+    <Popover
+      opened={opened}
+      onChange={setOpened}
+      position="bottom-end"
+      width={360}
+      withArrow
+      shadow="md"
+    >
+      <Popover.Target>
+        <Indicator
+          disabled={unread === 0}
+          label={unread > 99 ? '99+' : String(unread)}
+          size={16}
+          color="red"
+          offset={4}
+        >
+          <Tooltip label={strings.notifications.bellLabel}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="lg"
+              aria-label={
+                unread > 0
+                  ? strings.notifications.bellWithUnread(unread)
+                  : strings.notifications.bellLabel
+              }
+              onClick={() => {
+                setOpened((value) => !value)
+              }}
+            >
+              <Bell size={20} aria-hidden />
+            </ActionIcon>
+          </Tooltip>
+        </Indicator>
+      </Popover.Target>
+      <Popover.Dropdown p={0}>
+        <Group justify="space-between" p="sm" wrap="nowrap">
+          <Text fw={600}>{strings.notifications.title}</Text>
+          <SegmentedControl
+            size="xs"
+            value={unreadOnly ? 'unread' : 'all'}
+            onChange={(value) => {
+              setUnreadOnly(value === 'unread')
+            }}
+            data={[
+              { value: 'all', label: strings.notifications.filterAll },
+              { value: 'unread', label: strings.notifications.filterUnread },
+            ]}
+          />
+        </Group>
+        <Divider />
+        <ScrollArea.Autosize mah={380} type="scroll">
+          {items.length === 0 ? (
+            <Text size="sm" c="dimmed" p="xl" ta="center">
+              {unreadOnly ? strings.notifications.emptyUnread : strings.notifications.empty}
+            </Text>
+          ) : (
+            <Stack gap={0}>
+              {items.map((notification) => (
+                <NotificationRow
+                  key={notification.id}
+                  notification={notification}
+                  timezone={timezone}
+                  onOpen={() => {
+                    openCard(notification)
+                  }}
+                />
+              ))}
+            </Stack>
+          )}
+        </ScrollArea.Autosize>
+        <Divider />
+        <Group justify="flex-end" p="xs">
+          <Button
+            size="xs"
+            variant="subtle"
+            disabled={unread === 0}
+            loading={markAll.isPending}
+            onClick={() => {
+              markAll.mutate()
+            }}
+          >
+            {strings.notifications.markAllRead}
+          </Button>
+        </Group>
+      </Popover.Dropdown>
+    </Popover>
+  )
+}
+
+/** One inbox row: who did what, on which card, when — bold + tinted while unread. */
+function NotificationRow({
+  notification,
+  timezone,
+  onOpen,
+}: {
+  notification: NotificationView
+  timezone: string
+  onOpen: () => void
+}) {
+  const actor = notification.actorName ?? strings.notifications.systemActor
+  const verbs: Partial<Record<CardEventType, string>> = strings.notifications.verbs
+  const verb = verbs[notification.eventType] ?? strings.notifications.verbFallback
+  return (
+    <UnstyledButton
+      className={cx(classes.row, !notification.read && classes.unread)}
+      onClick={onOpen}
+      aria-label={`${actor} ${verb}: ${formatTicketNumber(notification.cardId)} ${notification.cardTitle}`}
+    >
+      <Group gap="sm" wrap="nowrap" p="sm" align="flex-start">
+        <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
+          <Text size="sm" lineClamp={2}>
+            <Text span fw={600}>
+              {actor}
+            </Text>{' '}
+            {verb}
+          </Text>
+          <Text size="xs" c="dimmed" lineClamp={1}>
+            {`${formatTicketNumber(notification.cardId)} — ${notification.cardTitle}`}
+          </Text>
+          <Text size="xs" c="dimmed">
+            {formatDateTime(notification.createdAt, timezone)}
+          </Text>
+        </Stack>
+        {notification.read ? null : (
+          <Box
+            aria-hidden
+            w={8}
+            h={8}
+            mt={6}
+            style={{ borderRadius: '50%', backgroundColor: 'var(--mantine-primary-color-filled)' }}
+          />
+        )}
+      </Group>
+    </UnstyledButton>
+  )
+}

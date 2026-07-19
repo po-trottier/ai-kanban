@@ -8,6 +8,7 @@ import { CardRelationService } from '../services/relation-service.ts'
 import { CardService } from '../services/card-service.ts'
 import { CardWatchService } from '../services/watch-service.ts'
 import { CommentService } from '../services/comment-service.ts'
+import { NotificationService } from '../services/notification-service.ts'
 import { PolicyService } from '../services/policy-service.ts'
 import { cardWith, userWith } from './defaults.ts'
 import {
@@ -82,6 +83,7 @@ export interface Scenario {
   policies: PolicyService
   relations: CardRelationService
   watch: CardWatchService
+  notifications: NotificationService
   /** Seeds a card directly into committed state, auto-positioned in its lane. */
   seedCard(overrides?: Partial<Card>): Card
 }
@@ -164,6 +166,7 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
   const policies = new PolicyService({ ...shared, boardId })
   const relations = new CardRelationService({ uow: db, clock, ids })
   const watch = new CardWatchService({ uow: db, clock })
+  const notifications = new NotificationService({ uow: db, clock, ids })
 
   let seedCounter = 100
   const lastPositionByLane = new Map<string, string>()
@@ -206,6 +209,7 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
     policies,
     relations,
     watch,
+    notifications,
     seedCard,
   }
 }
