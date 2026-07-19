@@ -77,6 +77,9 @@ export const cardRelationResponseSchema = z.object({
   card: z.object(cardRelationViewSchema.shape.card.shape),
 })
 
+/** `GET`/`PUT`/`DELETE /cards/:id/watch` — the acting user's watch state. */
+export const watchStateResponseSchema = z.object({ watching: z.boolean() })
+
 /** Soft-deleted comment bodies are blanked by core before serialization. */
 export const commentResponseSchema = z.object(redactedCommentSchema.shape)
 

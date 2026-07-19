@@ -31,4 +31,6 @@ export const queryKeys = {
   relations: (cardId: string) => ['relations', cardId] as const,
   /** Card search for the relation-target picker — one entry per query text. */
   cardSearch: (q: string) => ['cards', 'search', q] as const,
+  /** The acting user's watch state for a card. */
+  cardWatch: (cardId: string) => ['card-watch', cardId] as const,
 }

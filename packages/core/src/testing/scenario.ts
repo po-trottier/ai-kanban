@@ -6,6 +6,7 @@ import { AttachmentService } from '../services/attachment-service.ts'
 import { BoardQueryService } from '../services/board-query-service.ts'
 import { CardRelationService } from '../services/relation-service.ts'
 import { CardService } from '../services/card-service.ts'
+import { CardWatchService } from '../services/watch-service.ts'
 import { CommentService } from '../services/comment-service.ts'
 import { PolicyService } from '../services/policy-service.ts'
 import { cardWith, userWith } from './defaults.ts'
@@ -80,6 +81,7 @@ export interface Scenario {
   queries: BoardQueryService
   policies: PolicyService
   relations: CardRelationService
+  watch: CardWatchService
   /** Seeds a card directly into committed state, auto-positioned in its lane. */
   seedCard(overrides?: Partial<Card>): Card
 }
@@ -161,6 +163,7 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
   const queries = new BoardQueryService({ uow: db, clock, boardId })
   const policies = new PolicyService({ ...shared, boardId })
   const relations = new CardRelationService({ uow: db, clock, ids })
+  const watch = new CardWatchService({ uow: db, clock })
 
   let seedCounter = 100
   const lastPositionByLane = new Map<string, string>()
@@ -202,6 +205,7 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
     queries,
     policies,
     relations,
+    watch,
     seedCard,
   }
 }

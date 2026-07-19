@@ -7,6 +7,7 @@ import {
   cardEvents,
   cardRelations,
   cardTags,
+  cardWatchers,
   cards,
   comments,
   filterPresets,
@@ -40,6 +41,7 @@ const ALL_TABLES: readonly AnySQLiteTable[] = [
   serviceTokens,
   filterPresets,
   cardRelations,
+  cardWatchers,
 ]
 
 function columnNames(table: AnySQLiteTable): string[] {
@@ -211,6 +213,7 @@ describe('schema contract (data-model.md)', () => {
       service_tokens: ['created_by -> users(id)'],
       filter_presets: ['owner_id -> users(id)'],
       card_relations: ['from_card_id -> cards(id)', 'to_card_id -> cards(id)'],
+      card_watchers: ['card_id -> cards(id)', 'user_id -> users(id)'],
     }
 
     // Act

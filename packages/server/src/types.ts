@@ -4,6 +4,7 @@ import {
   type BoardQueryService,
   type CardRelationService,
   type CardService,
+  type CardWatchService,
   type Clock,
   type CommentService,
   type PolicyService,
@@ -91,6 +92,7 @@ interface AppServices {
   tokens: ServiceTokenService
   filterPresets: FilterPresetService
   relations: CardRelationService
+  watch: CardWatchService
 }
 
 export interface AppDeps {

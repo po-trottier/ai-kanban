@@ -414,6 +414,24 @@ export interface CardRelationRepository {
   delete(id: string): Promise<void>
 }
 
+/**
+ * Per-user-per-card WATCH subscriptions (docs/architecture/notifications.md). A
+ * row's PRESENCE means the user watches the card — the source of who gets
+ * notified about it. Reporters/assignees are auto-watched; a mention auto-
+ * watches; a user can watch/unwatch any accessible card. `(cardId, userId)` is
+ * unique, so `add` is idempotent.
+ */
+export interface CardWatcherRepository {
+  /** True when `userId` currently watches `cardId`. */
+  isWatching(cardId: number, userId: string): Promise<boolean>
+  /** Every user id watching `cardId` — the notification fan-out set. */
+  listWatcherIds(cardId: number): Promise<string[]>
+  /** Idempotent: watching an already-watched card is a no-op. */
+  add(cardId: number, userId: string, createdAt: string): Promise<void>
+  /** Idempotent: unwatching a not-watched card is a no-op. */
+  remove(cardId: number, userId: string): Promise<void>
+}
+
 /** The repositories available inside one atomic unit of work. */
 export interface TransactionContext {
   cards: CardRepository
@@ -430,6 +448,7 @@ export interface TransactionContext {
   events: EventRepository
   filterPresets: FilterPresetRepository
   cardRelations: CardRelationRepository
+  cardWatchers: CardWatcherRepository
 }
 
 /**

@@ -6,6 +6,7 @@ import {
   BoardQueryService,
   CardRelationService,
   CardService,
+  CardWatchService,
   CommentService,
   PolicyService,
   ROLES,
@@ -221,6 +222,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     tokens: new ServiceTokenService({ uow, clock, ids, boardId }),
     filterPresets: new FilterPresetService({ uow, clock, ids }),
     relations: new CardRelationService({ uow, clock, ids }),
+    watch: new CardWatchService({ uow, clock }),
   }
 
   const config: AppConfig = {

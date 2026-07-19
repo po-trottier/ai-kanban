@@ -475,6 +475,16 @@ export const strings = {
     },
   },
 
+  /** Per-card watch toggle (detail panel) — controls notifications for the card. */
+  watch: {
+    watch: 'Watch this card',
+    unwatch: 'Stop watching this card',
+    watched: 'Watching this card',
+    unwatched: 'No longer watching this card',
+    tooltipWatch: 'Get notified when this card changes',
+    tooltipUnwatch: 'Stop getting notifications for this card',
+  },
+
   move: {
     modalTitle: 'Move card',
     laneLabel: 'Column',

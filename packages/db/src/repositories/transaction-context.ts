@@ -3,6 +3,7 @@ import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { SqliteAttachmentRepository } from './attachment-repository.ts'
 import { SqliteCardRelationRepository } from './card-relation-repository.ts'
 import { SqliteCardRepository } from './card-repository.ts'
+import { SqliteCardWatcherRepository } from './card-watcher-repository.ts'
 import { SqliteCommentRepository } from './comment-repository.ts'
 import { SqliteEventRepository } from './event-repository.ts'
 import { SqliteFilterPresetRepository } from './filter-preset-repository.ts'
@@ -36,5 +37,6 @@ export function createTransactionContext(db: BetterSQLite3Database): Transaction
     events: new SqliteEventRepository(db),
     filterPresets: new SqliteFilterPresetRepository(db),
     cardRelations: new SqliteCardRelationRepository(db),
+    cardWatchers: new SqliteCardWatcherRepository(db),
   }
 }

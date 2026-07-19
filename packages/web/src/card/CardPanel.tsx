@@ -13,11 +13,12 @@ import {
   VisuallyHidden,
 } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
-import { RotateCcw, Save, ShieldOff } from 'lucide-react'
+import { Bell, BellOff, RotateCcw, Save, ShieldOff } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { WAITING_REASONS, type Card, type WaitingReason } from '@rivian-kanban/core'
 import { useBoard, useCardAction, useUpdateCard } from '../api/board.ts'
+import { useCardWatch, useUnwatchCard, useWatchCard } from '../api/watch.ts'
 import {
   useAddComment,
   useCardDetail,
@@ -163,6 +164,7 @@ export function CardPanel({ cardId }: { cardId: string }) {
               {strings.priorities[card.priority]}
             </Badge>
           )}
+          <WatchToggle cardId={cardId} />
           <Tooltip label={strings.detail.closeLabel}>
             <ActionIcon
               variant="subtle"
@@ -181,6 +183,37 @@ export function CardPanel({ cardId }: { cardId: string }) {
         <CardPanelBody cardId={cardId} />
       </div>
     </div>
+  )
+}
+
+/**
+ * Watch / unwatch this card — controls whether its changes reach your
+ * notifications (docs/architecture/notifications.md). The bell reflects the
+ * CURRENT state (on = watching); the label + tooltip name the action.
+ */
+export function WatchToggle({ cardId }: { cardId: string }) {
+  const watchQuery = useCardWatch(cardId)
+  const watchCard = useWatchCard(cardId)
+  const unwatchCard = useUnwatchCard(cardId)
+  const watching = watchQuery.data?.watching ?? false
+  return (
+    <Tooltip label={watching ? strings.watch.tooltipUnwatch : strings.watch.tooltipWatch}>
+      <ActionIcon
+        variant={watching ? 'light' : 'subtle'}
+        color={watching ? 'blue' : 'gray'}
+        size="lg"
+        aria-label={watching ? strings.watch.unwatch : strings.watch.watch}
+        aria-pressed={watching}
+        loading={watchCard.isPending || unwatchCard.isPending}
+        disabled={watchQuery.isPending}
+        onClick={() => {
+          if (watching) unwatchCard.mutate()
+          else watchCard.mutate()
+        }}
+      >
+        {watching ? <Bell size={18} aria-hidden /> : <BellOff size={18} aria-hidden />}
+      </ActionIcon>
+    </Tooltip>
   )
 }
 

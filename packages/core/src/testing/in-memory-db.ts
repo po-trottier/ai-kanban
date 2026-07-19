@@ -22,6 +22,7 @@ import {
   type CardQueryFilter,
   type CardRelationRepository,
   type CardRepository,
+  type CardWatcherRepository,
   type CommentRepository,
   type EventRepository,
   type FilterPresetRepository,
@@ -52,6 +53,12 @@ interface CardTagRow {
   tagId: string
 }
 
+interface CardWatcherRow {
+  cardId: number
+  userId: string
+  createdAt: string
+}
+
 /** userId → stored password hash rows (JSON-clonable; auth surface). */
 interface PasswordHashRow {
   userId: string
@@ -74,6 +81,7 @@ interface DbState {
   events: CardEvent[]
   filterPresets: FilterPreset[]
   cardRelations: CardRelation[]
+  cardWatchers: CardWatcherRow[]
 }
 
 function emptyState(): DbState {
@@ -93,6 +101,7 @@ function emptyState(): DbState {
     events: [],
     filterPresets: [],
     cardRelations: [],
+    cardWatchers: [],
   }
 }
 
@@ -140,6 +149,7 @@ export class InMemoryDb implements UnitOfWork {
       events: new InMemoryEventRepository(state),
       filterPresets: new InMemoryFilterPresetRepository(state),
       cardRelations: new InMemoryCardRelationRepository(state),
+      cardWatchers: new InMemoryCardWatcherRepository(state),
     }
   }
 
@@ -206,6 +216,16 @@ export class InMemoryDb implements UnitOfWork {
   /** Seeds a card relation directly (relation list/resolve tests). */
   seedCardRelation(relation: CardRelation): void {
     this.state.cardRelations.push(clone(relation))
+  }
+
+  /** Seeds a card watcher directly (watch/notification fan-out tests). */
+  seedCardWatcher(cardId: number, userId: string, createdAt = '2026-07-16T12:00:00.000Z'): void {
+    this.state.cardWatchers.push({ cardId, userId, createdAt })
+  }
+
+  /** Committed watcher user ids for a card (asserting auto-watch behavior). */
+  watcherIdsFor(cardId: number): string[] {
+    return this.state.cardWatchers.filter((row) => row.cardId === cardId).map((row) => row.userId)
   }
 
   getCard(id: number): Card {
@@ -1055,6 +1075,42 @@ class InMemoryCardRelationRepository implements CardRelationRepository {
   delete(id: string): Promise<void> {
     const index = this.state.cardRelations.findIndex((candidate) => candidate.id === id)
     if (index !== -1) this.state.cardRelations.splice(index, 1)
+    return Promise.resolve()
+  }
+}
+
+class InMemoryCardWatcherRepository implements CardWatcherRepository {
+  private readonly state: DbState
+
+  constructor(state: DbState) {
+    this.state = state
+  }
+
+  isWatching(cardId: number, userId: string): Promise<boolean> {
+    return Promise.resolve(
+      this.state.cardWatchers.some((row) => row.cardId === cardId && row.userId === userId),
+    )
+  }
+
+  listWatcherIds(cardId: number): Promise<string[]> {
+    return Promise.resolve(
+      this.state.cardWatchers.filter((row) => row.cardId === cardId).map((row) => row.userId),
+    )
+  }
+
+  add(cardId: number, userId: string, createdAt: string): Promise<void> {
+    // Idempotent: UNIQUE(card_id, user_id) — a second watch is a no-op.
+    if (!this.state.cardWatchers.some((row) => row.cardId === cardId && row.userId === userId)) {
+      this.state.cardWatchers.push({ cardId, userId, createdAt })
+    }
+    return Promise.resolve()
+  }
+
+  remove(cardId: number, userId: string): Promise<void> {
+    const index = this.state.cardWatchers.findIndex(
+      (row) => row.cardId === cardId && row.userId === userId,
+    )
+    if (index !== -1) this.state.cardWatchers.splice(index, 1)
     return Promise.resolve()
   }
 }

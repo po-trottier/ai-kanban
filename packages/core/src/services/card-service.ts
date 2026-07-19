@@ -159,6 +159,12 @@ export class CardService {
         archivedAt: null,
       }
       await tx.cards.insert(card)
+      // Auto-watch: the reporter and (if set) the assignee follow the card by
+      // default (docs/architecture/notifications.md). Idempotent adds.
+      await tx.cardWatchers.add(card.id, reporterId, nowIso)
+      if (card.assigneeId !== null) {
+        await tx.cardWatchers.add(card.id, card.assigneeId, nowIso)
+      }
       const tags = await resolveTags(tx, this.deps.ids, input.tags)
       await tx.tags.setCardTags(
         card.id,
@@ -217,6 +223,8 @@ export class CardService {
       if (input.assigneeId !== undefined && input.assigneeId !== card.assigneeId) {
         if (input.assigneeId !== null) {
           await this.requireAssignable(tx, input.assigneeId)
+          // A newly-assigned user auto-watches the card (notifications.md).
+          await tx.cardWatchers.add(card.id, input.assigneeId, this.deps.clock.now().toISOString())
         }
         next.assigneeId = input.assigneeId
         fieldChanged(changeOf('assigneeId', card.assigneeId, input.assigneeId))

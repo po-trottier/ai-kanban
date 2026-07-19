@@ -117,6 +117,9 @@ export const filterPresetsResponseSchema = z.array(filterPresetSchema)
 export const cardRelationResponseSchema = cardRelationViewSchema
 export const cardRelationsResponseSchema = z.array(cardRelationViewSchema)
 
+/** `GET`/`PUT /cards/:id/watch` — the acting user's watch state. */
+export const watchStateResponseSchema = z.object({ watching: z.boolean() })
+
 /**
  * `GET /cards?q=` for the relation-target picker: only the id + title are read,
  * so the page items are parsed leanly (extra card fields are stripped). Uses the

@@ -404,3 +404,23 @@ export const cardRelations = sqliteTable(
     index('card_relations_to_card_idx').on(table.toCardId),
   ],
 )
+
+/**
+ * Per-user-per-card WATCH subscriptions (docs/architecture/notifications.md).
+ * A row's PRESENCE means the user watches the card. The composite PK is the
+ * uniqueness constraint (idempotent watch) AND, leading with `card_id`, the
+ * index behind the `listWatcherIds(cardId)` fan-out read.
+ */
+export const cardWatchers = sqliteTable(
+  'card_watchers',
+  {
+    cardId: integer('card_id')
+      .notNull()
+      .references(() => cards.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.cardId, table.userId] })],
+)

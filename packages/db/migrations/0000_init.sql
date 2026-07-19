@@ -64,6 +64,15 @@ CREATE TABLE `card_tags` (
 	FOREIGN KEY (`tag_id`) REFERENCES `tags`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE TABLE `card_watchers` (
+	`card_id` integer NOT NULL,
+	`user_id` text NOT NULL,
+	`created_at` text NOT NULL,
+	PRIMARY KEY(`card_id`, `user_id`),
+	FOREIGN KEY (`card_id`) REFERENCES `cards`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
 CREATE TABLE `cards` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`board_id` text NOT NULL,
