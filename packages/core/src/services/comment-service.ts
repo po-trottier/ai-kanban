@@ -91,11 +91,57 @@ export class CommentService {
         deletedAt: null,
       }
       await tx.comments.insert(created)
-      const added = await this.appendCommentEvent(tx, actor, targetCard, 'comment.added', created)
+
+      // @-mentions (docs/architecture/notifications.md): each mentioned user
+      // (de-duped, must exist, never the author themselves) is auto-watched and
+      // gets a dedicated `mention` notification. Their ids ride on the event so
+      // the general watcher fan-out skips them (no duplicate comment notice).
+      const mentionedUserIds = await this.resolveMentions(
+        tx,
+        input.mentions ?? [],
+        authorId,
+        targetCard.id,
+        nowIso,
+      )
+      const added = await this.appendCommentEvent(tx, actor, targetCard, 'comment.added', created, {
+        mentionedUserIds,
+      })
       return { comment: created, card: targetCard, event: added }
     })
     publishCardHints(this.deps.eventBus, card, [event])
     return comment
+  }
+
+  /**
+   * Resolves the @-mention ids to real users (skipping the author + unknown
+   * ids), auto-watches each, and writes their `mention` notification. Returns
+   * the resolved recipient ids so the caller can stamp them on the event.
+   */
+  private async resolveMentions(
+    tx: TransactionContext,
+    rawMentions: readonly string[],
+    authorId: string,
+    cardId: number,
+    nowIso: string,
+  ): Promise<string[]> {
+    const resolved: string[] = []
+    for (const userId of new Set(rawMentions)) {
+      if (userId === authorId) continue
+      const user = await tx.users.findById(userId)
+      if (user === null) continue
+      resolved.push(userId)
+      await tx.cardWatchers.add(cardId, userId, nowIso)
+      await tx.notifications.insert({
+        id: this.deps.ids.newId(),
+        userId,
+        cardId,
+        actorId: authorId,
+        eventType: 'mention',
+        createdAt: nowIso,
+        readAt: null,
+      })
+    }
+    return resolved
   }
 
   /**
@@ -184,12 +230,17 @@ export class CommentService {
     card: Card,
     eventType: 'comment.added' | 'comment.edited' | 'comment.deleted',
     comment: Comment,
+    extra: { mentionedUserIds?: string[] } = {},
   ): Promise<CardEvent> {
     const event = makeEvent(this.deps.ids, this.deps.clock, actor, card.id, {
       eventType,
       payload: {
         commentId: comment.id,
         ...(comment.parentCommentId !== null ? { parentCommentId: comment.parentCommentId } : {}),
+        // Only comment.added carries mentions; the field is absent otherwise.
+        ...(extra.mentionedUserIds !== undefined && extra.mentionedUserIds.length > 0
+          ? { mentionedUserIds: extra.mentionedUserIds }
+          : {}),
       },
     })
     await tx.events.append(event)

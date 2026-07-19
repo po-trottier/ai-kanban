@@ -106,7 +106,13 @@ export const cardEventSchema = z.discriminatedUnion('eventType', [
   z.strictObject({
     ...eventBase,
     eventType: z.literal('comment.added'),
-    payload: z.strictObject({ commentId: z.uuid(), parentCommentId: z.uuid().optional() }),
+    payload: z.strictObject({
+      commentId: z.uuid(),
+      parentCommentId: z.uuid().optional(),
+      // Users @-mentioned in the comment — they get a dedicated `mention`
+      // notification, so the watcher fan-out skips them for this event.
+      mentionedUserIds: z.array(z.uuid()).optional(),
+    }),
   }),
   z.strictObject({
     ...eventBase,

@@ -41,7 +41,13 @@ export class NotificationService {
       const event = await tx.events.findById(eventId)
       if (event === null || !isNotifiableEvent(event.eventType)) return []
       const watchers = await tx.cardWatchers.listWatcherIds(cardId)
-      const recipients = watchers.filter((id) => id !== event.actorId)
+      // Never the actor; and for a comment, never a user who was @-mentioned —
+      // they already got a higher-signal `mention` notification.
+      const excluded = new Set<string | null>([event.actorId])
+      if (event.eventType === 'comment.added' && event.payload.mentionedUserIds !== undefined) {
+        for (const id of event.payload.mentionedUserIds) excluded.add(id)
+      }
+      const recipients = watchers.filter((id) => !excluded.has(id))
       const nowIso = this.deps.clock.now().toISOString()
       for (const userId of recipients) {
         const notification: Notification = {

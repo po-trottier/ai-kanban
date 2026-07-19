@@ -120,3 +120,38 @@ describe('NotificationService inbox', () => {
     expect(await scenario.notifications.unreadCount(scenario.actors.technician)).toBe(1)
   })
 })
+
+describe('comment @-mentions', () => {
+  it('mention notifies + auto-watches the target, and the fan-out skips them', async () => {
+    // Arrange — the requester files a card, then comments mentioning the
+    // technician (who does not yet watch it).
+    const scenario = createScenario()
+    const card = await scenario.cards.create(scenario.actors.requester, {
+      title: 'Ping',
+      priority: 'P2',
+    })
+
+    // Act — comment with an @-mention of the technician.
+    await scenario.comments.add(scenario.actors.requester, card.id, {
+      body: 'hey @tech please look',
+      mentions: [scenario.users.technician.id],
+    })
+
+    // Assert — the technician now watches the card and has ONE `mention` notice.
+    expect(scenario.db.watcherIdsFor(card.id)).toContain(scenario.users.technician.id)
+    const inbox = await scenario.notifications.list(scenario.actors.technician)
+    expect(inbox).toHaveLength(1)
+    expect(inbox[0]).toMatchObject({ eventType: 'mention', cardId: card.id })
+
+    // Fanning the comment.added event out must SKIP the mentioned technician
+    // (they already got the higher-signal mention), so no duplicate notice.
+    const commentEvent = scenario.db
+      .eventsFor(card.id)
+      .find((event) => event.eventType === 'comment.added')
+    if (commentEvent === undefined) throw new Error('expected a comment.added event')
+    await scenario.notifications.fanOutForEvent(card.id, commentEvent.id)
+    const after = await scenario.notifications.list(scenario.actors.technician)
+    expect(after).toHaveLength(1)
+    expect(after.filter((row) => row.eventType === 'comment.added')).toHaveLength(0)
+  })
+})

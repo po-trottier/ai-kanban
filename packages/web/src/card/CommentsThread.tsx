@@ -9,6 +9,7 @@ import { ConfirmModal } from '../shell/ConfirmModal.tsx'
 import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT } from '../theme.ts'
+import { MentionTextarea } from './MentionTextarea.tsx'
 import classes from './card.module.css'
 
 export interface CommentsThreadProps {
@@ -26,7 +27,12 @@ export interface CommentsThreadProps {
   /** True while a delete is in flight — spins the confirm dialog's button. */
   deletePending?: boolean
   /** `onPosted` fires on success so the composer keeps its draft on failure. */
-  onAdd: (body: string, parentCommentId: string | null, onPosted: () => void) => void
+  onAdd: (
+    body: string,
+    parentCommentId: string | null,
+    mentions: string[],
+    onPosted: () => void,
+  ) => void
   /** `onEdited` fires on success so the editor closes (and keeps the draft) only then. */
   onEdit: (commentId: string, body: string, onEdited: () => void) => void
   /** `onDeleted` fires on success so the confirm dialog closes only then. */
@@ -156,8 +162,8 @@ export function CommentsThread({
                     submitLabel={strings.comments.postReplyButton}
                     submitHint={strings.tooltips.postReply}
                     pending={addPending}
-                    onSubmit={(body, onPosted) => {
-                      onAdd(body, comment.id, () => {
+                    onSubmit={(body, mentions, onPosted) => {
+                      onAdd(body, comment.id, mentions, () => {
                         onPosted()
                         setReplyTo(null)
                       })
@@ -176,8 +182,8 @@ export function CommentsThread({
             submitLabel={strings.comments.postButton}
             submitHint={strings.tooltips.comment}
             pending={addPending}
-            onSubmit={(body, onPosted) => {
-              onAdd(body, null, onPosted)
+            onSubmit={(body, mentions, onPosted) => {
+              onAdd(body, null, mentions, onPosted)
             }}
           />
         </div>
@@ -439,9 +445,12 @@ function Composer({
   submitHint: string
   /** True while any add/reply POST is in flight (the hook is shared). */
   pending: boolean
-  onSubmit: (body: string, onPosted: () => void) => void
+  onSubmit: (body: string, mentions: string[], onPosted: () => void) => void
 }) {
   const [body, setBody] = useState('')
+  // Ids @-mentioned via the autocomplete → display name, so we only send an id
+  // whose `@Name` text still survives in the body at submit time.
+  const [mentions, setMentions] = useState<Map<string, string>>(new Map())
   // The add hook is shared by the top-level and reply composers, so `pending`
   // is global; `submitted` scopes the spinner to the composer that fired.
   // Clear it on the pending true→false edge (the request settled), not on a
@@ -455,14 +464,15 @@ function Composer({
   }, [pending])
   return (
     <Stack gap="xs">
-      <Textarea
+      <MentionTextarea
         aria-label={label}
         placeholder={strings.comments.composerPlaceholder}
         autosize
         minRows={2}
         value={body}
-        onChange={(event) => {
-          setBody(event.currentTarget.value)
+        onChange={setBody}
+        onMention={(user) => {
+          setMentions((current) => new Map(current).set(user.id, user.displayName))
         }}
       />
       <Group justify="flex-end">
@@ -473,9 +483,14 @@ function Composer({
           loading={submitted && pending}
           onClick={() => {
             setSubmitted(true)
+            // Only send a mention whose `@Name` text still survives the edits.
+            const ids = [...mentions]
+              .filter(([, name]) => body.includes(`@${name}`))
+              .map(([id]) => id)
             // Cleared only once the POST succeeds — a failure keeps the draft.
-            onSubmit(body.trim(), () => {
+            onSubmit(body.trim(), ids, () => {
               setBody('')
+              setMentions(new Map())
             })
           }}
         >

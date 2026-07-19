@@ -121,3 +121,21 @@ follow-up.
 **Not spam.** Watch defaults keep the set relevant (your reported/assigned cards); you never notify
 yourself; noise events (reorders, comment edits) are filtered out; and unwatching or "mark all read"
 are one click.
+
+## @-mentions in comments
+
+A comment can **@-mention** another user. The composer (`packages/web/src/card/MentionTextarea.tsx`)
+has an inline autocomplete: typing `@name` opens a dropdown backed by the **async user search**
+(`GET /users/search` — never the whole roster, gated so it only fires while an `@token` is active),
+and picking a user inserts `@Display Name` and records their id. The composer sends the mentioned ids
+alongside the comment.
+
+Server-side (`CommentService.add`), each mentioned user (de-duped, must exist, never the author):
+
+- **auto-watches** the card (they now follow it), and
+- gets a dedicated **`mention`** notification (a distinct `NotificationKind`, rendered "mentioned you
+  in a comment") — higher signal than the generic comment notice.
+
+To avoid a double notification, the mentioned ids ride on the `comment.added` event payload
+(`mentionedUserIds`), and the watcher fan-out **skips** them for that event (they already got the
+mention). So a mentioned watcher gets exactly one notification — the mention.

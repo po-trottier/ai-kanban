@@ -123,6 +123,12 @@ export const addCommentInputSchema = z.strictObject({
   body: z.string().trim().min(1).max(10_000),
   /** Threading: replies to a reply attach to the same parent (one level). */
   parentCommentId: z.uuid().optional(),
+  /**
+   * User ids @-mentioned in the body (docs/architecture/notifications.md). Each
+   * is validated + de-duped server-side; a mention notifies + auto-watches that
+   * user. The composer sends the ids alongside the `@Name` text it inserted.
+   */
+  mentions: z.array(z.uuid()).max(50).optional(),
 })
 export type AddCommentInput = z.infer<typeof addCommentInputSchema>
 

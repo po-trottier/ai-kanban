@@ -6,6 +6,7 @@ import {
   type CardEventType,
   type LaneKey,
   type LocationKind,
+  type NotificationKind,
   type Priority,
   type RelationType,
   type Resolution,
@@ -443,7 +444,7 @@ export const notifications = sqliteTable(
       .references(() => cards.id),
     /** User id or service-token id — deliberately no FK (mirrors card_events). */
     actorId: text('actor_id'),
-    eventType: text('event_type').$type<CardEventType>().notNull(),
+    eventType: text('event_type').$type<NotificationKind>().notNull(),
     createdAt: text('created_at').notNull(),
     /** Null while unread. */
     readAt: text('read_at'),

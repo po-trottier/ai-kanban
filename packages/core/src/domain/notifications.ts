@@ -2,6 +2,14 @@ import { z } from 'zod'
 import { CARD_EVENT_TYPES, type CardEventType } from './events.ts'
 
 /**
+ * A notification's kind: any card event that fanned out to watchers, PLUS a
+ * direct `mention` (an @-mention in a comment — a higher-signal notification
+ * that supersedes the generic comment notification for the mentioned user).
+ */
+export const NOTIFICATION_KINDS = [...CARD_EVENT_TYPES, 'mention'] as const
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number]
+
+/**
  * In-app notifications (docs/architecture/notifications.md). One row per
  * (recipient, triggering card event): when a watched card changes, every
  * watcher EXCEPT the actor gets a notification. The row records the triggering
@@ -16,7 +24,7 @@ export const notificationSchema = z.strictObject({
   cardId: z.number().int().positive(),
   /** Who caused the event; null for the system actor. */
   actorId: z.uuid().nullable(),
-  eventType: z.enum(CARD_EVENT_TYPES),
+  eventType: z.enum(NOTIFICATION_KINDS),
   createdAt: z.iso.datetime(),
   /** Null while unread; set to the read time once acknowledged. */
   readAt: z.iso.datetime().nullable(),
@@ -32,7 +40,7 @@ export const notificationViewSchema = z.strictObject({
   id: z.uuid(),
   cardId: z.number().int().positive(),
   cardTitle: z.string(),
-  eventType: z.enum(CARD_EVENT_TYPES),
+  eventType: z.enum(NOTIFICATION_KINDS),
   /** The actor's display name, or null when the system acted. */
   actorName: z.string().nullable(),
   createdAt: z.iso.datetime(),

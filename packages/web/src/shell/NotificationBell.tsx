@@ -1,4 +1,4 @@
-import { type CardEventType, type NotificationView } from '@rivian-kanban/core'
+import { type NotificationKind, type NotificationView } from '@rivian-kanban/core'
 import {
   ActionIcon,
   Box,
@@ -160,7 +160,7 @@ function NotificationRow({
   onOpen: () => void
 }) {
   const actor = notification.actorName ?? strings.notifications.systemActor
-  const verbs: Partial<Record<CardEventType, string>> = strings.notifications.verbs
+  const verbs: Partial<Record<NotificationKind, string>> = strings.notifications.verbs
   const verb = verbs[notification.eventType] ?? strings.notifications.verbFallback
   return (
     <UnstyledButton

@@ -361,11 +361,12 @@ function CardPanelBody({ cardId }: { cardId: string }) {
             addPending={addComment.isPending}
             editPending={editComment.isPending}
             deletePending={deleteComment.isPending}
-            onAdd={(body, parentCommentId, onPosted) => {
+            onAdd={(body, parentCommentId, mentions, onPosted) => {
               addComment.mutate(
                 {
                   body,
                   ...(parentCommentId === null ? {} : { parentCommentId }),
+                  ...(mentions.length > 0 ? { mentions } : {}),
                 },
                 { onSuccess: onPosted },
               )

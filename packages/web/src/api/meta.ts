@@ -27,13 +27,15 @@ const USER_PICKER_STALE_MS = 30_000
  * something before the user types. Keeps the previous page's results while a
  * new query is in flight so the list doesn't blank on each keystroke.
  */
-export function useUserSearch(q: string) {
+export function useUserSearch(q: string, enabled = true) {
   const api = useApi()
   return useQuery({
     queryKey: queryKeys.userSearch(q),
     queryFn: () => api.get('/users/search', usersResponseSchema, { query: { q } }),
     placeholderData: keepPreviousData,
     staleTime: USER_PICKER_STALE_MS,
+    // The @-mention picker gates this to only fire while an `@token` is active.
+    enabled,
   })
 }
 

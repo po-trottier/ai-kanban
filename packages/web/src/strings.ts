@@ -1,8 +1,8 @@
 import {
   PASSWORD_MIN_LENGTH,
   type CancelResolution,
-  type CardEventType,
   type LaneKey,
+  type NotificationKind,
   type LocationKind,
   type Permission,
   type Priority,
@@ -513,7 +513,8 @@ export const strings = {
       'comment.added': 'commented on a card',
       'attachment.added': 'added an attachment to a card',
       'attachment.removed': 'removed an attachment from a card',
-    } satisfies Partial<Record<CardEventType, string>>,
+      mention: 'mentioned you in a comment',
+    } satisfies Partial<Record<NotificationKind, string>>,
     verbFallback: 'updated a card',
   },
 
