@@ -351,21 +351,43 @@ describe('CardPanel', () => {
     expect(screen.queryByRole('button', { name: 'Delete their-photo.png' })).not.toBeInTheDocument()
   })
 
-  it('groups the edit block (Save) before a separate Attachments section with its own info tooltip', async () => {
+  it('orders the Details tab fields → attachments → relations → timestamps → sticky Save', async () => {
     // Arrange
     const fake = panelApp()
     // Act
     renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     await screen.findByRole('textbox', { name: /Title/ })
-    // Assert — Attachments carries a FieldLabel info button (its help copy names
-    // the enforced 25 MB / 10-file caps), and it renders AFTER the edit block's
-    // Save button, keeping the two as distinct sections.
+    // Assert — the fields, the Attachments section (its FieldLabel help names the
+    // 25 MB / 10-file caps), the Relations heading, the Updated timestamp, and
+    // the Save button all render in the intended top-to-bottom order, with Save
+    // last (it is the sticky footer pinned at the panel bottom).
+    const title = screen.getByRole('textbox', { name: /Title/ })
     const attachmentsHelp = screen.getByRole('button', { name: /25 MB each/ })
-    expect(attachmentsHelp).toBeInTheDocument()
+    const relations = screen.getByText('Relations')
+    const updated = screen.getByText(/^Updated:/)
     const save = screen.getByRole('button', { name: 'Save changes' })
-    // Siblings in different subtrees, so the mask is exactly FOLLOWING (4) when
-    // Save precedes Attachments — the intended section order.
-    expect(save.compareDocumentPosition(attachmentsHelp)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    const inOrder = [title, attachmentsHelp, relations, updated, save]
+    for (let i = 0; i < inOrder.length - 1; i += 1) {
+      // Each element PRECEDES the next in document order (mask includes bit 4).
+      expect(inOrder[i]?.compareDocumentPosition(inOrder[i + 1] as Node)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+    }
+  })
+
+  it('puts the State dropdown inside the Details tab (not above the tabs)', async () => {
+    // Arrange
+    const fake = panelApp()
+    // Act
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
+    await screen.findByRole('textbox', { name: /Title/ })
+    // Assert — the State select sits within the Details tabpanel, after the tab
+    // list, so it moved out of the panel header area and into the tab body.
+    const state = screen.getByRole('combobox', { name: 'State' })
+    const detailsTab = screen.getByRole('tab', { name: 'Details' })
+    // The tab (in the tablist) precedes the State control (in the tabpanel).
+    expect(detailsTab.compareDocumentPosition(state)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(screen.getByRole('tabpanel')).toContainElement(state)
   })
 
   it('uploads an attachment as multipart with a single `file` part', async () => {

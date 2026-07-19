@@ -279,15 +279,6 @@ function CardPanelBody({ cardId }: { cardId: string }) {
           updateCard.mutate({ card: detail.card, changes })
         }}
       />
-      {/* Change the card's lane from the panel (not only by dragging on the
-          board); archived cards are read-only until reopened. */}
-      <CardStateSelect
-        card={detail.card}
-        board={boardQuery.data}
-        policy={policy}
-        role={me.role}
-        disabled={archived}
-      />
       {/* Priority lives in the panel header; this row carries status only. */}
       <CardBadges card={detail.card} today={utcToday()} showPriority={false} />
       {archived ? (
@@ -317,7 +308,17 @@ function CardPanelBody({ cardId }: { cardId: string }) {
           <Tabs.Tab value="history">{strings.detail.tabHistory}</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="details" pt="md">
-          <Stack gap="xl">
+          <Stack gap="md">
+            {/* The state dropdown lives INSIDE Details (near the top), not above
+                the tabs; archived cards are read-only until reopened. It reuses
+                the same status color the board card badges show. */}
+            <CardStateSelect
+              card={detail.card}
+              board={boardQuery.data}
+              policy={policy}
+              role={me.role}
+              disabled={archived}
+            />
             <CardDetailsForm
               detail={detail}
               locations={locationsQuery.data ?? []}
@@ -327,28 +328,29 @@ function CardPanelBody({ cardId }: { cardId: string }) {
               onSave={(changes) => {
                 updateCard.mutate({ card: detail.card, changes })
               }}
-            />
-            {/* The edit block above (fields → Created/Updated → Save) is one
-                unit; the divider sets Attachments apart as its own section. */}
-            <Divider />
-            <AttachmentsSection
-              attachments={detail.attachments}
-              currentUserId={me.id}
-              canDeleteOthers={canDeleteOthersAttachments}
-              uploading={uploadAttachment.isPending}
-              deletingId={deleteAttachment.isPending ? deleteAttachment.variables : null}
-              readOnly={archived}
-              onUpload={(file) => {
-                uploadAttachment.mutate(file)
-              }}
-              onDelete={(attachmentId) => {
-                deleteAttachment.mutate(attachmentId)
-              }}
-            />
-            <Divider />
-            {/* Typed links to other cards (blocks / duplicates / relates to) —
-                shown only here, never on board card previews. */}
-            <RelationsSection cardId={cardId} readOnly={archived} />
+            >
+              {/* Attachments and Relations sit between the fields and the
+                  timestamps; the Save button stays sticky below everything. */}
+              <Divider />
+              <AttachmentsSection
+                attachments={detail.attachments}
+                currentUserId={me.id}
+                canDeleteOthers={canDeleteOthersAttachments}
+                uploading={uploadAttachment.isPending}
+                deletingId={deleteAttachment.isPending ? deleteAttachment.variables : null}
+                readOnly={archived}
+                onUpload={(file) => {
+                  uploadAttachment.mutate(file)
+                }}
+                onDelete={(attachmentId) => {
+                  deleteAttachment.mutate(attachmentId)
+                }}
+              />
+              <Divider />
+              {/* Typed links to other cards (blocks / duplicates / relates to) —
+                  shown only here, never on board card previews. */}
+              <RelationsSection cardId={cardId} readOnly={archived} />
+            </CardDetailsForm>
           </Stack>
         </Tabs.Panel>
         <Tabs.Panel value="comments" pt="md">

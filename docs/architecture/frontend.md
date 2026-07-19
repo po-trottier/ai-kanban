@@ -100,6 +100,29 @@ carrying both form libraries would fail knip's unused-dependency gate — one fo
 same single-schema guarantee. Card field edits submit only dirty fields so the audit trail
 gets one event per real change.
 
+### Card-form layout (detail panel + New Card modal)
+
+The 7-field roster is one component (`card/CardFieldInputs`) driven by the core schema, so
+the detail panel's edit form and the New Card modal stay in lockstep — adding a field is a
+one-file edit both pick up. Both wrap it in the SAME scroll-and-pin layout:
+
+- **Order (top to bottom).** Detail panel's Details tab: the **State** dropdown
+  (`card/CardStateSelect`, moved out of the panel header and INTO the tab), then the editable
+  fields (`card/CardDetailsForm`), then Attachments, then Relations, then the Created/Updated
+  timestamps. The New Card modal: fields, then its attachments.
+- **Sticky footer.** The action bar — the detail panel's full-width **Save changes**, the
+  modal's **Cancel / Create** — is `card/StickyFooter` (one `.stickyFooter` CSS-module class,
+  `position: sticky; bottom: 0` with a top border + `--mantine-color-body` background). It
+  stays visible while the body scrolls: the panel's own `.panelBody` is the scroll container;
+  the modal caps its `body` slot (`.modalScrollBody`, `classNames={{ body }}`) so it scrolls
+  too. Save sits OUTSIDE the scrolling `<form>` and submits it via the native `form={id}`
+  association (the form owns its own dirty state — nothing is lifted); the "unsaved changes"
+  warning rides just above it.
+- **Status color.** The State dropdown is tinted with the SAME theme hue the board card
+  badges paint (`board/card-status.ts` → `cardStatusColor`: blocked=grape, waiting=yellow,
+  overdue=pink, cancelled=dark, archived=gray) so the panel echoes its board card; a plain
+  on-track card keeps the default border.
+
 ## `core-domain.ts` and coverage isolation
 
 The SPA needs only core's **domain** modules (schemas/constants/types). `vite.config.ts`

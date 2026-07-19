@@ -10,8 +10,10 @@ import { useState } from 'react'
 import { useMoveCard } from '../api/board.ts'
 import { isWaitingLane } from '../api/board-cache.ts'
 import { type BoardResponse } from '../api/schemas.ts'
+import { cardStatusColor } from '../board/card-status.ts'
 import { canMoveToLane, positionChoices } from '../board/move-options.ts'
 import { WaitingLaneModal } from '../board/WaitingLaneModal.tsx'
+import { utcToday } from '../lib/format.ts'
 import { strings } from '../strings.ts'
 
 export interface CardStateSelectProps {
@@ -94,6 +96,18 @@ export function CardStateSelect({
     moveTo(toLane)
   }
 
+  // Tint the control with the SAME status hue the board card shows (blocked,
+  // waiting/overdue, cancelled, archived) so the panel echoes the card; a plain
+  // on-track card gets the default border. `-filled` is the theme's per-color
+  // token — a token reference, never a literal (ADR-016 rule 1).
+  const statusColor = cardStatusColor(card, utcToday())
+  // Only include `styles` when there IS a status hue (exactOptionalPropertyTypes
+  // forbids passing `styles={undefined}`).
+  const statusStyles =
+    statusColor === undefined
+      ? {}
+      : { styles: { input: { borderColor: `var(--mantine-color-${statusColor}-filled)` } } }
+
   return (
     <>
       <Select
@@ -102,6 +116,7 @@ export function CardStateSelect({
         value={currentKey}
         allowDeselect={false}
         disabled={disabled || board === undefined}
+        {...statusStyles}
         rightSection={
           move.isPending ? <Loader size="xs" aria-label={strings.common.loading} /> : undefined
         }

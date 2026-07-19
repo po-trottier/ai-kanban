@@ -15,6 +15,9 @@ export interface HintButtonProps extends ButtonProps {
    */
   disabledReason?: string | false | undefined
   type?: 'button' | 'submit'
+  /** Native `form` attribute: submits a form by id from a button rendered
+   *  OUTSIDE that form (the sticky Save footer sits below the scrolling form). */
+  form?: string
   onClick?: MouseEventHandler<HTMLButtonElement>
   'aria-label'?: string
   children?: ReactNode

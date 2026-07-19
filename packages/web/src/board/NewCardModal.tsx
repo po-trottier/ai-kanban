@@ -7,6 +7,8 @@ import { useForm } from 'react-hook-form'
 import { type z } from 'zod'
 import { cardFieldsControl } from '../card/card-fields.ts'
 import { CardFieldInputs } from '../card/CardFieldInputs.tsx'
+import { StickyFooter } from '../card/StickyFooter.tsx'
+import cardClasses from '../card/card.module.css'
 import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { NewCardAttachments } from './NewCardAttachments.tsx'
@@ -37,7 +39,16 @@ export function NewCardModal({
   const [files, setFiles] = useState<File[]>([])
 
   return (
-    <Modal opened onClose={onClose} title={strings.newCard.modalTitle} size="lg" centered>
+    // Share the detail panel's layout: the body scrolls (capped height) while
+    // the Cancel / Create bar stays sticky at the bottom (Task #138).
+    <Modal
+      opened
+      onClose={onClose}
+      title={strings.newCard.modalTitle}
+      size="lg"
+      centered
+      classNames={{ body: cardClasses.modalScrollBody }}
+    >
       <form
         noValidate
         onSubmit={(event) => {
@@ -68,19 +79,25 @@ export function NewCardModal({
               setFiles((current) => current.filter((_, position) => position !== index))
             }}
           />
-          <Group justify="flex-end" gap="sm">
-            <HintButton tooltip={strings.tooltips.cancelDialog} variant="default" onClick={onClose}>
-              {strings.common.cancel}
-            </HintButton>
-            <HintButton
-              tooltip={strings.tooltips.createCard}
-              type="submit"
-              loading={submitting}
-              leftSection={<Plus size={16} aria-hidden />}
-            >
-              {strings.common.create}
-            </HintButton>
-          </Group>
+          <StickyFooter>
+            <Group justify="flex-end" gap="sm">
+              <HintButton
+                tooltip={strings.tooltips.cancelDialog}
+                variant="default"
+                onClick={onClose}
+              >
+                {strings.common.cancel}
+              </HintButton>
+              <HintButton
+                tooltip={strings.tooltips.createCard}
+                type="submit"
+                loading={submitting}
+                leftSection={<Plus size={16} aria-hidden />}
+              >
+                {strings.common.create}
+              </HintButton>
+            </Group>
+          </StickyFooter>
         </Stack>
       </form>
     </Modal>

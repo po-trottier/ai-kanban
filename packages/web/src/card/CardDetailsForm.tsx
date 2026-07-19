@@ -2,7 +2,7 @@ import { updateCardInputSchema, type Location, type UpdateCardInput } from '@riv
 import { Group, Stack, Text } from '@mantine/core'
 import { Save } from 'lucide-react'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
-import { useEffect } from 'react'
+import { useEffect, useId, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { type z } from 'zod'
 import { type CardDetailResponse } from '../api/schemas.ts'
@@ -12,6 +12,7 @@ import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { cardFieldsControl } from './card-fields.ts'
 import { CardFieldInputs } from './CardFieldInputs.tsx'
+import { StickyFooter } from './StickyFooter.tsx'
 
 /** Editable fields = the core PATCH command minus the If-Match version. */
 const cardFieldsSchema = updateCardInputSchema.omit({ expectedVersion: true })
@@ -25,20 +26,35 @@ export interface CardDetailsFormProps {
   saving: boolean
   /** Archived cards are read-only except reopen (workflow.md#terminal-states). */
   disabled?: boolean
+  /**
+   * Sections that belong to the Details tab but NOT the edit form — Attachments
+   * and Relations. They render between the fields and the timestamps so the tab
+   * reads fields → attachments → relations → timestamps → (sticky Save), while
+   * the form element still wraps only the editable fields.
+   */
+  children?: ReactNode
   onSave: (changes: CardFieldChanges) => void
 }
 
-/** In-place field editing with the shared core schema as the resolver. */
+/**
+ * The Details tab: the editable fields (a real `<form>`), then the caller's
+ * Attachments/Relations, then the Created/Updated timestamps, then a sticky
+ * full-width Save pinned to the bottom of the scrolling panel. Save lives
+ * OUTSIDE the scrolling flow but still submits the fields form via the native
+ * `form={id}` association, so the form owns its own dirty state (no lifting).
+ */
 export function CardDetailsForm({
   detail,
   locations,
   knownTags,
   saving,
   disabled = false,
+  children,
   onSave,
 }: CardDetailsFormProps) {
   const { card } = detail
   const timezone = useUserTimezone()
+  const formId = useId()
   const form = useForm<CardFieldsValues, unknown, CardFieldChanges>({
     resolver: standardSchemaResolver(cardFieldsSchema),
     defaultValues: valuesOf(detail),
@@ -48,7 +64,7 @@ export function CardDetailsForm({
   // render or its per-field tracking is skipped, and the submit handler then
   // sees a stale map (observed live: edit title, then priority — priority
   // silently dropped from the PATCH). Reading it here subscribes it.
-  const { dirtyFields } = form.formState
+  const { dirtyFields, isDirty } = form.formState
 
   // A fresh server state (SSE refetch, save) updates the non-dirty fields;
   // keepDirtyValues preserves whatever the user is typing mid-edit.
@@ -57,63 +73,69 @@ export function CardDetailsForm({
   }, [form, detail])
 
   return (
-    <form
-      noValidate
-      onSubmit={(event) => {
-        void form.handleSubmit((values) => {
-          onSave(pickDirty(values, dirtyFields))
-        })(event)
-      }}
-    >
-      <Stack gap="md">
-        <CardFieldInputs
-          control={cardFieldsControl(form.control)}
-          titleField={form.register('title')}
-          errors={{
-            title: form.formState.errors.title?.message,
-            estimateMinutes: form.formState.errors.estimateMinutes?.message,
-          }}
-          reporterId={card.reporterId}
-          locations={locations}
-          knownTags={knownTags}
-          // The update command clears optionals explicitly (core schema `.nullable()`).
-          cleared={null}
-          disabled={disabled}
-        />
-        <Group gap="lg">
-          <Text size="xs" c="dimmed">
-            {strings.detail.createdLabel}: {formatDateTime(card.createdAt, timezone)}
-          </Text>
-          <Text size="xs" c="dimmed">
-            {strings.detail.updatedLabel}: {formatDateTime(card.updatedAt, timezone)}
-          </Text>
-        </Group>
-        {disabled ? null : (
-          <Group justify="space-between" gap="sm">
+    <>
+      <form
+        id={formId}
+        noValidate
+        onSubmit={(event) => {
+          void form.handleSubmit((values) => {
+            onSave(pickDirty(values, dirtyFields))
+          })(event)
+        }}
+      >
+        <Stack gap="md">
+          <CardFieldInputs
+            control={cardFieldsControl(form.control)}
+            titleField={form.register('title')}
+            errors={{
+              title: form.formState.errors.title?.message,
+              estimateMinutes: form.formState.errors.estimateMinutes?.message,
+            }}
+            reporterId={card.reporterId}
+            locations={locations}
+            knownTags={knownTags}
+            // The update command clears optionals explicitly (core schema `.nullable()`).
+            cleared={null}
+            disabled={disabled}
+          />
+        </Stack>
+      </form>
+      {children}
+      {/* Timestamps sit LAST in the scrollable content, just above the sticky
+          Save (per the panel layout). */}
+      <Group gap="lg">
+        <Text size="xs" c="dimmed">
+          {strings.detail.createdLabel}: {formatDateTime(card.createdAt, timezone)}
+        </Text>
+        <Text size="xs" c="dimmed">
+          {strings.detail.updatedLabel}: {formatDateTime(card.updatedAt, timezone)}
+        </Text>
+      </Group>
+      {disabled ? null : (
+        <StickyFooter>
+          <Stack gap="xs">
             {/* Warns a user who edited a field not to switch tabs/close before
                 saving — the change persists only on this explicit click. */}
-            {form.formState.isDirty ? (
+            {isDirty ? (
               <Text size="xs" c="dimmed">
                 {strings.detail.unsavedWarning}
               </Text>
-            ) : (
-              <span />
-            )}
+            ) : null}
             <HintButton
               type="submit"
+              form={formId}
+              fullWidth
               tooltip={strings.tooltips.saveCard}
-              disabledReason={
-                form.formState.isDirty ? undefined : strings.tooltips.disabledNoChanges
-              }
+              disabledReason={isDirty ? undefined : strings.tooltips.disabledNoChanges}
               loading={saving}
               leftSection={<Save size={16} aria-hidden />}
             >
               {strings.detail.saveFields}
             </HintButton>
-          </Group>
-        )}
-      </Stack>
-    </form>
+          </Stack>
+        </StickyFooter>
+      )}
+    </>
   )
 }
 
