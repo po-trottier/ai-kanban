@@ -205,6 +205,7 @@ export const strings = {
     intro: 'This instance has no users yet. Create the first administrator account to begin.',
     displayName: 'Display name',
     displayNameRequired: 'Enter a display name',
+    confirmPassword: 'Confirm password',
     submitButton: 'Create admin account',
     locationsTitle: 'Add your locations',
     locationsOptional: 'Optional',

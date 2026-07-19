@@ -44,6 +44,7 @@ async function createAdmin(user: ReturnType<typeof userEvent.setup>) {
   await user.type(await screen.findByRole('textbox', { name: 'Email' }), 'first@org.example')
   await user.type(screen.getByRole('textbox', { name: 'Display name' }), 'First Admin')
   await user.type(screen.getByLabelText('Password'), 'a-strong-first-password')
+  await user.type(screen.getByLabelText('Confirm password'), 'a-strong-first-password')
   await user.click(screen.getByRole('button', { name: 'Create admin account' }))
 }
 
@@ -83,9 +84,11 @@ describe('SetupPage', () => {
     await user.type(await screen.findByRole('textbox', { name: 'Email' }), 'first@org.example')
     await user.type(screen.getByRole('textbox', { name: 'Display name' }), 'First Admin')
     await user.type(screen.getByLabelText('Password'), 'a-strong-first-password')
+    await user.type(screen.getByLabelText('Confirm password'), 'a-strong-first-password')
     await user.click(screen.getByRole('button', { name: 'Create admin account' }))
-    // Assert — the account fields, the browser-auto-detected time zone, and the
-    // default `system` theme (not shown at setup; the browser resolves it).
+    // Assert — the account fields (confirmPassword is UI-only, never sent), the
+    // browser-auto-detected time zone, and the default `system` theme (not shown
+    // at setup; the browser resolves it).
     expect(fake.lastBody('POST', '/api/v1/setup')).toEqual({
       email: 'first@org.example',
       displayName: 'First Admin',
@@ -107,9 +110,26 @@ describe('SetupPage', () => {
     await user.type(await screen.findByRole('textbox', { name: 'Email' }), 'late@org.example')
     await user.type(screen.getByRole('textbox', { name: 'Display name' }), 'Latecomer')
     await user.type(screen.getByLabelText('Password'), 'a-strong-late-password')
+    await user.type(screen.getByLabelText('Confirm password'), 'a-strong-late-password')
     await user.click(screen.getByRole('button', { name: 'Create admin account' }))
     // Assert
     expect(await screen.findByText('Setup already complete')).toBeInTheDocument()
+  })
+
+  it('blocks submit when the password confirmation does not match', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const fake = createFakeFetch({ ...setupRequired, 'POST /api/v1/setup': fixtureAdmin })
+    renderWithProviders(<SetupPage />, { fetchFn: fake.fetch })
+    // Act — a mistyped confirmation (a real fat-finger) must not reach the server.
+    await user.type(await screen.findByRole('textbox', { name: 'Email' }), 'first@org.example')
+    await user.type(screen.getByRole('textbox', { name: 'Display name' }), 'First Admin')
+    await user.type(screen.getByLabelText('Password'), 'a-strong-first-password')
+    await user.type(screen.getByLabelText('Confirm password'), 'a-strong-first-passwrod')
+    await user.click(screen.getByRole('button', { name: 'Create admin account' }))
+    // Assert — the mismatch shows inline and no account POST was made.
+    expect(await screen.findByText('Passwords do not match')).toBeInTheDocument()
+    expect(fake.calls.filter((call) => call.method === 'POST')).toHaveLength(0)
   })
 
   it('advances to the optional locations step after the admin is created', async () => {

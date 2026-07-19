@@ -3,7 +3,6 @@ import {
   PASSWORD_MIN_LENGTH,
   themeSchema,
   timezoneSchema,
-  type SetupAdminInput,
 } from '@rivian-kanban/core'
 import {
   Center,
@@ -32,21 +31,30 @@ import classes from './auth.module.css'
 import { SetupLocations } from './SetupLocations.tsx'
 
 /**
- * Form-side messages over core's `setupAdminInputSchema` shape (the values
- * type IS the shared input type). The password minimum is the shared policy
- * constant — the server enforces the full policy (max + common-password).
+ * Form-side messages over core's `setupAdminInputSchema` shape, plus a UI-only
+ * `confirmPassword` (never sent — stripped at submit) that must match `password`
+ * so a typo in the first admin's password can't lock them out. The password
+ * minimum is the shared policy constant — the server enforces the full policy
+ * (max + common-password).
  */
-const setupFormSchema = z.object({
-  email: z.email(strings.auth.emailInvalid),
-  displayName: z.string().trim().min(1, strings.setup.displayNameRequired).max(100),
-  password: z.string().min(PASSWORD_MIN_LENGTH, strings.auth.passwordMinLength),
-  // Auto-detected from the browser (no visible field); the server defaults it
-  // to PST if ever absent. Carried so the first admin's zone matches their machine.
-  timezone: timezoneSchema,
-  // Not auto-detected and not shown at setup — the first admin starts on
-  // `system` (the browser resolves light/dark) and re-picks it in Preferences.
-  theme: themeSchema,
-})
+const setupFormSchema = z
+  .object({
+    email: z.email(strings.auth.emailInvalid),
+    displayName: z.string().trim().min(1, strings.setup.displayNameRequired).max(100),
+    password: z.string().min(PASSWORD_MIN_LENGTH, strings.auth.passwordMinLength),
+    confirmPassword: z.string(),
+    // Auto-detected from the browser (no visible field); the server defaults it
+    // to PST if ever absent. Carried so the first admin's zone matches their machine.
+    timezone: timezoneSchema,
+    // Not auto-detected and not shown at setup — the first admin starts on
+    // `system` (the browser resolves light/dark) and re-picks it in Preferences.
+    theme: themeSchema,
+  })
+  .refine((values) => values.password === values.confirmPassword, {
+    path: ['confirmPassword'],
+    message: strings.auth.passwordMismatch,
+  })
+type SetupFormValues = z.infer<typeof setupFormSchema>
 
 /**
  * First-boot setup page: while the database has no users, every route lands
@@ -102,12 +110,13 @@ export function SetupPage() {
 /** Step 1: create the first admin. On success the session is live. */
 function SetupAccountForm({ onCreated }: { onCreated: () => void }) {
   const setup = useSetupAdmin()
-  const form = useForm<SetupAdminInput>({
+  const form = useForm<SetupFormValues>({
     resolver: standardSchemaResolver(setupFormSchema),
     defaultValues: {
       email: '',
       displayName: '',
       password: '',
+      confirmPassword: '',
       timezone: detectBrowserTimezone(),
       theme: DEFAULT_THEME,
     },
@@ -117,7 +126,9 @@ function SetupAccountForm({ onCreated }: { onCreated: () => void }) {
     <form
       noValidate
       onSubmit={(event) => {
-        void form.handleSubmit((values) => {
+        // `confirmPassword` is UI-only (it validated `password` above); the
+        // rest is exactly the shared SetupAdminInput the endpoint parses.
+        void form.handleSubmit(({ confirmPassword: _confirmPassword, ...values }) => {
           setup.mutate(values, { onSuccess: onCreated })
         })(event)
       }}
@@ -164,6 +175,12 @@ function SetupAccountForm({ onCreated }: { onCreated: () => void }) {
           autoComplete="new-password"
           error={form.formState.errors.password?.message}
           {...form.register('password')}
+        />
+        <PasswordInput
+          label={strings.setup.confirmPassword}
+          autoComplete="new-password"
+          error={form.formState.errors.confirmPassword?.message}
+          {...form.register('confirmPassword')}
         />
         <HintButton type="submit" tooltip={strings.tooltips.createAdmin} loading={setup.isPending}>
           {strings.setup.submitButton}
