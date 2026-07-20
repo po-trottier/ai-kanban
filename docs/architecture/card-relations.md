@@ -86,6 +86,9 @@ card (a grey badge) and links through to the other card (preserving the board fi
 with a subtle red remove action per row. Unless the card is archived (read-only), a single **"Add
 relationship"** button (lucide `Link2`) sits below the list and opens `AddRelationModal.tsx` — a modal
 holding the two required fields (a relationship-type select + an **async card search** that reuses
-`GET /cards?q=` on title / ticket-number substring, excluding the current card and any already-related
-one) plus Cancel / Add. The modal closes itself once the relation is created. Relations are **never**
-rendered on board card previews.
+`GET /cards?q=`, excluding the current card and any already-related one) plus Cancel / Add. The search
+finds a target by **title**, **work-order number**, or a **pasted card URL**: `cardSearchTerm`
+(`packages/web/src/api/relations.ts`) normalizes the query so a bare number, a `#42` ticket ref, or a
+pasted `…/cards/42` URL all collapse to the bare card number the server matches against the card id,
+while any other text passes through as a title/description search term. The modal closes itself once
+the relation is created. Relations are **never** rendered on board card previews.

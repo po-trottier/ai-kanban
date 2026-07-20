@@ -50,19 +50,21 @@ Single seeded row in v1; cards reference it so multi-board is additive later.
 ### lanes
 
 Configurable columns (see [workflow.md](../product/workflow.md)). The 7 SEEDED lanes carry the
-workflow behavior (intake entry, in-progress work-start, waiting discipline, done terminal) and so
-keep stable keys and cannot be deleted — but admins **add, rename, reorder, and WIP-cap** columns and
-**delete** their own (empty) ones from board settings. A `key` is a slug (like a role key), validated
-against the board's live lanes at write time, not a closed enum (`LaneKey` is a bare string).
+workflow behavior (intake entry, in-progress work-start, waiting discipline, done terminal) BY KEY,
+but columns are fully user-defined: admins **add, rename, reorder, WIP-cap, and delete** ANY column —
+including the seeded ones — from board settings. Deleting a seeded column merely drops its tied
+behavior; the only invariants are a board keeps **at least one** column and a column must be **empty**
+to delete. A `key` is a slug (like a role key), validated against the board's live lanes at write
+time, not a closed enum (`LaneKey` is a bare string).
 
-| column    | type             | notes                                                            |
-| --------- | ---------------- | ---------------------------------------------------------------- |
-| id        | TEXT PK          |                                                                  |
-| key       | TEXT NOT NULL    | slug machine key, UNIQUE(board_id, key); seeded lanes' are fixed |
-| board_id  | TEXT FK          |                                                                  |
-| label     | TEXT NOT NULL    | display, admin-editable, ≤ 50 chars                              |
-| position  | INTEGER NOT NULL | board order (admin-reorderable)                                  |
-| wip_limit | INTEGER NULL     | soft limit                                                       |
+| column    | type             | notes                                                         |
+| --------- | ---------------- | ------------------------------------------------------------- |
+| id        | TEXT PK          |                                                               |
+| key       | TEXT NOT NULL    | slug machine key, UNIQUE(board_id, key); stable once assigned |
+| board_id  | TEXT FK          |                                                               |
+| label     | TEXT NOT NULL    | display, admin-editable, ≤ 50 chars                           |
+| position  | INTEGER NOT NULL | board order (admin-reorderable)                               |
+| wip_limit | INTEGER NULL     | soft limit                                                    |
 
 ### locations
 

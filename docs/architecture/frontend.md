@@ -111,20 +111,23 @@ and the create modal both just hand it a `cardId`. So creating and editing a car
 path. The 7-field roster is one component (`card/CardFieldInputs`) driven by the core schema, so
 adding a field is a one-file edit both surfaces pick up.
 
-- **Create modal vs. edit panel.** `CardBody`'s `autoSave` prop is the only difference. The
-  create modal passes `autoSave`: no explicit **Save** button — the fields AUTO-SAVE
-  (`CardDetailsForm autoSave` — a debounced `form.subscribe` PATCHes only the dirty subset, the
-  exact manual-save path) — and a **Discard / Done** footer replaces Save. Discard hard-deletes
-  the fresh draft (`useDeleteCard` → `DELETE /cards/:id`, owner-only + intake-only server gate)
-  then closes; Done (and ✕ / Escape) just close, keeping the auto-saved card. The modal shows no
-  Comments/History (those live only in the detail panel's tabs). State, relations, and
-  attachments already mutate immediately against the card id, so they need no create/edit branch.
-  The detail panel renders `CardBody` without `autoSave`, keeping the explicit Save.
+- **Create modal vs. edit panel.** `CardBody`'s `createMode` prop is the only difference. In
+  create mode the footer swaps the full-width **Save changes** for a bottom-right **Cancel /
+  Create** pair (create primary), and the **State** dropdown is HIDDEN (a brand-new card is always
+  in Intake). **Create** submits the same fields form — the dirty subset PATCHes (silently), then
+  the modal closes in the save's `onSuccess`; if nothing was edited it just closes. There is no
+  auto-save: the fields commit on the explicit Create click, so the save finishes before the modal
+  closes (no flush races). **Cancel** (and ✕ / Escape) hard-deletes the fresh draft (`useDeleteCard`
+  → `DELETE /cards/:id`, owner-only + first-column-only server gate) then closes, so a cancelled
+  create leaves nothing behind. The modal shows no Comments/History (those live only in the detail
+  panel's tabs). Relations and attachments already mutate immediately against the card id, so they
+  need no create/edit branch. The detail panel renders `CardBody` without `createMode`, keeping the
+  explicit Save.
 - **Order (top to bottom).** The **State** dropdown (`card/CardStateSelect`), then the editable
   fields (`card/CardDetailsForm`), then Relations, then Attachments, then the Created/Updated
   timestamps.
 - **Sticky footer.** The action bar — the edit panel's full-width **Save changes**, the create
-  modal's **Discard / Done** — is `card/StickyFooter` (one `.stickyFooter` CSS-module class,
+  modal's **Cancel / Create** — is `card/StickyFooter` (one `.stickyFooter` CSS-module class,
   `position: sticky; bottom: 0` with a top border + `--mantine-color-body` background). It stays
   visible while the scroll container scrolls: the panel's `.panelBody`, or the modal's capped
   `.modalScrollBody` body slot. Save sits OUTSIDE the scrolling `<form>` and submits it via the
