@@ -111,7 +111,7 @@ export const strings = {
     saveLane: 'Save this column’s label and WIP limit',
     dragLane: 'Drag to reorder this column',
     deleteLane: 'Delete this column',
-    deleteSystemLane: 'Built-in workflow columns cannot be deleted',
+    deleteLastLane: 'A board must keep at least one column',
     addColumn: 'Add a new column, then rename it inline',
     // Policy admin.
     addRole: 'Add a new role to the permissions matrix',
@@ -818,7 +818,7 @@ export const strings = {
       `Delete the “${lane}” column? This can’t be undone. A column that still has cards can’t be deleted.`,
     deleteConfirmLabel: 'Delete column',
     intro:
-      'Columns are your board workflow. Rename them, set WIP limits, reorder them, and add your own. The built-in workflow columns keep their behavior and cannot be deleted.',
+      'Columns are your board workflow. Rename them, set WIP limits, reorder them, and add your own. Any empty column can be deleted — a board just has to keep at least one.',
   },
 
   policy: {
@@ -854,9 +854,23 @@ export const strings = {
     transitionsTitle: 'Workflow graph',
     /** Plain-language help under each heading (dense admin screen). */
     transitionsHint:
-      'The allowed moves between columns. When enforcement is off, every move is allowed and these have no effect.',
+      'Tick a cell to allow moving from its row column to its column column. When enforcement is off, every move is allowed and these have no effect.',
     disabledWhenOff: 'Turn on enforcement above for this to take effect.',
-    transitionRowLabel: (from: string, to: string) => `${from} to ${to}`,
+    /** Accessible name for the whole from×to transitions matrix. */
+    transitionsMatrixLabel: 'Allowed workflow moves matrix',
+    /** Corner header + row/column axis headers for the from×to matrix. */
+    transitionsFromHeader: 'From \\ To',
+    transitionsFromAxis: 'From column',
+    transitionsToAxis: 'To column',
+    /** Per (from, to) checkbox accessible name. */
+    edgeCellLabel: (from: string, to: string) => `Allow move from ${from} to ${to}`,
+    /** Heading + per-chip label + remove tooltip for edges whose lane no longer exists. */
+    staleEdgesTitle: 'Moves referencing deleted columns',
+    staleEdgeLabel: (from: string, to: string) => `${from} to ${to}`,
+    staleEdgeRemove: (from: string, to: string) => `Remove the move from ${from} to ${to}`,
+    /** Advisory (not a save-block): a live column no admin can move a card out of. */
+    unreachableForward: (lane: string) =>
+      `“${lane}” has no outgoing moves — cards can’t leave it while enforcement is on.`,
     saved: 'Policy updated',
     /** Human labels for each permission, grouped into admin-legible sections. */
     sections: {

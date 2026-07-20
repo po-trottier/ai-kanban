@@ -3,34 +3,10 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { type BoardResponse } from '../api/schemas.ts'
 import { createFakeFetch } from '../test/fake-fetch.ts'
-import { laneByKey, makeBoard, nth, uid } from '../test/fixtures.ts'
+import { laneByKey, makeBoard, nth } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import { LanesAdmin } from './LanesAdmin.tsx'
 import { reorderedLaneIds } from './lane-reorder.ts'
-
-/** A board with one extra admin-added (non-seeded) column appended. */
-function boardWithCustomLane(): { board: BoardResponse; customId: string } {
-  const base = makeBoard({})
-  const customId = uid(500)
-  const board: BoardResponse = {
-    lanes: [
-      ...base.lanes,
-      {
-        lane: {
-          id: customId,
-          boardId: uid(1),
-          key: 'on_hold',
-          label: 'On Hold',
-          position: 7,
-          wipLimit: null,
-        },
-        cards: [],
-        wipLimitExceeded: false,
-      },
-    ],
-  }
-  return { board, customId }
-}
 
 describe('LanesAdmin', () => {
   it('renders an aligned table with one drag-handled row per lane and no machine key', async () => {
@@ -121,25 +97,37 @@ describe('LanesAdmin', () => {
     })
   })
 
-  it('deletes an admin column but disables delete for the built-in ones', async () => {
-    // Arrange
+  it('deletes any column, including a formerly-system one', async () => {
+    // Arrange — a seeded (formerly non-deletable) column is now removable.
     const user = userEvent.setup()
-    const { board, customId } = boardWithCustomLane()
+    const intake = laneByKey('intake')
     const fake = createFakeFetch({
-      'GET /api/v1/board': board,
-      [`DELETE /api/v1/lanes/${customId}`]: {},
+      'GET /api/v1/board': makeBoard({}),
+      [`DELETE /api/v1/lanes/${intake.id}`]: {},
     })
     renderWithProviders(<LanesAdmin />, { fetchFn: fake.fetch })
-    // Assert — a seeded column's delete is disabled; the admin one is not.
-    expect(
-      await screen.findByRole('button', { name: 'Delete this column (Intake)' }),
-    ).toBeDisabled()
-    // Act — delete the admin-added column, confirming the guard dialog.
-    await user.click(screen.getByRole('button', { name: 'Delete this column (On Hold)' }))
+    // Assert — the seeded Intake column's delete is enabled now.
+    const deleteIntake = await screen.findByRole('button', { name: 'Delete this column (Intake)' })
+    expect(deleteIntake).not.toBeDisabled()
+    // Act — delete it, confirming the guard dialog.
+    await user.click(deleteIntake)
     await user.click(await screen.findByRole('button', { name: 'Delete column' }))
     // Assert
-    expect(fake.calls.some((call) => call.method === 'DELETE' && call.url.includes(customId))).toBe(
-      true,
-    )
+    expect(
+      fake.calls.some((call) => call.method === 'DELETE' && call.url.includes(intake.id)),
+    ).toBe(true)
+  })
+
+  it('disables delete when only one column remains (a board must keep ≥1)', async () => {
+    // Arrange — a board pared down to a single column.
+    const done = laneByKey('done')
+    const board: BoardResponse = {
+      lanes: [{ lane: done, cards: [], wipLimitExceeded: false }],
+    }
+    const fake = createFakeFetch({ 'GET /api/v1/board': board })
+    // Act
+    renderWithProviders(<LanesAdmin />, { fetchFn: fake.fetch })
+    // Assert — the lone column's delete is disabled (last-column guard).
+    expect(await screen.findByRole('button', { name: 'Delete this column (Done)' })).toBeDisabled()
   })
 })

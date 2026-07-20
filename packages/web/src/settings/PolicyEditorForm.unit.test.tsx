@@ -115,3 +115,74 @@ describe('PolicyEditorForm — roles × permissions matrix', () => {
     expect(lead).toEqual({ key: 'lead', name: 'Team Lead', permissions: {} })
   })
 })
+
+describe('PolicyEditorForm — workflow transitions matrix', () => {
+  it('toggling a cell on adds the edge to the PUT document', async () => {
+    // Arrange — Intake→Ready is not an edge in the default policy.
+    const user = userEvent.setup()
+    const saved: PolicyDocument[] = []
+    render((document) => saved.push(document))
+
+    // Act
+    await user.click(screen.getByRole('checkbox', { name: 'Allow move from Intake to Ready' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    // Assert
+    expect(saved).toHaveLength(1)
+    expect(saved[0]?.transitions).toContainEqual({ from: 'intake', to: 'ready' })
+  })
+
+  it('toggling an existing cell off removes the edge from the PUT document', async () => {
+    // Arrange — Intake→Waiting for Approval IS a seeded edge.
+    const user = userEvent.setup()
+    const saved: PolicyDocument[] = []
+    render((document) => saved.push(document))
+
+    // Act
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Allow move from Intake to Waiting for Approval' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    // Assert
+    expect(saved[0]?.transitions).not.toContainEqual({ from: 'intake', to: 'waiting_approval' })
+  })
+
+  it('leaves the diagonal (from === to) as a non-interactive empty cell', () => {
+    // Arrange
+    const onSave = () => undefined
+
+    // Act
+    render(onSave)
+
+    // Assert — there is no self-loop checkbox for a lane.
+    expect(
+      screen.queryByRole('checkbox', { name: 'Allow move from Intake to Intake' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('removes a stale edge (referencing a deleted column) via its chip', async () => {
+    // Arrange — inject an edge whose `from` isn't a live lane key.
+    const user = userEvent.setup()
+    const saved: PolicyDocument[] = []
+    const withStale: PolicyDocument = {
+      ...permissivePolicy,
+      transitions: [...permissivePolicy.transitions, { from: 'ghost', to: 'intake' }],
+    }
+    renderWithProviders(
+      <PolicyEditorForm
+        value={withStale}
+        laneLabels={laneLabels}
+        saving={false}
+        onSave={(document) => saved.push(document)}
+      />,
+    )
+
+    // Act — the stale edge shows a removable chip labelled by its raw key.
+    await user.click(screen.getByRole('button', { name: 'Remove the move from ghost to Intake' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    // Assert
+    expect(saved[0]?.transitions).not.toContainEqual({ from: 'ghost', to: 'intake' })
+  })
+})

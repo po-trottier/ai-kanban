@@ -8,7 +8,6 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core'
-import { isSystemLaneKey } from '@rivian-kanban/core'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import {
   draggable,
@@ -56,9 +55,10 @@ function isLaneDragData(data: Record<string | symbol, unknown>): data is LaneDra
  * Configurable board columns (docs/architecture/rest-api.md#admin): rename +
  * WIP (`PATCH /lanes/:id`), reorder by dragging the row's grip handle
  * (`POST /lanes/reorder`), add (`POST /lanes`), and delete (`DELETE /lanes/:id`).
- * The 7 seeded columns carry the workflow behavior, so they are
- * renamable/reorderable but can't be deleted; admin-added columns are removable
- * once empty. Fixed input widths keep the grid aligned regardless of label length.
+ * Any column is deletable once empty — including the seeded ones — except the
+ * last remaining one (a board must keep ≥1 column; the server returns 409, and
+ * we mirror that guard client-side). Fixed input widths keep the grid aligned
+ * regardless of label length.
  */
 export function LanesAdmin() {
   const board = useBoard()
@@ -114,7 +114,7 @@ export function LanesAdmin() {
         <Table.Tbody>
           {board.isPending ? <SkeletonRows rows={7} cols={4} /> : null}
           {snapshots.map((snapshot) => (
-            <LaneRow key={snapshot.lane.id} snapshot={snapshot} />
+            <LaneRow key={snapshot.lane.id} snapshot={snapshot} laneCount={snapshots.length} />
           ))}
         </Table.Tbody>
       </Table>
@@ -176,7 +176,7 @@ function useLaneRowDnd(
   return state
 }
 
-function LaneRow({ snapshot }: { snapshot: LaneSnapshot }) {
+function LaneRow({ snapshot, laneCount }: { snapshot: LaneSnapshot; laneCount: number }) {
   const patchLane = usePatchLane()
   const deleteLane = useDeleteLane()
   const rowRef = useRef<HTMLTableRowElement | null>(null)
@@ -186,7 +186,8 @@ function LaneRow({ snapshot }: { snapshot: LaneSnapshot }) {
   const [wipLimit, setWipLimit] = useState<number | null>(snapshot.lane.wipLimit)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const dirty = label !== snapshot.lane.label || wipLimit !== snapshot.lane.wipLimit
-  const isSystem = isSystemLaneKey(snapshot.lane.key)
+  // A board must keep ≥1 column; the last one can't be deleted (server 409).
+  const isLastLane = laneCount <= 1
 
   return (
     <Table.Tr
@@ -254,7 +255,7 @@ function LaneRow({ snapshot }: { snapshot: LaneSnapshot }) {
             {strings.common.save}
           </HintButton>
           <Tooltip
-            label={isSystem ? strings.tooltips.deleteSystemLane : strings.tooltips.deleteLane}
+            label={isLastLane ? strings.tooltips.deleteLastLane : strings.tooltips.deleteLane}
           >
             {/* Span keeps the tooltip anchored even when the icon is disabled
                 (a native-disabled button swallows hover events). */}
@@ -263,7 +264,7 @@ function LaneRow({ snapshot }: { snapshot: LaneSnapshot }) {
                 variant="subtle"
                 color="red"
                 aria-label={`${strings.tooltips.deleteLane} (${snapshot.lane.label})`}
-                disabled={isSystem || deleteLane.isPending}
+                disabled={isLastLane || deleteLane.isPending}
                 loading={deleteLane.isPending}
                 onClick={() => {
                   setConfirmingDelete(true)
