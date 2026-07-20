@@ -241,8 +241,15 @@ Two distinct layers (see deployment.md for the production bootstrap):
 - **Demo seed** — only when `SEED_DEMO_DATA=true` (refused outright in production mode): the
   sample location tree (buildings → floors → rooms), demo users for each role (printed
   credentials), sample cards in every lane including blocked, overdue-waiting, cancelled, and
-  archived examples (some pointing at a seeded room). This is the canonical fixture dataset used
-  by dev boot, integration tests, and Playwright alike.
+  archived examples (some pointing at a seeded room). It also showcases the collaboration
+  features (notifications.md): threaded comments that **@-mention** demo users by display name
+  (`@Demo Admin`, matched against the roster at render time — no mentions column), and a populated
+  **notification inbox** — a spread across the `NotificationKind`s (`mention`, `comment.added`,
+  `attachment.added`, `card.status_changed`/`field_changed`/`blocked`/`cancelled`), some read and
+  some unread so the bell badge shows a nonzero count, with each mention comment lined up to a
+  `mention` notification. Like the `card_events` it writes, the seed inserts these `notifications`
+  rows **directly** — it does not run the server's post-commit watcher fan-out. This is the
+  canonical fixture dataset used by dev boot, integration tests, and Playwright alike.
 
 ## Lifecycle & retention
 

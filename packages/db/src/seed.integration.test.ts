@@ -9,6 +9,7 @@ import {
   comments,
   lanes,
   locations,
+  notifications,
   tags,
   users,
 } from './schema.ts'
@@ -218,8 +219,100 @@ describe('demoSeed', () => {
     expect(createdEvents.length).toBe(count('cards'))
   })
 
+  it('seeds @-mention comments that resolve against the roster + carry event mentions', () => {
+    const displayNames = new Set(
+      db.connection.db
+        .select({ displayName: users.displayName })
+        .from(users)
+        .all()
+        .map((row) => row.displayName),
+    )
+    const mentionComments = db.connection.db
+      .select()
+      .from(comments)
+      .all()
+      // Every `@run` in the body must resolve to a real display name — the same
+      // match `renderCommentBody` does — so no raw token leaks to the UI.
+      .filter((comment) =>
+        [...comment.body.matchAll(/@([^@]+)/g)].some(([, after]) =>
+          [...displayNames].some((name) => after?.startsWith(name) === true),
+        ),
+      )
+    // Events for mentioning comments must carry `mentionedUserIds` pointing at
+    // real seeded users, so the watcher fan-out would skip them (the app writes
+    // a distinct `mention` notification instead).
+    const userIds = new Set(
+      db.connection.db
+        .select({ id: users.id })
+        .from(users)
+        .all()
+        .map((row) => row.id),
+    )
+    const mentionEvents = db.connection.db
+      .select()
+      .from(cardEvents)
+      .where(eq(cardEvents.eventType, 'comment.added'))
+      .all()
+      .filter((event) => {
+        const payload = event.payload as { mentionedUserIds?: string[] }
+        return payload.mentionedUserIds !== undefined && payload.mentionedUserIds.length > 0
+      })
+
+    expect(mentionComments.length).toBeGreaterThanOrEqual(2)
+    // At least one reply mentions someone (thread-style back-and-forth).
+    expect(mentionComments.some((comment) => comment.parentCommentId !== null)).toBe(true)
+    expect(mentionEvents.length).toBeGreaterThanOrEqual(2)
+    for (const event of mentionEvents) {
+      const { mentionedUserIds } = event.payload as { mentionedUserIds: string[] }
+      for (const id of mentionedUserIds) expect(userIds.has(id)).toBe(true)
+    }
+  })
+
+  it('populates the notification inbox across kinds, with unread rows and lined-up mentions', () => {
+    const rows = db.connection.db.select().from(notifications).all()
+    const kinds = new Set(rows.map((row) => row.eventType))
+    const unread = rows.filter((row) => row.readAt === null)
+    const mentionNotifications = rows.filter((row) => row.eventType === 'mention')
+    const recipients = new Set(rows.map((row) => row.userId))
+    const userRows = db.connection.db.select().from(users).all()
+    const userIds = new Set(userRows.map((row) => row.id))
+    const cardIds = new Set(
+      db.connection.db
+        .select({ id: cards.id })
+        .from(cards)
+        .all()
+        .map((r) => r.id),
+    )
+
+    // A realistic spread of DISTINCT kinds, some unread → nonzero bell badge.
+    expect(rows.length).toBeGreaterThanOrEqual(6)
+    expect(kinds.size).toBeGreaterThanOrEqual(4)
+    expect(kinds.has('mention')).toBe(true)
+    expect(unread.length).toBeGreaterThanOrEqual(1)
+    expect(rows.some((row) => row.readAt !== null)).toBe(true)
+    // Both demo users have an inbox; every row references real seeded ids and
+    // never notifies the actor (you never notify yourself).
+    expect(recipients.size).toBeGreaterThanOrEqual(2)
+    // The mention comments (admin once, user twice) line up with mention rows.
+    expect(mentionNotifications.length).toBeGreaterThanOrEqual(3)
+    // Every row references real seeded ids and never notifies its own actor.
+    const wellFormed = rows.every(
+      (row) =>
+        userIds.has(row.userId) &&
+        cardIds.has(row.cardId) &&
+        (row.actorId === null || userIds.has(row.actorId)) &&
+        row.actorId !== row.userId,
+    )
+    expect(wellFormed).toBe(true)
+  })
+
   it('is idempotent: a re-run reports seeded=false and adds nothing', () => {
-    const before = { cards: count('cards'), users: count('users'), events: count('card_events') }
+    const before = {
+      cards: count('cards'),
+      users: count('users'),
+      events: count('card_events'),
+      notifications: count('notifications'),
+    }
 
     const result = demoSeed(db.connection.db)
 
@@ -228,6 +321,7 @@ describe('demoSeed', () => {
       cards: count('cards'),
       users: count('users'),
       events: count('card_events'),
+      notifications: count('notifications'),
     }).toEqual(before)
   })
 

@@ -3,10 +3,12 @@ import {
   DEFAULT_POLICY_DOCUMENT,
   DEFAULT_THEME,
   DEFAULT_TIMEZONE,
+  notificationSchema,
   ROLES,
   Uuidv7IdGenerator,
   type Card,
   type LaneKey,
+  type NotificationKind,
   type Role,
   type User,
 } from '@rivian-kanban/core'
@@ -25,6 +27,7 @@ import {
   comments,
   lanes,
   locations,
+  notifications,
   tags,
   users,
 } from './schema.ts'
@@ -408,40 +411,76 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       archivedAt: new Date(nowMs - 10 * 86_400_000).toISOString(),
     })
 
-    const parentComment = commentWith({
-      id: ids.newId(),
-      cardId: inProgressCard.id,
-      authorId: demoUsers.user.id,
-      body: 'Any update? Deliveries are backing up at the dock.',
+    // Comments with real @-mentions so the demo shows resolvable mention tags.
+    // The mention encoding is an IN-BODY token — the mentioned user's FULL
+    // display name verbatim (`@Demo Admin`), matched against the roster at
+    // render time (renderMentions.tsx). There is no mentions column; the app
+    // records a mention out-of-band as (a) a `mention` notification per user
+    // and (b) `mentionedUserIds` on the `comment.added` event payload, which
+    // the watcher fan-out uses to skip the mentioned user (no double notice).
+    // We mirror both here, exactly like the real CommentService.add does.
+    const mention = (user: User): string => `@${user.displayName}`
+
+    /** Insert a comment + its `comment.added` event; carries mentions when given. */
+    const addComment = (opts: {
+      card: Card
+      author: User
+      body: string
+      createdAt: string
+      parentCommentId?: string
+      mentions?: readonly User[]
+    }): ReturnType<typeof commentWith> => {
+      const comment = commentWith({
+        id: ids.newId(),
+        cardId: opts.card.id,
+        authorId: opts.author.id,
+        body: opts.body,
+        createdAt: opts.createdAt,
+        ...(opts.parentCommentId !== undefined ? { parentCommentId: opts.parentCommentId } : {}),
+      })
+      tx.insert(comments).values(comment).run()
+      const mentionedUserIds = (opts.mentions ?? [])
+        .map((user) => user.id)
+        .filter((id) => id !== opts.author.id)
+      appendEvent({
+        id: ids.newId(),
+        cardId: opts.card.id,
+        actorId: opts.author.id,
+        actorKind: 'user',
+        eventType: 'comment.added',
+        payload: {
+          commentId: comment.id,
+          ...(opts.parentCommentId !== undefined ? { parentCommentId: opts.parentCommentId } : {}),
+          ...(mentionedUserIds.length > 0 ? { mentionedUserIds } : {}),
+        },
+        createdAt: opts.createdAt,
+      })
+      return comment
+    }
+
+    const parentComment = addComment({
+      card: inProgressCard,
+      author: demoUsers.user,
+      body: `${mention(demoUsers.admin)} any update? Deliveries are backing up at the dock.`,
       createdAt: new Date(nowMs - 3 * 3_600_000).toISOString(),
+      mentions: [demoUsers.admin],
     })
-    tx.insert(comments).values(parentComment).run()
-    appendEvent({
-      id: ids.newId(),
-      cardId: inProgressCard.id,
-      actorId: parentComment.authorId,
-      actorKind: 'user',
-      eventType: 'comment.added',
-      payload: { commentId: parentComment.id },
-      createdAt: parentComment.createdAt,
-    })
-    const reply = commentWith({
-      id: ids.newId(),
-      cardId: inProgressCard.id,
-      parentCommentId: parentComment.id,
-      authorId: demoUsers.user.id,
-      body: 'Hydraulic pump is out — new seal kit arrives tomorrow morning.',
+    // A reply that mentions the parent author (thread-style back-and-forth).
+    addComment({
+      card: inProgressCard,
+      author: demoUsers.admin,
+      body: `Hydraulic pump is out ${mention(demoUsers.user)} — new seal kit arrives tomorrow morning.`,
       createdAt: new Date(nowMs - 2 * 3_600_000).toISOString(),
+      parentCommentId: parentComment.id,
+      mentions: [demoUsers.user],
     })
-    tx.insert(comments).values(reply).run()
-    appendEvent({
-      id: ids.newId(),
-      cardId: inProgressCard.id,
-      actorId: reply.authorId,
-      actorKind: 'user',
-      eventType: 'comment.added',
-      payload: { commentId: reply.id, parentCommentId: parentComment.id },
-      createdAt: reply.createdAt,
+    // A second mention thread on another card so the inbox spans multiple cards.
+    addComment({
+      card: readyCard,
+      author: demoUsers.admin,
+      body: `${mention(demoUsers.user)} can you confirm the filter sizes before Friday?`,
+      createdAt: new Date(nowMs - 5 * 3_600_000).toISOString(),
+      mentions: [demoUsers.user],
     })
 
     const attachment = {
@@ -466,6 +505,121 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       payload: { attachmentId: attachment.id, filename: attachment.filename },
       createdAt: attachment.createdAt,
     })
+
+    // Populate the notification inbox so the demo bell shows unread + a spread
+    // of kinds. These are raw rows on purpose (like cardEvents above): the demo
+    // seed writes DB rows directly — it does NOT run the server fan-out. Each
+    // row is validated through the canonical `notificationSchema` (single-schema
+    // rule) and references a real seeded (recipient, card, actor). A
+    // `NotificationKind` is any `CardEventType` plus `mention`. `readMinutesAgo`
+    // null → unread (drives the bell badge); a value → read that long ago.
+    const insertNotification = (raw: {
+      userId: string
+      cardId: number
+      actorId: string
+      eventType: NotificationKind
+      createdMinutesAgo: number
+      readMinutesAgo: number | null
+    }): void => {
+      tx.insert(notifications)
+        .values(
+          notificationSchema.parse({
+            id: ids.newId(),
+            userId: raw.userId,
+            cardId: raw.cardId,
+            actorId: raw.actorId,
+            eventType: raw.eventType,
+            createdAt: new Date(nowMs - raw.createdMinutesAgo * 60_000).toISOString(),
+            readAt:
+              raw.readMinutesAgo === null
+                ? null
+                : new Date(nowMs - raw.readMinutesAgo * 60_000).toISOString(),
+          }),
+        )
+        .run()
+    }
+
+    // A realistic spread across kinds; recipient is never the actor. The three
+    // `mention` rows match the @-mention comments above (admin once, user
+    // twice) so the two features line up. Some read, some unread → a nonzero
+    // unread badge for both demo users.
+    const notificationSeeds: Parameters<typeof insertNotification>[0][] = [
+      // — Demo User's inbox —
+      {
+        userId: demoUsers.user.id,
+        cardId: inProgressCard.id,
+        actorId: demoUsers.admin.id,
+        eventType: 'mention',
+        createdMinutesAgo: 120,
+        readMinutesAgo: null,
+      },
+      {
+        userId: demoUsers.user.id,
+        cardId: readyCard.id,
+        actorId: demoUsers.admin.id,
+        eventType: 'mention',
+        createdMinutesAgo: 300,
+        readMinutesAgo: null,
+      },
+      {
+        userId: demoUsers.user.id,
+        cardId: readyCard.id,
+        actorId: demoUsers.admin.id,
+        eventType: 'card.field_changed', // reassigned to Demo User
+        createdMinutesAgo: 360,
+        readMinutesAgo: null,
+      },
+      {
+        userId: demoUsers.user.id,
+        cardId: blockedCard.id,
+        actorId: demoUsers.admin.id,
+        eventType: 'card.blocked',
+        createdMinutesAgo: 2 * 24 * 60,
+        readMinutesAgo: 24 * 60, // read a day ago
+      },
+      {
+        userId: demoUsers.user.id,
+        cardId: cancelledCard.id,
+        actorId: demoUsers.admin.id,
+        eventType: 'card.cancelled',
+        createdMinutesAgo: 3 * 24 * 60,
+        readMinutesAgo: 2 * 24 * 60,
+      },
+      // — Demo Admin's inbox —
+      {
+        userId: demoUsers.admin.id,
+        cardId: inProgressCard.id,
+        actorId: demoUsers.user.id,
+        eventType: 'mention',
+        createdMinutesAgo: 180,
+        readMinutesAgo: null,
+      },
+      {
+        userId: demoUsers.admin.id,
+        cardId: inProgressCard.id,
+        actorId: demoUsers.user.id,
+        eventType: 'comment.added',
+        createdMinutesAgo: 190,
+        readMinutesAgo: null,
+      },
+      {
+        userId: demoUsers.admin.id,
+        cardId: readyCard.id,
+        actorId: demoUsers.user.id,
+        eventType: 'attachment.added',
+        createdMinutesAgo: 400,
+        readMinutesAgo: 350,
+      },
+      {
+        userId: demoUsers.admin.id,
+        cardId: inProgressCard.id,
+        actorId: demoUsers.user.id,
+        eventType: 'card.status_changed',
+        createdMinutesAgo: 500,
+        readMinutesAgo: 480,
+      },
+    ]
+    for (const seed of notificationSeeds) insertNotification(seed)
 
     return { seeded: true, userEmails, cardCount }
   })
