@@ -2,7 +2,6 @@ import {
   ConflictError,
   createLaneInputSchema,
   ensurePermission,
-  isSystemLaneKey,
   laneKeySchema,
   NotFoundError,
   reorderLanesInputSchema,
@@ -16,13 +15,14 @@ import {
 import { loadActivePolicy } from '../authz.ts'
 
 /**
- * Lane admin (docs/architecture/rest-api.md#admin): columns are fully
- * configurable — add, rename/WIP (PATCH), reorder, and remove. The 7 SEEDED
- * lanes carry the workflow behavior (intake entry, in-progress work-start,
- * waiting discipline, done terminal), so they are renamable and reorderable
- * but PROTECTED from deletion; admin-added lanes are plain and removable when
- * empty. Every mutation is gated by the `manageLanes` permission of the active
- * policy (ADR-013) and publishes the board-scoped `lane.updated` hint (ADR-008).
+ * Lane admin (docs/architecture/rest-api.md#admin): columns are FULLY
+ * user-defined — add, rename/WIP (PATCH), reorder, and remove ANY column. The
+ * seeded lanes still carry workflow behavior by key (first-column entry,
+ * in-progress work-start, waiting discipline, done terminal), but deleting one
+ * simply drops that behavior rather than being forbidden; the only invariant is
+ * a board keeps at least one column (and a column must be empty to delete).
+ * Every mutation is gated by the `manageLanes` permission of the active policy
+ * (ADR-013) and publishes the board-scoped `lane.updated` hint (ADR-008).
  */
 
 export interface LaneAdminServiceDeps {
@@ -84,16 +84,23 @@ export class LaneAdminService {
     return created
   }
 
-  /** Removes an admin-added column; 409 for a seeded lane or a non-empty one, 404 if unknown. */
+  /**
+   * Removes a column — ANY column, seeded or admin-added (columns are fully
+   * user-defined). 409 if it's the last remaining column (a board keeps ≥1) or
+   * still holds cards; 404 if unknown. Deleting a column that carried workflow
+   * behavior (a `done`/`in_progress`/… key) simply drops that behavior; new
+   * cards always land in the first column, so the entry lane is never orphaned.
+   * Any transition edges naming the removed key are then denied (harmless) and
+   * removable from the workflow matrix editor.
+   */
   async remove(actor: Actor, laneId: string): Promise<void> {
     await this.deps.uow.run(async (tx) => {
       ensurePermission(actor, 'manageLanes', await loadActivePolicy(tx, this.deps.boardId))
-      const lane = (await tx.lanes.listByBoard(this.deps.boardId)).find(
-        (candidate) => candidate.id === laneId,
-      )
+      const lanes = await tx.lanes.listByBoard(this.deps.boardId)
+      const lane = lanes.find((candidate) => candidate.id === laneId)
       if (lane === undefined) throw new NotFoundError('lane')
-      if (isSystemLaneKey(lane.key)) {
-        throw new ConflictError('the built-in workflow columns cannot be deleted')
+      if (lanes.length <= 1) {
+        throw new ConflictError('a board must keep at least one column')
       }
       // edgeOfLane includes archived rows: a non-null edge means cards remain.
       if ((await tx.cards.edgeOfLane(lane.id, 'first')) !== null) {

@@ -30,6 +30,24 @@ describe('CardService.cancel', () => {
     expect(cancelled.version).toBe(2)
   })
 
+  it('rejects cancel with a conflict when the board has no done column', async () => {
+    // Arrange — a board whose terminal (done) column was deleted.
+    const scenario = createScenario()
+    const card = scenario.seedCard({ laneId: scenario.lanes.in_progress.id })
+    await scenario.db.run(async (tx) => {
+      await tx.lanes.remove(scenario.lanes.done.id)
+    })
+
+    // Act
+    const cancel = scenario.cards.cancel(scenario.actors.technician, card.id, {
+      resolution: 'declined',
+      expectedVersion: 1,
+    })
+
+    // Assert — there is nowhere terminal to cancel into.
+    await expect(cancel).rejects.toBeInstanceOf(ConflictError)
+  })
+
   it('emits a single card.cancelled event and sends no notification', async () => {
     // Arrange
     const scenario = createScenario()
@@ -172,6 +190,24 @@ describe('CardService.reopen', () => {
 
     // Assert
     expect(reopened.laneId).toBe(scenario.lanes.ready.id)
+    expect(reopened.resolution).toBeNull()
+  })
+
+  it('falls back to the first column when the board has no ready lane', async () => {
+    // Arrange — a done card on a board whose 'ready' column was deleted.
+    const scenario = createScenario()
+    const card = scenario.seedCard({ laneId: scenario.lanes.done.id, resolution: 'completed' })
+    await scenario.db.run(async (tx) => {
+      await tx.lanes.remove(scenario.lanes.ready.id)
+    })
+
+    // Act
+    const reopened = await scenario.cards.reopen(scenario.actors.supervisor, card.id, {
+      expectedVersion: 1,
+    })
+
+    // Assert — reopen lands in the entry (first) column, which is intake here.
+    expect(reopened.laneId).toBe(scenario.lanes.intake.id)
     expect(reopened.resolution).toBeNull()
   })
 })

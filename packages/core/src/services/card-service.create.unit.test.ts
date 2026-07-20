@@ -22,6 +22,21 @@ describe('CardService.create', () => {
     expect(card.version).toBe(1)
   })
 
+  it('lands in the first column by position, not a hardcoded intake', async () => {
+    // Arrange — a board whose intake column was deleted; the first column is now
+    // whatever sits at position 0 (waiting_approval here).
+    const scenario = createScenario()
+    await scenario.db.run(async (tx) => {
+      await tx.lanes.remove(scenario.lanes.intake.id)
+    })
+
+    // Act
+    const card = await scenario.cards.create(scenario.actors.requester, { title: 'Fix door' })
+
+    // Assert — creation survives a deleted intake, landing in the surviving first column.
+    expect(card.laneId).toBe(scenario.lanes.waiting_approval.id)
+  })
+
   it('assigns sequential, per-board ticket numbers starting at 1', async () => {
     // Arrange — a fresh board has no cards yet
     const scenario = createScenario()

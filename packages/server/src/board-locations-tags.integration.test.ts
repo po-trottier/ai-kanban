@@ -670,21 +670,45 @@ describe('POST/DELETE /lanes + reorder (admin — configurable columns)', () => 
     expect((await boardLanes()).some((candidate) => candidate.id === lane.id)).toBe(false)
   })
 
-  it('refuses to delete a seeded workflow column (409) and 404s an unknown lane', async () => {
-    const done = (await boardLanes()).find((lane) => lane.key === 'done')
-    if (done === undefined) throw new Error('no done lane')
+  it('deletes any column (former system lanes included) but keeps at least one', async () => {
+    // A fresh isolated board: this test deletes columns destructively.
+    const app = await createTestApp()
+    try {
+      const { cookie } = await app.asRole('admin')
+      const lanesOf = async () =>
+        (await app.request(cookie, { method: 'GET', url: '/api/v1/board' }))
+          .json<{ lanes: { lane: { id: string; key: string } }[] }>()
+          .lanes.map((entry) => entry.lane)
 
-    const seeded = await t.request(adminCookie, {
-      method: 'DELETE',
-      url: `/api/v1/lanes/${done.id}`,
-    })
-    const missing = await t.request(adminCookie, {
-      method: 'DELETE',
-      url: '/api/v1/lanes/00000000-0000-7000-8000-00000000dead',
-    })
+      // A former "system" column (e.g. done) now deletes like any other empty one.
+      const done = (await lanesOf()).find((lane) => lane.key === 'done')
+      if (done === undefined) throw new Error('no done lane')
+      const deletedDone = await app.request(cookie, {
+        method: 'DELETE',
+        url: `/api/v1/lanes/${done.id}`,
+      })
+      const missing = await app.request(cookie, {
+        method: 'DELETE',
+        url: '/api/v1/lanes/00000000-0000-7000-8000-00000000dead',
+      })
 
-    expect(seeded.statusCode).toBe(409)
-    expect(missing.statusCode).toBe(404)
+      // Delete down to a single column; the last one is protected (a board keeps ≥1).
+      for (const lane of (await lanesOf()).slice(1)) {
+        await app.request(cookie, { method: 'DELETE', url: `/api/v1/lanes/${lane.id}` })
+      }
+      const remaining = await lanesOf()
+      const deleteLast = await app.request(cookie, {
+        method: 'DELETE',
+        url: `/api/v1/lanes/${remaining[0]?.id ?? ''}`,
+      })
+
+      expect(deletedDone.statusCode).toBe(204)
+      expect(missing.statusCode).toBe(404)
+      expect(remaining).toHaveLength(1)
+      expect(deleteLast.statusCode).toBe(409)
+    } finally {
+      await app.cleanup()
+    }
   })
 
   it('refuses to delete a column that still has cards (409)', async () => {

@@ -64,6 +64,18 @@ export async function laneByKey(
   return requireFound(await tx.lanes.findByKey(boardId, key), `lane ${key}`)
 }
 
+/**
+ * The board's ENTRY lane — the first column by position (`listByBoard` is
+ * position-ascending). Where new cards land and where a just-created draft may
+ * still be discarded, regardless of the column's key. Columns are fully
+ * user-defined now, so this replaces the hardcoded `intake` lookup — a board
+ * always keeps at least one lane (the lane-admin delete guard).
+ */
+export async function firstLane(tx: TransactionContext, boardId: string): Promise<Lane> {
+  const lanes = await tx.lanes.listByBoard(boardId)
+  return requireFound(lanes[0] ?? null, 'lane')
+}
+
 export async function laneOfCard(tx: TransactionContext, card: Card): Promise<Lane> {
   const lanes = await tx.lanes.listByBoard(card.boardId)
   return requireFound(lanes.find((lane) => lane.id === card.laneId) ?? null, 'lane')

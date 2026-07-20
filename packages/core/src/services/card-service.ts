@@ -29,6 +29,7 @@ import {
   decide,
   ensureNotArchived,
   ensureVersion,
+  firstLane,
   laneByKey,
   laneOfCard,
   makeEvent,
@@ -134,13 +135,16 @@ export class CardService {
         requireFound(await tx.locations.findById(input.locationId), 'location')
       }
 
-      const intake = await laneByKey(tx, this.deps.boardId, 'intake')
-      const top = await tx.cards.edgeOfLane(intake.id, 'first')
+      // New cards land in the ENTRY lane — the first column by position (not a
+      // hardcoded `intake`), so creation keeps working after the columns are
+      // renamed or the seeded intake column is deleted.
+      const entry = await firstLane(tx, this.deps.boardId)
+      const top = await tx.cards.edgeOfLane(entry.id, 'first')
       const nowIso = this.deps.clock.now().toISOString()
       const card: Card = {
         id: await tx.cards.nextCardId(this.deps.boardId),
         boardId: this.deps.boardId,
-        laneId: intake.id,
+        laneId: entry.id,
         position: generateKeyBetween(null, top?.position ?? null),
         title: input.title,
         description: input.description,
@@ -469,7 +473,13 @@ export class CardService {
         decide(evaluatePolicy(actor, { type: 'card.cancel' }, policy))
         ensureVersion(card, input.expectedVersion)
 
-        const done = await laneByKey(tx, card.boardId, 'done')
+        // Cancel drops the card into the terminal `done` column. A board whose
+        // `done` column was deleted has nowhere terminal to cancel into — a
+        // clear 409 rather than a NotFound.
+        const done = await tx.lanes.findByKey(card.boardId, 'done')
+        if (done === null) {
+          throw new ConflictError('this board has no done column to cancel into', card)
+        }
         const bottom = await tx.cards.edgeOfLane(done.id, 'last')
         const updated: Card = {
           ...card,
@@ -519,11 +529,14 @@ export class CardService {
         decide(evaluatePolicy(actor, { type: 'card.reopen' }, policy))
         ensureVersion(card, input.expectedVersion)
 
-        const ready = await laneByKey(tx, card.boardId, 'ready')
-        const bottom = await tx.cards.edgeOfLane(ready.id, 'last')
+        // Reopen returns the card to actionable work — historically `ready`,
+        // falling back to the entry (first) column if that lane was deleted.
+        const target =
+          (await tx.lanes.findByKey(card.boardId, 'ready')) ?? (await firstLane(tx, card.boardId))
+        const bottom = await tx.cards.edgeOfLane(target.id, 'last')
         const updated: Card = {
           ...card,
-          laneId: ready.id,
+          laneId: target.id,
           position: generateKeyBetween(bottom?.position ?? null, null),
           resolution: null,
           archivedAt: null,
@@ -536,7 +549,7 @@ export class CardService {
         await tx.cards.update(updated)
         const event = makeEvent(this.deps.ids, this.deps.clock, actor, card.id, {
           eventType: 'card.reopened',
-          payload: { toLane: 'ready' },
+          payload: { toLane: target.key },
         })
         await tx.events.append(event)
         return { card: updated, events: [event] } satisfies MutationResult
@@ -609,9 +622,13 @@ export class CardService {
       const policy = await activePolicy(tx, card.boardId)
       decide(evaluatePolicy(actor, { type: 'card.delete', reporterId: card.reporterId }, policy))
       ensureVersion(card, expectedVersion)
+      // Discardable only while still in the ENTRY lane (the first column) —
+      // symmetric with where create() lands new drafts, so neither shares a
+      // hardcoded key and both survive a renamed/deleted intake column.
       const lane = await laneOfCard(tx, card)
-      if (lane.key !== 'intake') {
-        throw new ConflictError('only a card still in intake can be discarded', card)
+      const entry = await firstLane(tx, card.boardId)
+      if (lane.id !== entry.id) {
+        throw new ConflictError('only a card still in the first column can be discarded', card)
       }
       return (await tx.cards.hardDelete(cardId)).storageKeys
     })

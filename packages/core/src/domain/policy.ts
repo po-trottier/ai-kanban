@@ -80,6 +80,18 @@ export const policyDocumentSchema = z
     message: 'at least one role must grant manageRoles',
     path: ['roles'],
   })
+  .refine((doc) => doc.transitions.every((edge) => edge.from !== edge.to), {
+    // A lane never transitions to itself (that is a same-lane reorder, exempt
+    // from the graph). The workflow matrix editor disables the diagonal too.
+    message: 'a transition cannot loop a lane to itself',
+    path: ['transitions'],
+  })
+  .refine(
+    (doc) =>
+      new Set(doc.transitions.map((edge) => `${edge.from}->${edge.to}`)).size ===
+      doc.transitions.length,
+    { message: 'duplicate transition edge', path: ['transitions'] },
+  )
 export type PolicyDocument = z.infer<typeof policyDocumentSchema>
 
 /** A stored `board_policies` version (config + authorship). */

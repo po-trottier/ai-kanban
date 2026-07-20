@@ -5,12 +5,22 @@ Facilitron, Maintenance Connection) model work-order lifecycles, adapted to kanb
 Lanes are **configurable data rows** with slug machine keys and editable display labels — never a DB
 enum — so renames need no migration and the audit trail stays queryable.
 
-**Columns are admin-configurable** (Settings → board columns, gated by `manageLanes`): admins
-**add, rename, reorder, and WIP-cap** columns and **delete** their own (empty) ones. The 7 SEEDED
-lanes below carry the workflow behavior (intake entry, in-progress work-start, waiting discipline,
-done terminal), so they keep their keys and cannot be deleted — but they can still be renamed,
-reordered, and WIP-capped. Admin-added columns are plain: cards move freely into them (movement is
-permissive by default — `transitionEnforcement: false`).
+**Columns are fully admin-configurable** (Settings → board columns, gated by `manageLanes`): admins
+**add, rename, reorder, WIP-cap, and delete** ANY column — including the seeded ones. The 7 SEEDED
+lanes below still carry workflow behavior BY KEY (entry, in-progress work-start, waiting discipline,
+done terminal), but that behavior is a convenience keyed on the lane, not a reason the column is
+undeletable: **deleting a seeded column simply drops the tied behavior** (see below), it is no
+longer forbidden. The only structural invariants are that a board keeps **at least one column** and
+a column must be **empty** to delete (move its cards out first). New cards always land in the
+**first column by position**, and a just-created draft is discardable only while still there — so
+the entry lane is never a hardcoded key and survives deleting/renaming intake. Movement is
+permissive by default (`transitionEnforcement: false`); admins customize the allowed
+column→column edges in the **workflow-transitions matrix** (Settings → Permissions).
+
+**What deleting a behavior-bearing column drops:** removing the `done` column disables auto-
+completion and archival and makes cancel a 409 (nowhere terminal to go); removing `ready` reopens
+into the first column instead; removing `in_progress`/`waiting_parts_vendor` drops the work-start
+stamp / waiting discipline for that column. None of this errors — the behavior just no longer fires.
 
 ## Lanes (default board, in board order)
 
@@ -50,9 +60,13 @@ drag target). See [Terminal states](#terminal-states) for the exact semantics.
 
 **By default, any authenticated user can move any card to any lane and reorder freely** — the
 team is trusted to follow the process socially (product-owner decision, 2026-07-16). Hierarchy
-is _supported, not imposed_: an admin can turn on **transition enforcement** in the app-wide
-settings view, which activates the seeded workflow graph below and (optionally) per-transition
-role gates. See [ADR-013](../architecture/decisions/ADR-013-configurable-permissions.md).
+is _supported, not imposed_: an admin can turn on **transition enforcement** in Settings →
+Permissions, which activates the allowed-edge graph and (optionally) per-transition role gates.
+The graph is **fully editable**: a from×to **transitions matrix** over the board's LIVE columns
+lets an admin allow/disallow each column→column move (the diagonal is never a self-edge; the
+default seeded graph below is the starting point, not a fixed set). Edges are keyed by lane, so a
+rename keeps them; deleting a column leaves any edge naming it merely denied and removable from the
+matrix. See [ADR-013](../architecture/decisions/ADR-013-configurable-permissions.md).
 
 Two kinds of rules apply regardless of the policy setting, because they are data integrity, not
 hierarchy:

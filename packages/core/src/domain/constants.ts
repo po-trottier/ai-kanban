@@ -5,13 +5,15 @@
 
 /**
  * The SEED lane keys — the bootstrap vocabulary the structural seed writes
- * (docs/product/workflow.md). Lane keys are DATA now, like roles: admins add,
- * rename, reorder, and remove columns from board settings, so this is only the
- * default set, not the closed universe. The seeded lanes carry the workflow
- * behavior (intake entry, in-progress work-start stamp, waiting discipline,
- * done terminal), so they are PROTECTED from deletion; admin-added lanes are
- * plain. A lane key's validity is a runtime check against the board's live
- * lanes (an unknown move target 404s), never against this list. `LaneKey`
+ * (docs/product/workflow.md). Lane keys are DATA, like roles: admins add,
+ * rename, reorder, AND delete columns from board settings, so this is only the
+ * default set, not the closed universe. The seeded keys still carry workflow
+ * behavior BY KEY (first-column entry, in-progress work-start stamp, waiting
+ * discipline, done terminal), but deleting one merely drops that behavior — it
+ * is no longer forbidden (the only invariant is a board keeps ≥1 column). New
+ * cards always land in the FIRST column by position, so the entry lane is never
+ * a hardcoded key. A lane key's validity is a runtime check against the board's
+ * live lanes (an unknown move target 404s), never against this list. `LaneKey`
  * stays a bare string, like `Role`.
  */
 export const LANE_KEYS = [
@@ -27,7 +29,8 @@ export const LANE_KEYS = [
 export type SeedLaneKey = (typeof LANE_KEYS)[number]
 export type LaneKey = string
 
-/** Seeded lanes carry workflow behavior and cannot be deleted (only renamed/reordered). */
+/** True for a seeded lane key. Seeded lanes carry workflow behavior by key, but
+ *  are no longer protected from deletion — this only identifies the built-ins. */
 export function isSystemLaneKey(key: string): boolean {
   return (LANE_KEYS as readonly string[]).includes(key)
 }
