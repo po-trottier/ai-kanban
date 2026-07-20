@@ -78,9 +78,12 @@
   width: var(--app-filter-pill-width);
 }
 
-/* The presets combobox target: a fixed width (same token as the pill facets) so
-   the collapsed control keeps the bar's constant footprint. */
+/* The presets combobox target: a fixed footprint (same token as the pill
+   facets). Pin the flex basis like `.pill` — `width` alone still let the flex
+   child shrink to its (shorter) content, so the control's box changed per
+   selected preset; `flex: 0 0` holds it constant whatever label it shows. */
 .preset {
+  flex: 0 0 var(--app-filter-pill-width);
   width: var(--app-filter-pill-width);
 }
 

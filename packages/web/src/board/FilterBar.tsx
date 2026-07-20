@@ -35,7 +35,7 @@ export interface FilterBarProps {
   busy?: boolean
   tags: string[]
   locations: Location[]
-  /** The current user's id — fills the "My Cards" built-in preset. */
+  /** The current user's id — fills the "Mine" built-in preset. */
   currentUserId: string
 }
 

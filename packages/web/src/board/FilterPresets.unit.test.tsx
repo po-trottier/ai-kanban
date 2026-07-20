@@ -96,12 +96,12 @@ async function openCreatePreset(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('FilterPresets', () => {
-  it('applies the "My Work Orders" built-in with the current user filled into assigneeIds', async () => {
+  it('applies the "Mine" built-in with the current user filled into assigneeIds', async () => {
     // Arrange
     const user = userEvent.setup()
     const { onApply } = renderPresets([])
     // Act
-    await pickPreset(user, 'My Work Orders')
+    await pickPreset(user, 'Mine')
     // Assert — the COMPLETE filter, with the current user id filled client-side.
     expect(onApply).toHaveBeenCalledWith({ ...EMPTY_BOARD_FILTER, assigneeIds: [ME] })
   })
@@ -188,7 +188,7 @@ describe('FilterPresets', () => {
     const preset = customPreset()
     // Act — render with the empty filter (the default, and what Reset filters restores).
     renderPresets([preset], {}, EMPTY_BOARD_FILTER)
-    // Assert — the collapsed combobox reads "All", not the placeholder or "Custom".
+    // Assert — the collapsed combobox reads the All built-in, not the placeholder or "Custom".
     expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveTextContent('All')
   })
 

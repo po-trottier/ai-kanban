@@ -109,6 +109,6 @@ export interface BuiltinFilterPreset {
  */
 export const BUILTIN_FILTER_PRESETS: readonly BuiltinFilterPreset[] = [
   { key: 'all', name: 'All', filter: EMPTY_BOARD_FILTER },
-  { key: 'my_cards', name: 'My Cards', filter: EMPTY_BOARD_FILTER },
+  { key: 'my_cards', name: 'Mine', filter: EMPTY_BOARD_FILTER },
   { key: 'overdue', name: 'Overdue', filter: { ...EMPTY_BOARD_FILTER, overdue: true } },
 ]

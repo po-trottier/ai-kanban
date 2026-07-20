@@ -93,10 +93,11 @@ three built-ins everyone always has.
 Three built-ins are core constants (`BUILTIN_FILTER_PRESETS`) the frontend renders, NOT rows in the
 database — they have no owner and are the same for everyone:
 
-- **All** — the empty (unfiltered) `BoardFilter`: every work order, no facets. It is the **default
-  selection** and exactly what **"Reset filters"** restores, so an empty bar reads as "All" rather
-  than a bare placeholder.
-- **My Cards** — `assigneeIds` = `[current user]` (the frontend fills in the id at render time,
+- **All** (key `all`) — the empty (unfiltered) `BoardFilter`: every work order, no facets. It is the
+  **default selection** and exactly what **"Reset filters"** restores, so an empty bar reads as "All"
+  rather than a bare placeholder. (Labels stay terse — the whole board is work orders, so an
+  "All Work Orders" / "My Work Orders" suffix reads as redundant.)
+- **Mine** (key `my_cards`) — `assigneeIds` = `[current user]` (the frontend fills in the id at render time,
   since "current user" is only known client-side; the constant carries an empty `assigneeIds` the
   bar fills in).
 - **Overdue** — `overdue: true`, everything else empty.
@@ -230,7 +231,7 @@ The SPA renders the filter as a **filter bar** below the header and above the bo
   `AsyncUserPicker`), so a 10k-user roster is never loaded or cached to go stale. Priority and Scope are
   static enums.
 - **Presets** (`FilterPresets.tsx`). The combobox lists the three core built-ins
-  (`BUILTIN_FILTER_PRESETS` — "All" is the empty/unfiltered filter, "My Cards" fills `assigneeIds`
+  (`BUILTIN_FILTER_PRESETS` — "All" is the empty/unfiltered filter, "Mine" fills `assigneeIds`
   with the current user id client-side, "Overdue" sets `overdue:true`) plus the user's custom presets
   from `GET /filter-presets`. Selecting any preset applies its COMPLETE `BoardFilter` (never a partial
   overlay). The combobox **reflects state** (#120): it shows the **applied preset's NAME** as its

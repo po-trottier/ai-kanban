@@ -56,7 +56,7 @@ describe('boardFilterSchema', () => {
 })
 
 describe('BUILTIN_FILTER_PRESETS', () => {
-  it('exposes All, My Cards, and Overdue as complete BoardFilter values', () => {
+  it('exposes All, Mine, and Overdue as complete BoardFilter values', () => {
     // Arrange
     const byKey = new Map(BUILTIN_FILTER_PRESETS.map((preset) => [preset.key, preset]))
 

@@ -89,7 +89,7 @@ your own presets **plus every shared one**, while WRITES stay owner-scoped — a
 | PATCH /filter-presets/:id  | any  | `{ name?, filter?, shared? }` — rename / replace filter / toggle sharing (`404` if not yours)  |
 | DELETE /filter-presets/:id | any  | `204` (`404` if not the caller's)                                                              |
 
-(The three built-in presets — "All", "My Cards", "Overdue" — are core constants the SPA renders, NOT
+(The three built-in presets — "All", "Mine", "Overdue" — are core constants the SPA renders, NOT
 rows, so they have no endpoint.)
 
 ### Comments

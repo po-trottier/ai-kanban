@@ -34,7 +34,7 @@ export interface FilterPresetsProps {
   filter: BoardFilter
   /** Applies a preset: SETS THE COMPLETE filter state (never a partial overlay). */
   onApply: (filter: BoardFilter) => void
-  /** Fills the "My Cards" built-in preset's assignee, and tells own vs shared presets apart. */
+  /** Fills the "Mine" built-in preset's assignee, and tells own vs shared presets apart. */
   currentUserId: string
 }
 
@@ -126,7 +126,7 @@ function resolveAppliedFilter(
  * Cards, Overdue) render from core constants; custom presets come from
  * `GET /filter-presets` — the caller's OWN presets plus any teammate's shared
  * ones. Selecting any preset applies its COMPLETE `BoardFilter` (every facet,
- * not an overlay). "My Cards" fills its assignee with the current user id
+ * not an overlay). "Mine" fills its assignee with the current user id
  * client-side (only the client knows "me"). A trailing "Save preset" entry (a
  * floppy-disk glyph) opens the save flow.
  *
@@ -166,7 +166,7 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
   const sharedPresets = customPresets.filter((preset) => preset.ownerId !== currentUserId)
 
   // The effective filter for the applied preset value, resolving a built-in's
-  // client-side fill ("My Cards" → me) exactly as `applyValue` did on apply, or a
+  // client-side fill ("Mine" → me) exactly as `applyValue` did on apply, or a
   // custom preset's saved filter. Null when no preset is applied or an applied
   // custom preset has since been deleted (its context is gone).
   const appliedFilter = resolveAppliedFilter(appliedValue, customPresets, currentUserId)
@@ -242,7 +242,7 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
       const builtin = BUILTIN_FILTER_PRESETS.find((preset) => preset.key === key)
       if (builtin === undefined) return
       setAppliedValue(value)
-      // "My Cards" carries an empty assigneeIds the client fills with "me".
+      // "Mine" carries an empty assigneeIds the client fills with "me".
       onApply(
         key === 'my_cards' ? { ...builtin.filter, assigneeIds: [currentUserId] } : builtin.filter,
       )

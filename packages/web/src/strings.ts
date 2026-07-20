@@ -402,9 +402,13 @@ export const strings = {
     /** Trailing dropdown action that opens the save-preset flow. */
     presetsCreateGroup: 'Actions',
     presetsCreate: 'Save preset',
-    /** Built-in preset display names (mirror core BUILTIN_FILTER_PRESETS). */
+    /**
+     * Built-in preset display names (mirror core BUILTIN_FILTER_PRESETS). Kept
+     * terse — the whole board is work orders, so "All Work Orders" / "My Work
+     * Orders" read as redundant; "All" / "Mine" / "Overdue" scan faster.
+     */
     builtinAll: 'All',
-    builtinMyCards: 'My Work Orders',
+    builtinMyCards: 'Mine',
     builtinOverdue: 'Overdue',
     /** Save / rename / delete affordances. */
     savePreset: 'Save current filters as a preset',
