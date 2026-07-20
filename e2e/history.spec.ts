@@ -19,19 +19,19 @@ test('renders history oldest-first after a move and an edit', async ({ page, con
   // Navigating would abort an in-flight move POST (the optimistic UI already
   // shows the card in Ready) — the live-region announcement only fires from
   // the mutation's onSuccess, so it proves the POST landed before the goto.
-  await expect(page.getByRole('status')).toContainText(`Card "${title}" moved to Ready`)
+  await expect(page.getByRole('status')).toContainText(`Work order "${title}" moved to Ready`)
 
   // …then edit a field through the panel.
   await page.goto(`/cards/${card.id}`)
   await selectOption(page, 'Priority', 'P1')
   await page.getByRole('button', { name: 'Save changes' }).click()
-  await expect(page.getByText('Card updated')).toBeVisible()
+  await expect(page.getByText('Work order updated')).toBeVisible()
 
   await page.getByRole('tab', { name: 'History' }).click()
   const items = page.getByRole('list', { name: 'History' }).getByRole('listitem')
   await expect(items).toHaveCount(3)
-  await expect(items.nth(0)).toContainText('Demo Admin created the card')
-  await expect(items.nth(1)).toContainText('moved the card from Intake to Ready')
+  await expect(items.nth(0)).toContainText('Demo Admin created the work order')
+  await expect(items.nth(1)).toContainText('moved the work order from Intake to Ready')
   await expect(items.nth(2)).toContainText('changed priority')
 })
 
@@ -55,13 +55,13 @@ test('updates the History tab live after a move and an edit without reopening (#
   await selectOption(page, 'Column', 'Ready')
   await page.getByRole('button', { name: 'Move', exact: true }).click()
   await expect(items).toHaveCount(2)
-  await expect(items.nth(1)).toContainText('moved the card from Intake to Ready')
+  await expect(items.nth(1)).toContainText('moved the work order from Intake to Ready')
 
   // Edit a field in the same open panel — History grows again, still live.
   await page.getByRole('tab', { name: 'Details' }).click()
   await selectOption(page, 'Priority', 'P1')
   await page.getByRole('button', { name: 'Save changes' }).click()
-  await expect(page.getByText('Card updated')).toBeVisible()
+  await expect(page.getByText('Work order updated')).toBeVisible()
   await page.getByRole('tab', { name: 'History' }).click()
   await expect(items).toHaveCount(3)
   await expect(items.nth(2)).toContainText('changed priority')
@@ -84,6 +84,6 @@ test('pages older events behind Load more', async ({ page, context }) => {
   await page.getByRole('button', { name: 'Load more' }).click()
   await expect(items).toHaveCount(52)
   await expect(page.getByRole('button', { name: 'Load more' })).toBeHidden()
-  await expect(items.nth(0)).toContainText('created the card')
+  await expect(items.nth(0)).toContainText('created the work order')
   await expect(items.nth(51)).toContainText('changed title')
 })

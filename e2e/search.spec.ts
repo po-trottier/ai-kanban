@@ -56,7 +56,7 @@ test('reaches the archived demo card only via the archived scope, read-only unti
 
   await archived.click()
   const panel = page.getByRole('dialog', { name: /Annual fire extinguisher inspection/ })
-  await expect(panel).toContainText('This card is archived — reopen it to make changes.')
+  await expect(panel).toContainText('This work order is archived — reopen it to make changes.')
   await expect(panel.getByText('Archived', { exact: true })).toBeVisible()
   // Archived cards are read-only except the reopen affordance.
   await expect(panel.getByLabel('Title')).toBeDisabled()
@@ -77,7 +77,7 @@ test('archives a Done card from the menu: it leaves the active board but the arc
 
   // Archive from the ⋯ menu; a confirmation toast names the outcome.
   await openCardMenu(page, title, 'Archive')
-  await expect(page.getByText('Card archived')).toBeVisible()
+  await expect(page.getByText('Work order archived')).toBeVisible()
 
   // It has left the (active) board — the default scope excludes archived cards.
   await expect(page.getByRole('group', { name: title, exact: true })).toBeHidden()

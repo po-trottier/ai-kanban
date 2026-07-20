@@ -93,6 +93,6 @@ describe('WorkProgressBar', () => {
       />,
     )
     // Assert
-    expect(screen.getByText(/Running — card is blocked/)).toBeInTheDocument()
+    expect(screen.getByText(/Running — work order is blocked/)).toBeInTheDocument()
   })
 })

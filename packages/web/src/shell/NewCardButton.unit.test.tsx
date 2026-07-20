@@ -48,7 +48,7 @@ describe('NewCardButton', () => {
     })
     renderWithProviders(<NewCardButton />, { fetchFn: fake.fetch })
     // Act
-    await user.click(screen.getByRole('button', { name: 'New card' }))
+    await user.click(screen.getByRole('button', { name: 'New work order' }))
     // Assert — the draft posts a NON-EMPTY placeholder title (core requires one)
     // plus the schema defaults, and the create modal opens on it.
     expect(fake.lastBody('POST', '/api/v1/cards')).toEqual({
@@ -57,6 +57,6 @@ describe('NewCardButton', () => {
       priority: 'P2',
       tags: [],
     })
-    expect(await screen.findByRole('dialog', { name: 'New card' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'New work order' })).toBeInTheDocument()
   })
 })

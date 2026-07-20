@@ -184,7 +184,7 @@ describe('FilterBar', () => {
     const user = userEvent.setup()
     const { onChange } = renderBar()
     // Act — the query input is label-less; its accessible name is the aria-label.
-    await user.type(screen.getByRole('textbox', { name: 'Filter cards' }), 'p')
+    await user.type(screen.getByRole('textbox', { name: 'Filter work orders' }), 'p')
     // Assert
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'p' }))
   })

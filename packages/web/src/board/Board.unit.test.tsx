@@ -36,7 +36,7 @@ describe('Board', () => {
     const boardRegion = screen.getByRole('region', { name: 'Kanban board' })
     const lanes = within(boardRegion).getAllByRole('region')
     expect(lanes).toHaveLength(7)
-    const readyList = screen.getByRole('list', { name: 'Cards in Ready' })
+    const readyList = screen.getByRole('list', { name: 'Work orders in Ready' })
     const titles = within(readyList)
       .getAllByRole('listitem')
       .map((item) => item.textContent)
@@ -95,7 +95,7 @@ describe('Board', () => {
 
   it('shows the empty-lane hint and a plain count for unlimited lanes', () => {
     // Arrange — one card keeps the board from collapsing to its empty state,
-    // so the six other lanes still render their per-lane "No cards" hint.
+    // so the six other lanes still render their per-lane "No work orders" hint.
     const board = makeBoard({ ready: [makeCard('ready')] })
     // Act
     renderWithProviders(
@@ -110,7 +110,7 @@ describe('Board', () => {
       />,
     )
     // Assert
-    expect(screen.getAllByText('No cards')).toHaveLength(6)
+    expect(screen.getAllByText('No work orders')).toHaveLength(6)
     const intake = screen.getByRole('region', { name: 'Intake' })
     expect(within(intake).getByLabelText('0')).toBeInTheDocument()
   })
@@ -132,7 +132,7 @@ describe('Board', () => {
     )
     // Assert
     expect(screen.getByText('No work orders yet')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'New card' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New work order' })).toBeInTheDocument()
   })
 
   it('shows a no-matches message (not the first-run CTA) when the filter matches nothing', () => {
@@ -153,11 +153,11 @@ describe('Board', () => {
         onMenuAction={noop}
       />,
     )
-    // Assert — the no-matches message shows; the first-run "New card" CTA (wrong
+    // Assert — the no-matches message shows; the first-run "New work order" CTA (wrong
     // here) does not, and there is no legacy advanced-search link.
-    expect(screen.getByText('No cards match your filters')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'New card' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Search all cards/ })).not.toBeInTheDocument()
+    expect(screen.getByText('No work orders match your filters')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'New work order' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Search all work orders/ })).not.toBeInTheDocument()
   })
 
   it('shows the assignee avatar with initials', () => {

@@ -21,7 +21,7 @@ describe('WaitingLaneModal', () => {
       />,
     )
     // Act
-    await user.click(screen.getByRole('button', { name: 'Move card' }))
+    await user.click(screen.getByRole('button', { name: 'Move work order' }))
     // Assert
     expect(submissions).toEqual([])
     expect(screen.getByText('Pick a waiting reason')).toBeInTheDocument()
@@ -44,7 +44,7 @@ describe('WaitingLaneModal', () => {
     await user.click(screen.getByRole('button', { name: 'Expected resume date' }))
     await user.click(nth(screen.getAllByRole('button', { name: todayLabel }), 0))
     await user.type(screen.getByRole('textbox', { name: 'Note (optional)' }), 'Waiting on PO 4412')
-    await user.click(screen.getByRole('button', { name: 'Move card' }))
+    await user.click(screen.getByRole('button', { name: 'Move work order' }))
     // Assert
     expect(submissions).toHaveLength(1)
     expect(submissions[0]?.waitingReason).toBe('parts')

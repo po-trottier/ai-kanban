@@ -25,7 +25,7 @@ test('signs in the demo admin and shows the seeded board', async ({ page }) => {
   await fillLogin(page, demoEmail('admin'), DEMO_PASSWORD)
 
   await expect(page.getByRole('region', { name: 'Kanban board' })).toBeVisible()
-  await expect(page.getByRole('list', { name: 'Cards in Intake' })).toBeVisible()
+  await expect(page.getByRole('list', { name: 'Work orders in Intake' })).toBeVisible()
 })
 
 test('logs out via the user menu and the session is really revoked', async ({ page }) => {

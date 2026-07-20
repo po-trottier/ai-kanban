@@ -98,7 +98,7 @@ try {
   await shot(page, '02-board')
 
   // ITEM A: the finalized header — logo + wordmark left, centered live-search,
-  // and the right cluster (New card, badge-legend help icon, settings gear,
+  // and the right cluster (New work order, badge-legend help icon, settings gear,
   // avatar). Cropped to the header band for the reviewer.
   await page.screenshot({
     path: join(OUT, '02a-header.png'),
@@ -107,7 +107,7 @@ try {
   console.log('captured 02a-header')
 
   // The filter bar (below the header) narrows the board via the text query.
-  await page.getByRole('textbox', { name: 'Filter cards' }).fill('HVAC')
+  await page.getByRole('textbox', { name: 'Filter work orders' }).fill('HVAC')
   await page.getByText('Quarterly HVAC filter replacement').first().waitFor()
   await shot(page, '02b-board-filtered')
   await page.getByRole('button', { name: 'Reset filters' }).click()
@@ -129,13 +129,13 @@ try {
 
   const firstCard = page.getByRole('group', { name: CARD_FOR_DETAILS, exact: true })
   await firstCard.hover()
-  await firstCard.getByRole('button', { name: 'Card actions' }).click()
+  await firstCard.getByRole('button', { name: 'Work order actions' }).click()
   await shot(page, '06-card-menu')
   await page.getByRole('menuitem', { name: 'Move to…' }).click()
   await shot(page, '07-move-modal')
   await page.keyboard.press('Escape')
 
-  await page.getByRole('button', { name: 'New card' }).click()
+  await page.getByRole('button', { name: 'New work order' }).click()
   await shot(page, '08-new-card-modal')
   // ITEM 3: the priority dropdown open, showing the plain-language descriptions.
   await page.getByRole('combobox', { name: 'Priority' }).click()
@@ -152,10 +152,10 @@ try {
 
   // The filter bar is the one filtering surface: a text query narrows the board
   // in place (API-level, POST /board/query). No separate search page or modal.
-  await page.getByRole('textbox', { name: 'Filter cards' }).fill('door')
+  await page.getByRole('textbox', { name: 'Filter work orders' }).fill('door')
   await shot(page, '09-filter-query')
   // Switching the archived scope reaches archived cards on the board.
-  await page.getByRole('textbox', { name: 'Filter cards' }).fill('fire extinguisher')
+  await page.getByRole('textbox', { name: 'Filter work orders' }).fill('fire extinguisher')
   await page.getByRole('radio', { name: 'Archived', exact: true }).click()
   await page.getByText('Annual fire extinguisher inspection').waitFor()
   await shot(page, '10-filter-archived')

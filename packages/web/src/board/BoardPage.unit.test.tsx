@@ -52,7 +52,7 @@ function boardApp(
 
 async function openCardMenu(user: ReturnType<typeof userEvent.setup>, title: string) {
   const card = await screen.findByLabelText(title)
-  await user.click(within(card).getByRole('button', { name: 'Card actions' }))
+  await user.click(within(card).getByRole('button', { name: 'Work order actions' }))
 }
 
 describe('BoardPage move flows', () => {
@@ -138,10 +138,10 @@ describe('BoardPage move flows', () => {
     // Assert
     expect(
       await screen.findByText(
-        'This card was just updated by someone else — the board has been refreshed.',
+        'This work order was just updated by someone else — the board has been refreshed.',
       ),
     ).toBeInTheDocument()
-    const intake = screen.getByRole('list', { name: 'Cards in Intake' })
+    const intake = screen.getByRole('list', { name: 'Work orders in Intake' })
     expect(within(intake).getByText('Contended card')).toBeInTheDocument()
   })
 })
@@ -161,7 +161,7 @@ describe('BoardPage filter bar (server-side filtering)', () => {
     renderApp({ fetchFn: fake.fetch })
     expect(await screen.findByLabelText('Broken window')).toBeInTheDocument()
     // Act — type in the filter-bar query; the debounced change drives one query.
-    await user.type(screen.getByRole('textbox', { name: 'Filter cards' }), 'faucet')
+    await user.type(screen.getByRole('textbox', { name: 'Filter work orders' }), 'faucet')
     // Assert — the narrowed board arrives (non-match gone), and the request body
     // is the BoardFilter with the typed query.
     expect(await screen.findByLabelText('Leaking faucet')).toBeInTheDocument()
@@ -193,7 +193,7 @@ describe('BoardPage filter bar (server-side filtering)', () => {
       expect(screen.queryByLabelText('Broken window')).not.toBeInTheDocument()
     })
     expect(fake.lastBody('POST', '/api/v1/board/query')).toMatchObject({ q: 'faucet' })
-    expect(screen.getByRole('textbox', { name: 'Filter cards' })).toHaveValue('faucet')
+    expect(screen.getByRole('textbox', { name: 'Filter work orders' })).toHaveValue('faucet')
   })
 
   it('returns to the unfiltered board (GET /board) when Reset filters is pressed', async () => {
@@ -209,7 +209,7 @@ describe('BoardPage filter bar (server-side filtering)', () => {
     renderApp({ fetchFn: fake.fetch })
     await screen.findByLabelText('Broken window')
     // Act — filter down to one card…
-    await user.type(screen.getByRole('textbox', { name: 'Filter cards' }), 'faucet')
+    await user.type(screen.getByRole('textbox', { name: 'Filter work orders' }), 'faucet')
     await waitFor(() => {
       expect(screen.queryByLabelText('Broken window')).not.toBeInTheDocument()
     })
@@ -235,10 +235,10 @@ describe('BoardPage card actions', () => {
     await openCardMenu(user, 'Stuck card')
     await user.click(await screen.findByRole('menuitem', { name: 'Block…' }))
     await user.type(
-      screen.getByRole('textbox', { name: 'What is blocking this card?' }),
+      screen.getByRole('textbox', { name: 'What is blocking this work order?' }),
       'vendor no-show',
     )
-    await user.click(screen.getByRole('button', { name: 'Block card' }))
+    await user.click(screen.getByRole('button', { name: 'Block work order' }))
     // Assert
     expect(fake.lastBody('POST', `/api/v1/cards/${String(card.id)}/block`)).toEqual({
       reason: 'vendor no-show',
@@ -259,7 +259,7 @@ describe('BoardPage card actions', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Cancel…' }))
     await user.click(screen.getByRole('combobox', { name: 'Reason' }))
     await user.click(screen.getByRole('option', { name: 'Duplicate' }))
-    await user.click(screen.getByRole('button', { name: 'Cancel card' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel work order' }))
     // Assert
     expect(fake.lastBody('POST', `/api/v1/cards/${String(card.id)}/cancel`)).toEqual({
       resolution: 'duplicate',
@@ -338,7 +338,7 @@ describe('BoardPage card actions', () => {
     expect(fake.lastBody('POST', `/api/v1/cards/${String(done.id)}/archive`)).toEqual({})
     const call = fake.calls.find((c) => c.url.includes('/archive'))
     expect(new Headers(call?.init?.headers).get('If-Match')).toBe('"7"')
-    expect(await screen.findByText('Card archived')).toBeInTheDocument()
+    expect(await screen.findByText('Work order archived')).toBeInTheDocument()
   })
 
   it('shows the problem+json error when the board fails to load', async () => {

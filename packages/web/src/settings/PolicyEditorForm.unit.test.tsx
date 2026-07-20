@@ -35,8 +35,8 @@ describe('PolicyEditorForm — roles × permissions matrix', () => {
     // Act
     render(onSave)
 
-    // Assert — the default user grants "Create cards", admin grants everything.
-    const userCreate = screen.getByRole('checkbox', { name: 'Create cards for User' })
+    // Assert — the default user grants "Create work orders", admin grants everything.
+    const userCreate = screen.getByRole('checkbox', { name: 'Create work orders for User' })
     const adminManageUsers = screen.getByRole('checkbox', {
       name: 'Manage users for Administrator',
     })

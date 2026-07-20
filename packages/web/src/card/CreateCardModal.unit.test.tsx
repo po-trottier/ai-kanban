@@ -56,7 +56,7 @@ describe('CreateCardModal', () => {
     // no explicit Save button and no State picker (a new card is always Intake);
     // a Cancel/Create footer instead, inside a modal.
     await screen.findByRole('textbox', { name: /Title/ })
-    expect(screen.getByRole('dialog', { name: 'New card' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'New work order' })).toBeInTheDocument()
     expect(screen.getByText('Relations')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: 'State' })).not.toBeInTheDocument()

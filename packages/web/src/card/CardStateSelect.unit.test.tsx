@@ -79,7 +79,7 @@ describe('CardStateSelect', () => {
     await user.click(screen.getByRole('option', { name: 'Vendor' }))
     await user.click(screen.getByRole('button', { name: 'Expected resume date' }))
     await user.click(nth(screen.getAllByRole('button', { name: /20 July 2026/ }), 0))
-    await user.click(screen.getByRole('button', { name: 'Move card' }))
+    await user.click(screen.getByRole('button', { name: 'Move work order' }))
     // Assert — the move now carries the waiting reason + resume date.
     expect(fake.lastBody('POST', `/api/v1/cards/${String(card.id)}/move`)).toMatchObject({
       toLane: 'waiting_parts_vendor',

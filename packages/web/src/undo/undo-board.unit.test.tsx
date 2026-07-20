@@ -41,7 +41,7 @@ function app(
 
 async function openCardMenu(user: ReturnType<typeof userEvent.setup>, title: string) {
   const card = await screen.findByLabelText(title)
-  await user.click(within(card).getByRole('button', { name: 'Card actions' }))
+  await user.click(within(card).getByRole('button', { name: 'Work order actions' }))
 }
 
 afterEach(() => {
@@ -66,15 +66,15 @@ describe('undo through the board', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Cancel…' }))
     await user.click(screen.getByRole('combobox', { name: 'Reason' }))
     await user.click(screen.getByRole('option', { name: 'Duplicate' }))
-    await user.click(screen.getByRole('button', { name: 'Cancel card' }))
-    await screen.findByText('Card cancelled — moved to Done')
+    await user.click(screen.getByRole('button', { name: 'Cancel work order' }))
+    await screen.findByText('Work order cancelled — moved to Done')
     // …then undo it with the keyboard.
     await user.keyboard('{Control>}z{/Control}')
     // Assert — a reopen POST fired (the recorded inverse of cancel)
     await waitFor(() => {
       expect(fake.calls.some((c) => c.method === 'POST' && c.url.includes('/reopen'))).toBe(true)
     })
-    expect(await screen.findByText('Undone: card cancellation')).toBeInTheDocument()
+    expect(await screen.findByText('Undone: work order cancellation')).toBeInTheDocument()
   })
 
   it('Ctrl+Z after a menu move fires the inverse move back to the prior lane', async () => {
@@ -124,7 +124,7 @@ describe('undo through the board', () => {
     // Act
     await openCardMenu(user, 'Closed job')
     await user.click(await screen.findByRole('menuitem', { name: 'Archive' }))
-    await screen.findByText('Card archived')
+    await screen.findByText('Work order archived')
     await user.keyboard('{Control>}z{/Control}')
     // Assert
     await waitFor(() => {
@@ -149,8 +149,8 @@ describe('undo through the board', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Cancel…' }))
     await user.click(screen.getByRole('combobox', { name: 'Reason' }))
     await user.click(screen.getByRole('option', { name: 'Cancelled' }))
-    await user.click(screen.getByRole('button', { name: 'Cancel card' }))
-    await screen.findByText('Card cancelled — moved to Done')
+    await user.click(screen.getByRole('button', { name: 'Cancel work order' }))
+    await screen.findByText('Work order cancelled — moved to Done')
     await user.keyboard('{Control>}z{/Control}')
     // Assert — the "can't undo" toast shows and NO reopen request was fired
     expect(await screen.findByText("Can't undo that")).toBeInTheDocument()

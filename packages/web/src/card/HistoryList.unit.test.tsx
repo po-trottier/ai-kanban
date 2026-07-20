@@ -43,8 +43,8 @@ describe('HistoryList', () => {
     expect(screen.getByRole('list', { name: 'History' }).tagName).toBe('UL')
     const items = screen.getAllByRole('listitem')
     expect(items).toHaveLength(2)
-    expect(items[0]).toHaveTextContent('Ada Admin blocked the card: parts missing')
-    expect(items[1]).toHaveTextContent('Ada Admin moved the card from Review to Done')
+    expect(items[0]).toHaveTextContent('Ada Admin blocked the work order: parts missing')
+    expect(items[1]).toHaveTextContent('Ada Admin moved the work order from Review to Done')
     expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument()
   })
 

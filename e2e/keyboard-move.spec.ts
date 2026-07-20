@@ -18,17 +18,17 @@ test('moves a card via the Move to… menu using only the keyboard', async ({ pa
 
   // Open the ⋯ menu from the keyboard: focus the actions button, press Enter
   // (focus stays on the target), then arrow into the items.
-  await boardCard(page, title).getByRole('button', { name: 'Card actions' }).focus()
+  await boardCard(page, title).getByRole('button', { name: 'Work order actions' }).focus()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('menu')).toBeVisible()
   await page.keyboard.press('ArrowDown')
-  await expect(page.getByRole('menuitem', { name: 'Open card' })).toBeFocused()
+  await expect(page.getByRole('menuitem', { name: 'Open work order' })).toBeFocused()
   await page.keyboard.press('ArrowDown')
   await expect(page.getByRole('menuitem', { name: 'Move to…' })).toBeFocused()
   await page.keyboard.press('Enter')
 
   const dialog = page.getByRole('dialog')
-  await expect(dialog).toContainText('Move card')
+  await expect(dialog).toContainText('Move work order')
 
   // Tab through the trap (close button first) into the Column combobox, then
   // drive both selects with arrows + Enter: Intake → ↓↓ → Ready, position
@@ -60,5 +60,7 @@ test('moves a card via the Move to… menu using only the keyboard', async ({ pa
   await expect(laneList(page, 'Ready').getByRole('group', { name: title })).toBeVisible()
   await expect(laneList(page, 'Ready').getByRole('group').first()).toHaveAccessibleName(title)
   // The Pragmatic DnD live region (role=status) carries the announcement.
-  await expect(page.getByRole('status')).toContainText(`Card "${title}" moved to Ready, position 1`)
+  await expect(page.getByRole('status')).toContainText(
+    `Work order "${title}" moved to Ready, position 1`,
+  )
 })

@@ -15,10 +15,10 @@ describe('WatchToggle', () => {
     })
     renderWithProviders(<WatchToggle cardId="5" />, { fetchFn: fake.fetch })
     // Act — the control offers to STOP watching…
-    const button = await screen.findByRole('button', { name: 'Stop watching this card' })
+    const button = await screen.findByRole('button', { name: 'Stop watching this work order' })
     await user.click(button)
     // Assert — a DELETE fired and a toast confirms.
-    expect(await screen.findByText('No longer watching this card')).toBeInTheDocument()
+    expect(await screen.findByText('No longer watching this work order')).toBeInTheDocument()
     expect(
       fake.calls.some((call) => call.method === 'DELETE' && call.url === '/api/v1/cards/5/watch'),
     ).toBe(true)
@@ -33,9 +33,9 @@ describe('WatchToggle', () => {
     })
     renderWithProviders(<WatchToggle cardId="5" />, { fetchFn: fake.fetch })
     // Act — the control offers to START watching.
-    await user.click(await screen.findByRole('button', { name: 'Watch this card' }))
+    await user.click(await screen.findByRole('button', { name: 'Watch this work order' }))
     // Assert
-    expect(await screen.findByText('Watching this card')).toBeInTheDocument()
+    expect(await screen.findByText('Watching this work order')).toBeInTheDocument()
     expect(
       fake.calls.some((call) => call.method === 'PUT' && call.url === '/api/v1/cards/5/watch'),
     ).toBe(true)

@@ -17,7 +17,7 @@ test('opens the panel by clicking a card and collapses it back to the board', as
   await boardCard(page, title).click()
   await expect(page).toHaveURL(new RegExp(`/cards/${card.id}$`))
   const panel = page.getByRole('dialog')
-  await expect(panel).toContainText('Card details')
+  await expect(panel).toContainText('Work order details')
   await expect(panel.getByLabel('Title')).toHaveValue(title)
 
   await page.keyboard.press('Escape')
@@ -43,12 +43,12 @@ test('docks the panel below the header without overlapping it', async ({ page, c
   const card = await createCard(context.request, title)
   await page.goto(`/cards/${card.id}`)
 
-  // The header (title + New card + avatar) stays fully usable, and structurally
+  // The header (title + New work order + avatar) stays fully usable, and structurally
   // the panel sits entirely below the header band — never over it.
   const header = page.getByRole('banner')
   const panel = page.getByRole('dialog')
   await expect(panel.getByLabel('Title')).toHaveValue(title)
-  await expect(header.getByRole('button', { name: 'New card' })).toBeVisible()
+  await expect(header.getByRole('button', { name: 'New work order' })).toBeVisible()
   // Fallbacks make a null box fail the numeric comparison (no conditional).
   const headerBox = (await header.boundingBox()) ?? { y: Number.NaN, height: Number.NaN }
   const panelBox = (await panel.boundingBox()) ?? { x: Number.NaN, y: Number.NaN }
@@ -98,11 +98,11 @@ test('explains a blocked card with a banner and unblocks it inline', async ({ pa
   // The seeded blocked card carries a reason; opening it surfaces the banner.
   await boardCard(page, 'Patch drywall in Room 101').click()
   const panel = page.getByRole('dialog')
-  await expect(panel).toContainText('This card is blocked')
+  await expect(panel).toContainText('This work order is blocked')
   await expect(panel).toContainText('Room occupied until the audit wraps up')
 
   await panel.getByRole('button', { name: 'Unblock' }).click()
-  await expect(page.getByText('Card unblocked')).toBeVisible()
+  await expect(page.getByText('Work order unblocked')).toBeVisible()
 })
 
 test('edits title and priority through the If-Match happy path', async ({ page, context }) => {
@@ -115,7 +115,7 @@ test('edits title and priority through the If-Match happy path', async ({ page, 
   await page.getByLabel('Title').fill(newTitle)
   await selectOption(page, 'Priority', 'P0')
   await page.getByRole('button', { name: 'Save changes' }).click()
-  await expect(page.getByText('Card updated')).toBeVisible()
+  await expect(page.getByText('Work order updated')).toBeVisible()
 
   await page.keyboard.press('Escape')
   const updated = boardCard(page, newTitle)
@@ -143,7 +143,7 @@ test('formats the description in the rich-text editor and round-trips it as mark
   await expect(editor.locator('strong')).toHaveText('Important')
 
   await page.getByRole('button', { name: 'Save changes' }).click()
-  await expect(page.getByText('Card updated')).toBeVisible()
+  await expect(page.getByText('Work order updated')).toBeVisible()
 
   // Reload: the bold survives, having round-tripped through stored markdown.
   await page.reload()

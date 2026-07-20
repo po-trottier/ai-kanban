@@ -66,28 +66,28 @@ export const strings = {
     setupSkip: 'Skip adding locations for now — set them up later in Settings',
     setupContinue: 'Finish setup and open the board',
     setupRemoveConfirm: 'Remove this location permanently',
-    // Board / cards.
+    // Board / work orders.
     newCard: 'Create a new work order — it lands in Intake',
     createCard: 'Create the work order in Intake',
-    openCard: 'Open this card’s details',
-    move: 'Move the card to a chosen column and position',
-    block: 'Flag the card as blocked with a reason',
-    cancelCard: 'Close the card as cancelled, declined, or a duplicate',
-    reopen: 'Reopen the card and move it back to Ready',
-    unblock: 'Clear the block and let the card move again',
-    archive: 'Archive this Done card — read-only until reopened',
-    saveCard: 'Save your edits to this card',
+    openCard: 'Open this work order’s details',
+    move: 'Move the work order to a chosen column and position',
+    block: 'Flag the work order as blocked with a reason',
+    cancelCard: 'Close the work order as cancelled, declined, or a duplicate',
+    reopen: 'Reopen the work order and move it back to Ready',
+    unblock: 'Clear the block and let the work order move again',
+    archive: 'Archive this Done work order — read-only until reopened',
+    saveCard: 'Save your edits to this work order',
     saveWaiting: 'Save the updated waiting reason or resume date',
     // Disabled reasons (WHY a control is off).
     disabledMoveNotAllowed: 'This column can’t be entered from the current one',
     disabledWaitingIncomplete: 'Pick a waiting reason and resume date first',
-    disabledReopenNoPermission: 'You don’t have permission to reopen cards',
-    disabledArchiveNoPermission: 'You don’t have permission to archive cards',
-    disabledCancelNoPermission: 'You don’t have permission to cancel cards',
-    disabledUnblockNotBlocked: 'This card isn’t blocked',
+    disabledReopenNoPermission: 'You don’t have permission to reopen work orders',
+    disabledArchiveNoPermission: 'You don’t have permission to archive work orders',
+    disabledCancelNoPermission: 'You don’t have permission to cancel work orders',
+    disabledUnblockNotBlocked: 'This work order isn’t blocked',
     disabledNoChanges: 'Nothing to save yet — edit a field first',
     // Comments.
-    comment: 'Post this comment on the card',
+    comment: 'Post this comment on the work order',
     postReply: 'Post your reply in this thread',
     replyComment: 'Reply to this comment',
     editComment: 'Edit your comment',
@@ -153,7 +153,7 @@ export const strings = {
     reporter: 'Who filed this work order. Set automatically and not editable.',
     tags: 'Free-form keywords for grouping and searching — e.g. plumbing, electrical.',
     location: 'Where the work is — the building, floor, or room it points to.',
-    wipLimit: 'The most cards allowed in this column at once. Leave empty for no limit.',
+    wipLimit: 'The most work orders allowed in this column at once. Leave empty for no limit.',
     roleKey: 'The internal identifier for the role. Lowercase, and fixed once created.',
     roleName: 'The human-readable name shown throughout the app.',
     permissionCell: 'Tick to grant this permission to the role. Unticked means not allowed.',
@@ -175,12 +175,12 @@ export const strings = {
     cannotUndo: "Can't undo that",
     cannotRedo: "Can't redo that",
     /** Entry labels (what the toast names). */
-    moveLabel: 'card move',
-    cancelLabel: 'card cancellation',
-    reopenLabel: 'card reopen',
-    archiveLabel: 'card archive',
-    blockLabel: 'card block',
-    unblockLabel: 'card unblock',
+    moveLabel: 'work order move',
+    cancelLabel: 'work order cancellation',
+    reopenLabel: 'work order reopen',
+    archiveLabel: 'work order archive',
+    blockLabel: 'work order block',
+    unblockLabel: 'work order unblock',
   },
 
   auth: {
@@ -245,28 +245,28 @@ export const strings = {
 
   board: {
     boardLabel: 'Kanban board',
-    newCard: 'New card',
-    emptyLane: 'No cards',
-    /** Per-lane hint when the filter bar hides every card in a lane. */
-    filterEmptyLane: 'No matching cards',
+    newCard: 'New work order',
+    emptyLane: 'No work orders',
+    /** Per-lane hint when the filter bar hides every work order in a lane. */
+    filterEmptyLane: 'No matching work orders',
     /** Subtle per-lane match count shown while the filter bar is narrowing. */
     filterMatchCount: (count: number) => `${String(count)} ${count === 1 ? 'match' : 'matches'}`,
     wipLimitExceededSuffix: 'WIP limit exceeded',
-    cardListLabel: (lane: string) => `Cards in ${lane}`,
+    cardListLabel: (lane: string) => `Work orders in ${lane}`,
     loadFailed: 'The board could not be loaded.',
     /** Move confirmation toasts (every move reassures a non-technical user). */
-    moved: 'Card moved',
+    moved: 'Work order moved',
     /** Prefix for the move toast; the destination lane is bolded after it. */
-    movedToPrefix: 'Card moved to ',
+    movedToPrefix: 'Work order moved to ',
     /** WIP badge tooltip + visible over-limit cue. */
     wipTooltip: (count: number, limit: number) =>
       `${String(count)} of ${String(limit)} — this column's work-in-progress limit`,
     wipNoLimitTooltip: (count: number) =>
-      `${String(count)} ${count === 1 ? 'card' : 'cards'} in this column`,
+      `${String(count)} ${count === 1 ? 'work order' : 'work orders'} in this column`,
     overLimit: 'Over limit',
-    /** Friendly empty-board call to action (brand-new team, no cards yet). */
+    /** Friendly empty-board call to action (brand-new team, no work orders yet). */
     emptyBoardTitle: 'No work orders yet',
-    emptyBoardHint: 'Create your first work order with the New card button above.',
+    emptyBoardHint: 'Create your first work order with the New work order button above.',
     /** The badge legend (plain-language key to priorities and states). */
     legendButton: 'What do the badges mean?',
     legendTitle: 'Badge guide',
@@ -278,12 +278,12 @@ export const strings = {
     legendOverdueBadge: 'Overdue',
     legendOverdue: 'Overdue — the expected resume date has passed',
     legendCancelled: 'Cancelled / Declined / Duplicate — closed without completing',
-    legendArchived: 'Archived — an old Done card, read-only until reopened',
+    legendArchived: 'Archived — an old Done work order, read-only until reopened',
   },
 
   card: {
-    menuLabel: 'Card actions',
-    openCard: 'Open card',
+    menuLabel: 'Work order actions',
+    openCard: 'Open work order',
     moveTo: 'Move to…',
     block: 'Block…',
     unblock: 'Unblock',
@@ -303,17 +303,18 @@ export const strings = {
       `Waiting on ${reason} — overdue: the expected resume date (${date}) has passed.`,
     cancelledBadgeTooltip: (resolution: string) =>
       `Closed as ${resolution} — filter the board to All to find it and reopen it.`,
-    archivedBadgeTooltip: 'Archived — an old Done card, read-only until reopened.',
+    archivedBadgeTooltip: 'Archived — an old Done work order, read-only until reopened.',
     assigneeAvatarLabel: (name: string) => `Assigned to ${name}`,
-    cardJustUpdated: 'This card was just updated by someone else — the board has been refreshed.',
+    cardJustUpdated:
+      'This work order was just updated by someone else — the board has been refreshed.',
     moveAnnouncement: (title: string, lane: string, position: number) =>
-      `Card "${title}" moved to ${lane}, position ${String(position)}`,
-    /** Confirmation toasts for the explicit card actions (name the outcome). */
-    blockedToast: 'Card blocked',
-    unblockedToast: 'Card unblocked',
-    cancelledToast: 'Card cancelled — moved to Done',
-    reopenedToast: 'Card reopened — moved to Ready',
-    archivedToast: 'Card archived',
+      `Work order "${title}" moved to ${lane}, position ${String(position)}`,
+    /** Confirmation toasts for the explicit work order actions (name the outcome). */
+    blockedToast: 'Work order blocked',
+    unblockedToast: 'Work order unblocked',
+    cancelledToast: 'Work order cancelled — moved to Done',
+    reopenedToast: 'Work order reopened — moved to Ready',
+    archivedToast: 'Work order archived',
     archive: 'Archive',
     /** Always-visible board-card fields with clear placeholders (consistency). */
     noEstimate: 'No estimate',
@@ -335,7 +336,7 @@ export const strings = {
     timerReason: {
       working: 'counting work time',
       waiting: 'waiting on parts/vendor — clock still counting',
-      blocked: 'card is blocked — clock still counting',
+      blocked: 'work order is blocked — clock still counting',
       off_hours: 'outside business hours',
     },
     /** Tooltip: the timer line, the elapsed-vs-estimate line, and the accrual window. */
@@ -359,8 +360,8 @@ export const strings = {
      * carries an `aria-label` (the `*Label` strings) for its accessible name
      * (convention #104) plus a `placeholder` for the visible cue.
      */
-    queryLabel: 'Filter cards',
-    queryPlaceholder: 'Search cards…',
+    queryLabel: 'Filter work orders',
+    queryPlaceholder: 'Search work orders…',
     queryClear: 'Clear the text filter',
     filterBusy: 'Filtering…',
     /** Any-of enumerable facets, rendered as MultiSelect pill dropdowns. */
@@ -368,7 +369,7 @@ export const strings = {
     priorityGroupLabel: 'Filter by priority',
     priorityPlaceholder: 'Priority',
     scopeLabel: 'Scope',
-    scopeGroupLabel: 'Active, archived, or all cards',
+    scopeGroupLabel: 'Active, archived, or all work orders',
     scopeActive: 'Active',
     scopeArchived: 'Archived',
     scopeAll: 'All',
@@ -403,7 +404,7 @@ export const strings = {
     presetsCreate: 'Save preset',
     /** Built-in preset display names (mirror core BUILTIN_FILTER_PRESETS). */
     builtinAll: 'All',
-    builtinMyCards: 'My Cards',
+    builtinMyCards: 'My Work Orders',
     builtinOverdue: 'Overdue',
     /** Save / rename / delete affordances. */
     savePreset: 'Save current filters as a preset',
@@ -430,14 +431,14 @@ export const strings = {
     presetDeleted: 'Preset deleted',
     /** Tooltips (every control carries one). */
     tooltips: {
-      query: 'Show only cards whose title or description contains this text',
-      priority: 'Show only cards at the selected priorities',
-      scope: 'Include active cards, archived cards, or both',
-      overdue: 'Show only cards past their estimated completion time',
-      assignee: 'Show only cards assigned to the selected people',
-      reporter: 'Show only cards filed by the selected people',
-      tags: 'Show only cards carrying at least one of these tags',
-      locations: 'Show only cards at the selected locations (buildings include their rooms)',
+      query: 'Show only work orders whose title or description contains this text',
+      priority: 'Show only work orders at the selected priorities',
+      scope: 'Include active work orders, archived work orders, or both',
+      overdue: 'Show only work orders past their estimated completion time',
+      assignee: 'Show only work orders assigned to the selected people',
+      reporter: 'Show only work orders filed by the selected people',
+      tags: 'Show only work orders carrying at least one of these tags',
+      locations: 'Show only work orders at the selected locations (buildings include their rooms)',
       clearAll: 'Reset every filter to the full board',
       presets: 'Apply a saved filter — it replaces every facet at once',
       savePreset: 'Save the current filters as a named preset you can reapply',
@@ -448,22 +449,22 @@ export const strings = {
       disabledEmptyPresetName: 'Enter a preset name first',
     },
     /** Board-level message when the filter matches nothing anywhere. */
-    noMatchesTitle: 'No cards match your filters',
-    noMatchesHint: 'Widen the scope or clear a facet to see more cards.',
+    noMatchesTitle: 'No work orders match your filters',
+    noMatchesHint: 'Widen the scope or clear a facet to see more work orders.',
   },
 
-  /** Typed card-to-card relations, shown in the detail panel (not on board cards). */
+  /** Typed work-order-to-work-order relations, shown in the detail panel (not on board cards). */
   relations: {
     sectionTitle: 'Relations',
-    empty: 'No related cards yet.',
+    empty: 'No related work orders yet.',
     /** Opens the add-relationship modal. */
     addButton: 'Add relationship',
-    /** The add-a-relation modal: pick a relationship + a target card. */
+    /** The add-a-relation modal: pick a relationship + a target work order. */
     modalTitle: 'Add relationship',
     typeLabel: 'Relationship',
-    targetLabel: 'Related card',
-    targetPlaceholder: 'Search by title, #number, or paste a card link…',
-    targetNothingFound: 'No matching cards',
+    targetLabel: 'Related work order',
+    targetPlaceholder: 'Search by title, #number, or paste a work order link…',
+    targetNothingFound: 'No matching work orders',
     add: 'Add relation',
     remove: (title: string) => `Remove relation to ${title}`,
     added: 'Relation added',
@@ -478,21 +479,21 @@ export const strings = {
       relates_to: { outgoing: 'Relates to', incoming: 'Relates to' },
     } satisfies Record<RelationType, Record<RelationDirection, string>>,
     tooltips: {
-      addButton: 'Link this card to another — blocks, duplicates, or relates to',
-      add: 'Add the relation to this card',
+      addButton: 'Link this work order to another — blocks, duplicates, or relates to',
+      add: 'Add the relation to this work order',
       remove: 'Remove this relation',
-      disabledNoTarget: 'Search for and pick a card to relate first',
+      disabledNoTarget: 'Search for and pick a work order to relate first',
     },
   },
 
-  /** Per-card watch toggle (detail panel) — controls notifications for the card. */
+  /** Per-work-order watch toggle (detail panel) — controls notifications for the work order. */
   watch: {
-    watch: 'Watch this card',
-    unwatch: 'Stop watching this card',
-    watched: 'Watching this card',
-    unwatched: 'No longer watching this card',
-    tooltipWatch: 'Get notified when this card changes',
-    tooltipUnwatch: 'Stop getting notifications for this card',
+    watch: 'Watch this work order',
+    unwatch: 'Stop watching this work order',
+    watched: 'Watching this work order',
+    unwatched: 'No longer watching this work order',
+    tooltipWatch: 'Get notified when this work order changes',
+    tooltipUnwatch: 'Stop getting notifications for this work order',
   },
 
   /** The notification inbox (bell in the header). */
@@ -511,26 +512,26 @@ export const strings = {
     bellWithUnread: (n: number) => `Notifications, ${String(n)} unread`,
     /** Who acted, when the actor is not a known user (mcp/automation). */
     systemActor: 'The system',
-    /** The verb phrase per triggering event; the row reads "<actor> <verb>: <card>". */
+    /** The verb phrase per triggering event; the row reads "<actor> <verb>: <work order>". */
     verbs: {
-      'card.created': 'created a card',
-      'card.status_changed': 'moved a card',
-      'card.field_changed': 'updated a card',
-      'card.blocked': 'blocked a card',
-      'card.unblocked': 'unblocked a card',
-      'card.cancelled': 'cancelled a card',
-      'card.reopened': 'reopened a card',
-      'card.archived': 'archived a card',
-      'comment.added': 'commented on a card',
-      'attachment.added': 'added an attachment to a card',
-      'attachment.removed': 'removed an attachment from a card',
+      'card.created': 'created a work order',
+      'card.status_changed': 'moved a work order',
+      'card.field_changed': 'updated a work order',
+      'card.blocked': 'blocked a work order',
+      'card.unblocked': 'unblocked a work order',
+      'card.cancelled': 'cancelled a work order',
+      'card.reopened': 'reopened a work order',
+      'card.archived': 'archived a work order',
+      'comment.added': 'commented on a work order',
+      'attachment.added': 'added an attachment to a work order',
+      'attachment.removed': 'removed an attachment from a work order',
       mention: 'mentioned you in a comment',
     } satisfies Partial<Record<NotificationKind, string>>,
-    verbFallback: 'updated a card',
+    verbFallback: 'updated a work order',
   },
 
   move: {
-    modalTitle: 'Move card',
+    modalTitle: 'Move work order',
     laneLabel: 'Column',
     positionLabel: 'Position',
     positionFirst: 'First (top)',
@@ -548,7 +549,7 @@ export const strings = {
     resumeRequired: 'Pick the expected resume date',
     commentLabel: 'Note (optional)',
     commentPlaceholder: 'Add context — which part, vendor, or PO number',
-    confirm: 'Move card',
+    confirm: 'Move work order',
     reasons: {
       parts: 'Parts',
       vendor: 'Vendor',
@@ -559,12 +560,12 @@ export const strings = {
   },
 
   cancelAction: {
-    modalTitle: 'Cancel card',
+    modalTitle: 'Cancel work order',
     resolutionLabel: 'Reason',
-    confirm: 'Cancel card',
+    confirm: 'Cancel work order',
     /** Warns that cancelling is destructive-feeling: it leaves the board. */
     consequence: (resolution: string) =>
-      `This moves the card to Done and marks it ${resolution}. You can reopen it later — filter the board to All to find it.`,
+      `This moves the work order to Done and marks it ${resolution}. You can reopen it later — filter the board to All to find it.`,
     resolutions: {
       cancelled: 'Cancelled',
       declined: 'Declined',
@@ -573,18 +574,18 @@ export const strings = {
   },
 
   blockAction: {
-    modalTitle: 'Block card',
-    reasonLabel: 'What is blocking this card?',
+    modalTitle: 'Block work order',
+    reasonLabel: 'What is blocking this work order?',
     reasonPlaceholder: 'e.g. Waiting on landlord approval',
     reasonRequired: 'Enter a reason',
-    confirm: 'Block card',
+    confirm: 'Block work order',
   },
 
   detail: {
     tabDetails: 'Details',
     tabComments: 'Comments',
     tabHistory: 'History',
-    /** The lane/state dropdown: change a card's column without dragging it. */
+    /** The lane/state dropdown: change a work order's column without dragging it. */
     stateLabel: 'State',
     titleLabel: 'Title',
     descriptionLabel: 'Description',
@@ -616,25 +617,25 @@ export const strings = {
     createdLabel: 'Created',
     updatedLabel: 'Updated',
     saveFields: 'Save changes',
-    fieldsSaved: 'Card updated',
+    fieldsSaved: 'Work order updated',
     unsavedWarning: 'You have unsaved changes — click Save changes to keep them.',
-    panelLabel: 'Card details',
-    closeLabel: 'Close card',
+    panelLabel: 'Work order details',
+    closeLabel: 'Close work order',
     /** Accessible name for the panel's drag-to-resize handle (also arrow-key aware). */
     resizeLabel: 'Resize the detail panel — drag, or use the arrow keys',
-    loadFailed: 'The card could not be loaded.',
-    archivedNotice: 'This card is archived — reopen it to make changes.',
+    loadFailed: 'The work order could not be loaded.',
+    archivedNotice: 'This work order is archived — reopen it to make changes.',
     /** The prominent state banner at the top of the panel body. */
-    blockedBannerTitle: 'This card is blocked',
+    blockedBannerTitle: 'This work order is blocked',
     blockedBannerNoReason: 'No reason was given.',
     /** Resolution-specific banner titles — a single "is ${lowercased}" template
      * reads ungrammatically for "duplicate"/"declined", so each terminal
      * resolution gets its own natural phrasing. */
     cancelledBannerTitle: {
-      completed: 'This card is completed',
-      cancelled: 'This card was cancelled',
-      declined: 'This card was declined',
-      duplicate: 'This card is a duplicate',
+      completed: 'This work order is completed',
+      cancelled: 'This work order was cancelled',
+      declined: 'This work order was declined',
+      duplicate: 'This work order is a duplicate',
     } satisfies Record<Resolution, string>,
     cancelledBannerBody: 'It sits at the bottom of Done. Reopen it to move it back to Ready.',
     waitingBannerTitle: 'Waiting on Parts / Vendor',
@@ -643,11 +644,11 @@ export const strings = {
     waitingBannerOverdue: (reason: string, date: string) =>
       `Waiting on ${reason}. Expected to resume by ${date} — now overdue. It resumes when moved out of this column.`,
     /** Inline edit of the waiting reason + resume date while the card waits. */
-    waitingEditHint: 'Update the reason or expected resume date without moving the card.',
+    waitingEditHint: 'Update the reason or expected resume date without moving the work order.',
     waitingReasonLabel: 'Waiting reason',
     waitingResumeLabel: 'Expected resume date',
     waitingSave: 'Save',
-    waitingOverdueNote: 'This card is overdue — pick a new expected resume date.',
+    waitingOverdueNote: 'This work order is overdue — pick a new expected resume date.',
   },
 
   /** The async assignee/reporter pickers (search the server, never load all users). */
@@ -668,7 +669,7 @@ export const strings = {
     sectionTitle: 'Attachments',
     // Mirrors the enforced upload caps (core: ALLOWED_ATTACHMENT_MIME_TYPES,
     // MAX_ATTACHMENT_BYTES, MAX_ACTIVE_ATTACHMENTS_PER_CARD).
-    sectionHelp: 'Photos and PDFs of the work — up to 25 MB each, 10 files per card.',
+    sectionHelp: 'Photos and PDFs of the work — up to 25 MB each, 10 files per work order.',
     dropzoneLabel: 'Attachment dropzone',
     dropHint: 'Drop images or PDFs here, or',
     browseButton: 'Browse files',
@@ -681,7 +682,7 @@ export const strings = {
     tooLarge: (filename: string) => `${filename} is over 25 MB — skipped.`,
     wrongType: (filename: string) => `${filename} isn't an image or PDF — skipped.`,
     tooMany: (max: number) =>
-      `A card can hold at most ${String(max)} attachments — pick fewer files.`,
+      `A work order can hold at most ${String(max)} attachments — pick fewer files.`,
   },
 
   comments: {
@@ -721,15 +722,15 @@ export const strings = {
     actorOnBehalfOf: (token: string, user: string) => `${token} on behalf of ${user}`,
     unknownUser: 'Someone',
     event: {
-      created: 'created the card',
-      statusChanged: (from: string, to: string) => `moved the card from ${from} to ${to}`,
-      reordered: (lane: string) => `reordered the card within ${lane}`,
+      created: 'created the work order',
+      statusChanged: (from: string, to: string) => `moved the work order from ${from} to ${to}`,
+      reordered: (lane: string) => `reordered the work order within ${lane}`,
       fieldChanged: (field: string) => `changed ${field}`,
-      blocked: (reason: string) => `blocked the card: ${reason}`,
-      unblocked: 'unblocked the card',
-      cancelled: (resolution: string) => `cancelled the card (${resolution})`,
-      reopened: (lane: string) => `reopened the card into ${lane}`,
-      archived: 'archived the card',
+      blocked: (reason: string) => `blocked the work order: ${reason}`,
+      unblocked: 'unblocked the work order',
+      cancelled: (resolution: string) => `cancelled the work order (${resolution})`,
+      reopened: (lane: string) => `reopened the work order into ${lane}`,
+      archived: 'archived the work order',
       commentAdded: 'commented',
       commentEdited: 'edited a comment',
       commentDeleted: 'deleted a comment',
@@ -740,8 +741,8 @@ export const strings = {
   },
 
   newCard: {
-    modalTitle: 'New card',
-    created: 'Card created in Intake',
+    modalTitle: 'New work order',
+    created: 'Work order created in Intake',
     /** A new draft's title until the user renames it (core requires non-empty). */
     placeholderTitle: 'Untitled',
   },
@@ -815,7 +816,7 @@ export const strings = {
     laneDeleted: 'Column deleted',
     deleteConfirmTitle: 'Delete column?',
     deleteConfirmBody: (lane: string) =>
-      `Delete the “${lane}” column? This can’t be undone. A column that still has cards can’t be deleted.`,
+      `Delete the “${lane}” column? This can’t be undone. A column that still has work orders can’t be deleted.`,
     deleteConfirmLabel: 'Delete column',
     intro:
       'Columns are your board workflow. Rename them, set WIP limits, reorder them, and add your own. Any empty column can be deleted — a board just has to keep at least one.',
@@ -850,7 +851,8 @@ export const strings = {
     /** Guardrail: the last role that can manage roles cannot lose that power. */
     lastManageRoles: 'At least one role must be able to manage roles & permissions.',
     enforcementLabel: 'Enforce workflow transitions',
-    enforcementHint: 'When on, cards may only move between columns along the workflow graph below.',
+    enforcementHint:
+      'When on, work orders may only move between columns along the workflow graph below.',
     transitionsTitle: 'Workflow graph',
     /** Plain-language help under each heading (dense admin screen). */
     transitionsHint:
@@ -870,23 +872,23 @@ export const strings = {
     staleEdgeRemove: (from: string, to: string) => `Remove the move from ${from} to ${to}`,
     /** Advisory (not a save-block): a live column no admin can move a card out of. */
     unreachableForward: (lane: string) =>
-      `“${lane}” has no outgoing moves — cards can’t leave it while enforcement is on.`,
+      `“${lane}” has no outgoing moves — work orders can’t leave it while enforcement is on.`,
     saved: 'Policy updated',
     /** Human labels for each permission, grouped into admin-legible sections. */
     sections: {
-      cards: 'Work cards',
+      cards: 'Work orders',
       commentsFiles: 'Comments & files',
       administration: 'Administration',
     },
     permissions: {
-      'card.create': 'Create cards',
-      'card.update': 'Edit cards',
-      'card.move': 'Move cards between columns',
-      'card.block': 'Block cards',
-      'card.unblock': 'Unblock cards',
-      'card.cancel': 'Cancel cards',
-      'card.reopen': 'Reopen cards',
-      'card.archive': 'Archive cards',
+      'card.create': 'Create work orders',
+      'card.update': 'Edit work orders',
+      'card.move': 'Move work orders between columns',
+      'card.block': 'Block work orders',
+      'card.unblock': 'Unblock work orders',
+      'card.cancel': 'Cancel work orders',
+      'card.reopen': 'Reopen work orders',
+      'card.archive': 'Archive work orders',
       'comment.add': 'Add comments',
       'comment.deleteOthers': 'Delete others’ comments',
       'attachment.add': 'Upload files',
@@ -930,9 +932,9 @@ export const strings = {
     deleteTitle: 'Delete location',
     deleteConfirmBody: (name: string) => `Delete “${name}”?`,
     deleteWarnsDescendants: (name: string) =>
-      `Everything inside “${name}” (its floors and rooms) will be removed too. Cards that point here will keep their history but lose their location.`,
+      `Everything inside “${name}” (its floors and rooms) will be removed too. Work orders that point here will keep their history but lose their location.`,
     deleteWarnsLeaf: (name: string) =>
-      `Cards that point to “${name}” will keep their history but lose their location.`,
+      `Work orders that point to “${name}” will keep their history but lose their location.`,
     confirmDelete: 'Delete location',
   },
 

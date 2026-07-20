@@ -36,12 +36,12 @@ export async function openBoard(page: Page): Promise<void> {
 }
 
 export function laneList(page: Page, laneLabel: string): Locator {
-  return page.getByRole('list', { name: `Cards in ${laneLabel}` })
+  return page.getByRole('list', { name: `Work orders in ${laneLabel}` })
 }
 
 /** Types into the board filter bar's text query (title/description substring). */
 export async function filterBoard(page: Page, text: string): Promise<void> {
-  await page.getByRole('textbox', { name: 'Filter cards' }).fill(text)
+  await page.getByRole('textbox', { name: 'Filter work orders' }).fill(text)
 }
 
 /**
@@ -54,7 +54,7 @@ export async function setBoardScope(
   page: Page,
   scope: 'Active' | 'Archived' | 'All',
 ): Promise<void> {
-  const control = page.getByRole('radiogroup', { name: 'Active, archived, or all cards' })
+  const control = page.getByRole('radiogroup', { name: 'Active, archived, or all work orders' })
   await control.getByText(scope, { exact: true }).click()
 }
 
@@ -66,7 +66,7 @@ export function boardCard(page: Page, title: string): Locator {
 
 /** Opens the card's ⋯ menu and picks an entry. */
 export async function openCardMenu(page: Page, title: string, item: string): Promise<void> {
-  await boardCard(page, title).getByRole('button', { name: 'Card actions' }).click()
+  await boardCard(page, title).getByRole('button', { name: 'Work order actions' }).click()
   await page.getByRole('menuitem', { name: item }).click()
 }
 

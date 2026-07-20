@@ -16,7 +16,7 @@ describe('describeEvent', () => {
     // Act
     const line = describeEvent(event, context)
     // Assert
-    expect(line).toBe('moved the card from Review to Fertig')
+    expect(line).toBe('moved the work order from Review to Fertig')
   })
 
   it('renders field changes with the field name', () => {
@@ -65,7 +65,7 @@ describe('describeEvent covers every audit event type', () => {
   const cases: [CardEvent, string][] = [
     [
       { ...base, eventType: 'card.created', payload: { snapshot: { ...card, tags: [] } } },
-      'created the card',
+      'created the work order',
     ],
     [
       {
@@ -73,23 +73,23 @@ describe('describeEvent covers every audit event type', () => {
         eventType: 'card.reordered',
         payload: { lane: 'ready', prevCardId: null, nextCardId: null },
       },
-      'reordered the card within Ready',
+      'reordered the work order within Ready',
     ],
-    [{ ...base, eventType: 'card.blocked', payload: {} }, 'blocked the card: —'],
-    [{ ...base, eventType: 'card.unblocked', payload: {} }, 'unblocked the card'],
+    [{ ...base, eventType: 'card.blocked', payload: {} }, 'blocked the work order: —'],
+    [{ ...base, eventType: 'card.unblocked', payload: {} }, 'unblocked the work order'],
     [
       {
         ...base,
         eventType: 'card.cancelled',
         payload: { resolution: 'declined', fromLane: 'intake' },
       },
-      'cancelled the card (Declined)',
+      'cancelled the work order (Declined)',
     ],
     [
       { ...base, eventType: 'card.reopened', payload: { toLane: 'ready' } },
-      'reopened the card into Ready',
+      'reopened the work order into Ready',
     ],
-    [{ ...base, eventType: 'card.archived', payload: {} }, 'archived the card'],
+    [{ ...base, eventType: 'card.archived', payload: {} }, 'archived the work order'],
     [{ ...base, eventType: 'comment.added', payload: { commentId: uid(45) } }, 'commented'],
     [{ ...base, eventType: 'comment.edited', payload: { commentId: uid(45) } }, 'edited a comment'],
     [
@@ -125,7 +125,7 @@ describe('describeEvent covers every audit event type', () => {
     // Act
     const line = describeEvent(event, { userNames: new Map() })
     // Assert
-    expect(line).toBe('moved the card from Intake to In Progress')
+    expect(line).toBe('moved the work order from Intake to In Progress')
   })
 })
 

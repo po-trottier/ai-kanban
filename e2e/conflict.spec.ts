@@ -32,20 +32,22 @@ test('a stale move from a second session is rolled back with the conflict toast'
 
   // B opens Move to… — the modal captures the card version as of NOW.
   await openCardMenu(pageB, title, 'Move to…')
-  await expect(pageB.getByRole('dialog')).toContainText('Move card')
+  await expect(pageB.getByRole('dialog')).toContainText('Move work order')
 
   // Meanwhile A edits the card, bumping its version.
   const editedTitle = `${title} (A got here first)`
   await page.goto(`/cards/${card.id}`)
   await page.getByLabel('Title').fill(editedTitle)
   await page.getByRole('button', { name: 'Save changes' }).click()
-  await expect(page.getByText('Card updated')).toBeVisible()
+  await expect(page.getByText('Work order updated')).toBeVisible()
 
   // B's move now carries a stale If-Match → 409 → rollback + calm toast.
   await selectOption(pageB, 'Column', 'Ready')
   await pageB.getByRole('button', { name: 'Move', exact: true }).click()
   await expect(
-    pageB.getByText('This card was just updated by someone else — the board has been refreshed.'),
+    pageB.getByText(
+      'This work order was just updated by someone else — the board has been refreshed.',
+    ),
   ).toBeVisible()
 
   // Rolled back and refreshed: still in Intake, now under A's title.

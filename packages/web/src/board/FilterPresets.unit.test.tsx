@@ -96,12 +96,12 @@ async function openCreatePreset(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('FilterPresets', () => {
-  it('applies the "My Cards" built-in with the current user filled into assigneeIds', async () => {
+  it('applies the "My Work Orders" built-in with the current user filled into assigneeIds', async () => {
     // Arrange
     const user = userEvent.setup()
     const { onApply } = renderPresets([])
     // Act
-    await pickPreset(user, 'My Cards')
+    await pickPreset(user, 'My Work Orders')
     // Assert — the COMPLETE filter, with the current user id filled client-side.
     expect(onApply).toHaveBeenCalledWith({ ...EMPTY_BOARD_FILTER, assigneeIds: [ME] })
   })

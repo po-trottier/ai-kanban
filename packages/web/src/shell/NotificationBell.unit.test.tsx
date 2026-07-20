@@ -41,11 +41,11 @@ describe('NotificationBell', () => {
     // Act — the bell's accessible name carries the unread count; open it.
     await user.click(await screen.findByRole('button', { name: /Notifications, 2 unread/ }))
     // The two notifications render with their human verbs.
-    expect(await screen.findByText('commented on a card')).toBeInTheDocument()
-    expect(screen.getByText('moved a card')).toBeInTheDocument()
+    expect(await screen.findByText('commented on a work order')).toBeInTheDocument()
+    expect(screen.getByText('moved a work order')).toBeInTheDocument()
     // Opening the unread one fires the mark-read POST.
     await user.click(
-      screen.getByRole('button', { name: /Terry Tech commented on a card.*Leaky faucet/ }),
+      screen.getByRole('button', { name: /Terry Tech commented on a work order.*Leaky faucet/ }),
     )
     // Assert
     expect(

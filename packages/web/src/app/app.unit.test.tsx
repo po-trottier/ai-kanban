@@ -80,7 +80,7 @@ describe('app routing', () => {
     // The brand is now the logo + wordmark (ITEM 1), linking home; the app
     // title stays visible so the header identifies the app on any logo asset.
     expect(screen.getByRole('heading', { name: 'Facilities Kanban' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'New card' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New work order' })).toBeInTheDocument()
     // Settings is the single entry point now — a menu item in the avatar
     // dropdown (the header gear is gone), reachable by every role.
     await user.click(screen.getByRole('button', { name: fixtureAdmin.displayName }))
@@ -97,8 +97,8 @@ describe('app routing', () => {
     // control are present, and the removed advanced-search field is not.
     expect(await screen.findByText('Fix pump')).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Board filters' })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Filter cards' })).toBeInTheDocument()
-    expect(screen.queryByRole('textbox', { name: 'Search cards' })).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Filter work orders' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Search work orders' })).not.toBeInTheDocument()
   })
 
   it('lets a non-admin open Settings and see only the Preferences tab', async () => {
@@ -151,7 +151,7 @@ describe('app routing', () => {
     renderApp({ fetchFn: fake.fetch })
     // Assert
     expect(await screen.findByRole('heading', { name: 'Change your password' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'New card' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'New work order' })).not.toBeInTheDocument()
   })
 
   it('shows a full-page error when the session check fails for non-auth reasons', async () => {

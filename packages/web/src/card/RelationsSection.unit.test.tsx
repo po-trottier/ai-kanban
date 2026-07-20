@@ -60,12 +60,12 @@ describe('RelationsSection', () => {
       ),
     })
     renderWithProviders(<RelationsSection cardId="5" />, { fetchFn: fake.fetch })
-    await screen.findByText('No related cards yet.')
+    await screen.findByText('No related work orders yet.')
     // Act — open the modal, search for the target card, pick it, add (type
     // defaults to Blocks).
     await user.click(screen.getByRole('button', { name: 'Add relationship' }))
-    await user.click(await screen.findByRole('combobox', { name: 'Related card' }))
-    await user.type(screen.getByRole('combobox', { name: 'Related card' }), 'Install')
+    await user.click(await screen.findByRole('combobox', { name: 'Related work order' }))
+    await user.type(screen.getByRole('combobox', { name: 'Related work order' }), 'Install')
     await user.click(await screen.findByRole('option', { name: /#9 — Install fixtures/ }))
     await user.click(screen.getByRole('button', { name: 'Add relation' }))
     // Assert — the POST carries the picked card id + the chosen type; a toast
@@ -126,7 +126,7 @@ describe('RelationsSection', () => {
       'GET /api/v1/cards': { items: [], nextCursor: null },
     })
     renderWithProviders(<RelationsSection cardId="5" />, { fetchFn: fake.fetch })
-    await screen.findByText('No related cards yet.')
+    await screen.findByText('No related work orders yet.')
     // Act — open the modal, then cancel it.
     await user.click(screen.getByRole('button', { name: 'Add relationship' }))
     await user.click(await screen.findByRole('button', { name: 'Cancel' }))

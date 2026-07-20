@@ -69,7 +69,7 @@ describe('CardPanel', () => {
     // Act
     renderApp({ fetchFn, route: `/cards/${String(card.id)}` })
     // Assert — the panel opened and its body announces loading via the skeleton.
-    await screen.findByRole('dialog', { name: /Card details/ })
+    await screen.findByRole('dialog', { name: /Work order details/ })
     expect(screen.getByRole('status', { name: 'Loading…' })).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: /Title/ })).not.toBeInTheDocument()
   })
@@ -82,7 +82,7 @@ describe('CardPanel', () => {
     // Assert — the dialog is named by its header: the hidden panel label,
     // the card title, and the priority badge sitting inline beside it.
     const dialog = await screen.findByRole('dialog', { name: /Fix pump/ })
-    expect(dialog).toHaveAccessibleName(/Card details/)
+    expect(dialog).toHaveAccessibleName(/Work order details/)
     expect(dialog).toHaveAccessibleName(new RegExp(card.priority))
   })
 
@@ -93,9 +93,9 @@ describe('CardPanel', () => {
     renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     await screen.findByRole('dialog', { name: /Fix pump/ })
     // Act — operate the shell BEHIND the open panel: a modal drawer would swallow
-    // this outside click instead of letting it land on the header's New card button.
-    await user.click(screen.getByRole('button', { name: 'New card' }))
-    // Assert — the click landed: New card created a draft (POST /cards).
+    // this outside click instead of letting it land on the header's New work order button.
+    await user.click(screen.getByRole('button', { name: 'New work order' }))
+    // Assert — the click landed: New work order created a draft (POST /cards).
     await waitFor(() => {
       expect(
         fake.calls.some(
@@ -212,7 +212,7 @@ describe('CardPanel', () => {
     // Assert — the confirm is gone but the whole card panel is still open, and
     // nothing was deleted (Escape only dismissed the nested dialog).
     expect(screen.queryByRole('button', { name: 'Delete it' })).not.toBeInTheDocument()
-    expect(screen.getByRole('dialog', { name: /Card details/ })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: /Work order details/ })).toBeInTheDocument()
     expect(fake.calls.some((c) => c.method === 'DELETE')).toBe(false)
   })
 
@@ -264,7 +264,7 @@ describe('CardPanel', () => {
     await user.click(await screen.findByRole('button', { name: 'Load more' }))
     // Assert
     expect(
-      await screen.findByText(/moved the card from Waiting for Approval to Ready/),
+      await screen.findByText(/moved the work order from Waiting for Approval to Ready/),
     ).toBeInTheDocument()
     const secondCall = fake.calls.filter((c) => c.url.includes('/events')).at(-1)
     expect(secondCall?.url).toContain('cursor=cursor-2')
@@ -299,7 +299,7 @@ describe('CardPanel', () => {
     })
     renderApp({ fetchFn: fake.fetch, route: `/cards/${String(archived.id)}` })
     // Act
-    await screen.findByText('This card is archived — reopen it to make changes.')
+    await screen.findByText('This work order is archived — reopen it to make changes.')
     await user.click(screen.getByRole('button', { name: 'Reopen' }))
     // Assert — fields read-only, no dropzone, and reopen hit the API
     expect(screen.getByRole('textbox', { name: /Title/ })).toBeDisabled()
@@ -454,7 +454,7 @@ describe('CardPanel', () => {
     })
     renderApp({ fetchFn: fake.fetch, route: `/cards/${String(blocked.id)}` })
     // Act
-    expect(await screen.findByText('This card is blocked')).toBeInTheDocument()
+    expect(await screen.findByText('This work order is blocked')).toBeInTheDocument()
     expect(screen.getByText('Waiting on landlord approval')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Unblock' }))
     // Assert — unblock hit the API with the card's If-Match version
@@ -489,12 +489,12 @@ describe('CardPanel', () => {
     // Act
     renderApp({ fetchFn: fake.fetch, route: `/cards/${String(cancelled.id)}` })
     // Assert
-    expect(await screen.findByText('This card was cancelled')).toBeInTheDocument()
+    expect(await screen.findByText('This work order was cancelled')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Reopen' })).toBeInTheDocument()
   })
 
   it('titles the banner grammatically for a duplicate resolution', async () => {
-    // Arrange — "This card is duplicate" would be ungrammatical; assert the
+    // Arrange — "This work order is duplicate" would be ungrammatical; assert the
     // resolution-specific phrasing instead.
     const duplicate = makeCard('done', {
       title: 'Dupe job',
@@ -521,7 +521,7 @@ describe('CardPanel', () => {
     // Act
     renderApp({ fetchFn: fake.fetch, route: `/cards/${String(duplicate.id)}` })
     // Assert
-    expect(await screen.findByText('This card is a duplicate')).toBeInTheDocument()
+    expect(await screen.findByText('This work order is a duplicate')).toBeInTheDocument()
   })
 
   it('edits the waiting reason and resume date in place, PATCHing with If-Match', async () => {
