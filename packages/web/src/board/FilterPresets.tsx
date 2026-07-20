@@ -271,6 +271,10 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
                 type="button"
                 pointer
                 className={classes.preset}
+                // The visible control is the inner `input` button, and it sizes
+                // to its label (64px "All" vs 101px "Overdue") — a top-level
+                // width never reaches it. Pin the button itself via the Styles API.
+                classNames={{ input: classes.presetControl }}
                 aria-label={strings.filterBar.presetsLabel}
                 rightSection={<Combobox.Chevron />}
                 rightSectionPointerEvents="none"

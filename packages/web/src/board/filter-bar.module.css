@@ -78,13 +78,22 @@
   width: var(--app-filter-pill-width);
 }
 
-/* The presets combobox target: a fixed footprint (same token as the pill
-   facets). Pin the flex basis like `.pill` — `width` alone still let the flex
-   child shrink to its (shorter) content, so the control's box changed per
-   selected preset; `flex: 0 0` holds it constant whatever label it shows. */
+/* The presets combobox target reserves a fixed slot in the flex row (same token
+   as the pill facets). But the VISIBLE control is the inner `input` button,
+   which sizes to its label — a width on this root never reaches it, so it's
+   pinned directly in `.presetControl` below. */
 .preset {
   flex: 0 0 var(--app-filter-pill-width);
+}
+
+/* The inner combobox button (Styles API `input` part). It carries the visible
+   box and otherwise grows/shrinks with the selected preset's label; pin it to
+   the fixed width and clip long labels so the control never changes size. */
+.presetControl {
   width: var(--app-filter-pill-width);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The presets dropdown inherits the (narrow) target width, which clipped wider
