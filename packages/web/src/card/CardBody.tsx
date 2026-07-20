@@ -64,6 +64,13 @@ export function CardBody({ cardId }: { cardId: string }) {
         disabled={archived}
       />
       <CardDetailsForm
+        // Remount the form per card: navigating between cards (e.g. a relation
+        // link) reuses this mounted CardDetailsForm, and its `keepDirtyValues`
+        // reset preserves fields the async pickers/editor marked dirty on the
+        // PREVIOUS card — so they'd keep the old card's values. Keying by cardId
+        // gives each card a fresh form seeded from its own detail, while a
+        // same-card SSE refetch (cardId unchanged) still keeps in-progress edits.
+        key={cardId}
         detail={detail}
         locations={locationsQuery.data ?? []}
         knownTags={(tagsQuery.data ?? []).map((tag) => tag.name)}

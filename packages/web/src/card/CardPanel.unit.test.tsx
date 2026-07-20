@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import {
@@ -567,6 +567,73 @@ describe('CardPanel', () => {
     })
     const patch = fake.calls.find((c) => c.method === 'PATCH')
     expect(new Headers(patch?.init?.headers).get('If-Match')).toBe('"5"')
+  })
+
+  it('re-seeds the detail form when navigating between related cards (no stale draft)', async () => {
+    // Regression: with the target card already cached (staleTime), a relation
+    // click reuses the mounted detail form, so its `keepDirtyValues` reset used
+    // to carry the PREVIOUS card's edits across — the fields showed the wrong
+    // card. Each card must get a form freshly seeded from its own detail.
+    // Arrange
+    const user = userEvent.setup()
+    const fixPump = makeCard('ready', { title: 'Fix pump' })
+    const replaceFilter = makeCard('ready', { title: 'Replace filter' })
+    const fake = createFakeFetch({
+      'GET /api/v1/auth/me': fixtureAdmin,
+      'GET /api/v1/board': makeBoard({ ready: [fixPump, replaceFilter] }),
+      'GET /api/v1/policy': policyRecordOf(permissivePolicy),
+      'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': userSearchHandler,
+      'GET /api/v1/locations': [],
+      'GET /api/v1/tags': [],
+      [`GET /api/v1/cards/${String(fixPump.id)}`]: {
+        card: fixPump,
+        tags: [],
+        location: null,
+        attachments: [],
+      },
+      [`GET /api/v1/cards/${String(fixPump.id)}/comments`]: [],
+      [`GET /api/v1/cards/${String(fixPump.id)}/events`]: { items: [], nextCursor: null },
+      [`GET /api/v1/cards/${String(fixPump.id)}/relations`]: [
+        {
+          id: uid(150),
+          type: 'relates_to',
+          direction: 'outgoing',
+          card: { id: replaceFilter.id, title: replaceFilter.title },
+        },
+      ],
+      [`GET /api/v1/cards/${String(replaceFilter.id)}`]: {
+        card: replaceFilter,
+        tags: [],
+        location: null,
+        attachments: [],
+      },
+      [`GET /api/v1/cards/${String(replaceFilter.id)}/comments`]: [],
+      [`GET /api/v1/cards/${String(replaceFilter.id)}/events`]: { items: [], nextCursor: null },
+      [`GET /api/v1/cards/${String(replaceFilter.id)}/relations`]: [
+        {
+          id: uid(151),
+          type: 'relates_to',
+          direction: 'outgoing',
+          card: { id: fixPump.id, title: fixPump.title },
+        },
+      ],
+    })
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(fixPump.id)}` })
+    // Act — open Fix pump, jump to Replace filter (which caches it), and leave a
+    // dirty, unsaved edit in its title.
+    const dialog = await screen.findByRole('dialog', { name: /Work order details/ })
+    await user.click(await within(dialog).findByRole('button', { name: /— Replace filter/ }))
+    const filterTitle = await screen.findByDisplayValue('Replace filter')
+    await user.clear(filterTitle)
+    await user.type(filterTitle, 'Never saved draft')
+    // Jump BACK to Fix pump — already cached, so the panel reuses the mounted
+    // form instead of unmounting through a load skeleton.
+    await user.click(await within(dialog).findByRole('button', { name: /— Fix pump/ }))
+    // Assert — the Title shows Fix pump, never the dirty Replace-filter draft.
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /Title/ })).toHaveValue('Fix pump')
+    })
   })
 
   it('surfaces an oversized upload (413) as a visible problem toast', async () => {
