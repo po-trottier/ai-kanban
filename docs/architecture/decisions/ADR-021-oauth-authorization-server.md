@@ -103,28 +103,52 @@ New Fastify routes under `/oauth` (all HTTPS in prod; loopback allowed in dev):
 The AS and the web app share the same user table and session cookie, so "approve in the browser"
 is one click when the operator is already logged in.
 
-### C. Token format: **opaque + DB lookup** (consistent with ADR-009)
+### C. Token format: **opaque + DB lookup** (PO: "don't care" → take the ADR-009-consistent one)
 
 ADR-009 chose stateful sessions over JWTs specifically for **instant revocation, no signing-key
 rotation, and single-node simplicity** — one indexed SQLite read per request is free at this scale.
-The same logic applies to access tokens. Recommendation: **opaque access tokens, sha256-hashed at
-rest** (like sessions and today's service tokens), validated by a `read` UoW lookup on every `/mcp`
-call. Short TTL (e.g. 15 min) + a **rotating, hashed refresh token** (longer TTL) so a leaked access
-token expires fast and revocation is immediate (delete the row). The token's "claims" (`sub`,
-`client`, `scope`, `resource/aud`) live in the row, not a signed body.
+The same logic applies to access tokens. Decision: **opaque access tokens, sha256-hashed at rest**
+(like sessions and today's service tokens), validated by a `read` UoW lookup on every `/mcp` call.
 
-_Alternative:_ signed **JWT access tokens (RFC 9068)** with the `act` claim inline — self-validating,
-no per-request DB read, but reintroduces signing-key management and a revocation list, the exact
-costs ADR-009 rejected. Deferred unless/until multi-node (see ADR-020 Postgres path) makes stateless
-validation worth it. Either way the wire contract is a bearer token; the RS abstracts the format.
+**TTL + refresh (PO: "whatever's recommended, but an easy refresh so agents don't constantly
+re-auth").** Standard OAuth 2.1 shape: a **short-lived access token** (~1 h) plus a **long-lived,
+rotating refresh token** (~30–60 days sliding). The MCP client refreshes **silently** in the
+background (`refresh_token` grant) — the human authorizes **once**, and the agent keeps working for
+weeks without another browser round-trip; it only re-auths if the refresh token expires unused or is
+revoked (logout / deactivate / "sign out this agent"). Refresh-token **rotation** (each use issues a
+new one and invalidates the old) is mandatory for public clients per the spec, so a stolen refresh
+token is detectable (reuse ⇒ revoke the whole chain).
 
-### D. Human authentication: local **or** federated, one issuance path
+_Alternative not taken:_ signed **JWT access tokens (RFC 9068)** with the `act` claim inline —
+self-validating, no per-request DB read, but reintroduces signing-key management and a revocation
+list, the exact costs ADR-009 rejected. Deferred unless/until multi-node (see ADR-020 Postgres path)
+makes stateless validation worth it. Either way the wire contract is a bearer token; the RS abstracts
+the format.
 
-`external_identities (provider, subject) → user`. Local password stays the default; an admin
-enables an OIDC provider (issuer URL + client credentials in env, validated at boot like every other
-secret). First external login find-or-creates the user (verified email match; new users get the
-configured default role, no `must_change_password`). This is additive to ADR-009 — the login
-_handler_ gains a second credential source; **sessions, policy, and downstream are unchanged.**
+### D. Human authentication: local **or** federated — **invited users only** (PO)
+
+`external_identities (provider, subject) → user`. Local password stays the default; an admin enables
+an OIDC provider (issuer URL + client credentials in env, validated at boot like every other secret).
+
+**No auto-provisioning (PO: "invited users only, role chosen at invite time, like Sentry").** An
+admin **invites** an email and picks the **role** on the invite; that mints a pending user with the
+role baked in. External (or local) sign-in then only ever **binds an identity to a pre-invited
+user** — a verified email with no matching invite/user is **rejected**, never silently created. So
+Entra/Google decide _authentication_ ("is this really alice@corp"), while _authorization_ (who may
+in, and as what role) stays entirely ours. This is additive to ADR-009 — the login _handler_ gains a
+second credential source; **sessions, policy, and downstream are unchanged.**
+
+### D′. Invites + password reset need outbound email (new dependency)
+
+Invited-only onboarding (and self-service password reset — today an admin hand-issues a one-time temp
+password, `security.md#authentication`) both require the app to **send email**: an invite link and a
+reset link. This is a **new outbound-email capability** the app doesn't have yet. "No external
+_authz_" doesn't force self-hosting mail — SMTP is a commodity: a port so the app can send via **any
+SMTP server or transactional provider** (self-hosted Postfix, or SES/Postmark/etc. — the operator's
+choice, config in env), behind a `core` `Mailer` port so `core` stays IO-free. Scope: signed,
+single-use, expiring tokens for **invite-accept** and **password-reset** (the reset flow replaces the
+manual temp-password dance). Worth its **own small ADR** when built; captured here because the
+invited-only decision creates the dependency.
 
 ### E. Actor / on-behalf-of model
 
@@ -206,7 +230,23 @@ Everything in `security.md` still applies; additions specific to OAuth:
 A real authorization-server surface (endpoints, four tables, a consent screen, an `agent` Actor and
 audit phrasing) enters the server — the largest addition since sessions. It is **additive**: the
 policy engine, services, session cookie, and audit trail are reused unchanged, and headless service
-tokens remain. Open questions for the PO before Phase 1: (a) confirm **opaque tokens** over JWT for
-now; (b) default role for **auto-provisioned** federated users, and whether federation may
-auto-create or must pre-invite; (c) whether agent **consent** is per-connection or remembered per
-`(user, client)`; (d) access/refresh **TTLs**.
+tokens remain.
+
+**Decisions (PO, 2026-07-20):**
+
+- **Token format** — opaque, DB-backed (§C). Access ~1 h; **rotating refresh** ~30–60 days, silent
+  refresh so an authorized agent doesn't re-auth for weeks.
+- **Onboarding** — **invited users only**, role chosen on the invite (Sentry-style); external sign-in
+  binds to a pre-invited user, never auto-creates (§D). Pulls in an **outbound-email** dependency for
+  invites + password reset (§D′), likely its own ADR.
+- **Agent consent** — the one-time browser approval screen where the human authorizes a specific
+  client + scope (see below); **remembered per `(user, client, scope)`** so re-connecting the same
+  agent is silent, re-prompting only on a new client or a scope increase. Revocable in Settings.
+
+_Agent consent, defined:_ when an agent first hits the OAuth flow, after the human signs in the AS
+shows a **consent screen** — "**Codex** wants to act as **you** on Rivian Kanban: **read / read +
+write**. Allow?" It's the moment the human grants a named client permission to act on their behalf
+(and picks/limits the scope). Approving records a grant so future connections by that same client are
+silent; the human can revoke it anytime (which kills that agent's tokens). It is the human-in-the-loop
+gate that replaces today's manual token paste — the "copy nothing" step that is still an explicit
+authorization, not an automatic one.
