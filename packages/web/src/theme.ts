@@ -35,6 +35,10 @@ const other: MantineThemeOther = {
   /** Cap on the scrolling comment LIST so the top-level composer stays pinned
    * within the panel even with many comments (CommentsThread sticky composer). */
   commentListMaxHeight: 'min(60vh, 32rem)',
+  /** Fixed width of the workflow-transitions matrix "From" row-header column so
+   * the from×to grid stays an even lattice regardless of lane-label length
+   * (TransitionsEditor / lanes.module.css). */
+  transitionsFromColumnWidth: '11rem',
 }
 
 /** The one emphasis weight (card titles, comment authors, history actors) — matches headings. */
@@ -90,6 +94,7 @@ export const cssVariablesResolver: CSSVariablesResolver = (resolved) => ({
     '--app-filter-pill-width': String(resolved.other.filterPillWidth),
     '--app-filter-section-height': String(resolved.other.filterSectionHeight),
     '--app-comment-list-max-height': String(resolved.other.commentListMaxHeight),
+    '--app-transitions-from-column-width': String(resolved.other.transitionsFromColumnWidth),
   },
   light: {},
   dark: {},

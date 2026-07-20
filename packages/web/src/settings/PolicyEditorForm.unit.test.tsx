@@ -6,25 +6,8 @@ import { permissivePolicy } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import { PolicyEditorForm } from './PolicyEditorForm.tsx'
 
-const laneLabels = {
-  intake: 'Intake',
-  waiting_approval: 'Waiting for Approval',
-  ready: 'Ready',
-  in_progress: 'In Progress',
-  waiting_parts_vendor: 'Waiting on Parts / Vendor',
-  review: 'Review',
-  done: 'Done',
-}
-
 function render(onSave: (document: PolicyDocument) => void = () => undefined) {
-  renderWithProviders(
-    <PolicyEditorForm
-      value={permissivePolicy}
-      laneLabels={laneLabels}
-      saving={false}
-      onSave={onSave}
-    />,
-  )
+  renderWithProviders(<PolicyEditorForm value={permissivePolicy} saving={false} onSave={onSave} />)
 }
 
 describe('PolicyEditorForm — roles × permissions matrix', () => {
@@ -44,8 +27,8 @@ describe('PolicyEditorForm — roles × permissions matrix', () => {
     expect(userCreate).toBeChecked()
     expect(adminManageUsers).toBeChecked()
     expect(userManageUsers).not.toBeChecked()
-    // Enforcement is off by default.
-    expect(screen.getByRole('switch', { name: /Enforce workflow transitions/ })).not.toBeChecked()
+    // Workflow transitions moved to the Columns tab — no enforcement switch here.
+    expect(screen.queryByRole('switch', { name: /Enforce/ })).not.toBeInTheDocument()
   })
 
   it('toggling a cell then saving PUTs the expected document', async () => {
@@ -66,19 +49,20 @@ describe('PolicyEditorForm — roles × permissions matrix', () => {
     expect(userRole?.permissions['card.create']).toBe(true)
   })
 
-  it('saves the enforcement toggle without touching the roles', async () => {
-    // Arrange
+  it('carries the workflow transitions through a save untouched (edited on the Columns tab)', async () => {
+    // Arrange — this form no longer edits transitions; a role-only save must
+    // still PUT the loaded transitions + enforcement flag verbatim.
     const user = userEvent.setup()
     const saved: PolicyDocument[] = []
     render((document) => saved.push(document))
 
-    // Act
-    await user.click(screen.getByRole('switch', { name: /Enforce workflow transitions/ }))
+    // Act — flip one permission, then save.
+    await user.click(screen.getByRole('checkbox', { name: 'Delete others’ comments for User' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     // Assert
-    expect(saved[0]?.transitionEnforcement).toBe(true)
-    expect(saved[0]?.roles).toEqual(permissivePolicy.roles)
+    expect(saved[0]?.transitions).toEqual(permissivePolicy.transitions)
+    expect(saved[0]?.transitionEnforcement).toBe(permissivePolicy.transitionEnforcement)
   })
 
   it('locks manageRoles on the last role that grants it', () => {
@@ -114,75 +98,17 @@ describe('PolicyEditorForm — roles × permissions matrix', () => {
     const lead = saved[0]?.roles.find((role) => role.key === 'lead')
     expect(lead).toEqual({ key: 'lead', name: 'Team Lead', permissions: {} })
   })
-})
 
-describe('PolicyEditorForm — workflow transitions matrix', () => {
-  it('toggling a cell on adds the edge to the PUT document', async () => {
-    // Arrange — Intake→Ready is not an edge in the default policy.
-    const user = userEvent.setup()
-    const saved: PolicyDocument[] = []
-    render((document) => saved.push(document))
-
-    // Act
-    await user.click(screen.getByRole('checkbox', { name: 'Allow move from Intake to Ready' }))
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-
-    // Assert
-    expect(saved).toHaveLength(1)
-    expect(saved[0]?.transitions).toContainEqual({ from: 'intake', to: 'ready' })
-  })
-
-  it('toggling an existing cell off removes the edge from the PUT document', async () => {
-    // Arrange — Intake→Waiting for Approval IS a seeded edge.
-    const user = userEvent.setup()
-    const saved: PolicyDocument[] = []
-    render((document) => saved.push(document))
-
-    // Act
-    await user.click(
-      screen.getByRole('checkbox', { name: 'Allow move from Intake to Waiting for Approval' }),
-    )
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-
-    // Assert
-    expect(saved[0]?.transitions).not.toContainEqual({ from: 'intake', to: 'waiting_approval' })
-  })
-
-  it('leaves the diagonal (from === to) as a non-interactive empty cell', () => {
+  it('no longer renders the workflow-transitions matrix (moved to Columns)', () => {
     // Arrange
     const onSave = () => undefined
 
     // Act
     render(onSave)
 
-    // Assert — there is no self-loop checkbox for a lane.
+    // Assert — no from×to edge control lives on this Permissions form now.
     expect(
-      screen.queryByRole('checkbox', { name: 'Allow move from Intake to Intake' }),
+      screen.queryByRole('checkbox', { name: 'Allow move from Intake to Ready' }),
     ).not.toBeInTheDocument()
-  })
-
-  it('removes a stale edge (referencing a deleted column) via its chip', async () => {
-    // Arrange — inject an edge whose `from` isn't a live lane key.
-    const user = userEvent.setup()
-    const saved: PolicyDocument[] = []
-    const withStale: PolicyDocument = {
-      ...permissivePolicy,
-      transitions: [...permissivePolicy.transitions, { from: 'ghost', to: 'intake' }],
-    }
-    renderWithProviders(
-      <PolicyEditorForm
-        value={withStale}
-        laneLabels={laneLabels}
-        saving={false}
-        onSave={(document) => saved.push(document)}
-      />,
-    )
-
-    // Act — the stale edge shows a removable chip labelled by its raw key.
-    await user.click(screen.getByRole('button', { name: 'Remove the move from ghost to Intake' }))
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-
-    // Assert
-    expect(saved[0]?.transitions).not.toContainEqual({ from: 'ghost', to: 'intake' })
   })
 })

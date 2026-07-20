@@ -14,3 +14,29 @@
 .row {
   position: relative;
 }
+
+/* Workflow-transitions matrix: fixed layout so every "To" column is the SAME
+   width regardless of its label length — cells never grow/shrink with the text
+   (an even lattice). The "From" row-header column keeps a fixed width; the
+   remaining columns split the rest evenly under table-layout:fixed. */
+.transitionsTable {
+  table-layout: fixed;
+}
+
+/* The row-header ("From") column plus the corner axis cell: one readable fixed
+   width (token — the lanes-admin WIP-input width fits a lane label snugly). */
+.fromColumn {
+  width: var(--app-transitions-from-column-width);
+}
+
+/* Long lane labels truncate to one line rather than reflowing the grid. */
+.laneHeadLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Center each transition checkbox in its equal-width cell. */
+.transitionCell {
+  text-align: center;
+}

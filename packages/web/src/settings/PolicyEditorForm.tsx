@@ -1,20 +1,18 @@
 import { type Permission, type PolicyDocument, type RoleDefinition } from '@rivian-kanban/core'
 import {
   ActionIcon,
-  Badge,
   Checkbox,
   Group,
   Menu,
   Modal,
   Stack,
-  Switch,
   Table,
   Text,
   TextInput,
   Title,
   Tooltip,
 } from '@mantine/core'
-import { Plus, Save, X } from 'lucide-react'
+import { Plus, Save } from 'lucide-react'
 import { useState } from 'react'
 import { strings } from '../strings.ts'
 import { FieldLabel } from '../shell/FieldLabel.tsx'
@@ -24,7 +22,6 @@ import classes from './policy-editor.module.css'
 
 export interface PolicyEditorFormProps {
   value: PolicyDocument
-  laneLabels: Partial<Record<string, string>>
   saving: boolean
   /** Set when the last save failed with the server 409 role-in-use conflict. */
   roleInUseError?: boolean
@@ -74,23 +71,14 @@ function manageRolesCount(roles: RoleDefinition[]): number {
 /**
  * The roles × permissions matrix editor (ADR-013): a sticky first column of
  * permission labels grouped into sections, one column per role with a
- * rename/delete menu, an "Add role" column, a checkbox per (role, permission)
- * cell, the enforcement toggle, and an editable from×to workflow matrix (one
- * checkbox per allowed move over the live board columns). Saving PUTs a whole
- * new policy version.
+ * rename/delete menu, an "Add role" column, and a checkbox per (role,
+ * permission) cell. Saving PUTs a whole new policy version (carrying the
+ * workflow transitions through untouched — those are edited on the Columns tab).
  */
-export function PolicyEditorForm({
-  value,
-  laneLabels,
-  saving,
-  roleInUseError,
-  onSave,
-}: PolicyEditorFormProps) {
+export function PolicyEditorForm({ value, saving, roleInUseError, onSave }: PolicyEditorFormProps) {
   const [document, setDocument] = useState<PolicyDocument>(value)
   const [addOpen, setAddOpen] = useState(false)
   const [renaming, setRenaming] = useState<number | null>(null)
-
-  const laneLabel = (key: string): string => laneLabels[key] ?? key
 
   const toggleCell = (roleIndex: number, permission: Permission, checked: boolean) => {
     setDocument((current) => ({
@@ -128,20 +116,6 @@ export function PolicyEditorForm({
     }))
   }
 
-  // Toggle a from→to workflow edge (mirrors toggleCell: presence = allowed).
-  const toggleEdge = (from: string, to: string, checked: boolean) => {
-    setDocument((current) => ({
-      ...current,
-      transitions: checked
-        ? [...current.transitions, { from, to }]
-        : current.transitions.filter((edge) => !(edge.from === from && edge.to === to)),
-    }))
-  }
-
-  const removeEdge = (from: string, to: string) => {
-    toggleEdge(from, to, false)
-  }
-
   // Guardrail: manageRoles can't be unticked on the last role that has it, or
   // nobody could ever edit permissions again (the schema enforces this too).
   const manageRolesLocked = (roleIndex: number, permission: Permission): boolean =>
@@ -159,23 +133,6 @@ export function PolicyEditorForm({
     }
     return true
   }
-
-  // The live board columns, in board order (SettingsPage builds laneLabels from
-  // the ordered lane snapshots). The matrix is a from×to grid over these.
-  const laneKeys = Object.keys(laneLabels)
-  const liveLanes = new Set(laneKeys)
-  const edgeSet = new Set(document.transitions.map((edge) => `${edge.from}->${edge.to}`))
-  const hasEdge = (from: string, to: string): boolean => edgeSet.has(`${from}->${to}`)
-  // Edges pointing at a column that no longer exists (backend prunes on delete,
-  // but stay robust): shown as removable chips below the matrix so nothing hides.
-  const staleEdges = document.transitions.filter(
-    (edge) => !liveLanes.has(edge.from) || !liveLanes.has(edge.to),
-  )
-  // Advisory only: live columns with no outgoing edge to another live column —
-  // a card entering them can never leave once enforcement is on.
-  const unreachableForward = laneKeys.filter(
-    (from) => !document.transitions.some((edge) => edge.from === from && liveLanes.has(edge.to)),
-  )
 
   return (
     <Stack gap="lg">
@@ -291,121 +248,6 @@ export function PolicyEditorForm({
             ))}
           </Table.Tbody>
         </Table>
-      </Stack>
-
-      <Stack gap="sm">
-        <Switch
-          label={strings.policy.enforcementLabel}
-          description={strings.policy.enforcementHint}
-          checked={document.transitionEnforcement}
-          onChange={(event) => {
-            const checked = event.currentTarget.checked
-            setDocument((current) => ({ ...current, transitionEnforcement: checked }))
-          }}
-        />
-        <Stack gap="sm" opacity={document.transitionEnforcement ? 1 : 0.5}>
-          <Title order={3} size="sm">
-            {strings.policy.transitionsTitle}
-          </Title>
-          <Text size="xs" c="dimmed">
-            {strings.policy.transitionsHint}
-          </Text>
-          {document.transitionEnforcement ? null : (
-            <Text size="xs" c="dimmed">
-              {strings.policy.disabledWhenOff}
-            </Text>
-          )}
-          <Table withTableBorder aria-label={strings.policy.transitionsMatrixLabel}>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th style={{ position: 'sticky', left: 0 }}>
-                  <Text size="xs" fw={700} c="dimmed">
-                    {strings.policy.transitionsFromHeader}
-                  </Text>
-                </Table.Th>
-                {laneKeys.map((to) => (
-                  <Table.Th key={to} scope="col">
-                    <Text size="sm" fw={600}>
-                      {laneLabel(to)}
-                    </Text>
-                  </Table.Th>
-                ))}
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {laneKeys.map((from) => (
-                <Table.Tr key={from}>
-                  <Table.Th scope="row" style={{ position: 'sticky', left: 0 }}>
-                    <Text size="sm" fw={600}>
-                      {laneLabel(from)}
-                    </Text>
-                  </Table.Th>
-                  {laneKeys.map((to) =>
-                    // No self-loops: the diagonal is empty and non-interactive.
-                    from === to ? (
-                      <Table.Td key={to} />
-                    ) : (
-                      <Table.Td key={to}>
-                        <Checkbox
-                          size="sm"
-                          aria-label={strings.policy.edgeCellLabel(laneLabel(from), laneLabel(to))}
-                          checked={hasEdge(from, to)}
-                          onChange={(event) => {
-                            toggleEdge(from, to, event.currentTarget.checked)
-                          }}
-                        />
-                      </Table.Td>
-                    ),
-                  )}
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-          {staleEdges.length > 0 ? (
-            <Stack gap="xs">
-              <Text size="xs" fw={700} tt="uppercase" c="dimmed">
-                {strings.policy.staleEdgesTitle}
-              </Text>
-              <Group gap="xs">
-                {staleEdges.map((edge) => {
-                  const fromLabel = laneLabel(edge.from)
-                  const toLabel = laneLabel(edge.to)
-                  return (
-                    <Badge
-                      key={`${edge.from}->${edge.to}`}
-                      variant="light"
-                      color="gray"
-                      rightSection={
-                        <Tooltip label={strings.policy.staleEdgeRemove(fromLabel, toLabel)}>
-                          <ActionIcon
-                            size="xs"
-                            variant="transparent"
-                            color="gray"
-                            aria-label={strings.policy.staleEdgeRemove(fromLabel, toLabel)}
-                            onClick={() => {
-                              removeEdge(edge.from, edge.to)
-                            }}
-                          >
-                            <X size={12} aria-hidden />
-                          </ActionIcon>
-                        </Tooltip>
-                      }
-                    >
-                      {strings.policy.staleEdgeLabel(fromLabel, toLabel)}
-                    </Badge>
-                  )
-                })}
-              </Group>
-            </Stack>
-          ) : null}
-          {document.transitionEnforcement && unreachableForward.length > 0
-            ? unreachableForward.map((from) => (
-                <Text key={from} size="xs" c="orange">
-                  {strings.policy.unreachableForward(laneLabel(from))}
-                </Text>
-              ))
-            : null}
-        </Stack>
       </Stack>
 
       <Group justify="flex-end">

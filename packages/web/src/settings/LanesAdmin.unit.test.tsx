@@ -3,15 +3,20 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { type BoardResponse } from '../api/schemas.ts'
 import { createFakeFetch } from '../test/fake-fetch.ts'
-import { laneByKey, makeBoard, nth } from '../test/fixtures.ts'
+import { laneByKey, makeBoard, nth, permissivePolicy, policyRecordOf } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import { LanesAdmin } from './LanesAdmin.tsx'
 import { reorderedLaneIds } from './lane-reorder.ts'
 
+// LanesAdmin now hosts the workflow-transitions editor beneath the column list
+// (Columns tab); that editor self-fetches the policy, so every render fixture
+// supplies GET /policy.
+const policyRoute = { 'GET /api/v1/policy': policyRecordOf(permissivePolicy) }
+
 describe('LanesAdmin', () => {
   it('renders an aligned table with one drag-handled row per lane and no machine key', async () => {
     // Arrange
-    const fake = createFakeFetch({ 'GET /api/v1/board': makeBoard({}) })
+    const fake = createFakeFetch({ 'GET /api/v1/board': makeBoard({}), ...policyRoute })
     // Act
     renderWithProviders(<LanesAdmin />, { fetchFn: fake.fetch })
     // Assert — friendly headers, an editable label per lane, a grip handle per
@@ -26,12 +31,24 @@ describe('LanesAdmin', () => {
     expect(screen.getByRole('textbox', { name: 'WIP limit (In Progress)' })).toHaveValue('3')
   })
 
+  it('hosts the workflow-transitions matrix beneath the column list (same tab)', async () => {
+    // Arrange
+    const fake = createFakeFetch({ 'GET /api/v1/board': makeBoard({}), ...policyRoute })
+    // Act
+    renderWithProviders(<LanesAdmin />, { fetchFn: fake.fetch })
+    // Assert — columns and the moves allowed between them are configured together.
+    expect(
+      await screen.findByRole('checkbox', { name: 'Allow move from Intake to Ready' }),
+    ).toBeInTheDocument()
+  })
+
   it('patches the lane with the edited label and WIP limit', async () => {
     // Arrange
     const user = userEvent.setup()
     const ready = laneByKey('ready')
     const fake = createFakeFetch({
       'GET /api/v1/board': makeBoard({}),
+      ...policyRoute,
       [`PATCH /api/v1/lanes/${ready.id}`]: { ...ready, label: 'Approved', wipLimit: 9 },
     })
     renderWithProviders(<LanesAdmin />, { fetchFn: fake.fetch })
@@ -85,6 +102,7 @@ describe('LanesAdmin', () => {
     const user = userEvent.setup()
     const fake = createFakeFetch({
       'GET /api/v1/board': makeBoard({}),
+      ...policyRoute,
       'POST /api/v1/lanes': { ...laneByKey('intake'), key: 'new_column', label: 'New column' },
     })
     renderWithProviders(<LanesAdmin />, { fetchFn: fake.fetch })
@@ -103,6 +121,7 @@ describe('LanesAdmin', () => {
     const intake = laneByKey('intake')
     const fake = createFakeFetch({
       'GET /api/v1/board': makeBoard({}),
+      ...policyRoute,
       [`DELETE /api/v1/lanes/${intake.id}`]: {},
     })
     renderWithProviders(<LanesAdmin />, { fetchFn: fake.fetch })
@@ -124,7 +143,7 @@ describe('LanesAdmin', () => {
     const board: BoardResponse = {
       lanes: [{ lane: done, cards: [], wipLimitExceeded: false }],
     }
-    const fake = createFakeFetch({ 'GET /api/v1/board': board })
+    const fake = createFakeFetch({ 'GET /api/v1/board': board, ...policyRoute })
     // Act
     renderWithProviders(<LanesAdmin />, { fetchFn: fake.fetch })
     // Assert — the lone column's delete is disabled (last-column guard).

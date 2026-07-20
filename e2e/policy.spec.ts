@@ -49,11 +49,12 @@ test('enabling enforcement tightens a technician session live, without reload', 
   await techPage.keyboard.press('Escape') // …and the modal
   await expect(techPage.getByRole('dialog')).toBeHidden()
 
-  // The admin flips enforcement on through the real settings UI.
+  // The admin flips enforcement on through the real settings UI — the workflow
+  // transitions editor now lives on the Columns tab (with columns), not Permissions.
   await page.goto('/settings')
-  await page.getByRole('tab', { name: 'Permissions' }).click()
-  await page.getByLabel('Enforce workflow transitions').check()
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByRole('tab', { name: 'Columns' }).click()
+  await page.getByRole('switch', { name: 'Enforce these moves' }).check()
+  await page.getByRole('button', { name: 'Save transitions', exact: true }).click()
   await expect(page.getByText('Policy updated')).toBeVisible()
 
   // The technician's affordances tighten live (SSE policy hint, no reload):

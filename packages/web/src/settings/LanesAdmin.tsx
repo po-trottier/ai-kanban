@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Divider,
   Group,
   NumberInput,
   Stack,
@@ -33,6 +34,7 @@ import { HintButton } from '../shell/HintButton.tsx'
 import { SkeletonRows } from '../shell/SkeletonRows.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
+import { TransitionsEditor } from './TransitionsEditor.tsx'
 import classes from './lanes.module.css'
 
 // The one thin adapter over Pragmatic drag-and-drop (ADR-007), mirroring
@@ -118,6 +120,10 @@ export function LanesAdmin() {
           ))}
         </Table.Tbody>
       </Table>
+      {/* Columns and the moves allowed between them belong together (ADR-013):
+          the workflow-transitions matrix lives here, under the column list. */}
+      <Divider />
+      <TransitionsEditor />
     </Stack>
   )
 }

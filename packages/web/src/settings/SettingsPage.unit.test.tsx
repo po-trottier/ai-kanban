@@ -1,3 +1,4 @@
+import { type PolicyDocument } from '@rivian-kanban/core'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
@@ -28,19 +29,38 @@ function settingsApp(extra: Record<string, unknown> = {}) {
 }
 
 describe('SettingsPage', () => {
-  it('publishes an edited policy through PUT /policy from the Permissions tab', async () => {
+  it('publishes an edited role grant through PUT /policy from the Permissions tab', async () => {
     // Arrange
     const user = userEvent.setup()
     const fake = settingsApp({ 'PUT /api/v1/policy': policyRecordOf(permissivePolicy) })
     renderApp({ fetchFn: fake.fetch, route: '/settings' })
-    // Act
+    // Act — the Permissions tab now edits roles only (transitions moved to Columns).
     await user.click(await screen.findByRole('tab', { name: 'Permissions' }))
-    await user.click(await screen.findByRole('switch', { name: /Enforce workflow transitions/ }))
+    await user.click(
+      await screen.findByRole('checkbox', { name: 'Delete others’ comments for User' }),
+    )
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    // Assert — the new PUT body carries the enforcement flag (no more actionGates).
-    expect(fake.lastBody('PUT', '/api/v1/policy')).toMatchObject({
-      transitionEnforcement: true,
-    })
+    // Assert — the granted permission rides the PUT body.
+    const userRole = (fake.lastBody('PUT', '/api/v1/policy') as PolicyDocument).roles.find(
+      (role) => role.key === 'user',
+    )
+    expect(userRole?.permissions['comment.deleteOthers']).toBe(true)
+    expect(await screen.findByText('Policy updated')).toBeInTheDocument()
+  })
+
+  it('publishes edited workflow transitions through PUT /policy from the Columns tab', async () => {
+    // Arrange — the transitions matrix now lives with the columns.
+    const user = userEvent.setup()
+    const fake = settingsApp({ 'PUT /api/v1/policy': policyRecordOf(permissivePolicy) })
+    renderApp({ fetchFn: fake.fetch, route: '/settings' })
+    // Act — enforce moves and save from the Columns tab.
+    await user.click(await screen.findByRole('tab', { name: 'Columns' }))
+    await user.click(await screen.findByRole('switch', { name: /Enforce these moves/ }))
+    // The transitions matrix has its own distinctly-named Save (the per-column
+    // rows use plain "Save"), so target it directly.
+    await user.click(screen.getByRole('button', { name: 'Save transitions' }))
+    // Assert
+    expect(fake.lastBody('PUT', '/api/v1/policy')).toMatchObject({ transitionEnforcement: true })
     expect(await screen.findByText('Policy updated')).toBeInTheDocument()
   })
 

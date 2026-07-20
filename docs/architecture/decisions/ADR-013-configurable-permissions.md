@@ -90,9 +90,11 @@ custom roles and toggle each permission per role from the dashboard.
 - **Always-on rules are data integrity, not hierarchy** (unaffected by policy): waiting-lane
   entry requires reason + resume date; cancellation is an explicit action, never a drag;
   optimistic-lock and validation rules.
-- **App-wide admin view** in the SPA: user management, lane labels/WIP limits, the role editor
-  (per-permission checkbox grid), permission policy (enforcement toggle), location tree,
-  service tokens — each shown when the caller's role grants the matching manage\* permission.
+- **App-wide admin view** in the SPA: user management; the Columns tab (lane labels/WIP limits
+  PLUS the workflow-transitions matrix + enforcement toggle, so columns and the moves allowed
+  between them are configured together); the Permissions tab (the role editor — a per-permission
+  checkbox grid — only); location tree; service tokens — each shown when the caller's role grants
+  the matching manage\* permission.
 
 ## Consequences
 

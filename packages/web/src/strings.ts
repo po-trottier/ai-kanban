@@ -852,29 +852,6 @@ export const strings = {
     roleInUse: 'This role is still assigned to a user or token. Reassign them first.',
     /** Guardrail: the last role that can manage roles cannot lose that power. */
     lastManageRoles: 'At least one role must be able to manage roles & permissions.',
-    enforcementLabel: 'Enforce workflow transitions',
-    enforcementHint:
-      'When on, work orders may only move between columns along the workflow graph below.',
-    transitionsTitle: 'Workflow graph',
-    /** Plain-language help under each heading (dense admin screen). */
-    transitionsHint:
-      'Tick a cell to allow moving from its row column to its column column. When enforcement is off, every move is allowed and these have no effect.',
-    disabledWhenOff: 'Turn on enforcement above for this to take effect.',
-    /** Accessible name for the whole from×to transitions matrix. */
-    transitionsMatrixLabel: 'Allowed workflow moves matrix',
-    /** Corner header + row/column axis headers for the from×to matrix. */
-    transitionsFromHeader: 'From \\ To',
-    transitionsFromAxis: 'From column',
-    transitionsToAxis: 'To column',
-    /** Per (from, to) checkbox accessible name. */
-    edgeCellLabel: (from: string, to: string) => `Allow move from ${from} to ${to}`,
-    /** Heading + per-chip label + remove tooltip for edges whose lane no longer exists. */
-    staleEdgesTitle: 'Moves referencing deleted columns',
-    staleEdgeLabel: (from: string, to: string) => `${from} to ${to}`,
-    staleEdgeRemove: (from: string, to: string) => `Remove the move from ${from} to ${to}`,
-    /** Advisory (not a save-block): a live column no admin can move a card out of. */
-    unreachableForward: (lane: string) =>
-      `“${lane}” has no outgoing moves — work orders can’t leave it while enforcement is on.`,
     saved: 'Policy updated',
     /** Human labels for each permission, grouped into admin-legible sections. */
     sections: {
@@ -903,6 +880,40 @@ export const strings = {
       managePolicy: 'Edit workflow policy',
       manageTokens: 'Manage API tokens',
     } satisfies Record<Permission, string>,
+  },
+
+  // The workflow-transitions matrix, shown on the Columns tab beneath the column
+  // list so a board's columns and the moves allowed between them live together.
+  transitions: {
+    title: 'Allowed moves between columns',
+    /** Plain-language help that spells out how a ticked cell reads. */
+    intro:
+      'Tick a cell to allow moving a work order from its row column (From ↓) to its column column (To →). A column always allows staying put, so the diagonal is fixed on.',
+    enforcementLabel: 'Enforce these moves',
+    enforcementHint:
+      'When on, a work order can only move along the ticked moves below. When off, every move is allowed and these ticks have no effect.',
+    /** Shown under the matrix while enforcement is off, so the greyed grid reads as intentional. */
+    disabledWhenOff: 'Turn on “Enforce these moves” above for these to take effect.',
+    /** Accessible name for the whole from×to matrix table. */
+    matrixLabel: 'Allowed moves between columns matrix',
+    /** Corner axis cell (row axis ↓, column axis →) and the per-axis header copy. */
+    axisCorner: 'From ↓ / To →',
+    fromAxis: 'From column',
+    toAxis: 'To column',
+    /** Per (from, to) checkbox accessible name — the interactive off-diagonal cells. */
+    edgeCellLabel: (from: string, to: string) => `Allow move from ${from} to ${to}`,
+    /** The disabled, always-checked diagonal cell (a work order stays in its own column). */
+    identityCellLabel: (lane: string) => `${lane} keeps work orders in place (always allowed)`,
+    /** Heading + per-chip label + remove tooltip for edges whose lane no longer exists. */
+    staleEdgesTitle: 'Moves referencing deleted columns',
+    staleEdgeLabel: (from: string, to: string) => `${from} to ${to}`,
+    staleEdgeRemove: (from: string, to: string) => `Remove the move from ${from} to ${to}`,
+    /** Advisory (not a save-block): a live column no card can move a card out of. */
+    unreachableForward: (lane: string) =>
+      `“${lane}” has no outgoing moves — work orders can’t leave it while enforcement is on.`,
+    /** Distinct from the per-column "Save" on the same tab (this saves the matrix). */
+    save: 'Save transitions',
+    saveTooltip: 'Save the workflow transitions for this board',
   },
 
   locations: {

@@ -1,7 +1,6 @@
 import { Container, Stack, Tabs, Title } from '@mantine/core'
 import { useSearchParams } from 'react-router'
 import { usePutPolicy } from '../api/admin.ts'
-import { useBoard } from '../api/board.ts'
 import { usePolicy } from '../api/meta.ts'
 import { isConflictError } from '../api/problem.ts'
 import { roleGrants } from '../auth/permissions.ts'
@@ -23,7 +22,6 @@ import { UsersAdmin } from './UsersAdmin.tsx'
 export function SettingsPage() {
   const me = useCurrentUser()
   const policy = usePolicy()
-  const board = useBoard()
   const putPolicy = usePutPolicy()
   // The active tab is mirrored in the URL (?tab=locations) so deep links — e.g.
   // the empty LocationPicker's "Settings" link — open the right tab directly.
@@ -37,10 +35,6 @@ export function SettingsPage() {
   const canPolicy = can('managePolicy')
   const canLocations = can('manageLocations')
   const canTokens = can('manageTokens')
-
-  const laneLabels = Object.fromEntries(
-    (board.data?.lanes ?? []).map((snapshot) => [snapshot.lane.key, snapshot.lane.label]),
-  )
 
   return (
     <Container size="md" w="100%">
@@ -85,7 +79,6 @@ export function SettingsPage() {
                 // so the editor never PUTs a stale snapshot over someone else's.
                 key={policy.dataUpdatedAt}
                 value={policy.data}
-                laneLabels={laneLabels}
                 saving={putPolicy.isPending}
                 roleInUseError={isConflictError(putPolicy.error)}
                 onSave={(document) => {

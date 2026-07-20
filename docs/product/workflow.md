@@ -15,7 +15,8 @@ a column must be **empty** to delete (move its cards out first). New cards alway
 **first column by position**, and a just-created draft is discardable only while still there — so
 the entry lane is never a hardcoded key and survives deleting/renaming intake. Movement is
 permissive by default (`transitionEnforcement: false`); admins customize the allowed
-column→column edges in the **workflow-transitions matrix** (Settings → Permissions).
+column→column edges in the **workflow-transitions matrix** (Settings → Columns, beneath the
+column list — a board's columns and the moves allowed between them are configured together).
 
 **What deleting a behavior-bearing column drops:** removing the `done` column disables auto-
 completion and archival and makes cancel a 409 (nowhere terminal to go); removing `ready` reopens
@@ -60,13 +61,15 @@ drag target). See [Terminal states](#terminal-states) for the exact semantics.
 
 **By default, any authenticated user can move any card to any lane and reorder freely** — the
 team is trusted to follow the process socially (product-owner decision, 2026-07-16). Hierarchy
-is _supported, not imposed_: an admin can turn on **transition enforcement** in Settings →
-Permissions, which activates the allowed-edge graph and (optionally) per-transition role gates.
-The graph is **fully editable**: a from×to **transitions matrix** over the board's LIVE columns
-lets an admin allow/disallow each column→column move (the diagonal is never a self-edge; the
-default seeded graph below is the starting point, not a fixed set). Edges are keyed by lane, so a
-rename keeps them; deleting a column leaves any edge naming it merely denied and removable from the
-matrix. See [ADR-013](../architecture/decisions/ADR-013-configurable-permissions.md).
+is _supported, not imposed_: an admin can turn on **transition enforcement** on Settings →
+Columns, which activates the allowed-edge graph (topology-only — WHO may move is the separate
+`card.move` grant). The graph is **fully editable**: a from×to **transitions matrix** over the
+board's LIVE columns lets an admin allow/disallow each column→column move. The diagonal (a column
+→ itself) is a fixed, disabled-checked cell — a work order trivially stays in its own column, so
+it never reads as a missing control and is never stored as an edge. The default seeded graph below
+is the starting point, not a fixed set. Edges are keyed by lane, so a rename keeps them; deleting a
+column leaves any edge naming it merely denied and removable from the matrix. See
+[ADR-013](../architecture/decisions/ADR-013-configurable-permissions.md).
 
 Two kinds of rules apply regardless of the policy setting, because they are data integrity, not
 hierarchy:
