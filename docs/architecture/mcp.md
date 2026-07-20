@@ -88,8 +88,9 @@ npx @modelcontextprotocol/inspector
 ### Agent-driven setup via `/llms.txt`
 
 The app publishes a static `/llms.txt` (source: `packages/web/public/llms.txt`) so a human can
-tell their coding agent "set up this app: `http://localhost:5173/`" and the agent can do the
-rest. The served HTML (`packages/web/index.html`) carries an `AI agents:` `<head>` comment and a
+tell their coding agent "set up this app: `https://<your-host>/`" and the agent can do the
+rest. The file is host-agnostic (ASCII only, no hard-coded `localhost`): it instructs the agent
+to reuse the origin it fetched `/llms.txt` from as the base for the app and the `/mcp` endpoint. The served HTML (`packages/web/index.html`) carries an `AI agents:` `<head>` comment and a
 `<link rel="help" href="/llms.txt">` pointing there; the file describes the app, the `POST /mcp`
 endpoint, and the exact steps to connect. It's a plain static asset — Vite serves `public/` in
 dev, and in prod `@fastify/static` serves the copy in `dist/` at `/llms.txt` (a real file, so
