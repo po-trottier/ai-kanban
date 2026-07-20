@@ -221,12 +221,10 @@ export function useDeleteCard() {
     mutationFn: (card: Card) =>
       api.deleteVoid(`/cards/${String(card.id)}`, { ifMatch: card.version }),
     onSuccess: () => {
-      notifySuccess(strings.newCard.discarded)
-      // The card is gone: drop it from every board variant. We deliberately do
-      // NOT removeQueries the card detail here — the panel is navigating away
-      // (its Discard closes it), and removing an actively-observed query forces
-      // an immediate refetch that re-renders the closing panel; the orphaned
-      // detail entry is harmless and gc'd on its own.
+      // Cancelling a create is silent, like the old modal's Cancel — just drop
+      // the discarded draft from every board variant. The card detail query is
+      // left to gc on its own (the modal closes); removing an actively-observed
+      // query would force a needless refetch of a now-deleted card.
       void queryClient.invalidateQueries({ queryKey: queryKeys.board })
     },
     onError: notifyCardError,

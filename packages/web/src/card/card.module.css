@@ -95,3 +95,12 @@
   border-top: 1px solid var(--mantine-color-default-border);
   background-color: var(--mantine-color-body);
 }
+
+/* New Card modal body: cap its height and let it scroll so the sticky
+   Discard/Done footer pins to the bottom, matching the detail panel. The cap
+   leaves room for the modal header/margins within the viewport. Applied to the
+   Mantine Modal `body` slot via `classNames`. */
+.modalScrollBody {
+  max-height: min(70vh, 40rem);
+  overflow-y: auto;
+}
