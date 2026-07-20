@@ -118,4 +118,41 @@ describe('notifications (watch → fan-out → inbox)', () => {
     expect(cleared.json<{ unread: number }>().unread).toBe(0)
     expect(await unreadCount(alice.cookie)).toBe(0)
   })
+
+  it('clears one notification and clears the whole inbox', async () => {
+    // Arrange — Alice watches a card Bob acts on twice, so she has two notices.
+    const alice = await t.asRole('user')
+    const bob = await t.asRole('user')
+    const cardId = await createCard(alice.cookie, 'Clearable job')
+    for (const body of ['first', 'second']) {
+      await t.request(bob.cookie, {
+        method: 'POST',
+        url: `/api/v1/cards/${String(cardId)}/comments`,
+        payload: { body },
+      })
+    }
+    const seeded = await waitForNotifications(
+      alice.cookie,
+      (rows) => rows.filter((row) => row.cardId === cardId).length >= 2,
+    )
+    const first = seeded.find((row) => row.cardId === cardId)
+
+    // Act — clear one, then clear all.
+    const clearedOne = await t.request(alice.cookie, {
+      method: 'DELETE',
+      url: `/api/v1/notifications/${String(first?.id)}`,
+    })
+    const afterOne = await listNotifications(alice.cookie)
+    const clearedAll = await t.request(alice.cookie, {
+      method: 'DELETE',
+      url: '/api/v1/notifications',
+    })
+
+    // Assert — the deleted one is gone, then the inbox is empty.
+    expect(clearedOne.statusCode).toBe(200)
+    expect(afterOne.some((row) => row.id === first?.id)).toBe(false)
+    expect(afterOne.length).toBeLessThan(seeded.length)
+    expect(clearedAll.json<{ unread: number }>().unread).toBe(0)
+    expect(await listNotifications(alice.cookie)).toHaveLength(0)
+  })
 })

@@ -115,4 +115,31 @@ describe('SqliteNotificationRepository', () => {
     expect(affected).toBe(1)
     expect(await run((tx) => tx.notifications.unreadCount(me))).toBe(0)
   })
+
+  it('clears one (owner-scoped) and clears all (read + unread)', async () => {
+    // Arrange — a fresh recipient with one read + one unread notification.
+    const me = insertUser(db.connection).id
+    const other = insertUser(db.connection).id
+    const c = card()
+    await run((tx) => tx.cards.insert(c))
+    const unread = notification({ userId: me, cardId: c.id })
+    const read = notification({ userId: me, cardId: c.id, readAt: T0 })
+    await run(async (tx) => {
+      for (const n of [unread, read]) await tx.notifications.insert(n)
+    })
+
+    // Act + Assert — another user cannot clear mine.
+    await run((tx) => tx.notifications.clear(unread.id, other))
+    expect(await run((tx) => tx.notifications.listForUser(me, { limit: 50 }))).toHaveLength(2)
+
+    // I clear the unread one; the read one remains.
+    await run((tx) => tx.notifications.clear(unread.id, me))
+    const remaining = await run((tx) => tx.notifications.listForUser(me, { limit: 50 }))
+    expect(remaining.map((n) => n.id)).toEqual([read.id])
+
+    // Clear-all removes the rest (read too) and reports the count.
+    const cleared = await run((tx) => tx.notifications.clearAll(me))
+    expect(cleared).toBe(1)
+    expect(await run((tx) => tx.notifications.listForUser(me, { limit: 50 }))).toHaveLength(0)
+  })
 })

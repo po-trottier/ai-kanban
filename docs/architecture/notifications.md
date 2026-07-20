@@ -104,6 +104,12 @@ Every route is scoped to the acting user — you only ever list or mark your OWN
 | `GET /notifications/unread-count` | `200 { unread }`         | the bell badge                                              |
 | `POST /notifications/:id/read`    | `200 { unread }`         | mark one read (returns the fresh count)                     |
 | `POST /notifications/read-all`    | `200 { unread: 0 }`      | bulk: mark the whole inbox read                             |
+| `DELETE /notifications/:id`       | `200 { unread }`         | clear (delete) one — removes it from the inbox              |
+| `DELETE /notifications`           | `200 { unread: 0 }`      | bulk: clear the whole inbox (read + unread)                 |
+
+Reading and clearing are distinct: **read** dims a notice but keeps it in the inbox; **clear**
+deletes it outright. Notifications are ephemeral inbox rows — the permanent record is the card's
+audit events (ADR-005) — so clearing hard-deletes and loses nothing auditable.
 
 A `NotificationView` resolves the row for display:
 `{ id, cardId, cardTitle, eventType, actorName | null, createdAt, read }`.
@@ -112,11 +118,12 @@ A `NotificationView` resolves the row for display:
 
 The header carries a **bell with an unread badge** (`packages/web/src/shell/NotificationBell.tsx`).
 Clicking opens a popover: a filter toggle (**All / Unread**), the notifications newest-first (each
-reading "_actor_ _verb_" + the card, bold + tinted while unread), and a **"Mark all as read"** bulk
-action. Opening a notification marks it read and navigates to the card (preserving the URL filter).
-The inbox **polls every 30s** and refetches on card SSE hints, so new notifications appear without a
-reload; targeting the SSE refresh to only the recipients (rather than a broadcast) is a deliberate
-follow-up.
+reading "_actor_ _verb_" and the card, bold and red-tinted while unread — the same red as the bell's
+unread badge, one consistent signal), a per-row **✕ to clear** that notification, and the
+**"Clear all"** and **"Mark all as read"** bulk actions. Opening a notification marks it read and
+navigates to the card (preserving the URL filter). The inbox **polls every 30s** and refetches on
+card SSE hints, so new notifications appear without a reload; targeting the SSE refresh to only the
+recipients (rather than a broadcast) is a deliberate follow-up.
 
 **Not spam.** Watch defaults keep the set relevant (your reported/assigned cards); you never notify
 yourself; noise events (reorders, comment edits) are filtered out; and unwatching or "mark all read"

@@ -75,4 +75,18 @@ export class SqliteNotificationRepository implements NotificationRepository {
       .run()
     return Promise.resolve(result.changes)
   }
+
+  clear(id: string, userId: string): Promise<void> {
+    // Only the owner's own row — a wrong id/user is a silent no-op.
+    this.db
+      .delete(notifications)
+      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
+      .run()
+    return Promise.resolve()
+  }
+
+  clearAll(userId: string): Promise<number> {
+    const result = this.db.delete(notifications).where(eq(notifications.userId, userId)).run()
+    return Promise.resolve(result.changes)
+  }
 }

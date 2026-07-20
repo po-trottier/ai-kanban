@@ -70,4 +70,19 @@ export class PgNotificationRepository implements NotificationRepository {
       .returning({ id: notifications.id })
     return updated.length
   }
+
+  async clear(id: string, userId: string): Promise<void> {
+    // Only the owner's own row — a wrong id/user is a silent no-op.
+    await this.db
+      .delete(notifications)
+      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
+  }
+
+  async clearAll(userId: string): Promise<number> {
+    const deleted = await this.db
+      .delete(notifications)
+      .where(eq(notifications.userId, userId))
+      .returning({ id: notifications.id })
+    return deleted.length
+  }
 }

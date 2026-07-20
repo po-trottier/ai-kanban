@@ -100,6 +100,16 @@ export class NotificationService {
     )
   }
 
+  /** Clears (deletes) one of the caller's notifications (no-op if not theirs). */
+  async clear(actor: Actor, id: string): Promise<void> {
+    await this.deps.uow.run((tx) => tx.notifications.clear(id, actor.id))
+  }
+
+  /** Clears (deletes) every notification of the caller; returns the count affected. */
+  async clearAll(actor: Actor): Promise<number> {
+    return this.deps.uow.run((tx) => tx.notifications.clearAll(actor.id))
+  }
+
   /** Resolves a stored row to its inbox view (card title + actor display name). */
   private async toView(tx: TransactionContext, row: Notification): Promise<NotificationView> {
     const card = await tx.cards.findById(row.cardId)

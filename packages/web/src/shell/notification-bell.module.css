@@ -1,19 +1,22 @@
-/* One notification row in the bell dropdown. A full-width, left-aligned button
-   so the whole row is the click target; unread rows carry a subtle tint. */
-.row {
-  display: block;
-  inline-size: 100%;
-  text-align: start;
-}
-
+/* One notification row: the content button (open + mark read) plus a trailing
+   ✕ (clear). Unread rows carry a subtle tint in the SAME red as the bell's
+   unread badge, so "unread" is one consistent signal (not an off-palette blue). */
 .row:hover {
   background-color: var(--mantine-color-default-hover);
 }
 
 .unread {
-  background-color: var(--mantine-primary-color-light);
+  background-color: var(--mantine-color-red-light);
 }
 
 .unread:hover {
-  background-color: var(--mantine-primary-color-light-hover);
+  background-color: var(--mantine-color-red-light-hover);
+}
+
+/* The clickable content area — fills the row and left-aligns; min-width:0 lets
+   its text truncate instead of pushing the ✕ off the row. */
+.rowContent {
+  flex: 1;
+  min-width: 0;
+  text-align: start;
 }

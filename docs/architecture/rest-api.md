@@ -126,6 +126,8 @@ spec: [notifications.md](notifications.md).
 | GET /notifications/unread-count | any  | `{ unread }` — the bell badge                       |
 | POST /notifications/:id/read    | any  | mark one read → `{ unread }`                        |
 | POST /notifications/read-all    | any  | bulk: mark all read → `{ unread: 0 }`               |
+| DELETE /notifications/:id       | any  | clear (delete) one → `{ unread }`                   |
+| DELETE /notifications           | any  | bulk: clear all (read + unread) → `{ unread: 0 }`   |
 
 ### Attachments
 

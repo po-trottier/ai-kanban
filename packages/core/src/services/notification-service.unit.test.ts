@@ -119,6 +119,45 @@ describe('NotificationService inbox', () => {
     // Assert — it stays unread for its owner.
     expect(await scenario.notifications.unreadCount(scenario.actors.technician)).toBe(1)
   })
+
+  it('clears one and clears all — owner-scoped, and removes read + unread alike', async () => {
+    // Arrange — one read + one unread notification for the technician.
+    const scenario = createScenario()
+    const card = scenario.seedCard()
+    const me = scenario.actors.technician
+    scenario.db.seedNotification({
+      id: fixtureId(104),
+      userId: me.id,
+      cardId: card.id,
+      actorId: scenario.users.requester.id,
+      eventType: 'card.status_changed',
+      createdAt: '2026-07-10T00:00:00.000Z',
+      readAt: '2026-07-10T01:00:00.000Z',
+    })
+    scenario.db.seedNotification({
+      id: fixtureId(105),
+      userId: me.id,
+      cardId: card.id,
+      actorId: scenario.users.requester.id,
+      eventType: 'comment.added',
+      createdAt: '2026-07-11T00:00:00.000Z',
+      readAt: null,
+    })
+
+    // Act — a stranger can't clear mine; clearing one leaves the other; clear all empties.
+    await scenario.notifications.clear(scenario.actors.supervisor, fixtureId(105))
+    const afterStranger = await scenario.notifications.list(me)
+    await scenario.notifications.clear(me, fixtureId(105))
+    const afterOne = await scenario.notifications.list(me)
+    const cleared = await scenario.notifications.clearAll(me)
+    const afterAll = await scenario.notifications.list(me)
+
+    // Assert
+    expect(afterStranger).toHaveLength(2) // stranger's clear was a no-op
+    expect(afterOne.map((row) => row.id)).toEqual([fixtureId(104)]) // the read one remains
+    expect(cleared).toBe(1) // clearAll removed the remaining read row
+    expect(afterAll).toHaveLength(0)
+  })
 })
 
 describe('comment @-mentions', () => {

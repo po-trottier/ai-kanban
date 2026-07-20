@@ -73,5 +73,27 @@ export function notificationRoutes(deps: AppDeps) {
         return { unread: 0 }
       },
     )
+
+    r.delete(
+      '/notifications/:id',
+      {
+        config: { bodyless: true },
+        schema: { params: idParamsSchema, response: { 200: unreadCountResponseSchema } },
+      },
+      async (request) => {
+        const actor = actorOf(request)
+        await notifications.clear(actor, request.params.id)
+        return { unread: await notifications.unreadCount(actor) }
+      },
+    )
+
+    r.delete(
+      '/notifications',
+      { config: { bodyless: true }, schema: { response: { 200: unreadCountResponseSchema } } },
+      async (request) => {
+        await notifications.clearAll(actorOf(request))
+        return { unread: 0 }
+      },
+    )
   }
 }

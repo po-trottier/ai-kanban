@@ -1236,4 +1236,17 @@ class InMemoryNotificationRepository implements NotificationRepository {
     }
     return Promise.resolve(count)
   }
+
+  clear(id: string, userId: string): Promise<void> {
+    this.state.notifications = this.state.notifications.filter(
+      (row) => !(row.id === id && row.userId === userId),
+    )
+    return Promise.resolve()
+  }
+
+  clearAll(userId: string): Promise<number> {
+    const before = this.state.notifications.length
+    this.state.notifications = this.state.notifications.filter((row) => row.userId !== userId)
+    return Promise.resolve(before - this.state.notifications.length)
+  }
 }

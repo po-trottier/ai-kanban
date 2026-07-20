@@ -471,6 +471,10 @@ export interface NotificationRepository {
   markRead(id: string, userId: string, readAt: string): Promise<void>
   /** Marks every unread notification of `userId` read; returns the count affected. */
   markAllRead(userId: string, readAt: string): Promise<number>
+  /** Deletes one notification IF it belongs to `userId`; no-op otherwise. */
+  clear(id: string, userId: string): Promise<void>
+  /** Deletes every notification of `userId` (read and unread); returns the count affected. */
+  clearAll(userId: string): Promise<number>
 }
 
 /** The repositories available inside one atomic unit of work. */

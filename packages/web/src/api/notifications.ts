@@ -57,3 +57,30 @@ export function useMarkAllNotificationsRead() {
     onError: notifyError,
   })
 }
+
+/** Clears (deletes) one notification — removes it from the inbox entirely. */
+export function useClearNotification() {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.deleteVoid(`/notifications/${id}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+    onError: notifyError,
+  })
+}
+
+/** Clears (deletes) the whole inbox (bulk action). */
+export function useClearAllNotifications() {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.deleteVoid('/notifications'),
+    onSuccess: () => {
+      notifySuccess(strings.notifications.allCleared)
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+    onError: notifyError,
+  })
+}

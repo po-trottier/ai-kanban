@@ -75,4 +75,45 @@ describe('NotificationBell', () => {
       ),
     ).toBe(true)
   })
+
+  it('clears one notification via its ✕ (without opening the card)', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const fake = createFakeFetch({
+      'GET /api/v1/notifications/unread-count': { unread: 1 },
+      'GET /api/v1/notifications': [notif({ id: uid(800) })],
+      [`DELETE /api/v1/notifications/${uid(800)}`]: jsonResponse({ unread: 0 }),
+    })
+    renderWithProviders(<NotificationBell />, { fetchFn: fake.fetch })
+    // Act — open the bell, then click the per-row clear button.
+    await user.click(await screen.findByRole('button', { name: /Notifications, 1 unread/ }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Clear notification about Leaky faucet' }),
+    )
+    // Assert — a DELETE for that id fired (and it is not the mark-read route).
+    expect(
+      fake.calls.some(
+        (call) => call.method === 'DELETE' && call.url === `/api/v1/notifications/${uid(800)}`,
+      ),
+    ).toBe(true)
+  })
+
+  it('clears the whole inbox via the bulk action', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const fake = createFakeFetch({
+      'GET /api/v1/notifications/unread-count': { unread: 1 },
+      'GET /api/v1/notifications': [notif()],
+      'DELETE /api/v1/notifications': jsonResponse({ unread: 0 }),
+    })
+    renderWithProviders(<NotificationBell />, { fetchFn: fake.fetch })
+    // Act
+    await user.click(await screen.findByRole('button', { name: /Notifications, 1 unread/ }))
+    await user.click(await screen.findByRole('button', { name: 'Clear all' }))
+    // Assert
+    expect(await screen.findByText('All notifications cleared')).toBeInTheDocument()
+    expect(
+      fake.calls.some((call) => call.method === 'DELETE' && call.url === '/api/v1/notifications'),
+    ).toBe(true)
+  })
 })

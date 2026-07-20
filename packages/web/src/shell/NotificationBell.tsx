@@ -13,11 +13,13 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core'
-import { Bell } from 'lucide-react'
+import { Bell, X } from 'lucide-react'
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { cx } from '../lib/cx.ts'
 import {
+  useClearAllNotifications,
+  useClearNotification,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotifications,
@@ -45,6 +47,8 @@ export function NotificationBell() {
   const notificationsQuery = useNotifications(unreadOnly)
   const markRead = useMarkNotificationRead()
   const markAll = useMarkAllNotificationsRead()
+  const clearOne = useClearNotification()
+  const clearAll = useClearAllNotifications()
   const navigate = useNavigate()
   const location = useLocation()
   const timezone = useUserTimezone()
@@ -123,8 +127,12 @@ export function NotificationBell() {
                   key={notification.id}
                   notification={notification}
                   timezone={timezone}
+                  clearing={clearOne.isPending && clearOne.variables === notification.id}
                   onOpen={() => {
                     openCard(notification)
+                  }}
+                  onClear={() => {
+                    clearOne.mutate(notification.id)
                   }}
                 />
               ))}
@@ -132,7 +140,20 @@ export function NotificationBell() {
           )}
         </ScrollArea.Autosize>
         <Divider />
-        <Group justify="flex-end" p="xs">
+        <Group justify="space-between" p="xs">
+          <HintButton
+            size="xs"
+            variant="subtle"
+            color="red"
+            tooltip={strings.notifications.clearAllTooltip}
+            disabledReason={items.length === 0 ? strings.notifications.clearAllEmpty : undefined}
+            loading={clearAll.isPending}
+            onClick={() => {
+              clearAll.mutate()
+            }}
+          >
+            {strings.notifications.clearAll}
+          </HintButton>
           <HintButton
             size="xs"
             variant="subtle"
@@ -151,27 +172,41 @@ export function NotificationBell() {
   )
 }
 
-/** One inbox row: who did what, on which card, when — bold + tinted while unread. */
+/**
+ * One inbox row: who did what, on which card, when — bold + tinted while unread.
+ * The content is the click target (opens the card + marks read); a trailing ✕
+ * clears the notification outright. Two separate controls, never nested buttons.
+ */
 function NotificationRow({
   notification,
   timezone,
+  clearing,
   onOpen,
+  onClear,
 }: {
   notification: NotificationView
   timezone: string
+  clearing: boolean
   onOpen: () => void
+  onClear: () => void
 }) {
   const actor = notification.actorName ?? strings.notifications.systemActor
   const verbs: Partial<Record<NotificationKind, string>> = strings.notifications.verbs
   const verb = verbs[notification.eventType] ?? strings.notifications.verbFallback
   return (
-    <UnstyledButton
+    <Group
       className={cx(classes.row, !notification.read && classes.unread)}
-      onClick={onOpen}
-      aria-label={`${actor} ${verb}: ${formatTicketNumber(notification.cardId)} ${notification.cardTitle}`}
+      gap="xs"
+      wrap="nowrap"
+      p="sm"
+      align="flex-start"
     >
-      <Group gap="sm" wrap="nowrap" p="sm" align="flex-start">
-        <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
+      <UnstyledButton
+        className={classes.rowContent}
+        onClick={onOpen}
+        aria-label={`${actor} ${verb}: ${formatTicketNumber(notification.cardId)} ${notification.cardTitle}`}
+      >
+        <Stack gap={2} style={{ minWidth: 0 }}>
           <Text size="sm" lineClamp={2}>
             <Text span fw={EMPHASIS_FONT_WEIGHT}>
               {actor}
@@ -185,16 +220,29 @@ function NotificationRow({
             {formatDateTime(notification.createdAt, timezone)}
           </Text>
         </Stack>
-        {notification.read ? null : (
-          <Box
-            aria-hidden
-            w={8}
-            h={8}
-            mt={6}
-            style={{ borderRadius: '50%', backgroundColor: 'var(--mantine-primary-color-filled)' }}
-          />
-        )}
-      </Group>
-    </UnstyledButton>
+      </UnstyledButton>
+      {notification.read ? null : (
+        // Unread dot reuses the same red as the bell's unread badge (one signal).
+        <Box
+          aria-hidden
+          w={8}
+          h={8}
+          mt={6}
+          style={{ borderRadius: '50%', backgroundColor: 'var(--mantine-color-red-6)' }}
+        />
+      )}
+      <Tooltip label={strings.notifications.clearTooltip} withArrow>
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          size="sm"
+          aria-label={strings.notifications.clear(notification.cardTitle)}
+          loading={clearing}
+          onClick={onClear}
+        >
+          <X size={16} aria-hidden />
+        </ActionIcon>
+      </Tooltip>
+    </Group>
   )
 }

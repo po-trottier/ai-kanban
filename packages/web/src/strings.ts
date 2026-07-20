@@ -510,6 +510,13 @@ export const strings = {
     markAllReadTooltip: 'Mark every notification as read',
     markAllReadEmpty: 'You have no unread notifications',
     allRead: 'All notifications marked as read',
+    clearAll: 'Clear all',
+    clearAllTooltip: 'Remove every notification from your inbox',
+    clearAllEmpty: 'You have no notifications to clear',
+    allCleared: 'All notifications cleared',
+    /** Per-row clear (✕) button — names the work order it removes. */
+    clear: (cardTitle: string) => `Clear notification about ${cardTitle}`,
+    clearTooltip: 'Remove this notification',
     filterAll: 'All',
     filterUnread: 'Unread',
     /** The bell's accessible name carries the unread count for assistive tech. */
