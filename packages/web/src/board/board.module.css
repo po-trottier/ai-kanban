@@ -12,6 +12,11 @@
   display: flex;
   flex-direction: column;
   flex: 0 0 var(--app-lane-width);
+  /* Without this, min-width:auto floors the lane at its widest card's min-content
+     (an un-truncated title), so lanes grow past the basis and end up unequal.
+     Pinning min-width:0 holds every lane at exactly --app-lane-width and gives
+     the card titles a bounded width to actually ellipsize within. */
+  min-width: 0;
   max-height: 100%;
   border-radius: var(--mantine-radius-md);
   background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
@@ -30,6 +35,8 @@
   flex-direction: column;
   gap: var(--mantine-spacing-xs);
   flex: 1;
+  /* Bound the card column too so a wide card can't push the list past the lane. */
+  min-width: 0;
 }
 
 .laneCardsOver {
