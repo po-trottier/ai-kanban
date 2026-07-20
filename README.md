@@ -10,6 +10,8 @@ server for AI agents, and Slack-native ticket intake — all over one audited se
   bot — is an append-only event.
 - **MCP**: AI agents connect to `/mcp` (Streamable HTTP, bearer tokens) and use task-shaped
   tools (`get_board_snapshot`, `list_stale_cards`, …) against the same rules as everyone else.
+  Point an agent at the running app and it self-serves setup from `/llms.txt` — the human pastes
+  the token into their own config, never into the chat (see [MCP server](docs/architecture/mcp.md)).
 - **Slack**: create tickets from any thread via a message shortcut or @-mention, with optional
   AI thread summarization (human always reviews).
 - **Storage**: SQLite (WAL) today behind repository ports; Postgres is a planned mechanical

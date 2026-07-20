@@ -1,0 +1,57 @@
+# Rivian Kanban
+
+Rivian Kanban is a facilities-management Kanban board for tracking work orders: a
+drag-and-drop web UI for humans, an MCP server for AI agents, and Slack ticket intake, all
+over one audited service layer.
+
+This app has an MCP server at `POST /mcp` (Streamable HTTP, stateless mode), authenticated
+with a per-user bearer token shaped `rkb_…`. Connect an AI agent to it and it can read the
+board and (with a write-scoped token) drive card lifecycle through task-shaped tools.
+
+## Setup — guide the human through these steps
+
+You (the agent) orchestrate; the human holds the secret. Do NOT ask the human to paste the
+token into this chat. Walk them through:
+
+1. **Mint a token.** Open `/settings` → **Service tokens** → **New token**. Pick scope
+   `read` for a summarizer/reporter, `read_write` for an agent that acts. The raw `rkb_…`
+   value is shown exactly once — the human copies it there.
+2. **Write the MCP config for them, with a placeholder.** Add this block to the agent's MCP
+   config (e.g. `.mcp.json` for Claude, the equivalent for your client) and instruct the
+   human to replace `<PASTE_YOUR_TOKEN_HERE>` with the token they copied. The `url` below is
+   the **dev** MCP endpoint (`:3000`, not the `:5173` app origin — see "MCP URL" below); in
+   production use same-origin `/mcp`:
+
+   ```json
+   {
+     "mcpServers": {
+       "rivian-kanban": {
+         "url": "http://localhost:3000/mcp",
+         "headers": { "Authorization": "Bearer <PASTE_YOUR_TOKEN_HERE>" }
+       }
+     }
+   }
+   ```
+
+3. **The human fills in the token themselves** and reloads the client. Smoke-test by listing
+   tools (e.g. `whoami`).
+
+## SECURITY — read this
+
+- The bearer token is a secret. The human MUST paste it into their own config file
+  themselves. It must **NEVER** be shared with, pasted into, or shown to the assistant/chat.
+- Your job as the agent is to write the config with the `<PASTE_YOUR_TOKEN_HERE>` placeholder
+  and tell the human to fill it in. Do not offer to hold, echo, or store the token.
+- If a human pastes a token to you anyway, tell them to revoke it (`/settings` → Service
+  tokens) and mint a new one — a leaked token is game over until revoked.
+
+## MCP URL — dev vs prod
+
+- The URL above uses `http://localhost:5173` (the Vite dev server). In dev, the app is served
+  by Vite on `:5173` and the API/MCP by the server on `:3000`; the dev proxy forwards `/api`
+  but **not** `/mcp`, so in dev point the client directly at `http://localhost:3000/mcp`.
+- In production the server serves the built SPA and the MCP on the same origin, so use
+  `https://<your-host>/mcp` (same host you loaded this page from, `/mcp` path).
+
+Future: an OAuth 2.0 device-code flow could replace the manual paste so the token never
+leaves the token endpoint; today the human-in-the-loop paste is the safe, simple flow.

@@ -201,6 +201,25 @@ describe('static SPA serving', () => {
     }
   })
 
+  it('serves /llms.txt as text, not the index.html fallback', async () => {
+    // /llms.txt ships in public/ → dist/ root; AI agents fetch it verbatim for
+    // MCP setup, so it must be the real file (text), never the SPA fallback.
+    const spaDir = mkdtempSync(join(tmpdir(), 'rivian-kanban-spa-'))
+    writeFileSync(join(spaDir, 'index.html'), '<!doctype html><title>rivian-kanban spa</title>')
+    writeFileSync(join(spaDir, 'llms.txt'), '# Rivian Kanban\nMCP setup for agents')
+    const t = await createTestApp({ spaRoot: spaDir })
+    try {
+      const llms = await t.app.inject({ method: 'GET', url: '/llms.txt' })
+
+      expect(llms.statusCode).toBe(200)
+      expect(llms.headers['content-type']).toContain('text/plain')
+      expect(llms.body).toContain('MCP setup for agents')
+    } finally {
+      await t.cleanup()
+      rmSync(spaDir, { recursive: true, force: true })
+    }
+  })
+
   it('boots API-only when no SPA build exists', async () => {
     const t = await createTestApp({ spaRoot: null })
     try {

@@ -85,6 +85,24 @@ Smoke-test with the MCP Inspector — Transport **Streamable HTTP**, URL `<host>
 npx @modelcontextprotocol/inspector
 ```
 
+### Agent-driven setup via `/llms.txt`
+
+The app publishes a static `/llms.txt` (source: `packages/web/public/llms.txt`) so a human can
+tell their coding agent "set up this app: `http://localhost:5173/`" and the agent can do the
+rest. The served HTML (`packages/web/index.html`) carries an `AI agents:` `<head>` comment and a
+`<link rel="help" href="/llms.txt">` pointing there; the file describes the app, the `POST /mcp`
+endpoint, and the exact steps to connect. It's a plain static asset — Vite serves `public/` in
+dev, and in prod `@fastify/static` serves the copy in `dist/` at `/llms.txt` (a real file, so
+it's matched before the SPA's index.html fallback; served as `text/plain`). No server route.
+
+**Safety model (human-in-the-loop paste).** The token is a secret and must never reach the
+assistant. `/llms.txt` instructs the agent to write the client config with a
+`<PASTE_YOUR_TOKEN_HERE>` **placeholder** and have the human paste the real `rkb_…` value into
+their own config file — the agent orchestrates, the human holds the secret. A leaked token is
+revoked in **Settings → Service tokens**. A future OAuth 2.0 device-code flow could remove the
+manual paste entirely (token never leaves the token endpoint); the paste flow is today's safe,
+simple approach.
+
 ## Tools
 
 Input/output schemas are the same Zod schemas the REST API uses, exposed as JSON Schema. All
