@@ -31,6 +31,29 @@ const loginFormSchema = z.object({
 })
 type LoginFormValues = z.infer<typeof loginFormSchema>
 
+/**
+ * Ask the browser to save the just-used credentials. A fetch-based SPA login
+ * followed by client-side navigation does NOT reliably trigger the "save
+ * password?" prompt a native form POST would, so the password manager never
+ * offers to store them. The Credential Management API requests it explicitly.
+ * Chromium-only (a no-op where `PasswordCredential` is absent, e.g. Firefox/
+ * Safari/tests, which fall back to their own form heuristics); best-effort, so
+ * a refusal is swallowed.
+ */
+function offerToSaveCredential(email: string, password: string): void {
+  const Ctor = (
+    window as typeof window & {
+      PasswordCredential?: new (data: { id: string; password: string }) => Credential
+    }
+  ).PasswordCredential
+  if (Ctor === undefined) return
+  try {
+    void navigator.credentials.store(new Ctor({ id: email, password }))
+  } catch {
+    // Progressive enhancement — ignore if the browser declines to store.
+  }
+}
+
 export function LoginPage() {
   const navigate = useNavigate()
   const setupRequired = useSetupRequired()
@@ -63,6 +86,9 @@ export function LoginPage() {
             void form.handleSubmit((values) => {
               login.mutate(values, {
                 onSuccess: () => {
+                  // Prompt the browser's password manager to save (fetch logins
+                  // don't trigger it automatically), then go to the board.
+                  offerToSaveCredential(values.email, values.password)
                   void navigate('/')
                 },
               })
