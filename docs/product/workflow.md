@@ -157,7 +157,10 @@ history.
   The UI badges P0 cards; agents may flag order/priority mismatches.
 - `estimate_minutes` — integer minutes, rendered in the UI as hours/days with 1 day = 8 working
   hours (90 → "1.5h", 960 → "2d"). Optional until the card reaches Ready; the approval step
-  nags for it.
+  nags for it. While a card is being worked (In Progress / Review / waiting lanes), a burn-down
+  bar tracks elapsed **business** time against the estimate; once it passes the estimate the bar
+  turns pink and the card shows an **"Overdue"** chip — the same overdue chip + hover tooltip the
+  waiting-resume overdue uses (`board/CardBadges.tsx`), so both overdue states read consistently.
 
 ## Archival
 

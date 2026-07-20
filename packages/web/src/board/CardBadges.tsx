@@ -38,14 +38,23 @@ export function CardBadges({
   card,
   today,
   showPriority = true,
+  workOverdue = false,
 }: {
   card: CardBadgeFields
   today: string
   showPriority?: boolean
+  /**
+   * The card is past its WORK estimate (in-progress burn-down overdue) — a
+   * distinct overdue from the waiting-resume one, computed by the caller (it
+   * needs a live clock). Shown as the SAME overdue chip so both overdue states
+   * read alike. Suppressed while waiting, whose own overdue badge covers it.
+   */
+  workOverdue?: boolean
 }) {
   const overdue = isOverdueResume(card.expectedResumeAt, today)
   const cancelled = card.resolution !== null && card.resolution !== 'completed'
-  if (!showPriority && !hasCardStatus(card)) return null
+  const showWorkOverdue = workOverdue && card.waitingReason === null
+  if (!showPriority && !hasCardStatus(card) && !showWorkOverdue) return null
   return (
     <Group gap="xs">
       {showPriority ? (
@@ -96,6 +105,15 @@ export function CardBadges({
             {overdue
               ? strings.card.overdueBadge(strings.waiting.reasons[card.waitingReason])
               : strings.card.waitingBadge(strings.waiting.reasons[card.waitingReason])}
+          </Badge>
+        </Tooltip>
+      ) : null}
+      {showWorkOverdue ? (
+        // An in-progress card past its estimate — the SAME overdue chip + hover
+        // explanation as the waiting-resume overdue, so both read consistently.
+        <Tooltip label={strings.card.workOverdueBadgeTooltip} multiline>
+          <Badge color={OVERDUE_COLOR} size="sm" variant="light">
+            {strings.card.workOverdueBadge}
           </Badge>
         </Tooltip>
       ) : null}

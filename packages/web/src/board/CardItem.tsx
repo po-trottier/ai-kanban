@@ -4,7 +4,10 @@ import { Paperclip } from 'lucide-react'
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { useRef } from 'react'
 import { type PickerUser } from '../api/schemas.ts'
+import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDate, formatEstimate, formatTicketNumber, initials } from '../lib/format.ts'
+import { useNow } from '../lib/use-now.ts'
+import { workProgress } from '../lib/work-progress.ts'
 import { PinIcon } from '../shell/icons.tsx'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT, PRIORITY_COLORS } from '../theme.ts'
@@ -18,6 +21,9 @@ import { useCardDnd } from './dnd.ts'
 
 /** Lanes between Ready and Done where a card carries a live work burn-down bar. */
 const WORKING_LANES = new Set<LaneKey>(['in_progress', 'waiting_parts_vendor', 'review'])
+
+/** Re-check work-overdue on the same minute cadence as the burn-down bar. */
+const WORK_TICK_MS = 60_000
 
 export interface CardItemProps {
   card: BoardCard
@@ -57,6 +63,16 @@ export function CardItem({
   const ref = useRef<HTMLDivElement | null>(null)
   const { dragging, closestEdge } = useCardDnd(ref, card, laneKey, canDropFrom)
   const resumeAt = card.waitingReason !== null ? card.expectedResumeAt : null
+  // Whether the work burn-down has passed its estimate — the same signal the
+  // progress bar turns red on, surfaced as an "Overdue" badge so an in-progress
+  // overdue card reads like a waiting-overdue one (both get the chip + tooltip).
+  const timezone = useUserTimezone()
+  const now = useNow(WORK_TICK_MS)
+  const workOverdue =
+    WORKING_LANES.has(laneKey) &&
+    card.workStartedAt !== null &&
+    card.estimateMinutes !== null &&
+    workProgress(card.workStartedAt, card.estimateMinutes, now, timezone).overdue
 
   return (
     <Paper
@@ -107,10 +123,11 @@ export function CardItem({
           />
         </Group>
       </Group>
-      {/* Status badges (blocked/waiting/overdue/cancelled/archived) — only when set */}
-      {hasCardStatus(card) ? (
+      {/* Status badges (blocked/waiting/overdue/cancelled/archived) — plus the
+          work-overdue chip when the burn-down has passed its estimate. */}
+      {hasCardStatus(card) || workOverdue ? (
         <Group justify="space-between" mt="xs" gap="xs" wrap="nowrap">
-          <CardBadges card={card} today={today} showPriority={false} />
+          <CardBadges card={card} today={today} showPriority={false} workOverdue={workOverdue} />
           {resumeAt === null ? null : (
             <Text size="xs" c="dimmed">
               {strings.card.resumePrefix(formatDate(resumeAt))}

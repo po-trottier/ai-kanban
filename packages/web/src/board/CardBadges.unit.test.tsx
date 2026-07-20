@@ -53,6 +53,32 @@ describe('CardBadges', () => {
     expect(screen.getByText('Overdue: Vendor')).toBeInTheDocument()
   })
 
+  it('shows the work-overdue chip for an in-progress card past its estimate', () => {
+    // Arrange — an in-progress card with no other status.
+    const card = makeCard('in_progress', { priority: 'P2' })
+    // Act — the caller passes the computed work-overdue flag.
+    renderWithProviders(
+      <CardBadges card={card} today="2026-07-16" showPriority={false} workOverdue />,
+    )
+    // Assert — the same "Overdue" chip the waiting-resume overdue uses.
+    expect(screen.getByText('Overdue')).toBeInTheDocument()
+  })
+
+  it('suppresses the work-overdue chip while waiting (its own overdue badge covers it)', () => {
+    // Arrange — a waiting card that is also past its work estimate.
+    const card = makeCard('waiting_parts_vendor', {
+      waitingReason: 'vendor',
+      expectedResumeAt: '2026-07-15',
+    })
+    // Act
+    renderWithProviders(
+      <CardBadges card={card} today="2026-07-16" showPriority={false} workOverdue />,
+    )
+    // Assert — only the waiting-resume overdue badge shows, not a second "Overdue".
+    expect(screen.getByText('Overdue: Vendor')).toBeInTheDocument()
+    expect(screen.queryByText(/^Overdue$/)).not.toBeInTheDocument()
+  })
+
   it('badges cancelled cards with their resolution', () => {
     // Arrange
     const card = makeCard('done', { resolution: 'duplicate' })

@@ -294,6 +294,10 @@ export const strings = {
     priorityBadgeTooltip: (name: string, meaning: string) => `${name} — ${meaning}`,
     waitingBadge: (reason: string) => `Waiting: ${reason}`,
     overdueBadge: (reason: string) => `Overdue: ${reason}`,
+    /** In-progress card past its work estimate — the same overdue chip as the
+     * waiting-resume overdue, so both overdue states read consistently. */
+    workOverdueBadge: 'Overdue',
+    workOverdueBadgeTooltip: 'This work order has run past its time estimate.',
     archivedBadge: 'Archived',
     /** Hover explanations for the color-only status badges (mirrors the legend
      * copy) so a technician never has to open the badge guide to decode them. */
