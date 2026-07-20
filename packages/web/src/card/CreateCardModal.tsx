@@ -37,6 +37,7 @@ export function CreateCardModal({ card, onClose }: { card: Card; onClose: () => 
       opened
       onClose={cancel}
       closeOnClickOutside={false}
+      closeButtonProps={{ 'aria-label': strings.common.close }}
       title={strings.newCard.modalTitle}
       size="lg"
       centered

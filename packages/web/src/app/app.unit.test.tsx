@@ -1,5 +1,5 @@
 import { type PolicyDocument, type User } from '@rivian-kanban/core'
-import { screen } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { createFakeFetch, problemResponse, type FakeFetch } from '../test/fake-fetch.ts'
@@ -201,5 +201,59 @@ describe('app routing', () => {
     // Assert
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(await screen.findByRole('textbox', { name: /Title/ })).toHaveValue('Fix pump')
+  })
+
+  it('closing the New work order modal with ✕ discards the draft — it leaves the board', async () => {
+    // Arrange — a STATEFUL board like the real server: the draft appears after
+    // POST /cards and is gone after DELETE. Reproduces the user's exact flow
+    // (create → ✕) and verifies the draft is removed from the BOARD, not just
+    // the modal — the gap the isolated modal unit test never covered.
+    const user = userEvent.setup()
+    const draft = makeCard('intake', { title: 'Untitled', version: 1 })
+    let phase: 'empty' | 'created' | 'deleted' = 'empty'
+    const fake = createFakeFetch({
+      'GET /api/v1/auth/me': fixtureAdmin,
+      'GET /api/v1/board': () => makeBoard(phase === 'created' ? { intake: [draft] } : {}),
+      'GET /api/v1/policy': policyRecordOf(permissivePolicy),
+      'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': fixturePickerUsers,
+      'GET /api/v1/locations': [],
+      'GET /api/v1/tags': [],
+      'GET /api/v1/filter-presets': [],
+      'POST /api/v1/cards': () => {
+        phase = 'created'
+        return draft
+      },
+      [`GET /api/v1/cards/${String(draft.id)}`]: {
+        card: draft,
+        tags: [],
+        location: null,
+        attachments: [],
+      },
+      [`GET /api/v1/cards/${String(draft.id)}/relations`]: [],
+      [`DELETE /api/v1/cards/${String(draft.id)}`]: () => {
+        phase = 'deleted'
+        return new Response(null, { status: 204 })
+      },
+    })
+    // Act — create a work order (it appears on the board), then close via ✕.
+    renderApp({ fetchFn: fake.fetch })
+    await user.click(await screen.findByRole('button', { name: 'New work order' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New work order' })
+    await screen.findByText('Untitled')
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+    // Assert — a DELETE hit the draft, and it is GONE from the board after refetch.
+    await waitFor(() => {
+      expect(
+        fake.calls.some(
+          (call) =>
+            call.method === 'DELETE' &&
+            (call.url.split('?')[0] ?? call.url) === `/api/v1/cards/${String(draft.id)}`,
+        ),
+      ).toBe(true)
+    })
+    await waitFor(() => {
+      expect(screen.queryByText('Untitled')).not.toBeInTheDocument()
+    })
   })
 })
