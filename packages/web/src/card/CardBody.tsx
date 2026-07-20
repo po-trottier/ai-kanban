@@ -14,13 +14,28 @@ import { RelationsSection } from './RelationsSection.tsx'
 /**
  * The shared card body: the **State** dropdown, the editable fields, then
  * Relations and Attachments. Rendered identically by the detail panel's Details
- * tab (edit view — explicit Save) and the New Card modal (`autoSave` — no Save
- * button, fields PATCH on their own), so creating and editing a card are ONE
- * code path. It fetches its own detail so either surface just hands it a
- * `cardId`; State / relations / attachments already mutate immediately against
- * that id, so only the fields differ (Save vs. auto-save).
+ * tab (edit view) and the New Card modal (`createMode`), so creating and editing
+ * a card are ONE code path. It fetches its own detail so either surface just
+ * hands it a `cardId`; State / relations / attachments already mutate
+ * immediately against that id, so only the fields' footer differs — the edit
+ * panel's Save changes vs. the modal's Cancel / Create.
  */
-export function CardBody({ cardId, autoSave = false }: { cardId: string; autoSave?: boolean }) {
+export function CardBody({
+  cardId,
+  createMode = false,
+  onCancel,
+  onCreated,
+  cancelPending,
+}: {
+  cardId: string
+  createMode?: boolean
+  /** Create modal: discard the draft + close (Cancel / ✕ / Escape). */
+  onCancel?: (() => void) | undefined
+  /** Create modal: close once the fields are saved (Create). */
+  onCreated?: (() => void) | undefined
+  /** Create modal: whether the discard is in flight (spins Cancel). */
+  cancelPending?: boolean | undefined
+}) {
   const me = useCurrentUser()
   const detailQuery = useCardDetail(cardId)
   const locationsQuery = useLocations()
@@ -58,10 +73,10 @@ export function CardBody({ cardId, autoSave = false }: { cardId: string; autoSav
     <Stack gap="md">
       {/* The state dropdown sits at the top of the body (near the fields) in the
           edit panel; archived cards are read-only until reopened. The create
-          modal (autoSave) HIDES it — a brand-new card is always in Intake, so
-          picking a state before it exists as real work is noise. It reuses the
-          same status color the board card badges show. */}
-      {autoSave ? null : (
+          modal HIDES it — a brand-new card is always in Intake, so picking a
+          state before it exists as real work is noise. It reuses the same status
+          color the board card badges show. */}
+      {createMode ? null : (
         <CardStateSelect
           card={detail.card}
           board={boardQuery.data}
@@ -76,9 +91,26 @@ export function CardBody({ cardId, autoSave = false }: { cardId: string; autoSav
         knownTags={(tagsQuery.data ?? []).map((tag) => tag.name)}
         saving={updateCard.isPending}
         disabled={archived}
-        autoSave={autoSave}
+        createMode={createMode}
+        onCancel={onCancel}
+        cancelPending={cancelPending}
         onSave={(changes) => {
-          updateCard.mutate({ card: detail.card, changes, silent: autoSave })
+          // Edit panel: plain save. Create modal: Create commits the edited
+          // fields then closes (via the mutation's onSuccess); if nothing was
+          // edited (kept the placeholder), just close. silent avoids a "Card
+          // updated" toast on top of the "created" one.
+          if (createMode) {
+            if (Object.keys(changes).length === 0) {
+              onCreated?.()
+              return
+            }
+            updateCard.mutate(
+              { card: detail.card, changes, silent: true },
+              { onSuccess: () => onCreated?.() },
+            )
+          } else {
+            updateCard.mutate({ card: detail.card, changes })
+          }
         }}
       >
         {/* Relations then Attachments sit between the fields and the timestamps;

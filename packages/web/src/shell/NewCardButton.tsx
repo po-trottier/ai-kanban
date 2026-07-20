@@ -1,3 +1,4 @@
+import { type Card } from '@rivian-kanban/core'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useCreateCard } from '../api/board.ts'
@@ -15,7 +16,7 @@ import { strings } from '../strings.ts'
  */
 export function NewCardButton() {
   const createCard = useCreateCard()
-  const [draftId, setDraftId] = useState<string | null>(null)
+  const [draft, setDraft] = useState<Card | null>(null)
 
   return (
     <>
@@ -29,7 +30,7 @@ export function NewCardButton() {
             { title: strings.newCard.placeholderTitle, description: '', priority: 'P2', tags: [] },
             {
               onSuccess: (card) => {
-                setDraftId(String(card.id))
+                setDraft(card)
               },
             },
           )
@@ -37,11 +38,11 @@ export function NewCardButton() {
       >
         {strings.board.newCard}
       </HintButton>
-      {draftId !== null ? (
+      {draft !== null ? (
         <CreateCardModal
-          cardId={draftId}
+          card={draft}
           onClose={() => {
-            setDraftId(null)
+            setDraft(null)
           }}
         />
       ) : null}

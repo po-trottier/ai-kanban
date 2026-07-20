@@ -1,4 +1,5 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { createFakeFetch, type FakeRouteResult } from '../test/fake-fetch.ts'
 import {
@@ -48,7 +49,7 @@ describe('CreateCardModal', () => {
     // Arrange
     const fake = modalFake()
     // Act
-    renderWithProviders(<CreateCardModal cardId={String(draft.id)} onClose={() => undefined} />, {
+    renderWithProviders(<CreateCardModal card={draft} onClose={() => undefined} />, {
       fetchFn: fake.fetch,
     })
     // Assert — the SAME body (title field, relations, attachments) but auto-saving:
@@ -65,13 +66,14 @@ describe('CreateCardModal', () => {
 
   it('cancels the draft via DELETE /cards/:id and closes', async () => {
     // Arrange
+    const user = userEvent.setup()
     let closed = false
     const fake = modalFake({
       [`DELETE /api/v1/cards/${String(draft.id)}`]: new Response(null, { status: 204 }),
     })
     renderWithProviders(
       <CreateCardModal
-        cardId={String(draft.id)}
+        card={draft}
         onClose={() => {
           closed = true
         }}
@@ -80,7 +82,7 @@ describe('CreateCardModal', () => {
     )
     await screen.findByRole('textbox', { name: /Title/ })
     // Act
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
     // Assert — a DELETE hit the draft, then onClose ran.
     await waitFor(() => {
       expect(
@@ -96,13 +98,14 @@ describe('CreateCardModal', () => {
     })
   })
 
-  it('keeps the card and closes on Create (no delete)', async () => {
+  it('keeps the card and closes on Create (no delete) when nothing was edited', async () => {
     // Arrange
+    const user = userEvent.setup()
     let closed = false
     const fake = modalFake()
     renderWithProviders(
       <CreateCardModal
-        cardId={String(draft.id)}
+        card={draft}
         onClose={() => {
           closed = true
         }}
@@ -110,10 +113,12 @@ describe('CreateCardModal', () => {
       { fetchFn: fake.fetch },
     )
     await screen.findByRole('textbox', { name: /Title/ })
-    // Act
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
-    // Assert — closes immediately, and the draft is never deleted.
-    expect(closed).toBe(true)
+    // Act — Create submits the (unchanged) form; nothing to save, so it just closes.
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+    // Assert — closed, and the draft is never deleted or patched.
+    await waitFor(() => {
+      expect(closed).toBe(true)
+    })
     expect(fake.calls.every((call) => call.method !== 'DELETE')).toBe(true)
   })
 })

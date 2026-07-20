@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
@@ -143,25 +143,27 @@ describe('CardDetailsForm', () => {
     expect(screen.getByRole('textbox', { name: /Estimate/ })).toHaveValue('90')
   })
 
-  it('auto-saves the edited field and hides Save in create view (autoSave)', async () => {
-    // Arrange — the create view has no Save button; a debounced watcher PATCHes
-    // edited fields on its own (the draft card already exists).
+  it('shows a Cancel/Create footer in create mode and saves the dirty subset on Create', async () => {
+    // Arrange — the create modal swaps the edit Save for Cancel / Create; the
+    // fields save when Create submits the form, not per keystroke.
     const user = userEvent.setup()
     const saved: CardFieldChanges[] = []
-    renderForm({ autoSave: true, onSave: (changes) => saved.push(changes) })
-    // Assert — no explicit Save in create view.
+    renderForm({
+      createMode: true,
+      onCancel: () => undefined,
+      onSave: (changes) => saved.push(changes),
+    })
+    // Assert — create footer, no edit Save button.
     expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
-    // Act — edit only the title.
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    // Act — edit the title; nothing saves until Create submits the form.
     const title = screen.getByRole('textbox', { name: /Title/ })
     await user.clear(title)
     await user.type(title, 'Broken door')
-    // Assert — the debounced save sent ONLY the dirty subset, unprompted.
-    await waitFor(
-      () => {
-        expect(saved.at(-1)).toEqual({ title: 'Broken door' })
-      },
-      { timeout: 2000 },
-    )
+    expect(saved).toEqual([])
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+    // Assert — Create sent ONLY the dirty subset.
+    expect(saved).toEqual([{ title: 'Broken door' }])
   })
 
   it('renders every field disabled and hides Save when the card is read-only', () => {
