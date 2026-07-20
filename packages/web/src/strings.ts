@@ -461,7 +461,7 @@ export const strings = {
     modalTitle: 'Add relationship',
     typeLabel: 'Relationship',
     targetLabel: 'Related card',
-    targetPlaceholder: 'Search cards by title or #number…',
+    targetPlaceholder: 'Search by title, #number, or paste a card link…',
     targetNothingFound: 'No matching cards',
     add: 'Add relation',
     remove: (title: string) => `Remove relation to ${title}`,

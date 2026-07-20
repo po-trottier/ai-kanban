@@ -325,6 +325,19 @@ describe('query — filters', () => {
 
     expect(exact.map((c) => c.title)).toEqual(['Éclairage du couloir est'])
   })
+
+  it('q matches a card by its work-order number when the query is purely numeric', async () => {
+    const laneId = filterLane()
+
+    const all = await run((tx) => tx.cards.query({ laneId }))
+    const target = all[0]
+    if (target === undefined) throw new Error('expected a seeded card in the filter lane')
+    // A bare number matches that card id exactly (the relation picker feeds it
+    // ticket numbers / pasted URLs collapsed to the number).
+    const byNumber = await run((tx) => tx.cards.query({ laneId, q: String(target.id) }))
+
+    expect(byNumber.map((c) => c.id)).toContain(target.id)
+  })
 })
 
 describe('query — cursor contract (createdAt DESC, id DESC, strictly older)', () => {

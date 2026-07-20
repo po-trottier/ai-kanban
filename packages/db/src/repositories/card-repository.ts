@@ -247,9 +247,12 @@ export class SqliteCardRepository implements CardRepository {
       // exact non-ASCII substring always matches. Folding the needle in JS
       // instead (full Unicode fold) would silently miss e.g. 'Éclairage'.
       const pattern = `%${escapeLike(filter.q)}%`
-      conditions.push(
-        sql`lower(${cards.title} || ${'\n'} || ${cards.description}) like lower(${pattern}) escape '\\'`,
-      )
+      const textMatch = sql`lower(${cards.title} || ${'\n'} || ${cards.description}) like lower(${pattern}) escape '\\'`
+      // A purely numeric query ALSO matches that work-order number exactly (e.g.
+      // "42" → #42), so a typed or pasted ticket number finds its card. The web
+      // picker normalizes "#42" and pasted card URLs down to the bare number.
+      const asId = /^\d+$/.test(filter.q) ? Number(filter.q) : null
+      conditions.push(asId === null ? textMatch : or(textMatch, eq(cards.id, asId)))
     }
     return conditions
   }

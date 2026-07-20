@@ -49,18 +49,35 @@ export function useDeleteRelation(cardId: string) {
 }
 
 /**
+ * Normalizes a relation-picker query so a card can be found by its work-order
+ * NUMBER, a "#42" ticket ref, or a pasted card URL — not just its title. A
+ * pasted `…/cards/42` or a `#42` collapses to the bare number `42` (the server
+ * matches it against the card id); anything else passes through as a
+ * title/description search term.
+ */
+export function cardSearchTerm(raw: string): string {
+  const q = raw.trim()
+  const fromUrl = /\/cards\/(\d+)/.exec(q)
+  if (fromUrl !== null) return fromUrl[1] ?? q
+  const fromHash = /^#(\d+)$/.exec(q)
+  if (fromHash !== null) return fromHash[1] ?? q
+  return q
+}
+
+/**
  * Async card search for the relation-target picker — reuses `GET /cards?q=`
- * (title/description substring). An empty query returns the newest cards so the
- * picker shows something before typing; `keepPreviousData` avoids blanking the
- * list between keystrokes.
+ * (title/description, plus an exact work-order-number match server-side). An
+ * empty query returns the newest cards so the picker shows something before
+ * typing; `keepPreviousData` avoids blanking the list between keystrokes. The
+ * query is normalized so a NUMBER, "#42", or a pasted card URL all resolve.
  */
 export function useCardSearch(q: string) {
   const api = useApi()
   const params = new URLSearchParams({ limit: '10' })
-  const trimmed = q.trim()
-  if (trimmed !== '') params.set('q', trimmed)
+  const term = cardSearchTerm(q)
+  if (term !== '') params.set('q', term)
   return useQuery({
-    queryKey: queryKeys.cardSearch(trimmed),
+    queryKey: queryKeys.cardSearch(term),
     queryFn: () => api.get(`/cards?${params.toString()}`, cardSearchResponseSchema),
     placeholderData: keepPreviousData,
   })
