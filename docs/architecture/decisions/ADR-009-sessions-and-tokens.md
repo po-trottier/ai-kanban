@@ -16,11 +16,14 @@ Pilot auth is local accounts (PO decision) with OIDC/SSO later. Research suggest
   benefit is worthless on a deliberately single-node deployment.
 - **MCP: bearer service tokens** (admin-issued, sha256-hashed, role-scoped, revocable). The
   MCP auth spec's full OAuth resource-server behavior (RFC 9728 metadata, IdP-issued tokens)
-  is adopted at the OIDC cutover, when an authorization server actually exists.
+  is adopted at the OIDC cutover, when an authorization server actually exists — that cutover is
+  now designed in [ADR-021](ADR-021-oauth-authorization-server.md) (proposed: a first-party
+  OAuth 2.1 AS, agent auth without manual token copy, and on-behalf-of audit).
 - **OIDC-ready**: the login handler is the only component that knows about passwords —
   password change and admin reset live in the same handler family. OIDC replaces them
   (code flow → find-or-create user → same session issuance); sessions, the policy engine, and
-  every downstream consumer are unchanged.
+  every downstream consumer are unchanged. Federation to external IdPs (Entra ID, Google) is
+  specified in [ADR-021](ADR-021-oauth-authorization-server.md).
 
 ## Consequences
 
