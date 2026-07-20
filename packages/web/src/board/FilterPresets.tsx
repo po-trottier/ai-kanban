@@ -59,9 +59,13 @@ const CREATE_VALUE = 'action:create'
 const CUSTOM_VALUE = 'state:custom'
 
 const BUILTIN_LABELS: Record<(typeof BUILTIN_FILTER_PRESETS)[number]['key'], string> = {
+  all: strings.filterBar.builtinAll,
   my_cards: strings.filterBar.builtinMyCards,
   overdue: strings.filterBar.builtinOverdue,
 }
+
+/** The "All" built-in's option value — the unfiltered board (the empty filter). */
+const ALL_VALUE = `${BUILTIN_PREFIX}all`
 
 /** A dropdown option; `shared` renders a small share glyph so shared presets read as shared. */
 interface PresetOption {
@@ -169,12 +173,18 @@ export function FilterPresets({ filter, onApply, currentUserId }: FilterPresetsP
   // Does the live filter still match the applied preset? Yes → show its name; the
   // preset drifted → "Custom"; no applied preset at all → placeholder.
   const matchesApplied = appliedFilter !== null && boardFilterEquals(appliedFilter, filter)
-  // The empty filter is "no preset context" — the placeholder, never "Custom".
-  // "Reset filters" lives in the bar (it calls onChange directly, not through
-  // this combobox), so an empty live filter is how a reset reads here (#120).
+  // The empty (unfiltered) filter IS the "All" built-in — it's the default and
+  // what "Reset filters" restores (the bar calls onChange directly, so an empty
+  // live filter is how a reset reads here, #120). A non-empty filter shows the
+  // applied preset's name while it still matches, "Custom" once it drifts.
   const isEmpty = boardFilterEquals(filter, EMPTY_BOARD_FILTER)
-  const selectedValue =
-    appliedFilter === null || isEmpty ? null : matchesApplied ? appliedValue : CUSTOM_VALUE
+  const selectedValue = isEmpty
+    ? ALL_VALUE
+    : appliedFilter === null
+      ? null
+      : matchesApplied
+        ? appliedValue
+        : CUSTOM_VALUE
 
   // The rename/share/delete affordances belong to an APPLIED preset you OWN that
   // the box is currently showing by name (a built-in has none; a teammate's

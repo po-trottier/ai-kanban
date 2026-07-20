@@ -96,13 +96,19 @@ export type UpdateFilterPresetInput = z.infer<typeof updateFilterPresetInputSche
  * current user's id at render time (only the client knows "me").
  */
 export interface BuiltinFilterPreset {
-  key: 'my_cards' | 'overdue'
+  key: 'all' | 'my_cards' | 'overdue'
   name: string
   filter: BoardFilter
 }
 
-/** The two built-in presets (docs/architecture/board-filters.md#built-in-presets). */
+/**
+ * The built-in presets (docs/architecture/board-filters.md#built-in-presets).
+ * `all` is the unfiltered board (the empty filter) — the default selection and
+ * what "Reset filters" restores; `my_cards` carries an empty `assigneeIds` the
+ * bar fills with the current user's id at render time.
+ */
 export const BUILTIN_FILTER_PRESETS: readonly BuiltinFilterPreset[] = [
+  { key: 'all', name: 'All', filter: EMPTY_BOARD_FILTER },
   { key: 'my_cards', name: 'My Cards', filter: EMPTY_BOARD_FILTER },
   { key: 'overdue', name: 'Overdue', filter: { ...EMPTY_BOARD_FILTER, overdue: true } },
 ]

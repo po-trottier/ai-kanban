@@ -85,20 +85,23 @@ NULL AND estimate_minutes IS NOT NULL` (a DB predicate) plus every other facet �
 ## Presets
 
 A **filter preset** is a named, saved `BoardFilter`, stored server-side. Presets are **per-user by
-default** (private to their owner); an owner can **share** one with the whole team, and there are two
-built-ins everyone always has.
+default** (private to their owner); an owner can **share** one with the whole team, and there are
+three built-ins everyone always has.
 
 ### Built-in presets
 
-Two built-ins are core constants (`BUILTIN_FILTER_PRESETS`) the frontend renders, NOT rows in the
+Three built-ins are core constants (`BUILTIN_FILTER_PRESETS`) the frontend renders, NOT rows in the
 database — they have no owner and are the same for everyone:
 
+- **All** — the empty (unfiltered) `BoardFilter`: every work order, no facets. It is the **default
+  selection** and exactly what **"Reset filters"** restores, so an empty bar reads as "All" rather
+  than a bare placeholder.
 - **My Cards** — `assigneeIds` = `[current user]` (the frontend fills in the id at render time,
   since "current user" is only known client-side; the constant carries an empty `assigneeIds` the
   bar fills in).
 - **Overdue** — `overdue: true`, everything else empty.
 
-Built-ins can't be edited or deleted. They exist so the two most common views need no setup.
+Built-ins can't be edited or deleted. They exist so the most common views need no setup.
 
 ### Custom presets (the CRUD ones)
 
@@ -226,14 +229,15 @@ The SPA renders the filter as a **filter bar** below the header and above the bo
   Reporter** need no cached vocabulary — they search the server per keystroke (`#119`,
   `AsyncUserPicker`), so a 10k-user roster is never loaded or cached to go stale. Priority and Scope are
   static enums.
-- **Presets** (`FilterPresets.tsx`). The combobox lists the two core built-ins
-  (`BUILTIN_FILTER_PRESETS` — "My Cards" fills `assigneeIds` with the current user id client-side,
-  "Overdue" sets `overdue:true`) plus the user's custom presets from `GET /filter-presets`. Selecting
-  any preset applies its COMPLETE `BoardFilter` (never a partial overlay). The combobox **reflects
-  state** (#120): it shows the **applied preset's NAME** as its value while the live filter still
-  equals that preset's (effective) filter; once any facet **drifts** (an edit) it shows **"Custom"**
-  (`strings.filterBar.presetsCustom`); and with **no preset context** — a fresh board or after "Reset
-  filters" empties the bar — it shows the **placeholder**. The component tracks the last applied
+- **Presets** (`FilterPresets.tsx`). The combobox lists the three core built-ins
+  (`BUILTIN_FILTER_PRESETS` — "All" is the empty/unfiltered filter, "My Cards" fills `assigneeIds`
+  with the current user id client-side, "Overdue" sets `overdue:true`) plus the user's custom presets
+  from `GET /filter-presets`. Selecting any preset applies its COMPLETE `BoardFilter` (never a partial
+  overlay). The combobox **reflects state** (#120): it shows the **applied preset's NAME** as its
+  value while the live filter still equals that preset's (effective) filter; once any facet **drifts**
+  (an edit) it shows **"Custom"** (`strings.filterBar.presetsCustom`); and the **empty/unfiltered
+  board** — the default and what "Reset filters" restores — reads as the **"All"** built-in (never a
+  bare placeholder). The component tracks the last applied
   option value (`appliedValue`, a built-in `builtin:<key>` or a custom id) and derives name-vs-Custom
   from field-wise `boardFilterEquals`. It is built on Mantine's **`Combobox`** primitive (not `Select`)
   precisely so the collapsed display can differ from the option list: **"Custom" is a display-only

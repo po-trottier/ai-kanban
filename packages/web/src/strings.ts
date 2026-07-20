@@ -402,6 +402,7 @@ export const strings = {
     presetsCreateGroup: 'Actions',
     presetsCreate: 'Save preset',
     /** Built-in preset display names (mirror core BUILTIN_FILTER_PRESETS). */
+    builtinAll: 'All',
     builtinMyCards: 'My Cards',
     builtinOverdue: 'Overdue',
     /** Save / rename / delete affordances. */

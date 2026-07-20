@@ -183,13 +183,13 @@ describe('FilterPresets', () => {
     expect(screen.getByRole('option', { name: 'Save preset' })).toBeInTheDocument()
   })
 
-  it('shows the placeholder (no preset context) for a fresh/empty filter (#120)', () => {
+  it('reads the empty/unfiltered board as the built-in "All" preset (default + Reset, #120)', () => {
     // Arrange — the default, unfiltered board with a preset available but none applied.
     const preset = customPreset()
-    // Act — render with the empty filter (nothing has been applied).
+    // Act — render with the empty filter (the default, and what Reset filters restores).
     renderPresets([preset], {}, EMPTY_BOARD_FILTER)
-    // Assert — the collapsed combobox shows its placeholder, not a name or Custom.
-    expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveTextContent('Choose a preset')
+    // Assert — the collapsed combobox reads "All", not the placeholder or "Custom".
+    expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveTextContent('All')
   })
 
   it('saves the current filter as a new named preset (POST)', async () => {

@@ -56,7 +56,7 @@ describe('boardFilterSchema', () => {
 })
 
 describe('BUILTIN_FILTER_PRESETS', () => {
-  it('exposes My Cards and Overdue as complete BoardFilter values', () => {
+  it('exposes All, My Cards, and Overdue as complete BoardFilter values', () => {
     // Arrange
     const byKey = new Map(BUILTIN_FILTER_PRESETS.map((preset) => [preset.key, preset]))
 
@@ -65,7 +65,9 @@ describe('BUILTIN_FILTER_PRESETS', () => {
       boardFilterSchema.parse(preset.filter),
     )
 
-    // Assert — each built-in filter is a full, valid BoardFilter.
+    // Assert — each built-in filter is a full, valid BoardFilter; All is unfiltered.
+    expect(byKey.get('all')?.filter.overdue).toBe(false)
+    expect(byKey.get('all')?.filter.scope).toBe('active')
     expect(byKey.get('overdue')?.filter.overdue).toBe(true)
     expect(byKey.get('my_cards')?.filter.assigneeIds).toEqual([])
     expect(roundTripped).toEqual(BUILTIN_FILTER_PRESETS.map((preset) => preset.filter))
