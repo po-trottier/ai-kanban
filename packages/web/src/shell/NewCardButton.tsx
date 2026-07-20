@@ -1,22 +1,67 @@
-import { type Card } from '@rivian-kanban/core'
+import { type CreateCardInput, type CreateCardRelationInput } from '@rivian-kanban/core'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
+import { useApi } from '../api/api-context.ts'
 import { useCreateCard } from '../api/board.ts'
+import { useUploadNewCardAttachment } from '../api/card.ts'
+import { useLocations, useTags } from '../api/meta.ts'
+import { notifyError } from '../api/notify.ts'
+import { cardRelationResponseSchema } from '../api/schemas.ts'
 import { CreateCardModal } from '../card/CreateCardModal.tsx'
 import { HintButton } from './HintButton.tsx'
 import { strings } from '../strings.ts'
 
 /**
- * Header "New card" button. Create-then-edit (docs/architecture/frontend.md):
- * instead of a bespoke create form, it creates a real draft immediately (in
- * Intake, with a placeholder title since core requires a non-empty one) and
- * opens the SAME card body the detail panel uses inside a modal — no Save
- * button (fields auto-save), Discard to throw the draft away. One card-editing
- * code path for create and edit.
+ * "New work order" button + its create-on-submit form modal (nothing exists on
+ * the board until Create). Create runs in phases: POST the fields, then apply
+ * the staged relations + attachments to the freshly created work order — a
+ * failed relation/file is reported but never blocks the others or the created
+ * work order. Cancel / ✕ / Escape close with nothing to undo.
  */
 export function NewCardButton() {
+  const api = useApi()
+  const [open, setOpen] = useState(false)
+  const [applying, setApplying] = useState(false)
+  const locations = useLocations()
+  const tags = useTags()
   const createCard = useCreateCard()
-  const [draft, setDraft] = useState<Card | null>(null)
+  const uploadAttachment = useUploadNewCardAttachment()
+
+  const handleSubmit = (
+    input: CreateCardInput,
+    relations: CreateCardRelationInput[],
+    files: File[],
+  ) => {
+    createCard.mutate(input, {
+      onSuccess: (card) => {
+        if (relations.length === 0 && files.length === 0) {
+          setOpen(false)
+          return
+        }
+        setApplying(true)
+        void (async () => {
+          for (const relation of relations) {
+            try {
+              await api.post(`/cards/${String(card.id)}/relations`, cardRelationResponseSchema, {
+                body: relation,
+              })
+            } catch (error) {
+              notifyError(error)
+            }
+          }
+          for (const file of files) {
+            try {
+              await uploadAttachment.mutateAsync({ cardId: card.id, file })
+            } catch (error) {
+              notifyError(error)
+            }
+          }
+          setApplying(false)
+          setOpen(false)
+        })()
+      },
+    })
+  }
 
   return (
     <>
@@ -24,26 +69,21 @@ export function NewCardButton() {
         size="sm"
         tooltip={strings.tooltips.newCard}
         leftSection={<Plus size={16} aria-hidden />}
-        loading={createCard.isPending}
         onClick={() => {
-          createCard.mutate(
-            { title: strings.newCard.placeholderTitle, description: '', priority: 'P2', tags: [] },
-            {
-              onSuccess: (card) => {
-                setDraft(card)
-              },
-            },
-          )
+          setOpen(true)
         }}
       >
         {strings.board.newCard}
       </HintButton>
-      {draft !== null ? (
+      {open ? (
         <CreateCardModal
-          card={draft}
+          locations={locations.data ?? []}
+          knownTags={(tags.data ?? []).map((tag) => tag.name)}
+          submitting={createCard.isPending || applying}
           onClose={() => {
-            setDraft(null)
+            setOpen(false)
           }}
+          onSubmit={handleSubmit}
         />
       ) : null}
     </>

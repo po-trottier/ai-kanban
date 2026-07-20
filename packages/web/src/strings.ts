@@ -743,8 +743,6 @@ export const strings = {
   newCard: {
     modalTitle: 'New work order',
     created: 'Work order created in Intake',
-    /** A new draft's title until the user renames it (core requires non-empty). */
-    placeholderTitle: 'Untitled',
   },
 
   settings: {

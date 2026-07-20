@@ -12,30 +12,12 @@ import { CardStateSelect } from './CardStateSelect.tsx'
 import { RelationsSection } from './RelationsSection.tsx'
 
 /**
- * The shared card body: the **State** dropdown, the editable fields, then
- * Relations and Attachments. Rendered identically by the detail panel's Details
- * tab (edit view) and the New Card modal (`createMode`), so creating and editing
- * a card are ONE code path. It fetches its own detail so either surface just
- * hands it a `cardId`; State / relations / attachments already mutate
- * immediately against that id, so only the fields' footer differs — the edit
- * panel's Save changes vs. the modal's Cancel / Create.
+ * The detail panel's body: the **State** dropdown, the editable fields, then
+ * Relations and Attachments. It fetches its own detail, so the panel just hands
+ * it a `cardId`; State / relations / attachments mutate immediately against that
+ * id, and the fields commit through the explicit **Save changes** footer.
  */
-export function CardBody({
-  cardId,
-  createMode = false,
-  onCancel,
-  onCreated,
-  cancelPending,
-}: {
-  cardId: string
-  createMode?: boolean
-  /** Create modal: discard the draft + close (Cancel / ✕ / Escape). */
-  onCancel?: (() => void) | undefined
-  /** Create modal: close once the fields are saved (Create). */
-  onCreated?: (() => void) | undefined
-  /** Create modal: whether the discard is in flight (spins Cancel). */
-  cancelPending?: boolean | undefined
-}) {
+export function CardBody({ cardId }: { cardId: string }) {
   const me = useCurrentUser()
   const detailQuery = useCardDetail(cardId)
   const locationsQuery = useLocations()
@@ -46,8 +28,8 @@ export function CardBody({
   const uploadAttachment = useUploadAttachment(cardId)
   const deleteAttachment = useDeleteAttachment(cardId)
 
-  // The modal opens on a just-created draft whose detail may still be loading;
-  // inside the panel the detail is already cached, so this never flashes there.
+  // The panel usually has the detail already cached (opened from a board card),
+  // so this skeleton is only for a cold deep-link to /cards/:id.
   if (detailQuery.isPending) {
     return (
       <Stack gap="md" role="status" aria-label={strings.common.loading} aria-busy>
@@ -71,46 +53,24 @@ export function CardBody({
 
   return (
     <Stack gap="md">
-      {/* The state dropdown sits at the top of the body (near the fields) in the
-          edit panel; archived cards are read-only until reopened. The create
-          modal HIDES it — a brand-new card is always in Intake, so picking a
-          state before it exists as real work is noise. It reuses the same status
+      {/* The state dropdown sits at the top of the body (near the fields);
+          archived cards are read-only until reopened. It reuses the same status
           color the board card badges show. */}
-      {createMode ? null : (
-        <CardStateSelect
-          card={detail.card}
-          board={boardQuery.data}
-          policy={policy}
-          role={me.role}
-          disabled={archived}
-        />
-      )}
+      <CardStateSelect
+        card={detail.card}
+        board={boardQuery.data}
+        policy={policy}
+        role={me.role}
+        disabled={archived}
+      />
       <CardDetailsForm
         detail={detail}
         locations={locationsQuery.data ?? []}
         knownTags={(tagsQuery.data ?? []).map((tag) => tag.name)}
         saving={updateCard.isPending}
         disabled={archived}
-        createMode={createMode}
-        onCancel={onCancel}
-        cancelPending={cancelPending}
         onSave={(changes) => {
-          // Edit panel: plain save. Create modal: Create commits the edited
-          // fields then closes (via the mutation's onSuccess); if nothing was
-          // edited (kept the placeholder), just close. silent avoids a "Card
-          // updated" toast on top of the "created" one.
-          if (createMode) {
-            if (Object.keys(changes).length === 0) {
-              onCreated?.()
-              return
-            }
-            updateCard.mutate(
-              { card: detail.card, changes, silent: true },
-              { onSuccess: () => onCreated?.() },
-            )
-          } else {
-            updateCard.mutate({ card: detail.card, changes })
-          }
+          updateCard.mutate({ card: detail.card, changes })
         }}
       >
         {/* Relations then Attachments sit between the fields and the timestamps;

@@ -1,124 +1,123 @@
-import { screen, waitFor } from '@testing-library/react'
+import { type CreateCardInput, type CreateCardRelationInput } from '@rivian-kanban/core'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { createFakeFetch, type FakeRouteResult } from '../test/fake-fetch.ts'
-import {
-  fixturePickerUsers,
-  makeBoard,
-  makeCard,
-  permissivePolicy,
-  policyRecordOf,
-} from '../test/fixtures.ts'
+import { fixturePickerUsers } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import { CreateCardModal } from './CreateCardModal.tsx'
 
-/** Assignee search (`?q=`) + read-only reporter resolve (`?ids=`) both hit /users/search. */
+/** The assignee picker searches `/users/search` as the card fields render. */
 function userSearchHandler(_init: RequestInit | undefined, url: string): FakeRouteResult {
   const query = new URLSearchParams(url.split('?')[1] ?? '')
-  const ids = query.get('ids')
-  if (ids !== null) {
-    const wanted = new Set(ids.split(','))
-    return fixturePickerUsers.filter((user) => wanted.has(user.id))
-  }
   const q = (query.get('q') ?? '').toLowerCase()
   return fixturePickerUsers.filter((user) => user.displayName.toLowerCase().includes(q))
 }
 
-const draft = makeCard('intake', { title: 'Untitled', version: 1 })
+interface Submitted {
+  input: CreateCardInput
+  relations: CreateCardRelationInput[]
+  files: File[]
+}
 
-function modalFake(extra: Record<string, unknown> = {}) {
-  return createFakeFetch({
-    'GET /api/v1/board': makeBoard({ intake: [draft] }),
-    'GET /api/v1/policy': policyRecordOf(permissivePolicy),
-    'GET /api/v1/locations': [],
-    'GET /api/v1/tags': [],
-    'GET /api/v1/users/search': userSearchHandler,
-    [`GET /api/v1/cards/${String(draft.id)}`]: {
-      card: draft,
-      tags: [],
-      location: null,
-      attachments: [],
-    },
-    [`GET /api/v1/cards/${String(draft.id)}/relations`]: [],
-    ...extra,
-  })
+function renderModal(overrides: Partial<Parameters<typeof CreateCardModal>[0]> = {}) {
+  const fake = createFakeFetch({ 'GET /api/v1/users/search': userSearchHandler })
+  const submitted: Submitted[] = []
+  let closed = 0
+  renderWithProviders(
+    <CreateCardModal
+      locations={[]}
+      knownTags={[]}
+      submitting={false}
+      onSubmit={(input, relations, files) => {
+        submitted.push({ input, relations, files })
+      }}
+      onClose={() => {
+        closed += 1
+      }}
+      {...overrides}
+    />,
+    { fetchFn: fake.fetch },
+  )
+  return { fake, submitted, closedCount: () => closed }
 }
 
 describe('CreateCardModal', () => {
-  it('renders the shared card body with a Cancel/Create footer, no Save button, no State', async () => {
+  it('opens an empty form modal with a Cancel/Create footer and no draft POST', () => {
     // Arrange
-    const fake = modalFake()
-    // Act
-    renderWithProviders(<CreateCardModal card={draft} onClose={() => undefined} />, {
-      fetchFn: fake.fetch,
-    })
-    // Assert — the SAME body (title field, relations, attachments) but auto-saving:
-    // no explicit Save button and no State picker (a new card is always Intake);
-    // a Cancel/Create footer instead, inside a modal.
-    await screen.findByRole('textbox', { name: /Title/ })
+    // Act — mounting the button's modal is opening it.
+    const { fake } = renderModal()
+    // Assert — a real "New work order" form: empty title, no State picker (always
+    // Intake), a Cancel/Create footer, and nothing POSTed just by opening.
     expect(screen.getByRole('dialog', { name: 'New work order' })).toBeInTheDocument()
-    expect(screen.getByText('Relations')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: /Title/ })).toHaveValue('')
     expect(screen.queryByRole('combobox', { name: 'State' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Create' })).toBeInTheDocument()
+    expect(fake.calls.some((call) => call.method === 'POST')).toBe(false)
   })
 
-  it('cancels the draft via DELETE /cards/:id and closes', async () => {
+  it('blocks Create with an empty title (core schema validation, no submit)', async () => {
     // Arrange
     const user = userEvent.setup()
-    let closed = false
-    const fake = modalFake({
-      [`DELETE /api/v1/cards/${String(draft.id)}`]: new Response(null, { status: 204 }),
+    const { submitted } = renderModal()
+    // Act — Create with the untouched, empty title.
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+    // Assert — validation stops it: onSubmit never ran, the title shows invalid.
+    expect(submitted).toEqual([])
+    expect(screen.getByRole('textbox', { name: /Title/ })).toBeInvalid()
+  })
+
+  it('submits the entered fields on Create', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const { submitted } = renderModal()
+    // Act
+    await user.type(screen.getByRole('textbox', { name: /Title/ }), 'Broken door')
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+    // Assert — the create command carries the field + the schema defaults.
+    expect(submitted).toHaveLength(1)
+    expect(submitted[0]?.input).toEqual({
+      title: 'Broken door',
+      description: '',
+      priority: 'P2',
+      tags: [],
     })
-    renderWithProviders(
-      <CreateCardModal
-        card={draft}
-        onClose={() => {
-          closed = true
-        }}
-      />,
-      { fetchFn: fake.fetch },
-    )
-    await screen.findByRole('textbox', { name: /Title/ })
+  })
+
+  it('closes on Cancel without submitting', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const { submitted, closedCount } = renderModal()
     // Act
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    // Assert — a DELETE hit the draft, then onClose ran.
-    await waitFor(() => {
-      expect(
-        fake.calls.some(
-          (call) =>
-            call.method === 'DELETE' &&
-            (call.url.split('?')[0] ?? call.url) === `/api/v1/cards/${String(draft.id)}`,
-        ),
-      ).toBe(true)
-    })
-    await waitFor(() => {
-      expect(closed).toBe(true)
-    })
+    // Assert
+    expect(closedCount()).toBe(1)
+    expect(submitted).toEqual([])
   })
 
-  it('keeps the card and closes on Create (no delete) when nothing was edited', async () => {
+  it('closes on ✕ without submitting', async () => {
     // Arrange
     const user = userEvent.setup()
-    let closed = false
-    const fake = modalFake()
-    renderWithProviders(
-      <CreateCardModal
-        card={draft}
-        onClose={() => {
-          closed = true
-        }}
-      />,
-      { fetchFn: fake.fetch },
-    )
-    await screen.findByRole('textbox', { name: /Title/ })
-    // Act — Create submits the (unchanged) form; nothing to save, so it just closes.
+    const { submitted, closedCount } = renderModal()
+    // Act
+    const dialog = screen.getByRole('dialog', { name: 'New work order' })
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+    // Assert
+    expect(closedCount()).toBe(1)
+    expect(submitted).toEqual([])
+  })
+
+  it('stages a picked file and submits it with the fields on Create', async () => {
+    // Arrange
+    const user = userEvent.setup()
+    const { submitted } = renderModal()
+    // Act — attach a file, fill the title, then Create.
+    const file = new File(['x'], 'photo.png', { type: 'image/png' })
+    await user.upload(screen.getByLabelText<HTMLInputElement>('Browse files'), file)
+    await user.type(screen.getByRole('textbox', { name: /Title/ }), 'Broken door')
     await user.click(screen.getByRole('button', { name: 'Create' }))
-    // Assert — closed, and the draft is never deleted or patched.
-    await waitFor(() => {
-      expect(closed).toBe(true)
-    })
-    expect(fake.calls.every((call) => call.method !== 'DELETE')).toBe(true)
+    // Assert — the staged file rode along in the submit.
+    expect(submitted[0]?.files.map((staged) => staged.name)).toEqual(['photo.png'])
   })
 })

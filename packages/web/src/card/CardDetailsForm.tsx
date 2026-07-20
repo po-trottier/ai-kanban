@@ -1,6 +1,6 @@
 import { updateCardInputSchema, type Location, type UpdateCardInput } from '@rivian-kanban/core'
 import { Group, Stack, Text } from '@mantine/core'
-import { Plus, Save } from 'lucide-react'
+import { Save } from 'lucide-react'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
 import { useEffect, useId, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
@@ -27,17 +27,6 @@ export interface CardDetailsFormProps {
   /** Archived cards are read-only except reopen (workflow.md#terminal-states). */
   disabled?: boolean
   /**
-   * The create modal: swaps the full-width **Save changes** footer for a
-   * bottom-right **Cancel / Create** one. Create submits this same fields form
-   * (so the save finishes before the modal closes — no auto-save/flush races);
-   * Cancel calls `onCancel`. The detail panel leaves this false.
-   */
-  createMode?: boolean
-  /** Create modal: the Cancel action (hard-delete the draft + close). */
-  onCancel?: (() => void) | undefined
-  /** Create modal: whether the Cancel/discard is in flight (spins Cancel). */
-  cancelPending?: boolean | undefined
-  /**
    * Sections that belong to the Details tab but NOT the edit form — Attachments
    * and Relations. They render between the fields and the timestamps so the tab
    * reads fields → relations → attachments → timestamps → (sticky footer), while
@@ -60,9 +49,6 @@ export function CardDetailsForm({
   knownTags,
   saving,
   disabled = false,
-  createMode = false,
-  onCancel,
-  cancelPending = false,
   children,
   onSave,
 }: CardDetailsFormProps) {
@@ -125,32 +111,7 @@ export function CardDetailsForm({
           {strings.detail.updatedLabel}: {formatDateTime(card.updatedAt, timezone)}
         </Text>
       </Group>
-      {createMode ? (
-        // Create modal: bottom-right Cancel / Create (create primary). Create
-        // submits THIS form (so the fields save before the modal closes — the
-        // parent closes in the save's onSuccess); Cancel discards the draft.
-        <StickyFooter>
-          <Group justify="flex-end" gap="sm">
-            <HintButton
-              variant="default"
-              tooltip={strings.tooltips.cancelDialog}
-              loading={cancelPending}
-              onClick={() => onCancel?.()}
-            >
-              {strings.common.cancel}
-            </HintButton>
-            <HintButton
-              type="submit"
-              form={formId}
-              tooltip={strings.tooltips.createCard}
-              loading={saving}
-              leftSection={<Plus size={16} aria-hidden />}
-            >
-              {strings.common.create}
-            </HintButton>
-          </Group>
-        </StickyFooter>
-      ) : disabled ? null : (
+      {disabled ? null : (
         <StickyFooter>
           <Stack gap="xs">
             {/* Warns a user who edited a field not to switch tabs/close before

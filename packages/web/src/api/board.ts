@@ -210,27 +210,6 @@ export function useUpdateCard() {
   })
 }
 
-/**
- * Hard-deletes (discards) a fresh intake draft via `DELETE /cards/:id`
- * (If-Match from the current version). Used by the create view's Discard.
- */
-export function useDeleteCard() {
-  const api = useApi()
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (card: Card) =>
-      api.deleteVoid(`/cards/${String(card.id)}`, { ifMatch: card.version }),
-    onSuccess: () => {
-      // Cancelling a create is silent, like the old modal's Cancel — just drop
-      // the discarded draft from every board variant. The card detail query is
-      // left to gc on its own (the modal closes); removing an actively-observed
-      // query would force a needless refetch of a now-deleted card.
-      void queryClient.invalidateQueries({ queryKey: queryKeys.board })
-    },
-    onError: notifyCardError,
-  })
-}
-
 type CardAction =
   | { action: 'cancel'; body: Omit<CancelCardInput, 'expectedVersion'> }
   | { action: 'reopen' }

@@ -89,21 +89,14 @@ describe('CardPanel', () => {
   it('renders non-modal on desktop so the board behind stays interactive', async () => {
     // Arrange — desktop is the default viewport in the test environment.
     const user = userEvent.setup()
-    const fake = panelApp({ 'POST /api/v1/cards': makeCard('intake', { title: 'Untitled' }) })
+    const fake = panelApp()
     renderApp({ fetchFn: fake.fetch, route: `/cards/${String(card.id)}` })
     await screen.findByRole('dialog', { name: /Fix pump/ })
     // Act — operate the shell BEHIND the open panel: a modal drawer would swallow
     // this outside click instead of letting it land on the header's New work order button.
     await user.click(screen.getByRole('button', { name: 'New work order' }))
-    // Assert — the click landed: New work order created a draft (POST /cards).
-    await waitFor(() => {
-      expect(
-        fake.calls.some(
-          (call) =>
-            call.method === 'POST' && (call.url.split('?')[0] ?? call.url) === '/api/v1/cards',
-        ),
-      ).toBe(true)
-    })
+    // Assert — the click landed: the New work order create form opened.
+    expect(await screen.findByRole('dialog', { name: 'New work order' })).toBeInTheDocument()
   })
 
   it('saves edited fields with If-Match from the card version', async () => {

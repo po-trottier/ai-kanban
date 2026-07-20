@@ -143,29 +143,6 @@ describe('CardDetailsForm', () => {
     expect(screen.getByRole('textbox', { name: /Estimate/ })).toHaveValue('90')
   })
 
-  it('shows a Cancel/Create footer in create mode and saves the dirty subset on Create', async () => {
-    // Arrange — the create modal swaps the edit Save for Cancel / Create; the
-    // fields save when Create submits the form, not per keystroke.
-    const user = userEvent.setup()
-    const saved: CardFieldChanges[] = []
-    renderForm({
-      createMode: true,
-      onCancel: () => undefined,
-      onSave: (changes) => saved.push(changes),
-    })
-    // Assert — create footer, no edit Save button.
-    expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
-    // Act — edit the title; nothing saves until Create submits the form.
-    const title = screen.getByRole('textbox', { name: /Title/ })
-    await user.clear(title)
-    await user.type(title, 'Broken door')
-    expect(saved).toEqual([])
-    await user.click(screen.getByRole('button', { name: 'Create' }))
-    // Assert — Create sent ONLY the dirty subset.
-    expect(saved).toEqual([{ title: 'Broken door' }])
-  })
-
   it('renders every field disabled and hides Save when the card is read-only', () => {
     // Arrange
     // Act

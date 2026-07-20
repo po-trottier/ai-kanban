@@ -203,57 +203,71 @@ describe('app routing', () => {
     expect(await screen.findByRole('textbox', { name: /Title/ })).toHaveValue('Fix pump')
   })
 
-  it('closing the New work order modal with ✕ discards the draft — it leaves the board', async () => {
-    // Arrange — a STATEFUL board like the real server: the draft appears after
-    // POST /cards and is gone after DELETE. Reproduces the user's exact flow
-    // (create → ✕) and verifies the draft is removed from the BOARD, not just
-    // the modal — the gap the isolated modal unit test never covered.
+  it('closing the New work order modal with ✕ creates nothing — the board stays empty', async () => {
+    // Arrange — a STATEFUL board like the real server: a card appears ONLY after
+    // POST /cards. Reproduces the PO's flow (open → ✕) and proves the board is
+    // still empty after — no draft was ever created (the flakiness is gone).
     const user = userEvent.setup()
-    const draft = makeCard('intake', { title: 'Untitled', version: 1 })
-    let phase: 'empty' | 'created' | 'deleted' = 'empty'
-    const fake = createFakeFetch({
-      'GET /api/v1/auth/me': fixtureAdmin,
-      'GET /api/v1/board': () => makeBoard(phase === 'created' ? { intake: [draft] } : {}),
-      'GET /api/v1/policy': policyRecordOf(permissivePolicy),
-      'GET /api/v1/users': fixturePickerUsers,
-      'GET /api/v1/users/search': fixturePickerUsers,
-      'GET /api/v1/locations': [],
-      'GET /api/v1/tags': [],
-      'GET /api/v1/filter-presets': [],
-      'POST /api/v1/cards': () => {
-        phase = 'created'
-        return draft
-      },
-      [`GET /api/v1/cards/${String(draft.id)}`]: {
-        card: draft,
-        tags: [],
-        location: null,
-        attachments: [],
-      },
-      [`GET /api/v1/cards/${String(draft.id)}/relations`]: [],
-      [`DELETE /api/v1/cards/${String(draft.id)}`]: () => {
-        phase = 'deleted'
-        return new Response(null, { status: 204 })
-      },
-    })
-    // Act — create a work order (it appears on the board), then close via ✕.
+    const fake = emptyBoardFake()
+    // Act — open the form from the header button, then close it with ✕. (The
+    // empty board renders its OWN New work order CTA, so scope to the header.)
     renderApp({ fetchFn: fake.fetch })
-    await user.click(await screen.findByRole('button', { name: 'New work order' }))
+    const header = await screen.findByRole('banner')
+    await user.click(within(header).getByRole('button', { name: 'New work order' }))
     const dialog = await screen.findByRole('dialog', { name: 'New work order' })
-    await screen.findByText('Untitled')
     await user.click(within(dialog).getByRole('button', { name: 'Close' }))
-    // Assert — a DELETE hit the draft, and it is GONE from the board after refetch.
+    // Assert — nothing was POSTed and the board shows its empty-state CTA.
     await waitFor(() => {
-      expect(
-        fake.calls.some(
-          (call) =>
-            call.method === 'DELETE' &&
-            (call.url.split('?')[0] ?? call.url) === `/api/v1/cards/${String(draft.id)}`,
-        ),
-      ).toBe(true)
+      expect(screen.queryByRole('dialog', { name: 'New work order' })).not.toBeInTheDocument()
     })
-    await waitFor(() => {
-      expect(screen.queryByText('Untitled')).not.toBeInTheDocument()
+    expect(fake.calls.some((call) => call.method === 'POST')).toBe(false)
+    expect(screen.getByText('No work orders yet')).toBeInTheDocument()
+  })
+
+  it('Create commits the work order — it POSTs the fields and appears on the board', async () => {
+    // Arrange — the board is empty until POST /cards flips it, mirroring the real
+    // server: Create is the ONLY thing that puts a card on the board.
+    const user = userEvent.setup()
+    const fake = emptyBoardFake()
+    // Act — open (from the header, since the empty board has its own CTA), fill
+    // the title, Create.
+    renderApp({ fetchFn: fake.fetch })
+    const header = await screen.findByRole('banner')
+    await user.click(within(header).getByRole('button', { name: 'New work order' }))
+    await screen.findByRole('dialog', { name: 'New work order' })
+    await user.type(screen.getByRole('textbox', { name: /Title/ }), 'Broken door')
+    await user.click(screen.getByRole('button', { name: 'Create' }))
+    // Assert — the fields POSTed and the created card is now on the board.
+    expect(await screen.findByText('Broken door')).toBeInTheDocument()
+    expect(fake.lastBody('POST', '/api/v1/cards')).toEqual({
+      title: 'Broken door',
+      description: '',
+      priority: 'P2',
+      tags: [],
     })
   })
 })
+
+/**
+ * A stateful full-app fake whose board is empty until `POST /cards` flips it —
+ * exactly the server contract the create flow must respect (nothing on the board
+ * until commit). Reused by the ✕-creates-nothing and Create-commits app tests.
+ */
+function emptyBoardFake(): FakeFetch {
+  const created = makeCard('intake', { title: 'Broken door', version: 1 })
+  let hasCard = false
+  return createFakeFetch({
+    'GET /api/v1/auth/me': fixtureAdmin,
+    'GET /api/v1/board': () => makeBoard(hasCard ? { intake: [created] } : {}),
+    'GET /api/v1/policy': policyRecordOf(permissivePolicy),
+    'GET /api/v1/users': fixturePickerUsers,
+    'GET /api/v1/users/search': fixturePickerUsers,
+    'GET /api/v1/locations': [],
+    'GET /api/v1/tags': [],
+    'GET /api/v1/filter-presets': [],
+    'POST /api/v1/cards': () => {
+      hasCard = true
+      return created
+    },
+  })
+}

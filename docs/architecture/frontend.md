@@ -102,37 +102,38 @@ gets one event per real change.
 
 ### Card-form layout (detail panel + create modal)
 
-There is NO separate "new card" form. **New card** (`shell/NewCardButton`) creates a real draft
-immediately — in Intake, with an "Untitled" placeholder title (the core schema requires a
-non-empty one) — then opens the SAME body the detail panel uses inside a **modal**
-(`card/CreateCardModal`). The shared body is `card/CardBody` (State dropdown, the editable
-fields, Relations, Attachments); it fetches its own detail, so the detail panel's Details tab
-and the create modal both just hand it a `cardId`. So creating and editing a card are one code
-path. The 7-field roster is one component (`card/CardFieldInputs`) driven by the core schema, so
-adding a field is a one-file edit both surfaces pick up.
+**New work order** (`shell/NewCardButton` — the header button AND the empty-board CTA) opens a
+create-on-submit **form** modal (`card/CreateCardModal`): NOTHING is created until **Create** is
+clicked, so Cancel / ✕ / Escape / a reload can never leave a stray "Untitled" draft on the board.
+The modal is a real `<form>` around the shared 7-field roster (`card/CardFieldInputs`, driven by
+`createCardInputSchema` via react-hook-form + `standardSchemaResolver`), with NO State picker (a new
+work order is always Intake), a **staged relations** section, and a **staged attachments** section.
+The same roster component backs the detail panel's edit form (`card/CardDetailsForm`), so the two
+forms cannot drift — adding a field is a one-file edit both pick up. The detail panel's own body is
+`card/CardBody` (State dropdown → fields → Relations → Attachments), used ONLY by `card/CardPanel`.
 
-- **Create modal vs. edit panel.** `CardBody`'s `createMode` prop is the only difference. In
-  create mode the footer swaps the full-width **Save changes** for a bottom-right **Cancel /
-  Create** pair (create primary), and the **State** dropdown is HIDDEN (a brand-new card is always
-  in Intake). **Create** submits the same fields form — the dirty subset PATCHes (silently), then
-  the modal closes in the save's `onSuccess`; if nothing was edited it just closes. There is no
-  auto-save: the fields commit on the explicit Create click, so the save finishes before the modal
-  closes (no flush races). **Cancel** (and ✕ / Escape) hard-deletes the fresh draft (`useDeleteCard`
-  → `DELETE /cards/:id`, owner-only + first-column-only server gate) then closes, so a cancelled
-  create leaves nothing behind. The modal shows no Comments/History (those live only in the detail
-  panel's tabs). Relations and attachments already mutate immediately against the card id, so they
-  need no create/edit branch. The detail panel renders `CardBody` without `createMode`, keeping the
-  explicit Save.
-- **Order (top to bottom).** The **State** dropdown (`card/CardStateSelect`), then the editable
-  fields (`card/CardDetailsForm`), then Relations, then Attachments, then the Created/Updated
-  timestamps.
+- **Create commits, in phases.** Create submits the form → validate → `useCreateCard().mutate` POSTs
+  the fields (the card now exists, in Intake); then, against its new id, each **staged relation**
+  `POST /cards/:id/relations` and each **staged file** uploads (`useUploadNewCardAttachment`). A
+  failed relation/file is toasted but never blocks the others or the created work order. Then the
+  board is invalidated (via `useCreateCard`), the "Work order created" toast shows, and the modal
+  closes. **Cancel / ✕ / Escape** just close — nothing was created, so there is nothing to delete.
+- **Staged relations.** An "Add relationship" button opens the pure picker `card/AddRelationModal`
+  (`currentCardId={0}`, `existingIds={[]}` — no self/existing to exclude for a not-yet-created work
+  order); it only calls `onAdd({toCardId, type})`, never POSTs. Picked relations collect in local
+  state and render as a list (type badge + `#number — title`, each with a remove control) until
+  Create applies them.
+- **Order (top to bottom).** In the create modal: the fields, then staged Relations, then staged
+  Attachments, then the sticky Cancel / Create footer. In the detail panel's Details tab: the
+  **State** dropdown (`card/CardStateSelect`), then the editable fields (`card/CardDetailsForm`),
+  then Relations, then Attachments, then the Created/Updated timestamps, then the sticky Save.
 - **Sticky footer.** The action bar — the edit panel's full-width **Save changes**, the create
-  modal's **Cancel / Create** — is `card/StickyFooter` (one `.stickyFooter` CSS-module class,
-  `position: sticky; bottom: 0` with a top border + `--mantine-color-body` background). It stays
-  visible while the scroll container scrolls: the panel's `.panelBody`, or the modal's capped
-  `.modalScrollBody` body slot. Save sits OUTSIDE the scrolling `<form>` and submits it via the
-  native `form={id}` association (the form owns its own dirty state — nothing is lifted); the
-  "unsaved changes" warning rides just above it.
+  modal's right-aligned **Cancel / Create** (create primary, lucide `Plus`) — is `card/StickyFooter`
+  (one `.stickyFooter` CSS-module class, `position: sticky; bottom: 0` with a top border +
+  `--mantine-color-body` background). It stays visible while the scroll container scrolls: the
+  panel's `.panelBody`, or the modal's capped `.modalScrollBody` body slot. In the edit panel Save
+  sits OUTSIDE the scrolling `<form>` and submits it via the native `form={id}` association (the form
+  owns its own dirty state — nothing is lifted); the "unsaved changes" warning rides just above it.
 - **Status color.** The State dropdown is tinted with the SAME theme hue the board card
   badges paint (`board/card-status.ts` → `cardStatusColor`: blocked=grape, waiting=yellow,
   overdue=pink, cancelled=dark, archived=gray) so the panel echoes its board card; a plain
