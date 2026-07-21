@@ -167,6 +167,21 @@ describe('describeActor', () => {
     expect(actor).toBe(`writer agent on behalf of ${fixtureAdmin.displayName}`)
   })
 
+  it('renders "<client> on behalf of <user>" for an OAuth agent event', () => {
+    // Arrange — an agent (OAuth) event carries the client label + the user it acts for.
+    const base = makeStatusChangedEvent(card, 6, 'ready', 'in_progress')
+    const agentEvent = {
+      ...base,
+      actorKind: 'agent' as const,
+      actorLabel: 'Codex',
+      onBehalfOfUserId: fixtureAdmin.id,
+    }
+    // Act
+    const actor = describeActor(agentEvent, context)
+    // Assert — the on-behalf-of phrasing, same as an enriched mcp token.
+    expect(actor).toBe(`Codex on behalf of ${fixtureAdmin.displayName}`)
+  })
+
   it('falls back to the token label, then the agent label, without a resolvable creator', () => {
     // Arrange
     const base = makeStatusChangedEvent(card, 6, 'ready', 'in_progress')

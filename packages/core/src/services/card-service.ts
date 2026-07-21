@@ -79,7 +79,9 @@ function originOf(kind: ActorKind): CardOrigin {
   switch (kind) {
     case 'user':
       return 'manual'
+    // An OAuth AI agent creates through the MCP channel — same origin as a token.
     case 'mcp':
+    case 'agent':
       return 'mcp'
     case 'slack':
       return 'slack'

@@ -73,7 +73,11 @@ export type Resolution = (typeof RESOLUTIONS)[number]
 export const CARD_ORIGINS = ['manual', 'slack', 'mcp', 'import', 'pm'] as const
 export type CardOrigin = (typeof CARD_ORIGINS)[number]
 
-export const ACTOR_KINDS = ['user', 'mcp', 'slack', 'system'] as const
+// 'agent' = an OAuth-authorized AI agent acting ON BEHALF OF a user (ADR-021):
+// its id/role ARE the user's (bounded by their permissions), plus a client label
+// so the audit reads "Codex on behalf of P-O". Distinct from 'mcp' (an
+// admin-issued service token with its own role, no operator).
+export const ACTOR_KINDS = ['user', 'mcp', 'slack', 'system', 'agent'] as const
 export type ActorKind = (typeof ACTOR_KINDS)[number]
 
 export const TOKEN_SCOPES = ['read', 'read_write'] as const

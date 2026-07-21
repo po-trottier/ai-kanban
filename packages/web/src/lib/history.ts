@@ -19,7 +19,10 @@ export function describeActor(event: CardEventResponse, context: HistoryContext)
   switch (event.actorKind) {
     case 'system':
       return strings.history.actorSystem
-    case 'mcp': {
+    // A service token (`mcp`) or an OAuth AI agent (`agent`) — both render as a
+    // label acting on behalf of a user once that context is resolved.
+    case 'mcp':
+    case 'agent': {
       const user =
         event.onBehalfOfUserId !== undefined
           ? context.userNames.get(event.onBehalfOfUserId)

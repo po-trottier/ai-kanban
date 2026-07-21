@@ -217,10 +217,20 @@ export type ServiceToken = z.infer<typeof serviceTokenSchema>
  */
 export const actorSchema = z.strictObject({
   kind: z.enum(ACTOR_KINDS),
-  /** User id for user/slack actors, service-token id for mcp, system user id for system. */
+  /**
+   * User id for user/slack actors, service-token id for mcp, system user id for
+   * system — and for an `agent`, the USER's id (the agent acts as them, so its
+   * events attribute to the user and inherit the user's role/permissions).
+   */
   id: z.uuid(),
   role: roleSchema,
-  /** Present for service-token actors only. */
+  /** Present for service-token (`mcp`) and `agent` actors — the read/write grant. */
   scope: tokenScopeSchema.optional(),
+  /**
+   * `agent` actors only: the OAuth client acting on the user's behalf, so the
+   * audit trail can render "Codex on behalf of <user>". `id` is the registered
+   * client id; `name` its display label.
+   */
+  client: z.strictObject({ id: z.string().min(1), name: z.string().min(1) }).optional(),
 })
 export type Actor = z.infer<typeof actorSchema>

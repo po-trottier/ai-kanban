@@ -157,6 +157,31 @@ describe('evaluatePolicy — always-on identity rules (UNCHANGED)', () => {
     expect(decision).toEqual({ allowed: true })
   })
 
+  it('bounds an OAuth agent by its scope and the user role it carries (ADR-021)', () => {
+    // Arrange — an `agent` acts AS a user: read scope still can't write, and a
+    // read_write agent is allowed exactly what that user's role grants (no more).
+    const readAgent: Actor = {
+      kind: 'agent',
+      id: USER_ID,
+      role: 'user',
+      scope: 'read',
+      client: { id: 'codex', name: 'Codex' },
+    }
+    const writeAgent: Actor = { ...readAgent, scope: 'read_write' }
+
+    // Act
+    const readDenied = evaluatePolicy(readAgent, { type: 'card.update' }, DEFAULT_POLICY_DOCUMENT)
+    const writeAllowed = evaluatePolicy(
+      writeAgent,
+      { type: 'card.update' },
+      DEFAULT_POLICY_DOCUMENT,
+    )
+
+    // Assert — same rules as any actor: scope gates writes, role gates permissions.
+    expect(readDenied).toEqual({ allowed: false, kind: 'denied', rule: 'token-scope-read' })
+    expect(writeAllowed).toEqual({ allowed: true })
+  })
+
   it('restricts comment editing to the author, even for admins', () => {
     // Arrange
     const author = userOf('user', USER_ID)
