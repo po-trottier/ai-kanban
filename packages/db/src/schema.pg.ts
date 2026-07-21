@@ -281,6 +281,76 @@ export const serviceTokens = pgTable(
   (table) => [uniqueIndex('service_tokens_token_hash_unique').on(table.tokenHash)],
 )
 
+/** Dynamically-registered OAuth clients (ADR-021) — pg twin of oauth_clients. */
+export const oauthClients = pgTable('oauth_clients', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  redirectUris: jsonb('redirect_uris').$type<string[]>().notNull(),
+  createdAt: text('created_at').notNull(),
+})
+
+/** Short-lived single-use OAuth authorization codes (ADR-021) — pg twin. */
+export const oauthAuthorizationCodes = pgTable('oauth_authorization_codes', {
+  codeHash: text('code_hash').primaryKey(),
+  clientId: text('client_id')
+    .notNull()
+    .references(() => oauthClients.id),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id),
+  redirectUri: text('redirect_uri').notNull(),
+  resource: text('resource').notNull(),
+  scope: text('scope').$type<TokenScope>().notNull(),
+  codeChallenge: text('code_challenge').notNull(),
+  codeChallengeMethod: text('code_challenge_method').$type<'S256'>().notNull(),
+  expiresAt: text('expires_at').notNull(),
+})
+
+/** Opaque, sha256-hashed OAuth access tokens (ADR-021) — pg twin. */
+export const oauthAccessTokens = pgTable(
+  'oauth_access_tokens',
+  {
+    id: text('id').primaryKey(),
+    tokenHash: text('token_hash').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => oauthClients.id),
+    scope: text('scope').$type<TokenScope>().notNull(),
+    resource: text('resource').notNull(),
+    expiresAt: text('expires_at').notNull(),
+    revokedAt: text('revoked_at'),
+    lastUsedAt: text('last_used_at'),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [uniqueIndex('oauth_access_tokens_token_hash_unique').on(table.tokenHash)],
+)
+
+/** Rotating, sha256-hashed OAuth refresh tokens (ADR-021) — pg twin. */
+export const oauthRefreshTokens = pgTable(
+  'oauth_refresh_tokens',
+  {
+    id: text('id').primaryKey(),
+    tokenHash: text('token_hash').notNull(),
+    familyId: text('family_id').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => oauthClients.id),
+    scope: text('scope').$type<TokenScope>().notNull(),
+    resource: text('resource').notNull(),
+    expiresAt: text('expires_at').notNull(),
+    usedAt: text('used_at'),
+    revokedAt: text('revoked_at'),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [uniqueIndex('oauth_refresh_tokens_token_hash_unique').on(table.tokenHash)],
+)
+
 export const filterPresets = pgTable(
   'filter_presets',
   {

@@ -211,6 +211,90 @@ export const serviceTokenSchema = z.strictObject({
 export type ServiceToken = z.infer<typeof serviceTokenSchema>
 
 /**
+ * A dynamically-registered OAuth client (ADR-021). Phase-1 clients are public
+ * loopback agents (Claude Code, Codex) — no client secret; the consent screen,
+ * not registration, is the trust gate. `id` is the issued `client_id`.
+ */
+export const oauthClientSchema = z.strictObject({
+  /** The issued `client_id` (RFC 7591). */
+  id: z.string().min(1),
+  /** `client_name` — the display label shown on the consent screen. */
+  name: z.string().min(1),
+  /** Exact-match registered redirect URIs (loopback/HTTPS); at least one. */
+  redirectUris: z.array(z.string().min(1)).min(1),
+  createdAt: isoDateTimeSchema,
+})
+export type OAuthClient = z.infer<typeof oauthClientSchema>
+
+/**
+ * A short-lived (~60 s), single-use authorization code (ADR-021). Only the
+ * sha256 of the raw code persists; `consume` deletes-and-returns the row so a
+ * code can be exchanged at most once. Carries the PKCE challenge and the
+ * RFC 8707 `resource` (audience) for the token exchange.
+ */
+export const oauthAuthorizationCodeSchema = z.strictObject({
+  /** sha256 of the raw authorization code; the raw value never persists. */
+  codeHash: z.string().min(1),
+  clientId: z.string().min(1),
+  userId: z.uuid(),
+  redirectUri: z.string().min(1),
+  /** RFC 8707 audience — the canonical `/mcp` URI the token is minted for. */
+  resource: z.string().min(1),
+  scope: tokenScopeSchema,
+  /** PKCE `code_challenge` (OAuth 2.1, mandatory). */
+  codeChallenge: z.string().min(1),
+  codeChallengeMethod: z.literal('S256'),
+  expiresAt: isoDateTimeSchema,
+})
+export type OAuthAuthorizationCode = z.infer<typeof oauthAuthorizationCodeSchema>
+
+/**
+ * An opaque, sha256-hashed access token for the `/mcp` audience (ADR-021 §C).
+ * `findByHash` returns the row even when revoked/expired — the caller checks —
+ * so validation is one indexed read like sessions and service tokens.
+ */
+export const oauthAccessTokenSchema = z.strictObject({
+  id: z.uuid(),
+  /** sha256 of the raw bearer token; the raw value is returned once at mint. */
+  tokenHash: z.string().min(1),
+  userId: z.uuid(),
+  clientId: z.string().min(1),
+  scope: tokenScopeSchema,
+  /** RFC 8707 audience — the canonical `/mcp` URI the RS validates against. */
+  resource: z.string().min(1),
+  expiresAt: isoDateTimeSchema,
+  revokedAt: isoDateTimeSchema.nullable(),
+  /** Throttled last-use stamp (like service tokens); null until first use. */
+  lastUsedAt: isoDateTimeSchema.nullable(),
+  createdAt: isoDateTimeSchema,
+})
+export type OAuthAccessToken = z.infer<typeof oauthAccessTokenSchema>
+
+/**
+ * A rotating, sha256-hashed refresh token (ADR-021 §C). Each use is rotated:
+ * `usedAt` is set atomically on rotation so a replay of a spent token is
+ * detectable — reuse ⇒ revoke the whole `familyId` chain (public-client
+ * rotation, mandatory per the MCP OAuth spec).
+ */
+export const oauthRefreshTokenSchema = z.strictObject({
+  id: z.uuid(),
+  /** sha256 of the raw refresh token; the raw value is returned once at mint. */
+  tokenHash: z.string().min(1),
+  /** The rotation chain: a stolen token's reuse revokes every id in the family. */
+  familyId: z.uuid(),
+  userId: z.uuid(),
+  clientId: z.string().min(1),
+  scope: tokenScopeSchema,
+  resource: z.string().min(1),
+  expiresAt: isoDateTimeSchema,
+  /** Set atomically on rotation — reuse detection; null while unused. */
+  usedAt: isoDateTimeSchema.nullable(),
+  revokedAt: isoDateTimeSchema.nullable(),
+  createdAt: isoDateTimeSchema,
+})
+export type OAuthRefreshToken = z.infer<typeof oauthRefreshTokenSchema>
+
+/**
  * Who is acting, from which surface. Constructed by inbound adapters and
  * threaded into every service call so audit events record who did what from
  * where (ADR-004, ADR-005).

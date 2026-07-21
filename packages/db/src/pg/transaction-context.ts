@@ -10,6 +10,10 @@ import { PgFilterPresetRepository } from './repositories/filter-preset-repositor
 import { PgLaneRepository } from './repositories/lane-repository.ts'
 import { PgLocationRepository } from './repositories/location-repository.ts'
 import { PgNotificationRepository } from './repositories/notification-repository.ts'
+import { PgOAuthAccessTokenRepository } from './repositories/oauth-access-token-repository.ts'
+import { PgOAuthAuthorizationCodeRepository } from './repositories/oauth-authorization-code-repository.ts'
+import { PgOAuthClientRepository } from './repositories/oauth-client-repository.ts'
+import { PgOAuthRefreshTokenRepository } from './repositories/oauth-refresh-token-repository.ts'
 import { PgPolicyRepository } from './repositories/policy-repository.ts'
 import { PgServiceTokenRepository } from './repositories/service-token-repository.ts'
 import { PgSessionRepository } from './repositories/session-repository.ts'
@@ -31,6 +35,10 @@ export function createPgTransactionContext(db: PgDb): TransactionContext {
     userAccounts: new PgUserAccountRepository(db),
     sessions: new PgSessionRepository(db),
     serviceTokens: new PgServiceTokenRepository(db),
+    oauthClients: new PgOAuthClientRepository(db),
+    oauthAuthorizationCodes: new PgOAuthAuthorizationCodeRepository(db),
+    oauthAccessTokens: new PgOAuthAccessTokenRepository(db),
+    oauthRefreshTokens: new PgOAuthRefreshTokenRepository(db),
     lanes: new PgLaneRepository(db),
     locations: new PgLocationRepository(db),
     tags: new PgTagRepository(db),

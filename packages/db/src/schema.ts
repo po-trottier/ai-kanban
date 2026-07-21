@@ -345,6 +345,97 @@ export const serviceTokens = sqliteTable(
   ],
 )
 
+/**
+ * Dynamically-registered OAuth clients (ADR-021). Phase-1 clients are public
+ * loopback agents — no client secret; `id` is the issued `client_id`.
+ * `redirect_uris` is the exact-match allowlist, stored as a JSON string array.
+ */
+export const oauthClients = sqliteTable('oauth_clients', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  redirectUris: text('redirect_uris', { mode: 'json' }).$type<string[]>().notNull(),
+  createdAt: text('created_at').notNull(),
+})
+
+/**
+ * Short-lived, single-use OAuth authorization codes (ADR-021). Only the sha256
+ * of the raw code persists; the primary key IS `code_hash`, so redemption is a
+ * hashed-key delete-returning (single use).
+ */
+export const oauthAuthorizationCodes = sqliteTable('oauth_authorization_codes', {
+  /** sha256 of the raw code; the primary key (also the single-use lookup). */
+  codeHash: text('code_hash').primaryKey(),
+  clientId: text('client_id')
+    .notNull()
+    .references(() => oauthClients.id),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id),
+  redirectUri: text('redirect_uri').notNull(),
+  /** RFC 8707 audience — the canonical `/mcp` URI. */
+  resource: text('resource').notNull(),
+  scope: text('scope').$type<TokenScope>().notNull(),
+  /** PKCE `code_challenge` + method (OAuth 2.1, mandatory). */
+  codeChallenge: text('code_challenge').notNull(),
+  codeChallengeMethod: text('code_challenge_method').$type<'S256'>().notNull(),
+  expiresAt: text('expires_at').notNull(),
+})
+
+/** Opaque, sha256-hashed OAuth access tokens for the `/mcp` audience (ADR-021). */
+export const oauthAccessTokens = sqliteTable(
+  'oauth_access_tokens',
+  {
+    id: text('id').primaryKey(),
+    /** sha256 of the raw bearer token; the raw value is shown once at mint. */
+    tokenHash: text('token_hash').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => oauthClients.id),
+    scope: text('scope').$type<TokenScope>().notNull(),
+    /** RFC 8707 audience the RS validates against. */
+    resource: text('resource').notNull(),
+    expiresAt: text('expires_at').notNull(),
+    revokedAt: text('revoked_at'),
+    lastUsedAt: text('last_used_at'),
+    createdAt: text('created_at').notNull(),
+  },
+  // Credential-hash uniqueness + the per-request findByHash lookup (like service_tokens).
+  (table) => [uniqueIndex('oauth_access_tokens_token_hash_unique').on(table.tokenHash)],
+)
+
+/**
+ * Rotating, sha256-hashed OAuth refresh tokens (ADR-021). `used_at` is set
+ * atomically on rotation; a reused (already-used) token means theft, so its
+ * whole `family_id` chain is revoked.
+ */
+export const oauthRefreshTokens = sqliteTable(
+  'oauth_refresh_tokens',
+  {
+    id: text('id').primaryKey(),
+    /** sha256 of the raw refresh token; the raw value is shown once at mint. */
+    tokenHash: text('token_hash').notNull(),
+    /** The rotation chain: a reuse revokes every id sharing this family. */
+    familyId: text('family_id').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => oauthClients.id),
+    scope: text('scope').$type<TokenScope>().notNull(),
+    resource: text('resource').notNull(),
+    expiresAt: text('expires_at').notNull(),
+    /** Set atomically on rotation — reuse detection; null while unused. */
+    usedAt: text('used_at'),
+    revokedAt: text('revoked_at'),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [uniqueIndex('oauth_refresh_tokens_token_hash_unique').on(table.tokenHash)],
+)
+
 /** Per-user saved board filters (docs/architecture/board-filters.md). */
 export const filterPresets = sqliteTable(
   'filter_presets',

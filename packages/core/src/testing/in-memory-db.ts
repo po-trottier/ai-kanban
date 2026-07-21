@@ -6,6 +6,10 @@ import {
   type Comment,
   type Lane,
   type Location,
+  type OAuthAccessToken,
+  type OAuthAuthorizationCode,
+  type OAuthClient,
+  type OAuthRefreshToken,
   type ServiceToken,
   type Session,
   type Tag,
@@ -30,6 +34,10 @@ import {
   type LaneRepository,
   type LocationRepository,
   type NotificationRepository,
+  type OAuthAccessTokenRepository,
+  type OAuthAuthorizationCodeRepository,
+  type OAuthClientRepository,
+  type OAuthRefreshTokenRepository,
   type PolicyRepository,
   type ServiceTokenRepository,
   type SessionRepository,
@@ -73,6 +81,10 @@ interface DbState {
   passwordHashes: PasswordHashRow[]
   sessions: Session[]
   serviceTokens: ServiceToken[]
+  oauthClients: OAuthClient[]
+  oauthAuthorizationCodes: OAuthAuthorizationCode[]
+  oauthAccessTokens: OAuthAccessToken[]
+  oauthRefreshTokens: OAuthRefreshToken[]
   locations: Location[]
   cards: Card[]
   comments: Comment[]
@@ -94,6 +106,10 @@ function emptyState(): DbState {
     passwordHashes: [],
     sessions: [],
     serviceTokens: [],
+    oauthClients: [],
+    oauthAuthorizationCodes: [],
+    oauthAccessTokens: [],
+    oauthRefreshTokens: [],
     locations: [],
     cards: [],
     comments: [],
@@ -146,6 +162,10 @@ export class InMemoryDb implements UnitOfWork {
       userAccounts: new InMemoryUserAccountRepository(state),
       sessions: new InMemorySessionRepository(state),
       serviceTokens: new InMemoryServiceTokenRepository(state),
+      oauthClients: new InMemoryOAuthClientRepository(state),
+      oauthAuthorizationCodes: new InMemoryOAuthAuthorizationCodeRepository(state),
+      oauthAccessTokens: new InMemoryOAuthAccessTokenRepository(state),
+      oauthRefreshTokens: new InMemoryOAuthRefreshTokenRepository(state),
       lanes: new InMemoryLaneRepository(state),
       locations: new InMemoryLocationRepository(state),
       tags: new InMemoryTagRepository(state),
@@ -764,6 +784,131 @@ class InMemoryServiceTokenRepository implements ServiceTokenRepository {
     }
     token.tokenHash = tokenHash
     return Promise.resolve(clone(token))
+  }
+}
+
+class InMemoryOAuthClientRepository implements OAuthClientRepository {
+  private readonly state: DbState
+
+  constructor(state: DbState) {
+    this.state = state
+  }
+
+  findById(id: string): Promise<OAuthClient | null> {
+    const client = this.state.oauthClients.find((candidate) => candidate.id === id)
+    return Promise.resolve(client ? clone(client) : null)
+  }
+
+  insert(client: OAuthClient): Promise<void> {
+    this.state.oauthClients.push(clone(client))
+    return Promise.resolve()
+  }
+}
+
+class InMemoryOAuthAuthorizationCodeRepository implements OAuthAuthorizationCodeRepository {
+  private readonly state: DbState
+
+  constructor(state: DbState) {
+    this.state = state
+  }
+
+  insert(code: OAuthAuthorizationCode): Promise<void> {
+    this.state.oauthAuthorizationCodes.push(clone(code))
+    return Promise.resolve()
+  }
+
+  /** Atomic-equivalent single use: splice-and-return, so a second consume is null. */
+  consume(codeHash: string): Promise<OAuthAuthorizationCode | null> {
+    const index = this.state.oauthAuthorizationCodes.findIndex((row) => row.codeHash === codeHash)
+    if (index === -1) return Promise.resolve(null)
+    const [row] = this.state.oauthAuthorizationCodes.splice(index, 1)
+    return Promise.resolve(clone(row ?? null))
+  }
+}
+
+class InMemoryOAuthAccessTokenRepository implements OAuthAccessTokenRepository {
+  private readonly state: DbState
+
+  constructor(state: DbState) {
+    this.state = state
+  }
+
+  insert(token: OAuthAccessToken): Promise<void> {
+    this.state.oauthAccessTokens.push(clone(token))
+    return Promise.resolve()
+  }
+
+  findByHash(tokenHash: string): Promise<OAuthAccessToken | null> {
+    const token = this.state.oauthAccessTokens.find((row) => row.tokenHash === tokenHash)
+    return Promise.resolve(token ? clone(token) : null)
+  }
+
+  updateLastUsed(id: string, lastUsedAt: string): Promise<void> {
+    const token = this.state.oauthAccessTokens.find((row) => row.id === id)
+    if (token) token.lastUsedAt = lastUsedAt
+    return Promise.resolve()
+  }
+
+  /** Idempotent: keeps the first revokedAt; a missing id is a no-op. */
+  revoke(id: string): Promise<void> {
+    const token = this.state.oauthAccessTokens.find((row) => row.id === id)
+    if (token) token.revokedAt = token.revokedAt ?? new Date().toISOString()
+    return Promise.resolve()
+  }
+
+  revokeForUser(userId: string): Promise<void> {
+    const now = new Date().toISOString()
+    for (const token of this.state.oauthAccessTokens) {
+      if (token.userId === userId) token.revokedAt = token.revokedAt ?? now
+    }
+    return Promise.resolve()
+  }
+}
+
+class InMemoryOAuthRefreshTokenRepository implements OAuthRefreshTokenRepository {
+  private readonly state: DbState
+
+  constructor(state: DbState) {
+    this.state = state
+  }
+
+  insert(token: OAuthRefreshToken): Promise<void> {
+    this.state.oauthRefreshTokens.push(clone(token))
+    return Promise.resolve()
+  }
+
+  findByHash(tokenHash: string): Promise<OAuthRefreshToken | null> {
+    const token = this.state.oauthRefreshTokens.find((row) => row.tokenHash === tokenHash)
+    return Promise.resolve(token ? clone(token) : null)
+  }
+
+  /**
+   * Atomic-equivalent rotation claim: sets `usedAt` only when still null,
+   * returning true iff it did — a second call (replay) returns false, mirroring
+   * the adapter's `UPDATE … WHERE used_at IS NULL` change count.
+   */
+  markUsed(id: string): Promise<boolean> {
+    const token = this.state.oauthRefreshTokens.find((row) => row.id === id)
+    // Absent (`?.` ⇒ undefined) or already used ⇒ no claim, like the guarded UPDATE.
+    if (token?.usedAt !== null) return Promise.resolve(false)
+    token.usedAt = new Date().toISOString()
+    return Promise.resolve(true)
+  }
+
+  revokeFamily(familyId: string): Promise<void> {
+    const now = new Date().toISOString()
+    for (const token of this.state.oauthRefreshTokens) {
+      if (token.familyId === familyId) token.revokedAt = token.revokedAt ?? now
+    }
+    return Promise.resolve()
+  }
+
+  revokeForUser(userId: string): Promise<void> {
+    const now = new Date().toISOString()
+    for (const token of this.state.oauthRefreshTokens) {
+      if (token.userId === userId) token.revokedAt = token.revokedAt ?? now
+    }
+    return Promise.resolve()
   }
 }
 

@@ -175,6 +175,60 @@ CREATE TABLE `notifications` (
 );
 --> statement-breakpoint
 CREATE INDEX `notifications_user_id_created_at_idx` ON `notifications` (`user_id`,`created_at`);--> statement-breakpoint
+CREATE TABLE `oauth_access_tokens` (
+	`id` text PRIMARY KEY NOT NULL,
+	`token_hash` text NOT NULL,
+	`user_id` text NOT NULL,
+	`client_id` text NOT NULL,
+	`scope` text NOT NULL,
+	`resource` text NOT NULL,
+	`expires_at` text NOT NULL,
+	`revoked_at` text,
+	`last_used_at` text,
+	`created_at` text NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`client_id`) REFERENCES `oauth_clients`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `oauth_access_tokens_token_hash_unique` ON `oauth_access_tokens` (`token_hash`);--> statement-breakpoint
+CREATE TABLE `oauth_authorization_codes` (
+	`code_hash` text PRIMARY KEY NOT NULL,
+	`client_id` text NOT NULL,
+	`user_id` text NOT NULL,
+	`redirect_uri` text NOT NULL,
+	`resource` text NOT NULL,
+	`scope` text NOT NULL,
+	`code_challenge` text NOT NULL,
+	`code_challenge_method` text NOT NULL,
+	`expires_at` text NOT NULL,
+	FOREIGN KEY (`client_id`) REFERENCES `oauth_clients`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `oauth_clients` (
+	`id` text PRIMARY KEY NOT NULL,
+	`name` text NOT NULL,
+	`redirect_uris` text NOT NULL,
+	`created_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `oauth_refresh_tokens` (
+	`id` text PRIMARY KEY NOT NULL,
+	`token_hash` text NOT NULL,
+	`family_id` text NOT NULL,
+	`user_id` text NOT NULL,
+	`client_id` text NOT NULL,
+	`scope` text NOT NULL,
+	`resource` text NOT NULL,
+	`expires_at` text NOT NULL,
+	`used_at` text,
+	`revoked_at` text,
+	`created_at` text NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`client_id`) REFERENCES `oauth_clients`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `oauth_refresh_tokens_token_hash_unique` ON `oauth_refresh_tokens` (`token_hash`);--> statement-breakpoint
 CREATE TABLE `service_tokens` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,

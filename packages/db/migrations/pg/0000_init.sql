@@ -134,6 +134,52 @@ CREATE TABLE "notifications" (
 	"read_at" text
 );
 --> statement-breakpoint
+CREATE TABLE "oauth_access_tokens" (
+	"id" text PRIMARY KEY NOT NULL,
+	"token_hash" text NOT NULL,
+	"user_id" text NOT NULL,
+	"client_id" text NOT NULL,
+	"scope" text NOT NULL,
+	"resource" text NOT NULL,
+	"expires_at" text NOT NULL,
+	"revoked_at" text,
+	"last_used_at" text,
+	"created_at" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_authorization_codes" (
+	"code_hash" text PRIMARY KEY NOT NULL,
+	"client_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"redirect_uri" text NOT NULL,
+	"resource" text NOT NULL,
+	"scope" text NOT NULL,
+	"code_challenge" text NOT NULL,
+	"code_challenge_method" text NOT NULL,
+	"expires_at" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_clients" (
+	"id" text PRIMARY KEY NOT NULL,
+	"name" text NOT NULL,
+	"redirect_uris" jsonb NOT NULL,
+	"created_at" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_refresh_tokens" (
+	"id" text PRIMARY KEY NOT NULL,
+	"token_hash" text NOT NULL,
+	"family_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"client_id" text NOT NULL,
+	"scope" text NOT NULL,
+	"resource" text NOT NULL,
+	"expires_at" text NOT NULL,
+	"used_at" text,
+	"revoked_at" text,
+	"created_at" text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "service_tokens" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
@@ -197,6 +243,12 @@ ALTER TABLE "lanes" ADD CONSTRAINT "lanes_board_id_boards_id_fk" FOREIGN KEY ("b
 ALTER TABLE "locations" ADD CONSTRAINT "locations_parent_id_locations_id_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."locations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_card_id_cards_id_fk" FOREIGN KEY ("card_id") REFERENCES "public"."cards"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_client_id_oauth_clients_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."oauth_clients"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "oauth_authorization_codes" ADD CONSTRAINT "oauth_authorization_codes_client_id_oauth_clients_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."oauth_clients"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "oauth_authorization_codes" ADD CONSTRAINT "oauth_authorization_codes_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "oauth_refresh_tokens" ADD CONSTRAINT "oauth_refresh_tokens_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "oauth_refresh_tokens" ADD CONSTRAINT "oauth_refresh_tokens_client_id_oauth_clients_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."oauth_clients"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "service_tokens" ADD CONSTRAINT "service_tokens_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "attachments_card_id_idx" ON "attachments" USING btree ("card_id");--> statement-breakpoint
@@ -216,6 +268,8 @@ CREATE INDEX "comments_card_id_created_at_idx" ON "comments" USING btree ("card_
 CREATE INDEX "filter_presets_owner_id_created_at_idx" ON "filter_presets" USING btree ("owner_id","created_at");--> statement-breakpoint
 CREATE INDEX "filter_presets_shared_created_at_idx" ON "filter_presets" USING btree ("created_at") WHERE "filter_presets"."shared" = true;--> statement-breakpoint
 CREATE INDEX "notifications_user_id_created_at_idx" ON "notifications" USING btree ("user_id","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "oauth_access_tokens_token_hash_unique" ON "oauth_access_tokens" USING btree ("token_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "oauth_refresh_tokens_token_hash_unique" ON "oauth_refresh_tokens" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "service_tokens_token_hash_unique" ON "service_tokens" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "tags_name_ci_unique" ON "tags" USING btree (lower("name"));--> statement-breakpoint
 CREATE UNIQUE INDEX "users_email_ci_unique" ON "users" USING btree (lower("email"));--> statement-breakpoint

@@ -6,6 +6,10 @@ import {
   type Comment,
   type Lane,
   type Location,
+  type OAuthAccessToken,
+  type OAuthAuthorizationCode,
+  type OAuthClient,
+  type OAuthRefreshToken,
   type ServiceToken,
   type Session,
   type Tag,
@@ -287,6 +291,69 @@ export interface ServiceTokenRepository {
   rotateHash(id: string, tokenHash: string): Promise<ServiceToken>
 }
 
+/**
+ * Dynamically-registered OAuth clients (ADR-021). Registration is open (public
+ * loopback agents), so the surface is minimal — look one up by `client_id`, and
+ * insert a freshly-registered one.
+ */
+export interface OAuthClientRepository {
+  findById(id: string): Promise<OAuthClient | null>
+  insert(client: OAuthClient): Promise<void>
+}
+
+/**
+ * Short-lived, single-use OAuth authorization codes (ADR-021). `consume` is the
+ * single-use gate: it atomically deletes-and-returns the row so a code can be
+ * exchanged at most once (null when absent or already consumed).
+ */
+export interface OAuthAuthorizationCodeRepository {
+  insert(code: OAuthAuthorizationCode): Promise<void>
+  /**
+   * Atomic single-use redemption: delete the row matching `codeHash` and return
+   * it, or null if no row matched (absent or already consumed). Delete-returning
+   * so a replayed code cannot be exchanged twice even under concurrency.
+   */
+  consume(codeHash: string): Promise<OAuthAuthorizationCode | null>
+}
+
+/**
+ * Opaque, sha256-hashed OAuth access tokens for the `/mcp` audience (ADR-021).
+ * `findByHash` returns the row even when revoked/expired — the caller decides —
+ * so every `/mcp` request is one indexed hash lookup (like sessions).
+ */
+export interface OAuthAccessTokenRepository {
+  insert(token: OAuthAccessToken): Promise<void>
+  /** Hash lookup including revoked/expired rows — callers check the timestamps. */
+  findByHash(tokenHash: string): Promise<OAuthAccessToken | null>
+  /** Throttled last-use stamp (the caller decides when, like service tokens). */
+  updateLastUsed(id: string, lastUsedAt: string): Promise<void>
+  /** Sets revokedAt (idempotent); a missing id is a no-op. */
+  revoke(id: string): Promise<void>
+  /** Revokes every access token of the user (logout/deactivate/role-change). */
+  revokeForUser(userId: string): Promise<void>
+}
+
+/**
+ * Rotating, sha256-hashed OAuth refresh tokens (ADR-021). `markUsed` is the
+ * rotation gate and reuse detector: it atomically claims an unused token, so a
+ * replay of a spent token is caught (false ⇒ reuse ⇒ revoke the family).
+ */
+export interface OAuthRefreshTokenRepository {
+  insert(token: OAuthRefreshToken): Promise<void>
+  /** Hash lookup including used/revoked/expired rows — the caller checks them. */
+  findByHash(tokenHash: string): Promise<OAuthRefreshToken | null>
+  /**
+   * Atomic rotation claim: `SET used_at = <now> WHERE id = ? AND used_at IS
+   * NULL`, returning true iff exactly one row changed. False ⇒ the token was
+   * already spent (replay/reuse) or absent — the caller revokes the family.
+   */
+  markUsed(id: string): Promise<boolean>
+  /** Revokes every refresh token in the rotation chain (reuse response). */
+  revokeFamily(familyId: string): Promise<void>
+  /** Revokes every refresh token of the user (logout/deactivate/role-change). */
+  revokeForUser(userId: string): Promise<void>
+}
+
 export interface LaneRepository {
   /** Board order (position ascending). */
   listByBoard(boardId: string): Promise<Lane[]>
@@ -486,6 +553,10 @@ export interface TransactionContext {
   userAccounts: UserAccountRepository
   sessions: SessionRepository
   serviceTokens: ServiceTokenRepository
+  oauthClients: OAuthClientRepository
+  oauthAuthorizationCodes: OAuthAuthorizationCodeRepository
+  oauthAccessTokens: OAuthAccessTokenRepository
+  oauthRefreshTokens: OAuthRefreshTokenRepository
   lanes: LaneRepository
   locations: LocationRepository
   tags: TagRepository

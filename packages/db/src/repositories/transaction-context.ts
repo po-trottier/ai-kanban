@@ -10,6 +10,10 @@ import { SqliteFilterPresetRepository } from './filter-preset-repository.ts'
 import { SqliteLaneRepository } from './lane-repository.ts'
 import { SqliteLocationRepository } from './location-repository.ts'
 import { SqliteNotificationRepository } from './notification-repository.ts'
+import { SqliteOAuthAccessTokenRepository } from './oauth-access-token-repository.ts'
+import { SqliteOAuthAuthorizationCodeRepository } from './oauth-authorization-code-repository.ts'
+import { SqliteOAuthClientRepository } from './oauth-client-repository.ts'
+import { SqliteOAuthRefreshTokenRepository } from './oauth-refresh-token-repository.ts'
 import { SqlitePolicyRepository } from './policy-repository.ts'
 import { SqliteServiceTokenRepository } from './service-token-repository.ts'
 import { SqliteSessionRepository } from './session-repository.ts'
@@ -31,6 +35,10 @@ export function createTransactionContext(db: BetterSQLite3Database): Transaction
     userAccounts: new SqliteUserAccountRepository(db),
     sessions: new SqliteSessionRepository(db),
     serviceTokens: new SqliteServiceTokenRepository(db),
+    oauthClients: new SqliteOAuthClientRepository(db),
+    oauthAuthorizationCodes: new SqliteOAuthAuthorizationCodeRepository(db),
+    oauthAccessTokens: new SqliteOAuthAccessTokenRepository(db),
+    oauthRefreshTokens: new SqliteOAuthRefreshTokenRepository(db),
     lanes: new SqliteLaneRepository(db),
     locations: new SqliteLocationRepository(db),
     tags: new SqliteTagRepository(db),
