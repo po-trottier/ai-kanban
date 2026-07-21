@@ -21,6 +21,10 @@ import { type FilterPresetService } from './filters/filter-preset-service.ts'
 import { type AppMetrics } from './metrics/metrics.ts'
 import { type LaneAdminService } from './lanes/lane-admin-service.ts'
 import { type LocationAdminService } from './locations/location-admin-service.ts'
+import { type AuthorizationService } from './oauth/authorization-service.ts'
+import { type OAuthConfig } from './oauth/oauth-config.ts'
+import { type RegistrationService } from './oauth/registration-service.ts'
+import { type TokenService } from './oauth/token-service.ts'
 import { type ServiceTokenService } from './tokens/service-token-service.ts'
 import { type UserAdminService } from './users/user-admin-service.ts'
 
@@ -77,6 +81,8 @@ export interface AppConfig {
   }
   /** under-pressure event-loop-delay threshold; 0 disables (tests). */
   maxEventLoopDelayMs: number
+  /** First-party OAuth 2.1 authorization server (ADR-021): issuer, audience, TTLs. */
+  oauth: OAuthConfig
 }
 
 interface AppServices {
@@ -95,6 +101,10 @@ interface AppServices {
   relations: CardRelationService
   watch: CardWatchService
   notifications: NotificationService
+  /** OAuth 2.1 AS services (ADR-021) — routes wired in slice 4. */
+  oauthAuthorization: AuthorizationService
+  oauthToken: TokenService
+  oauthRegistration: RegistrationService
 }
 
 export interface AppDeps {

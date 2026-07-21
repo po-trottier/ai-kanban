@@ -8,6 +8,7 @@
 export * from './domain/constants.ts'
 export * from './domain/dates.ts'
 export * from './domain/entities.ts'
+export * from './domain/oauth.ts'
 export * from './domain/events.ts'
 export * from './domain/policy.ts'
 export * from './domain/filters.ts'

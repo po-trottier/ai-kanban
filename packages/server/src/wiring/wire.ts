@@ -41,6 +41,11 @@ import { LaneAdminService } from '../lanes/lane-admin-service.ts'
 import { AppMetrics } from '../metrics/metrics.ts'
 import { createMetricCollectors } from './metric-collectors.ts'
 import { LocationAdminService } from '../locations/location-admin-service.ts'
+import { AuthorizationService } from '../oauth/authorization-service.ts'
+import { canonicalMcpUri } from '../oauth/canonical-uri.ts'
+import { DEFAULT_OAUTH_TTLS } from '../oauth/oauth-config.ts'
+import { RegistrationService } from '../oauth/registration-service.ts'
+import { TokenService } from '../oauth/token-service.ts'
 import { ServiceTokenService } from '../tokens/service-token-service.ts'
 import { UserAdminService } from '../users/user-admin-service.ts'
 import { type AppConfig, type AppDeps } from '../types.ts'
@@ -227,6 +232,15 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     }
   }
 
+  // OAuth 2.1 AS config (ADR-021 §C): issuer = app origin, one canonical /mcp
+  // audience derived from it, ADR-recommended TTLs (access ~1 h, refresh ~45 d,
+  // code ~60 s). Routes are wired in slice 4; the services are constructed here.
+  const oauth = {
+    issuer: env.PUBLIC_BASE_URL,
+    canonicalMcpUri: canonicalMcpUri(env.PUBLIC_BASE_URL),
+    ...DEFAULT_OAUTH_TTLS,
+  }
+
   const shared = { uow, clock, ids, eventBus }
   const services: AppDeps['services'] = {
     cards: new CardService({ ...shared, notifier, blobStore, boardId, systemUserId }),
@@ -244,6 +258,9 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     relations: new CardRelationService({ uow, clock, ids }),
     watch: new CardWatchService({ uow, clock }),
     notifications: new NotificationService({ uow, clock, ids }),
+    oauthAuthorization: new AuthorizationService({ uow, clock, ids, config: oauth }),
+    oauthToken: new TokenService({ uow, clock, ids, config: oauth }),
+    oauthRegistration: new RegistrationService({ uow, clock, ids }),
   }
 
   // App-lifetime subscriber: turn committed card events into watcher notifications.
@@ -259,6 +276,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     sse: { ...DEFAULT_SSE, ...options.sse },
     uploads: { ...DEFAULT_UPLOADS, ...options.uploads },
     maxEventLoopDelayMs: options.maxEventLoopDelayMs ?? 1_000,
+    oauth,
   }
 
   return {
