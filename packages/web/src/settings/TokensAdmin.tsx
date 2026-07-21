@@ -1,6 +1,6 @@
 import { TOKEN_SCOPES, type TokenScope } from '@rivian-kanban/core'
-import { Badge, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
-import { Ban, Plus, RefreshCw } from 'lucide-react'
+import { Alert, Badge, Group, Modal, Select, Stack, Table, Text, TextInput } from '@mantine/core'
+import { Ban, Info, Plus, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import {
   useCreateServiceToken,
@@ -41,6 +41,13 @@ export function TokensAdmin() {
 
   return (
     <Stack gap="md">
+      <Alert
+        variant="light"
+        icon={<Info size={18} aria-hidden />}
+        title={strings.tokens.oauthPreferredTitle}
+      >
+        {strings.tokens.oauthPreferredBody}
+      </Alert>
       <Group justify="flex-end">
         <HintButton
           tooltip={strings.tooltips.newToken}

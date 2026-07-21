@@ -967,6 +967,10 @@ export const strings = {
   },
 
   tokens: {
+    /** Steers admins to the OAuth browser flow; service tokens are the fallback. */
+    oauthPreferredTitle: 'OAuth is the preferred way to connect agents',
+    oauthPreferredBody:
+      'Interactive agents (Claude Code, Codex, Cursor, and others) should use the OAuth browser flow — point the client at this app’s /mcp URL with no token and approve the sign-in. Every action is then audited as “<client> on behalf of you” and bounded by your own permissions, and no secret is copied. Create a service token below only for a headless account (Slack, CI) or a client that cannot do OAuth.',
     createButton: 'New token',
     createTitle: 'Create service token',
     nameLabel: 'Name',
