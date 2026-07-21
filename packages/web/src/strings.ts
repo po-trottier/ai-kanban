@@ -653,6 +653,10 @@ export const strings = {
       duplicate: 'This work order is a duplicate',
     } satisfies Record<Resolution, string>,
     cancelledBannerBody: 'It sits at the bottom of Done. Reopen it to move it back to Ready.',
+    /** In-progress work past its estimate — a full banner like the other states. */
+    overdueBannerTitle: 'This work order is overdue',
+    overdueBannerBody: (elapsed: string, estimate: string) =>
+      `It has taken ${elapsed} of work against a ${estimate} estimate. Finish it, move it forward, or raise the estimate if the scope grew.`,
     waitingBannerTitle: 'Waiting on Parts / Vendor',
     waitingBannerBody: (reason: string, date: string) =>
       `Waiting on ${reason}, expected to resume by ${date}. It resumes automatically when moved out of this column.`,

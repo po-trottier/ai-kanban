@@ -455,6 +455,70 @@ describe('CardPanel', () => {
     expect(new Headers(unblock?.init?.headers).get('If-Match')).toBe('"3"')
   })
 
+  it('shows an overdue banner for an in-progress card past its estimate', async () => {
+    // Arrange — work started long ago against a tiny estimate, so the burn-down
+    // is well past due (a full banner, like the other special states).
+    const overdue = makeCard('in_progress', {
+      title: 'Slow repair',
+      workStartedAt: '2020-01-01T09:00:00.000Z',
+      estimateMinutes: 60,
+      version: 3,
+    })
+    const fake = createFakeFetch({
+      'GET /api/v1/auth/me': fixtureAdmin,
+      'GET /api/v1/board': makeBoard({ in_progress: [overdue] }),
+      'GET /api/v1/policy': policyRecordOf(permissivePolicy),
+      'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': userSearchHandler,
+      'GET /api/v1/locations': [],
+      'GET /api/v1/tags': [],
+      [`GET /api/v1/cards/${String(overdue.id)}`]: {
+        card: overdue,
+        tags: [],
+        location: null,
+        attachments: [],
+      },
+      [`GET /api/v1/cards/${String(overdue.id)}/comments`]: [],
+      [`GET /api/v1/cards/${String(overdue.id)}/events`]: { items: [], nextCursor: null },
+    })
+    // Act
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(overdue.id)}` })
+    // Assert
+    expect(await screen.findByText('This work order is overdue')).toBeInTheDocument()
+  })
+
+  it('shows no overdue banner for an on-track in-progress card', async () => {
+    // Arrange — work just started, comfortably inside its estimate.
+    const onTrack = makeCard('in_progress', {
+      title: 'Fresh job',
+      workStartedAt: new Date().toISOString(),
+      estimateMinutes: 480,
+      version: 2,
+    })
+    const fake = createFakeFetch({
+      'GET /api/v1/auth/me': fixtureAdmin,
+      'GET /api/v1/board': makeBoard({ in_progress: [onTrack] }),
+      'GET /api/v1/policy': policyRecordOf(permissivePolicy),
+      'GET /api/v1/users': fixturePickerUsers,
+      'GET /api/v1/users/search': userSearchHandler,
+      'GET /api/v1/locations': [],
+      'GET /api/v1/tags': [],
+      [`GET /api/v1/cards/${String(onTrack.id)}`]: {
+        card: onTrack,
+        tags: [],
+        location: null,
+        attachments: [],
+      },
+      [`GET /api/v1/cards/${String(onTrack.id)}/comments`]: [],
+      [`GET /api/v1/cards/${String(onTrack.id)}/events`]: { items: [], nextCursor: null },
+    })
+    // Act
+    renderApp({ fetchFn: fake.fetch, route: `/cards/${String(onTrack.id)}` })
+    // Assert — the body loads, but no overdue banner (it self-nulls on-track).
+    await screen.findByRole('textbox', { name: /Title/ })
+    expect(screen.queryByText('This work order is overdue')).not.toBeInTheDocument()
+  })
+
   it('shows a cancelled banner naming the resolution with a Reopen action', async () => {
     // Arrange
     const cancelled = makeCard('done', {

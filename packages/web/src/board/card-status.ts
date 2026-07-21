@@ -1,5 +1,6 @@
 import { isOverdueResume, type BoardCard, type Card } from '@rivian-kanban/core'
 import { type MantineColor } from '@mantine/core'
+import { workProgress } from '../lib/work-progress.ts'
 import {
   ARCHIVED_COLOR,
   BLOCKED_COLOR,
@@ -7,6 +8,30 @@ import {
   OVERDUE_COLOR,
   WAITING_COLOR,
 } from '../theme.ts'
+
+/** Lanes between Ready and Done where a card carries a live work burn-down. */
+export const WORKING_LANES: ReadonlySet<string> = new Set([
+  'in_progress',
+  'waiting_parts_vendor',
+  'review',
+])
+
+/**
+ * Whether a card's WORK burn-down has passed its estimate — the in-progress
+ * "overdue" state (distinct from the waiting-resume overdue). True only in a
+ * working lane with a started clock + an estimate; needs a live `now`, so the
+ * caller supplies it. Shared by the board card chip and the detail-panel banner.
+ */
+export function isWorkOverdue(
+  card: Pick<BoardCard & Card, 'workStartedAt' | 'estimateMinutes'>,
+  laneKey: string | null,
+  now: Date,
+  timezone: string,
+): boolean {
+  if (laneKey === null || !WORKING_LANES.has(laneKey)) return false
+  if (card.workStartedAt === null || card.estimateMinutes === null) return false
+  return workProgress(card.workStartedAt, card.estimateMinutes, now, timezone).overdue
+}
 
 /** The fields that decide whether a card shows any status badge. */
 type StatusFields = Pick<

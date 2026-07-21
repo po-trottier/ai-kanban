@@ -7,20 +7,16 @@ import { type PickerUser } from '../api/schemas.ts'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDate, formatEstimate, formatTicketNumber, initials } from '../lib/format.ts'
 import { useNow } from '../lib/use-now.ts'
-import { workProgress } from '../lib/work-progress.ts'
 import { PinIcon } from '../shell/icons.tsx'
 import { strings } from '../strings.ts'
 import { EMPHASIS_FONT_WEIGHT, PRIORITY_COLORS } from '../theme.ts'
 import { CardBadges } from './CardBadges.tsx'
-import { hasCardStatus } from './card-status.ts'
+import { hasCardStatus, isWorkOverdue, WORKING_LANES } from './card-status.ts'
 import { CardMenu, type CardMenuAction } from './CardMenu.tsx'
 import { WorkProgressBar } from './WorkProgressBar.tsx'
 import { cx } from '../lib/cx.ts'
 import classes from './board.module.css'
 import { useCardDnd } from './dnd.ts'
-
-/** Lanes between Ready and Done where a card carries a live work burn-down bar. */
-const WORKING_LANES = new Set<LaneKey>(['in_progress', 'waiting_parts_vendor', 'review'])
 
 /** Re-check work-overdue on the same minute cadence as the burn-down bar. */
 const WORK_TICK_MS = 60_000
@@ -68,11 +64,7 @@ export function CardItem({
   // overdue card reads like a waiting-overdue one (both get the chip + tooltip).
   const timezone = useUserTimezone()
   const now = useNow(WORK_TICK_MS)
-  const workOverdue =
-    WORKING_LANES.has(laneKey) &&
-    card.workStartedAt !== null &&
-    card.estimateMinutes !== null &&
-    workProgress(card.workStartedAt, card.estimateMinutes, now, timezone).overdue
+  const workOverdue = isWorkOverdue(card, laneKey, now, timezone)
 
   return (
     <Paper

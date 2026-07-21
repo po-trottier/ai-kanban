@@ -30,8 +30,11 @@ import {
 import { usePolicy, useUsers } from '../api/meta.ts'
 import { useCurrentUser, useUserTimezone } from '../auth/session-context.ts'
 import { CardBadges } from '../board/CardBadges.tsx'
+import { isWorkOverdue } from '../board/card-status.ts'
 import { canPerformAction } from '../board/move-options.ts'
-import { formatTicketNumber, todayInTimezone, utcToday } from '../lib/format.ts'
+import { formatEstimate, formatTicketNumber, todayInTimezone, utcToday } from '../lib/format.ts'
+import { useNow } from '../lib/use-now.ts'
+import { workProgress } from '../lib/work-progress.ts'
 import { CloseIcon } from '../shell/icons.tsx'
 import { useCardPanelSlot } from '../shell/card-panel-slot.ts'
 import { ErrorAlert } from '../shell/ErrorAlert.tsx'
@@ -41,6 +44,7 @@ import {
   BLOCKED_COLOR,
   CANCELLED_COLOR,
   EMPHASIS_FONT_WEIGHT,
+  OVERDUE_COLOR,
   PRIORITY_COLORS,
   WAITING_COLOR,
 } from '../theme.ts'
@@ -240,6 +244,10 @@ function CardPanelBody({ cardId }: { cardId: string }) {
   const laneLabels = Object.fromEntries(
     (boardQuery.data?.lanes ?? []).map((snapshot) => [snapshot.lane.key, snapshot.lane.label]),
   )
+  // The card's current lane key — drives the work-overdue banner (only working lanes).
+  const laneKey =
+    boardQuery.data?.lanes.find((snapshot) => snapshot.lane.id === detail.card.laneId)?.lane.key ??
+    null
   const events = (eventsQuery.data?.pages ?? []).flatMap((page) => page.items)
   const policy = policyQuery.data
   // Policy affordances (ADR-013): under-afford until the policy arrives.
@@ -254,6 +262,7 @@ function CardPanelBody({ cardId }: { cardId: string }) {
     <Stack gap="md">
       <StateBanner
         card={detail.card}
+        laneKey={laneKey}
         canReopen={canReopen}
         canUnblock={canUnblock}
         acting={cardAction.isPending}
@@ -371,6 +380,7 @@ function CardPanelSkeleton() {
  */
 function StateBanner({
   card,
+  laneKey,
   canReopen,
   canUnblock,
   acting,
@@ -380,6 +390,8 @@ function StateBanner({
   onSaveWaiting,
 }: {
   card: Card
+  /** The card's current lane key — gates the work-overdue banner. */
+  laneKey: string | null
   canReopen: boolean
   canUnblock: boolean
   acting: boolean
@@ -437,7 +449,36 @@ function StateBanner({
   if (card.waitingReason !== null) {
     return <WaitingBanner card={card} saving={savingWaiting} onSave={onSaveWaiting} />
   }
-  return null
+  // An in-progress card past its estimate gets its own banner too (self-nulls
+  // when on-track), so overdue reads like every other special state.
+  return <WorkOverdueBanner card={card} laneKey={laneKey} />
+}
+
+/**
+ * The in-progress overdue banner — a card in a working lane whose burn-down has
+ * passed its estimate. Purely informational (unlike blocked/cancelled/waiting
+ * there is no single "unstick" action): it names the overrun and nudges the
+ * user to finish, advance, or re-estimate. Self-nulls when the card is on-track
+ * or not being worked, so `StateBanner` can render it unconditionally. Ticks on
+ * the burn-down's minute cadence so it appears the moment the card tips over.
+ */
+function WorkOverdueBanner({ card, laneKey }: { card: Card; laneKey: string | null }) {
+  const now = useNow(60_000)
+  const timezone = useUserTimezone()
+  if (!isWorkOverdue(card, laneKey, now, timezone)) return null
+  // isWorkOverdue guarantees both are set; narrow for formatEstimate/workProgress.
+  if (card.workStartedAt === null || card.estimateMinutes === null) return null
+  const { elapsedMinutes } = workProgress(card.workStartedAt, card.estimateMinutes, now, timezone)
+  return (
+    <Alert color={OVERDUE_COLOR} title={strings.detail.overdueBannerTitle}>
+      <Text size="sm">
+        {strings.detail.overdueBannerBody(
+          formatEstimate(elapsedMinutes),
+          formatEstimate(card.estimateMinutes),
+        )}
+      </Text>
+    </Alert>
+  )
 }
 
 /**
