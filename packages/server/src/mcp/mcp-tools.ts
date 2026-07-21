@@ -63,15 +63,16 @@ const getCardToolSchema = z.strictObject(cardIdShape)
 const cardHistoryToolSchema = cardHistoryRequestSchema.extend(cardIdShape)
 
 /**
- * History output carries read-time attribution for mcp actors: `actorLabel`
- * (service-token name) + `onBehalfOfUserId` (its creator), derived by the read
- * path (mcp.md). The intersection keeps core's discriminated payload union.
+ * History output carries on-behalf-of attribution: `actorLabel` (the stored
+ * OAuth client name for `agent` events, or the service-token name overlaid for
+ * `mcp` events — owned by core's `cardEventSchema`) + the derived
+ * `onBehalfOfUserId` (its operator). The intersection keeps core's discriminated
+ * payload union.
  */
 const cardHistoryOutputSchema = pageSchemaOf(
   z.intersection(
     cardEventSchema,
     z.object({
-      actorLabel: z.string().optional(),
       onBehalfOfUserId: z.uuid().optional(),
     }),
   ),
@@ -102,7 +103,6 @@ const activityOutputSchema = activityFeedSchemaOf({
   event: z.intersection(
     cardEventSchema,
     z.object({
-      actorLabel: z.string().optional(),
       onBehalfOfUserId: z.uuid().optional(),
       actorDisplayName: z.string().optional(),
       onBehalfOfDisplayName: z.string().optional(),

@@ -36,6 +36,7 @@ CREATE TABLE `card_events` (
 	`card_id` integer NOT NULL,
 	`actor_id` text,
 	`actor_kind` text NOT NULL,
+	`actor_label` text,
 	`event_type` text NOT NULL,
 	`payload` text NOT NULL,
 	`created_at` text NOT NULL,

@@ -297,6 +297,9 @@ export const cardEvents = sqliteTable(
     /** User id or service-token id — deliberately no FK; NULL for `system`. */
     actorId: text('actor_id'),
     actorKind: text('actor_kind').$type<ActorKind>().notNull(),
+    /** Denormalized OAuth client name for `agent` events (on-behalf-of audit,
+     * ADR-021 §E); NULL for every other actor kind. */
+    actorLabel: text('actor_label'),
     eventType: text('event_type').$type<CardEventType>().notNull(),
     /** JSON, shape per event type (data-model.md#card_events). */
     payload: text('payload', { mode: 'json' }).notNull(),

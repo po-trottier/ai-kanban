@@ -119,8 +119,11 @@ export const boardResponseSchema = boardSnapshotSchemaOf({
 
 /**
  * Card audit events — the payload union is validated at write time (ADR-005).
- * `actorLabel`/`onBehalfOfUserId` are read-time derivations for mcp actors
- * (service-token name + its creator); the stored `actorId` stays the token id.
+ * `actorLabel` is the denormalized on-behalf-of label: STORED for `agent` events
+ * (the OAuth client name, hence `null` on every non-agent row) and OVERRIDDEN at
+ * read time for `mcp` events (the service-token name). `onBehalfOfUserId` (the
+ * operator behind an mcp/agent action) is a read-time derivation; the stored
+ * `actorId` stays the token id (mcp) or the user id (agent).
  */
 export const cardEventResponseSchema = z.object({
   id: z.uuid(),
@@ -130,7 +133,7 @@ export const cardEventResponseSchema = z.object({
   eventType: z.enum(CARD_EVENT_TYPES),
   payload: z.record(z.string(), z.unknown()),
   createdAt: z.string(),
-  actorLabel: z.string().optional(),
+  actorLabel: z.string().nullable().optional(),
   onBehalfOfUserId: z.uuid().optional(),
 })
 

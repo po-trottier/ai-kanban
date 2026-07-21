@@ -1,3 +1,4 @@
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { type Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
@@ -10,6 +11,7 @@ import {
   type TokenScope,
 } from '@rivian-kanban/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { consentCsrfToken } from './oauth/consent-page.ts'
 import { createTestApp, type TestApp } from './test/support.ts'
 
 /**
@@ -69,6 +71,73 @@ async function mintToken(name: string, role: Role, scope: TokenScope) {
   if (response.statusCode !== 201) throw new Error(`token mint failed: ${response.body}`)
   const body = response.json<{ token: { id: string }; rawToken: string }>()
   return { id: body.token.id, raw: body.rawToken }
+}
+
+const OAUTH_RESOURCE = 'http://localhost:3000/mcp'
+const OAUTH_REDIRECT = 'http://127.0.0.1:8765/callback'
+
+/**
+ * Runs the FULL OAuth 2.1 flow through the real AS routes as `sessionCookie`'s
+ * user (register → authorize GET → consent approve → code+PKCE token exchange)
+ * and returns the minted `rka_` access token — the exact credential an agent
+ * like Claude Code obtains after the human approves in the browser.
+ */
+async function mintAccessTokenFor(
+  sessionCookie: string,
+  clientName: string,
+  scope: 'read' | 'read_write',
+): Promise<string> {
+  const verifier = randomBytes(32).toString('base64url')
+  const challenge = createHash('sha256').update(verifier).digest('base64url')
+
+  const registered = await t.app.inject({
+    method: 'POST',
+    url: '/oauth/register',
+    headers: { 'content-type': 'application/json' },
+    payload: { client_name: clientName, redirect_uris: [OAUTH_REDIRECT] },
+  })
+  const clientId = registered.json<{ client_id: string }>().client_id
+
+  const authorizeFields = {
+    client_id: clientId,
+    redirect_uri: OAUTH_REDIRECT,
+    resource: OAUTH_RESOURCE,
+    scope,
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+    state: randomBytes(8).toString('hex'),
+  }
+  const approve = await t.app.inject({
+    method: 'POST',
+    url: '/oauth/authorize',
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      cookie: `sid=${sessionCookie}`,
+    },
+    payload: new URLSearchParams({
+      ...authorizeFields,
+      csrf: consentCsrfToken(sessionCookie),
+      decision: 'approve',
+    }).toString(),
+  })
+  if (approve.statusCode !== 302) throw new Error(`authorize failed: ${approve.body}`)
+  const code = new URL(String(approve.headers.location)).searchParams.get('code') ?? ''
+
+  const token = await t.app.inject({
+    method: 'POST',
+    url: '/oauth/token',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    payload: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      code_verifier: verifier,
+      client_id: clientId,
+      redirect_uri: OAUTH_REDIRECT,
+      resource: OAUTH_RESOURCE,
+    }).toString(),
+  })
+  if (token.statusCode !== 200) throw new Error(`token exchange failed: ${token.body}`)
+  return token.json<{ access_token: string }>().access_token
 }
 
 async function connect(rawToken: string | null, url = `${baseUrl}/mcp`): Promise<Client> {
@@ -851,11 +920,17 @@ describe('enforcement-on policy posture', () => {
 })
 
 describe('authentication at the transport edge', () => {
-  it('401s a missing token with WWW-Authenticate before any JSON-RPC processing', async () => {
+  // RFC 9728 §5.1: every /mcp 401 advertises the protected-resource metadata so
+  // an OAuth client can discover the AS (issuer = PUBLIC_BASE_URL in tests).
+  const RESOURCE_METADATA =
+    'resource_metadata="http://localhost:3000/.well-known/oauth-protected-resource"'
+
+  it('401s a missing token with WWW-Authenticate + resource_metadata before any JSON-RPC processing', async () => {
     const response = await rawInitializeRequest()
 
     expect(response.status).toBe(401)
-    expect(response.headers.get('www-authenticate')).toBe('Bearer')
+    // No credential presented: a bare Bearer challenge plus the discovery param.
+    expect(response.headers.get('www-authenticate')).toBe(`Bearer ${RESOURCE_METADATA}`)
     expect(response.headers.get('content-type')).toContain('application/problem+json')
     const body = (await response.json()) as Problem
     expect(body.type).toBe('urn:rivian-kanban:problem:unauthenticated')
@@ -863,11 +938,13 @@ describe('authentication at the transport edge', () => {
     expect(response.headers.get('x-ratelimit-limit')).toBeTruthy()
   })
 
-  it('401s an unknown token', async () => {
+  it('401s an unknown token with invalid_token + resource_metadata', async () => {
     const response = await rawInitializeRequest({ authorization: 'Bearer rkb_bogus' })
 
     expect(response.status).toBe(401)
-    expect(response.headers.get('www-authenticate')).toBe('Bearer error="invalid_token"')
+    expect(response.headers.get('www-authenticate')).toBe(
+      `Bearer error="invalid_token", ${RESOURCE_METADATA}`,
+    )
   })
 
   it('401s a revoked token', async () => {
@@ -883,7 +960,9 @@ describe('authentication at the transport edge', () => {
 
     const response = await rawInitializeRequest({ authorization: `Bearer ${revoked.raw}` })
     expect(response.status).toBe(401)
-    expect(response.headers.get('www-authenticate')).toBe('Bearer error="invalid_token"')
+    expect(response.headers.get('www-authenticate')).toBe(
+      `Bearer error="invalid_token", ${RESOURCE_METADATA}`,
+    )
   })
 
   it('rejects the SDK client outright when no token is presented', async () => {
@@ -992,6 +1071,97 @@ describe('audit trail', () => {
       expect(event.actorLabel).toBe('writer agent')
       expect(event.onBehalfOfUserId).toBe(adminId)
     }
+  })
+})
+
+describe('OAuth agent on-behalf-of (resource server, ADR-021 §A)', () => {
+  it('mints an access token through the AS, calls /mcp, and audits the mutation to the user with the client label', async () => {
+    // A distinct human operator authorizes a named agent for read+write.
+    const operator = await t.asRole('user')
+    const accessToken = await mintAccessTokenFor(operator.cookie, 'Claude Code', 'read_write')
+    expect(accessToken).toMatch(/^rka_/)
+
+    // The OAuth access token drives /mcp exactly like a service token would.
+    const client = await connect(accessToken)
+    const card = await callOk<Card>(client, 'create_card', {
+      title: 'Agent-created via OAuth on-behalf-of',
+      priority: 'P1',
+    })
+
+    // The tool works AND an agent card is origin mcp, bounded by the user's role.
+    expect(card.origin).toBe('mcp')
+
+    // The audit event attributes to the USER (ownership/attribution) but names
+    // the agent's client so history reads "Claude Code on behalf of <user>".
+    const events = await t
+      .request(adminCookie, { method: 'GET', url: `/api/v1/cards/${String(card.id)}/events` })
+      .then((response) =>
+        response.json<{
+          items: {
+            eventType: string
+            actorKind: string
+            actorId: string
+            actorLabel?: string
+            onBehalfOfUserId?: string
+          }[]
+        }>(),
+      )
+    const created = events.items.find((event) => event.eventType === 'card.created')
+    expect(created).toBeDefined()
+    expect(created?.actorKind).toBe('agent')
+    // actorId IS the operator (the agent acts as them), with the denormalized
+    // client name and the on-behalf user resolved to the same operator.
+    expect(created?.actorId).toBe(operator.user.id)
+    expect(created?.actorLabel).toBe('Claude Code')
+    expect(created?.onBehalfOfUserId).toBe(operator.user.id)
+  })
+
+  it('bounds a read-scope agent token to reads — it cannot mutate', async () => {
+    const operator = await t.asRole('user')
+    const readToken = await mintAccessTokenFor(operator.cookie, 'Read-only agent', 'read')
+
+    const client = await connect(readToken)
+    // A read tool works…
+    await callOk(client, 'get_board_snapshot')
+    // …but a write is denied by the always-on read-scope identity rule.
+    const problem = await callProblem(client, 'create_card', { title: 'should be denied' })
+    expect(problem.type).toBe('urn:rivian-kanban:problem:policy-denied')
+    expect(problem.rule).toBe('token-scope-read')
+  })
+
+  it('401s an access token whose audience is NOT this /mcp (RFC 8707, no passthrough)', async () => {
+    // A real AS-hashed, unexpired, unrevoked token — but minted for a foreign
+    // `resource`. Inserted directly (the AS only ever mints for /mcp) with a raw
+    // value we control, so the RS's audience check is the only thing that can
+    // reject it. Register a real client so the client_id FK is satisfied.
+    const operator = await t.asRole('user')
+    const registered = await t.app.inject({
+      method: 'POST',
+      url: '/oauth/register',
+      headers: { 'content-type': 'application/json' },
+      payload: { client_name: 'Foreign-audience agent', redirect_uris: [OAUTH_REDIRECT] },
+    })
+    const clientId = registered.json<{ client_id: string }>().client_id
+
+    const rawToken = 'rka_foreign-audience-token-value'
+    await t.wired.deps.uow.run((tx) =>
+      tx.oauthAccessTokens.insert({
+        id: randomUUID(),
+        tokenHash: createHash('sha256').update(rawToken).digest('hex'),
+        userId: operator.user.id,
+        clientId,
+        scope: 'read',
+        resource: 'http://localhost:3000/not-mcp',
+        expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        revokedAt: null,
+        lastUsedAt: null,
+        createdAt: new Date().toISOString(),
+      }),
+    )
+
+    const response = await rawInitializeRequest({ authorization: `Bearer ${rawToken}` })
+    expect(response.status).toBe(401)
+    expect(response.headers.get('www-authenticate')).toContain('resource_metadata=')
   })
 })
 

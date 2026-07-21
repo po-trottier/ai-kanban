@@ -158,15 +158,16 @@ Append-only. Written **in the same transaction** as the mutation it records
 ([ADR-005](decisions/ADR-005-audit-trail.md)). Never updated or deleted (PII removal is a hard
 delete of source rows plus a `card.pii_deleted` tombstone event).
 
-| column     | type                | notes                                          |
-| ---------- | ------------------- | ---------------------------------------------- |
-| id         | TEXT PK             | UUIDv7 (time-ordered)                          |
-| card_id    | INTEGER FK NOT NULL |                                                |
-| actor_id   | TEXT NULL           | user id or service-token id; NULL for `system` |
-| actor_kind | TEXT NOT NULL       | `user \| mcp \| slack \| system`               |
-| event_type | TEXT NOT NULL       | see below                                      |
-| payload    | TEXT NOT NULL       | JSON, shape per event type                     |
-| created_at | TEXT NOT NULL       |                                                |
+| column      | type                | notes                                                                                                                                                 |
+| ----------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id          | TEXT PK             | UUIDv7 (time-ordered)                                                                                                                                 |
+| card_id     | INTEGER FK NOT NULL |                                                                                                                                                       |
+| actor_id    | TEXT NULL           | user id, service-token id, or (for `agent`) the operator user id; NULL for `system`                                                                   |
+| actor_kind  | TEXT NOT NULL       | `user \| mcp \| slack \| system \| agent`                                                                                                             |
+| actor_label | TEXT NULL           | denormalized OAuth client name for `agent` events (on-behalf-of audit, [ADR-021](decisions/ADR-021-oauth-authorization-server.md) §E); NULL otherwise |
+| event_type  | TEXT NOT NULL       | see below                                                                                                                                             |
+| payload     | TEXT NOT NULL       | JSON, shape per event type                                                                                                                            |
+| created_at  | TEXT NOT NULL       |                                                                                                                                                       |
 
 Index: `(card_id, created_at)` — per-card history is the only event query surface in v1; a
 board-wide event index arrives with its first consumer.

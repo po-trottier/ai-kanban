@@ -27,7 +27,10 @@ export function describeActor(event: CardEventResponse, context: HistoryContext)
         event.onBehalfOfUserId !== undefined
           ? context.userNames.get(event.onBehalfOfUserId)
           : undefined
-      if (event.actorLabel !== undefined && user !== undefined) {
+      // `actorLabel` is now a stored envelope field (`string | null`): the
+      // service-token name is overlaid at read time for mcp, the OAuth client
+      // name is stored for agent. `null` on non-labelled rows falls through.
+      if (event.actorLabel != null && user !== undefined) {
         return strings.history.actorOnBehalfOf(event.actorLabel, user)
       }
       return event.actorLabel ?? strings.history.actorAgent

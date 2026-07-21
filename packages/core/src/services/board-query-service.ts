@@ -77,15 +77,20 @@ export interface Page<T> {
 }
 
 /**
- * Read-time attribution for service-token (mcp) actors: the stored `actorId`
- * is the token id (audit integrity, ADR-005), so the read path resolves it to
- * the token's `name` (`actorLabel`) and its creator (`onBehalfOfUserId`) — the
- * "<token> on behalf of <user>" line. Both are absent for non-mcp actors and
- * derived, never stored (docs/architecture/rest-api.md). Distributed over the
- * discriminated union so each variant keeps its narrowed `eventType`/`payload`.
+ * Read-time attribution ON TOP of the stored envelope. Two actor shapes carry
+ * an "<label> on behalf of <user>" line:
+ * - `mcp` (service token): the stored `actorId` is the token id (audit
+ *   integrity, ADR-005), so the read path resolves it to the token `name`
+ *   (overriding `actorLabel`) and its creator (`onBehalfOfUserId`).
+ * - `agent` (OAuth): `actorLabel` is ALREADY the denormalized client name on the
+ *   row (stamped at write time), so the read path only resolves `onBehalfOfUserId`
+ *   = the stored `actorId` (which IS the user for an agent).
+ * `onBehalfOfUserId` is absent for non-mcp/agent actors and derived, never
+ * stored. Intersecting (not Omit) with `CardEvent` keeps the discriminated
+ * union so each variant keeps its narrowed `eventType`/`payload`; `actorLabel`
+ * is inherited from the envelope (`string | null`).
  */
 export type EnrichedCardEvent = CardEvent & {
-  actorLabel?: string
   onBehalfOfUserId?: string
 }
 
@@ -560,19 +565,28 @@ async function reviewEnteredAt(tx: TransactionContext, card: Card): Promise<stri
 }
 
 /**
- * Read-time attribution for mcp events: the stored actorId is the service-token
- * id, resolved here to the token name + its creator. One `list()` covers every
- * distinct token in the page (tokens are few, admin-managed), so no N+1 and no
- * new port method. Revoked tokens still have a row, so their name still resolves.
+ * Read-time attribution for on-behalf-of events:
+ * - `mcp` — the stored actorId is the service-token id, resolved here to the
+ *   token name (`actorLabel`) + its creator (`onBehalfOfUserId`). One `list()`
+ *   covers every distinct token in the page (tokens are few, admin-managed), so
+ *   no N+1. Revoked tokens still have a row, so their name still resolves.
+ * - `agent` — the OAuth client name is ALREADY on the row (`actorLabel`, stamped
+ *   at write time) and the stored actorId IS the user, so this only needs to
+ *   surface `onBehalfOfUserId = actorId` — no lookup.
  */
 async function enrichMcpActors(
   tx: TransactionContext,
   events: CardEvent[],
 ): Promise<EnrichedCardEvent[]> {
   const hasMcp = events.some((event) => event.actorKind === 'mcp')
-  if (!hasMcp) return events
+  const withAgents = events.map((event) =>
+    event.actorKind === 'agent' && event.actorId !== null
+      ? { ...event, onBehalfOfUserId: event.actorId }
+      : event,
+  )
+  if (!hasMcp) return withAgents
   const tokensById = new Map((await tx.serviceTokens.list()).map((row) => [row.id, row]))
-  return events.map((event) => {
+  return withAgents.map((event) => {
     const token =
       event.actorKind === 'mcp' && event.actorId !== null && tokensById.get(event.actorId)
     if (!token) return event
@@ -606,7 +620,12 @@ async function selfActorIds(tx: TransactionContext, actor: Actor): Promise<strin
  */
 function referencedUserIds(event: EnrichedActivityEvent): string[] {
   const ids: string[] = []
-  if ((event.actorKind === 'user' || event.actorKind === 'slack') && event.actorId !== null) {
+  // `agent` stores the USER as actorId (it acts as them), so it resolves a name
+  // like a user/slack actor does — plus its `onBehalfOfUserId` companion below.
+  if (
+    (event.actorKind === 'user' || event.actorKind === 'slack' || event.actorKind === 'agent') &&
+    event.actorId !== null
+  ) {
     ids.push(event.actorId)
   }
   if (event.onBehalfOfUserId !== undefined) ids.push(event.onBehalfOfUserId)

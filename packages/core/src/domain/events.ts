@@ -15,6 +15,14 @@ const eventBase = {
   /** User id or service-token id; null for `system`. */
   actorId: z.uuid().nullable(),
   actorKind: z.enum(ACTOR_KINDS),
+  /**
+   * Denormalized point-in-time actor label — stamped only for `agent` events
+   * (the OAuth client name, so the audit reads "Codex on behalf of <user>"),
+   * null otherwise. Nullable AND optional so absence is tolerated: existing
+   * fixtures and hydrated non-agent rows (`null`) both stay valid without
+   * touching every `makeEvent` caller (ADR-021 on-behalf-of).
+   */
+  actorLabel: z.string().nullable().optional(),
   createdAt: isoDateTimeSchema,
 }
 

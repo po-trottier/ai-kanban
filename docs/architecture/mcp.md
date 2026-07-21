@@ -23,16 +23,33 @@ checks and audit trail behave identically to web actions.
 
 ## Authentication
 
-Bearer service tokens from day one — `/mcp` is never anonymous. Tokens are admin-created,
-sha256-hashed at rest, revocable, and audited (`actor_kind: 'mcp'`, `actor_id: <token id>`).
-Missing/invalid tokens get `401` + `WWW-Authenticate: Bearer`. Rate-limited **per token id**
-(agents often share egress IPs).
+`/mcp` is an **OAuth 2.1 Resource Server** ([ADR-021](decisions/ADR-021-oauth-authorization-server.md) §A)
+and is never anonymous. The one bearer gate accepts **two** credential kinds, resolving each to
+the same downstream `Actor`:
 
-The stored `actor_id` stays the token id (audit integrity), but read paths that return events —
-`get_card_history`, `list_activity`, and the REST `GET /cards/:id/events` and `GET /events` —
-enrich each `mcp` event at read time with two derived, optional fields: `actorLabel` (the token
-name) and `onBehalfOfUserId` (the token's `createdBy`), so surfaces render "<token> on behalf
-of <user>" instead of an opaque id.
+- **`rkb_…` service tokens** — admin-created, sha256-hashed at rest, revocable, audited
+  (`actor_kind: 'mcp'`, `actor_id: <token id>`). For **headless** service accounts (Slack bot,
+  CI) that act for no single human (ADR-021 §F).
+- **`rka_…` OAuth access tokens** — minted by our first-party authorization server after a human
+  approves an agent in the browser (no token to copy). Validated on every request as one indexed
+  hash lookup: reject unknown/revoked/expired, reject any token whose RFC 8707 `resource`
+  audience is not this `/mcp` (no cross-service reuse), and resolve the operator (reject if
+  gone/deactivated). Audited `actor_kind: 'agent'`, `actor_id: <the operator's user id>` — the
+  agent acts **as** the user, so its role/permissions ARE the user's (bounded, never widened),
+  with the OAuth client name denormalized for the "on behalf of" line.
+
+Missing/invalid credentials get `401` + `WWW-Authenticate: Bearer` carrying the RFC 9728
+`resource_metadata="<issuer>/.well-known/oauth-protected-resource"` param so an OAuth client can
+discover the AS and start the flow. Rate-limited **per token id** (agents often share egress IPs).
+
+Read paths that return events — `get_card_history`, `list_activity`, and the REST
+`GET /cards/:id/events` and `GET /events` — surface the "<label> on behalf of <user>" line:
+
+- for an **`mcp`** event the stored `actor_id` is the token id (audit integrity), enriched at
+  read time with `actorLabel` (the token name) + `onBehalfOfUserId` (the token's `createdBy`);
+- for an **`agent`** event the client name is **stored** on the event (`actor_label`, denormalized
+  at write time — audit is point-in-time truth) and `onBehalfOfUserId` is the stored `actor_id`
+  (the operator), surfaced without a lookup.
 
 The **activity feed** (`list_activity` / `GET /events`) resolves ids to names one step further,
 in a shape shared by both surfaces and defined once in core (`activityFeedSchemaOf`): each item
@@ -54,8 +71,10 @@ Each token carries:
 Token format: `rkb_` + 32 random bytes base64url (256-bit CSPRNG; the prefix makes leaks
 scanner-detectable). Shown once at creation, never expires, revocation is the only end.
 
-Full OAuth 2.0 resource-server behavior (RFC 9728 protected-resource metadata, IdP-issued
-tokens) arrives with the OIDC/SSO cutover; service tokens remain for headless automation.
+The resource-server behavior (RFC 9728 metadata + `WWW-Authenticate` discovery, RFC 8707 audience
+validation, `agent` on-behalf-of audit) is live ([ADR-021](decisions/ADR-021-oauth-authorization-server.md)
+phase 1); service tokens remain for headless automation. External-IdP-issued sign-in
+(federation) arrives with phase 2.
 
 ## Connecting a client
 
@@ -152,8 +171,10 @@ seeded `admin` role does; the `user` role does not) — a READ gate, so it appli
 tokens too (unlike the write rules, a summarizer token CAN hold it). A caller without it is
 scoped to its OWN activity: events where the actor is the caller, OR an mcp event by a token the
 caller minted (the "on behalf of" line). For an mcp actor the on-behalf user is the token's
-`createdBy`, so a token sees its creator's activity. Scoping is pushed into the events query
-(`actorIds` allowlist), never filtered in memory, so pagination stays correct.
+`createdBy`, so a token sees its creator's activity. An **`agent`** caller is already the operator
+(its `actor_id` IS the user), so it self-scopes to that user's activity — including its own
+`agent` events, which store the user id — with no extra resolution. Scoping is pushed into the
+events query (`actorIds` allowlist), never filtered in memory, so pagination stays correct.
 
 Design rules:
 

@@ -49,15 +49,16 @@ export const cardDetailResponseSchema = cardDetailSchemaOf({
 export type CardDetailResponse = z.infer<typeof cardDetailResponseSchema>
 
 /**
- * Card events carry read-time attribution for mcp actors: `actorLabel` (the
- * service-token name) and `onBehalfOfUserId` (its creator), derived by the
- * server (rest-api.md). The stored event never has them, so they are optional;
- * the intersection keeps core's discriminated payload union intact.
+ * Card events carry on-behalf-of attribution: `actorLabel` (the OAuth client
+ * name for `agent` events — a real STORED envelope field, `null` otherwise — or
+ * the service-token name overlaid for `mcp` events) and `onBehalfOfUserId` (the
+ * operator behind it, a read-time derivation). `actorLabel` comes from core's
+ * `cardEventSchema`; the intersection only adds the derived `onBehalfOfUserId`
+ * and keeps core's discriminated payload union intact.
  */
 const cardEventResponseSchema = z.intersection(
   cardEventSchema,
   z.object({
-    actorLabel: z.string().optional(),
     onBehalfOfUserId: z.uuid().optional(),
   }),
 )

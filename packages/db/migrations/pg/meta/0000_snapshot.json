@@ -1,5 +1,5 @@
 {
-  "id": "5d61c9a9-f811-4a85-ab16-dfafb646e5fa",
+  "id": "ea5f09a9-ec40-4d59-bbdb-59348d2c5eb5",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -270,6 +270,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "actor_label": {
+          "name": "actor_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "event_type": {
           "name": "event_type",

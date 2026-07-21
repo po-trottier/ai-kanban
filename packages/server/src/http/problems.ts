@@ -70,6 +70,23 @@ function problem(
   }
 }
 
+/**
+ * The /mcp `WWW-Authenticate: Bearer` challenge (RFC 6750 + RFC 9728 §5.1). A
+ * presented-but-rejected token adds `error="invalid_token"`; a known issuer adds
+ * the `resource_metadata` URL pointing at the protected-resource metadata
+ * (`/.well-known/oauth-protected-resource`) so an OAuth client can discover the
+ * AS. Params are comma-separated per the RFC's `auth-param` grammar.
+ */
+function bearerChallenge(error: BearerAuthRequiredError): string {
+  const params: string[] = []
+  if (error.tokenPresented) params.push('error="invalid_token"')
+  if (error.resourceMetadataIssuer !== undefined) {
+    const url = `${error.resourceMetadataIssuer.replace(/\/$/, '')}/.well-known/oauth-protected-resource`
+    params.push(`resource_metadata="${url}"`)
+  }
+  return params.length === 0 ? 'Bearer' : `Bearer ${params.join(', ')}`
+}
+
 /** Issues are typed by core's problem schema — the exact shape clients parse. */
 function validationProblem(issues: ProblemIssue[]): ProblemResult {
   return problem(400, 'validation', 'Validation failed', 'the request did not match the schema', {
@@ -115,12 +132,13 @@ export function toProblem(error: unknown): ProblemResult {
   }
   if (error instanceof BearerAuthRequiredError) {
     // /mcp bearer challenge (RFC 6750): 401 + WWW-Authenticate before any
-    // JSON-RPC processing (docs/architecture/mcp.md#authentication).
+    // JSON-RPC processing (docs/architecture/mcp.md#authentication). The
+    // RFC 9728 §5.1 `resource_metadata` param (when the issuer is known) points
+    // an OAuth client at the protected-resource metadata so it can discover the
+    // AS and start the auth flow (ADR-021 §A).
     return {
       ...problem(401, 'unauthenticated', 'Authentication required', error.message),
-      headers: {
-        'www-authenticate': error.tokenPresented ? 'Bearer error="invalid_token"' : 'Bearer',
-      },
+      headers: { 'www-authenticate': bearerChallenge(error) },
     }
   }
   if (error instanceof CurrentPasswordMismatchError) {

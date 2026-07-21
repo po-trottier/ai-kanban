@@ -86,12 +86,15 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 /** The event-type-specific part of a CardEvent (everything but the envelope). */
 export type CardEventBody = DistributiveOmit<
   CardEvent,
-  'id' | 'cardId' | 'actorId' | 'actorKind' | 'createdAt'
+  'id' | 'cardId' | 'actorId' | 'actorKind' | 'actorLabel' | 'createdAt'
 >
 
 /**
  * Builds an audit event envelope for `actor`; `actorId` is null for system
  * actors (data-model.md#card_events). Validated against the canonical schema.
+ * An `agent` actor denormalizes its OAuth client name onto `actorLabel` so the
+ * audit reads "<client> on behalf of <user>" (ADR-021 §E) — audit records are
+ * point-in-time truth, so the name is stamped, not resolved at read time.
  */
 export function makeEvent(
   ids: IdGenerator,
@@ -106,6 +109,7 @@ export function makeEvent(
     cardId,
     actorId: actor.kind === 'system' ? null : actor.id,
     actorKind: actor.kind,
+    actorLabel: actor.kind === 'agent' ? (actor.client?.name ?? null) : null,
     createdAt: clock.now().toISOString(),
   })
 }

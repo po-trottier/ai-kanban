@@ -19,14 +19,21 @@ export class UnauthenticatedError extends Error {
  * Bearer`, docs/architecture/mcp.md#authentication). `tokenPresented`
  * selects the RFC 6750 challenge: a bare `Bearer` when no credential came at
  * all, `error="invalid_token"` when one did and was rejected.
+ *
+ * `resourceMetadataIssuer` is the AS issuer origin (ADR-021 §A): when present,
+ * the challenge advertises the RFC 9728 `resource_metadata` URL so an OAuth
+ * client can discover the authorization server and start the auth flow. Omitted
+ * only for the internal "bearer hook did not run" invariant.
  */
 export class BearerAuthRequiredError extends Error {
   readonly tokenPresented: boolean
+  readonly resourceMetadataIssuer?: string
 
-  constructor(detail: string, tokenPresented: boolean) {
+  constructor(detail: string, tokenPresented: boolean, resourceMetadataIssuer?: string) {
     super(detail)
     this.name = 'BearerAuthRequiredError'
     this.tokenPresented = tokenPresented
+    if (resourceMetadataIssuer !== undefined) this.resourceMetadataIssuer = resourceMetadataIssuer
   }
 }
 
