@@ -1,0 +1,17 @@
+# OSV-Scanner suppressions (read by the `osv-scan` CI job, which scans
+# package-lock.json). Every entry is a KNOWN, justified exception the scanner
+# would otherwise fail the build on. Keep each one narrow and remove it the
+# moment its real fix lands, so the scanner re-flags any regression.
+
+[[IgnoredVulns]]
+id = "GHSA-frvp-7c67-39w9"
+reason = """
+Path traversal in @hono/node-server's serve-static on Windows (encoded \\ / %5C).
+UNREACHABLE here: we never use Hono's serve-static — static assets are served by
+@fastify/static, and @modelcontextprotocol/sdk pulls @hono/node-server in only for
+getRequestListener (Node HTTP <-> Web API conversion) in its Streamable HTTP
+transport. The upstream fix is @hono/node-server >= 2.0.5, but the pinned MCP SDK
+(ADR-010) declares ^1.19.9 and forcing a 2.x major on a dep the SDK statically
+imports is riskier than the (unreachable) vuln. Remove this entry once the SDK
+bumps its @hono/node-server range past 2.0.5.
+"""
