@@ -118,8 +118,12 @@ A `NotificationView` resolves the row for display:
 
 The header carries a **bell with an unread badge** (`packages/web/src/shell/NotificationBell.tsx`).
 Clicking opens a popover: a filter toggle (**All / Unread**), the notifications newest-first (each
-reading "_actor_ _verb_" and the card, bold and red-tinted while unread — the same red as the bell's
-unread badge, one consistent signal), a per-row **✕ to clear** that notification, and the
+reading "_actor_ _verb_" and the card; while unread it is bold, carries a **primary-colour dot**
+(`--mantine-primary-color-filled`), and sits on a quiet **slate** row tint — a scheme-aware theme
+`gray` shade via `light-dark()` (pale grey in light mode, `gray-8` in dark, the palette's closest
+to a neutral blue-tinted slate). The bell's count badge stays **red** as the strong at-a-glance
+signal; the row itself is only lightly tinted so a full-width coloured block doesn't read as
+alarming), a per-row **✕ to clear** that notification, and the
 **"Clear all"** and **"Mark all as read"** bulk actions. Opening a notification marks it read and
 navigates to the card (preserving the URL filter). The inbox **polls every 30s** and refetches on
 card SSE hints, so new notifications appear without a reload; targeting the SSE refresh to only the

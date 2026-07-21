@@ -222,13 +222,14 @@ function NotificationRow({
         </Stack>
       </UnstyledButton>
       {notification.read ? null : (
-        // Unread dot reuses the same red as the bell's unread badge (one signal).
+        // Unread dot in the theme PRIMARY color (the app's indigo, rgb(59,91,219)
+        // = --mantine-primary-color-filled) — the crisp per-row "unread" marker.
         <Box
           aria-hidden
           w={8}
           h={8}
           mt={6}
-          style={{ borderRadius: '50%', backgroundColor: 'var(--mantine-color-red-6)' }}
+          style={{ borderRadius: '50%', backgroundColor: 'var(--mantine-primary-color-filled)' }}
         />
       )}
       <Tooltip label={strings.notifications.clearTooltip} withArrow>

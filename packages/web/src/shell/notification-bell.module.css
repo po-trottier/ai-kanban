@@ -1,16 +1,21 @@
 /* One notification row: the content button (open + mark read) plus a trailing
-   ✕ (clear). Unread rows carry a subtle tint in the SAME red as the bell's
-   unread badge, so "unread" is one consistent signal (not an off-palette blue). */
+   ✕ (clear). The bell's count badge + the per-row dot carry the strong signal;
+   an unread ROW only needs a quiet slate tint so the popover doesn't read as
+   alarming. The tint must be scheme-aware (the app is `auto`), so `light-dark()`
+   picks a theme `gray` shade per scheme: a pale grey in light mode, and in dark
+   mode `gray-8` (#343a40) — the theme palette's closest slate to a blue-tinted
+   grey, distinct enough above the ~#242424 popover to read as "unread" together
+   with the row's bold text. Hover shifts one shade for feedback. */
 .row:hover {
   background-color: var(--mantine-color-default-hover);
 }
 
 .unread {
-  background-color: var(--mantine-color-red-light);
+  background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-gray-8));
 }
 
 .unread:hover {
-  background-color: var(--mantine-color-red-light-hover);
+  background-color: light-dark(var(--mantine-color-gray-2), var(--mantine-color-gray-7));
 }
 
 /* The clickable content area — fills the row and left-aligns; min-width:0 lets
