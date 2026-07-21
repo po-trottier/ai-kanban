@@ -815,9 +815,12 @@ describe('board-wide read tools', () => {
 
   it('whoami returns the calling token identity without the hash', async () => {
     const client = await connect(reader.raw)
+    // Prime the output-schema validator so whoami's structured content is checked.
+    await client.listTools()
 
     const me = await callOk<Record<string, unknown>>(client, 'whoami')
 
+    expect(me.kind).toBe('mcp')
     expect(me.id).toBe(reader.id)
     expect(me.name).toBe('reporting agent')
     expect(me.scope).toBe('read')
@@ -1114,6 +1117,42 @@ describe('OAuth agent on-behalf-of (resource server, ADR-021 §A)', () => {
     expect(created?.actorId).toBe(operator.user.id)
     expect(created?.actorLabel).toBe('Claude Code')
     expect(created?.onBehalfOfUserId).toBe(operator.user.id)
+  })
+
+  it('lists tools, reads its agent identity, and validates history output (real-client parity)', async () => {
+    const operator = await t.asRole('user')
+    const accessToken = await mintAccessTokenFor(operator.cookie, 'Codex', 'read_write')
+
+    const client = await connect(accessToken)
+    // listTools caches each tool's output schema, so every subsequent callTool
+    // validates its structured content against it — exactly what a real client
+    // (Claude Code) does, and the only path that exercises these output schemas.
+    await client.listTools()
+
+    // whoami reports the AGENT identity: the operator it acts as + the client it
+    // authorized (a service token has no such shape — hence the `kind` field).
+    const me = await callOk<Record<string, unknown>>(client, 'whoami')
+    expect(me).toMatchObject({
+      kind: 'agent',
+      userId: operator.user.id,
+      role: 'user',
+      scope: 'read_write',
+      client: { name: 'Codex' },
+    })
+    expect(me).not.toHaveProperty('tokenHash')
+
+    // A mutation, then its history read back THROUGH the validated output schema:
+    // the enriched agent event (stored actorLabel + derived onBehalfOfUserId) must
+    // satisfy the strict per-branch event schema, or the SDK client rejects it.
+    const card = await callOk<Card>(client, 'create_card', { title: 'Agent history via OAuth' })
+    const history = await callOk<{
+      items: (CardEvent & { actorKind: string; actorLabel?: string; onBehalfOfUserId?: string })[]
+    }>(client, 'get_card_history', { cardId: card.id })
+    expect(history.items.find((event) => event.eventType === 'card.created')).toMatchObject({
+      actorKind: 'agent',
+      actorLabel: 'Codex',
+      onBehalfOfUserId: operator.user.id,
+    })
   })
 
   it('bounds a read-scope agent token to reads — it cannot mutate', async () => {

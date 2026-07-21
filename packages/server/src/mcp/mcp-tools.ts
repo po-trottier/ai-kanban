@@ -63,19 +63,31 @@ const getCardToolSchema = z.strictObject(cardIdShape)
 const cardHistoryToolSchema = cardHistoryRequestSchema.extend(cardIdShape)
 
 /**
- * History output carries on-behalf-of attribution: `actorLabel` (the stored
- * OAuth client name for `agent` events, or the service-token name overlaid for
- * `mcp` events — owned by core's `cardEventSchema`) + the derived
- * `onBehalfOfUserId` (its operator). The intersection keeps core's discriminated
- * payload union.
+ * Enrich every history event with server-derived attribution IN PLACE. Core's
+ * `cardEventSchema` already owns `actorLabel` (the stored OAuth client name for
+ * `agent` events / the service-token name overlaid for `mcp`); the enrichment
+ * fields below (`onBehalfOfUserId`, and for the activity feed the display-name
+ * companions) are layered on per branch.
+ *
+ * We must EXTEND each strict branch, not `z.intersection(cardEventSchema, {…})`:
+ * the intersection compiles to `allOf: [oneOf[…strict branches…], {…}]`, and the
+ * MCP SDK's strict output validation then rejects the enrichment fields as
+ * unexpected properties on the matched branch — a failure that only surfaces
+ * once an event actually carries `onBehalfOfUserId` (i.e. mcp/agent events).
+ * Extending keeps one strict object per event type that lists the fields itself.
  */
+function enrichedEventSchema<Shape extends z.ZodRawShape>(extra: Shape) {
+  const branches = cardEventSchema.options.map((branch) => branch.extend(extra))
+  // `.map` erases the tuple-ness the discriminated union needs; the members stay
+  // discriminable (each keeps its `eventType` literal), so assert the non-empty tuple.
+  return z.discriminatedUnion(
+    'eventType',
+    branches as [(typeof branches)[number], ...(typeof branches)[number][]],
+  )
+}
+
 const cardHistoryOutputSchema = pageSchemaOf(
-  z.intersection(
-    cardEventSchema,
-    z.object({
-      onBehalfOfUserId: z.uuid().optional(),
-    }),
-  ),
+  enrichedEventSchema({ onBehalfOfUserId: z.uuid().optional() }),
 )
 const createCardToolSchema = createCardInputSchema.extend({
   /** MCP-only attribution (mcp.md): resolved server-side, never client-trusted. */
@@ -100,19 +112,34 @@ const unblockCardToolSchema = unblockCardInputSchema.extend(cardIdShape)
  * the map values to {id, displayName, email}.
  */
 const activityOutputSchema = activityFeedSchemaOf({
-  event: z.intersection(
-    cardEventSchema,
-    z.object({
-      onBehalfOfUserId: z.uuid().optional(),
-      actorDisplayName: z.string().optional(),
-      onBehalfOfDisplayName: z.string().optional(),
-    }),
-  ),
+  event: enrichedEventSchema({
+    onBehalfOfUserId: z.uuid().optional(),
+    actorDisplayName: z.string().optional(),
+    onBehalfOfDisplayName: z.string().optional(),
+  }),
   user: activityUserSchema,
 })
 
-/** whoami exposes the calling token's metadata — the hash is structurally omitted. */
-const whoamiOutputSchema = z.object(serviceTokenSchema.omit({ tokenHash: true }).shape)
+/**
+ * whoami reports the caller's own identity, discriminated by `kind`. A `mcp`
+ * service token returns its stored metadata (the hash is structurally omitted,
+ * like the REST responses); an OAuth `agent` has no service-token row — it
+ * returns the operator it acts on behalf of (`userId`; its id/role ARE the
+ * user's) plus the client it authorized. `role`/`scope` are common to both; the
+ * remaining fields are per-kind, so optional. A FLAT object (not a discriminated
+ * union) because the MCP SDK only accepts an object schema as `outputSchema`.
+ */
+const serviceTokenMeta = serviceTokenSchema.omit({ tokenHash: true, role: true, scope: true })
+const whoamiOutputSchema = z.object({
+  kind: z.enum(['mcp', 'agent']),
+  role: serviceTokenSchema.shape.role,
+  scope: serviceTokenSchema.shape.scope,
+  // Service-token identity (kind: 'mcp').
+  ...z.object(serviceTokenMeta.shape).partial().shape,
+  // Agent identity (kind: 'agent'): the operator it acts as + the client authorized.
+  userId: z.uuid().optional(),
+  client: z.strictObject({ id: z.string().min(1), name: z.string().min(1) }).optional(),
+})
 
 /** How many trailing audit events get_card returns (its "latest events" panel). */
 const LATEST_EVENTS_TAKE = 20
@@ -490,6 +517,19 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       outputSchema: whoamiOutputSchema,
     },
     async () => {
+      // An OAuth agent has no service-token row: report the operator it acts as
+      // (actor.id/role ARE the user's) plus the client it authorized.
+      if (actor.kind === 'agent') {
+        return jsonResult(
+          whoamiOutputSchema.parse({
+            kind: 'agent',
+            userId: actor.id,
+            role: actor.role,
+            scope: actor.scope ?? 'read',
+            client: actor.client ?? { id: 'unknown', name: 'unknown' },
+          }),
+        )
+      }
       // The mcp actor carries its token id; tokens are few and admin-managed,
       // so the existing list() read resolves it without a new port method.
       const tokens = await deps.uow.read((tx) => tx.serviceTokens.list())
@@ -497,7 +537,7 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       if (own === undefined) throw new NotFoundError('service token')
       // The stripping output schema drops tokenHash structurally (like the REST
       // service-token responses) — the hash can never leave the server.
-      return jsonResult(whoamiOutputSchema.parse(own))
+      return jsonResult(whoamiOutputSchema.parse({ kind: 'mcp', ...own }))
     },
   )
 
