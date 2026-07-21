@@ -60,7 +60,7 @@ export const SIZES = {
   /** Resizable-panel bounds: a readable minimum, a fallback max when the
    * viewport width is unknown, and the sliver of board kept visible when the
    * panel is dragged to its (viewport-relative) maximum. */
-  cardPanelMinWidth: 450,
+  cardPanelMinWidth: 470,
   cardPanelMaxWidth: 900,
   cardPanelMinBoardVisible: 140,
 } as const
