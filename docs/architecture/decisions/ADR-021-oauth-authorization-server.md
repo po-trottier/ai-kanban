@@ -138,17 +138,25 @@ Entra/Google decide _authentication_ ("is this really alice@corp"), while _autho
 in, and as what role) stays entirely ours. This is additive to ADR-009 — the login _handler_ gains a
 second credential source; **sessions, policy, and downstream are unchanged.**
 
-### D′. Invites + password reset need outbound email (new dependency)
+### D′. Invites + password reset via shareable links — **no email server** (PO)
 
-Invited-only onboarding (and self-service password reset — today an admin hand-issues a one-time temp
-password, `security.md#authentication`) both require the app to **send email**: an invite link and a
-reset link. This is a **new outbound-email capability** the app doesn't have yet. "No external
-_authz_" doesn't force self-hosting mail — SMTP is a commodity: a port so the app can send via **any
-SMTP server or transactional provider** (self-hosted Postfix, or SES/Postmark/etc. — the operator's
-choice, config in env), behind a `core` `Mailer` port so `core` stays IO-free. Scope: signed,
-single-use, expiring tokens for **invite-accept** and **password-reset** (the reset flow replaces the
-manual temp-password dance). Worth its **own small ADR** when built; captured here because the
-invited-only decision creates the dependency.
+Invited-only onboarding needs a way to reach the invitee — but **not** an email server (PO: "drop
+it entirely, it complicates everything"). Do it the way **Discord invites** work: the admin action
+**mints a signed, single-use, expiring link**; the admin shares it out-of-band (Slack, email, in
+person — the app never sends anything). The recipient opens it and finishes setup themselves.
+
+- **Invite** — admin invites an email + role → a pending user + an `invite_token` → a link
+  (`<origin>/accept-invite?token=…`) the admin copies and sends. Opening it lets the invitee **set a
+  local password and/or sign in with Google/Entra** (which binds the external identity to the
+  pre-invited account); the account then activates with the admin-chosen role.
+- **Password reset — no self-service email.** A federated user just re-authenticates through their
+  IdP (Google/Entra own "forgot password"). For a local account, an admin's **"reset password"**
+  mints the same kind of link (replacing today's hand-typed temp password, `security.md`). That
+  covers the forgot-password case without the app ever sending mail.
+
+Cost: signed tokens + two routes (`accept-invite`, `reset`), **zero SMTP / deliverability surface**.
+If self-service email reset is ever wanted, a `core` `Mailer` port can be added later — explicitly
+**out of scope** now.
 
 ### E. Actor / on-behalf-of model
 
@@ -237,8 +245,12 @@ tokens remain.
 - **Token format** — opaque, DB-backed (§C). Access ~1 h; **rotating refresh** ~30–60 days, silent
   refresh so an authorized agent doesn't re-auth for weeks.
 - **Onboarding** — **invited users only**, role chosen on the invite (Sentry-style); external sign-in
-  binds to a pre-invited user, never auto-creates (§D). Pulls in an **outbound-email** dependency for
-  invites + password reset (§D′), likely its own ADR.
+  binds to a pre-invited user, never auto-creates (§D). **No email server** (§D′): invites + admin
+  password resets are **shareable single-use links** (Discord-style) the admin sends out-of-band;
+  federated users reset via their IdP.
+- **External IdP** — plain OIDC so it drops into Microsoft Entra ID / Google / any standard provider
+  with just an issuer URL + client credentials (PO: "easy to integrate with industry-standard
+  systems"). We stay the sole `/mcp` token issuer; the IdP only authenticates the human.
 - **Agent consent** — the one-time browser approval screen where the human authorizes a specific
   client + scope (see below); **remembered per `(user, client, scope)`** so re-connecting the same
   agent is silent, re-prompting only on a new client or a scope increase. Revocable in Settings.
