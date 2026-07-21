@@ -158,6 +158,25 @@ Cost: signed tokens + two routes (`accept-invite`, `reset`), **zero SMTP / deliv
 If self-service email reset is ever wanted, a `core` `Mailer` port can be added later — explicitly
 **out of scope** now.
 
+### D″. Home-realm discovery: route corporate emails straight to their IdP (PO)
+
+The login UX the PO wants is standard **home-realm discovery** (what Microsoft / Okta / Google
+Workspace portals do): the user types only their email and is bounced to their company's sign-in.
+
+- **Trigger.** When the login email field's edit **ends** (Enter, Tab, or blur), the SPA takes the
+  email's **domain** and asks a cheap unauthenticated `GET /auth/idp?domain=<d>` (which returns the
+  matching provider or nothing — it reveals only whether a _domain_ is SSO-enrolled, never whether an
+  account exists, so it's not an enumeration oracle). On a match it **redirects to that IdP's OIDC
+  authorization URL** (the corporate portal); the password field never appears. No match ⇒ fall
+  through to the normal local-password field.
+- **Configured in Settings → Users (PO).** An admin (with `manageUsers`) maps **`domain → provider`**
+  (e.g. `corp.example → Entra tenant`) in the Users tab — a small table of rows, each pointing at one
+  of the configured OIDC providers. The same mapping also drives which IdP an invite-accept binds to.
+- **Feasible now?** Yes — the discovery + Settings config is a thin layer (one `sso_domains` table,
+  one lookup route, a blur handler on the login email field). But the redirect only _goes_ somewhere
+  once the OIDC provider from §D exists, so it ships **with** the federation (Phase 2), not before —
+  a redirect to an IdP we haven't wired up would go nowhere.
+
 ### E. Actor / on-behalf-of model
 
 Extend the `core` `Actor` (today `{ kind, id, role, scope? }`) with an **agent** shape:
@@ -218,8 +237,9 @@ Everything in `security.md` still applies; additions specific to OAuth:
    RFC 8414 metadata, dynamic registration, authorize/consent (over the existing session + local
    login), token endpoint, PKCE, opaque tokens; **`agent` Actor + on-behalf-of audit**. Delivers
    R1, R3, R4, R5. Agents stop copying tokens.
-2. **External OIDC federation.** AS-as-RP to Entra ID / Google; `external_identities`;
-   find-or-create. Delivers R2.
+2. **External OIDC federation + invited-only onboarding.** AS-as-RP to Entra ID / Google;
+   `external_identities`; invite-accept + reset links (§D′); **home-realm discovery** on the login
+   email field + the `domain → provider` map in Settings → Users (§D″). Delivers R2.
 3. **Deprecate manual agent tokens.** Keep `rkb_` only for headless service accounts; update
    `/llms.txt` + Settings; optionally add RFC 8693 token exchange for multi-hop delegation chains.
 
