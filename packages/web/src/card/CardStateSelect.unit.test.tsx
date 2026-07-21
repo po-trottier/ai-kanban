@@ -6,7 +6,15 @@ import { createFakeFetch, jsonResponse } from '../test/fake-fetch.ts'
 import { makeBoard, makeCard, nth, permissivePolicy } from '../test/fixtures.ts'
 import { type BoardResponse } from '../api/schemas.ts'
 import { renderWithProviders } from '../test/render.tsx'
+import dayjs from '../lib/dayjs.ts'
 import { CardStateSelect } from './CardStateSelect.tsx'
+
+// The resume-date picker's `minDate` is "today" in the viewer's zone (the LA
+// fixture admin), so pick today DYNAMICALLY — a hard-coded calendar date
+// silently becomes unselectable (past `minDate`) once the clock rolls past it.
+const RESUME_TZ = 'America/Los_Angeles'
+const resumeTodayLabel = dayjs().tz(RESUME_TZ).format('D MMMM YYYY')
+const resumeTodayIso = dayjs().tz(RESUME_TZ).format('YYYY-MM-DD')
 
 function renderStateSelect(
   card: Card,
@@ -78,13 +86,13 @@ describe('CardStateSelect', () => {
     await user.click(await screen.findByRole('combobox', { name: 'Waiting reason' }))
     await user.click(screen.getByRole('option', { name: 'Vendor' }))
     await user.click(screen.getByRole('button', { name: 'Expected resume date' }))
-    await user.click(nth(screen.getAllByRole('button', { name: /20 July 2026/ }), 0))
+    await user.click(nth(screen.getAllByRole('button', { name: resumeTodayLabel }), 0))
     await user.click(screen.getByRole('button', { name: 'Move work order' }))
     // Assert — the move now carries the waiting reason + resume date.
     expect(fake.lastBody('POST', `/api/v1/cards/${String(card.id)}/move`)).toMatchObject({
       toLane: 'waiting_parts_vendor',
       waitingReason: 'vendor',
-      expectedResumeAt: '2026-07-20',
+      expectedResumeAt: resumeTodayIso,
     })
   })
 

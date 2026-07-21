@@ -19,7 +19,16 @@ import {
   policyRecordOf,
 } from '../test/fixtures.ts'
 import { renderApp } from '../test/render.tsx'
+import dayjs from '../lib/dayjs.ts'
 import { type Card } from '@rivian-kanban/core'
+
+// The resume-date picker's `minDate` is "today" in the viewer's zone (the LA
+// fixture admin), so the move test must pick today DYNAMICALLY — a hard-coded
+// calendar date silently becomes unselectable (past `minDate`) once the clock
+// rolls past it, exactly like the sibling WaitingLaneModal / EstimateInput tests.
+const RESUME_TZ = 'America/Los_Angeles'
+const resumeTodayLabel = dayjs().tz(RESUME_TZ).format('D MMMM YYYY')
+const resumeTodayIso = dayjs().tz(RESUME_TZ).format('YYYY-MM-DD')
 
 /** The filter bar's async assignee/reporter pickers hit `GET /users/search`. */
 function userSearchHandler(_init: RequestInit | undefined, url: string): FakeRouteResult {
@@ -106,13 +115,13 @@ describe('BoardPage move flows', () => {
     await user.click(await screen.findByRole('combobox', { name: 'Waiting reason' }))
     await user.click(screen.getByRole('option', { name: 'Vendor' }))
     await user.click(screen.getByRole('button', { name: 'Expected resume date' }))
-    await user.click(nth(screen.getAllByRole('button', { name: /20 July 2026/ }), 0))
+    await user.click(nth(screen.getAllByRole('button', { name: resumeTodayLabel }), 0))
     await user.click(screen.getByRole('button', { name: 'Move' }))
     // Assert
     expect(fake.lastBody('POST', `/api/v1/cards/${String(moving.id)}/move`)).toMatchObject({
       toLane: 'waiting_parts_vendor',
       waitingReason: 'vendor',
-      expectedResumeAt: '2026-07-20',
+      expectedResumeAt: resumeTodayIso,
     })
   })
 
