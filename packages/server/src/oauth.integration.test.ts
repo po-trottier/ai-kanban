@@ -335,6 +335,99 @@ describe('OAuth authorization-server routes', () => {
     expect(decodeURIComponent(location)).toContain('/oauth/authorize')
   })
 
+  it('renders the consent page for a read-scope authorize (naming the client + scope)', async () => {
+    const clientId = await registerClient()
+    const { challenge } = pkcePair()
+    const query = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: REDIRECT_URI,
+      resource: RESOURCE,
+      scope: 'read',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      state: 's',
+    })
+    const response = await t.app.inject({
+      method: 'GET',
+      url: `/oauth/authorize?${query.toString()}`,
+      headers: { cookie: `sid=${cookie}` },
+    })
+    expect(response.statusCode).toBe(200)
+    expect(response.body).toContain('Codex')
+    expect(response.body).toContain('read') // scopeCopy('read')
+  })
+
+  it('rejects an authorize GET for an unknown client (400 invalid_client)', async () => {
+    const { challenge } = pkcePair()
+    const query = new URLSearchParams({
+      client_id: 'no-such-client',
+      redirect_uri: REDIRECT_URI,
+      resource: RESOURCE,
+      scope: 'read',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      state: 's',
+    })
+    const response = await t.app.inject({
+      method: 'GET',
+      url: `/oauth/authorize?${query.toString()}`,
+      headers: { cookie: `sid=${cookie}` },
+    })
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toMatchObject({ error: 'invalid_client' })
+  })
+
+  it('rejects registration of a non-loopback http redirect (invalid_redirect_uri)', async () => {
+    const response = await t.app.inject({
+      method: 'POST',
+      url: '/oauth/register',
+      headers: { 'content-type': 'application/json' },
+      payload: { client_name: 'Bad', redirect_uris: ['http://evil.example/cb'] },
+    })
+    // A non-invalid_grant OAuth error DOES carry its description (only the
+    // invalid_grant body is stripped to avoid an oracle).
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toMatchObject({ error: 'invalid_redirect_uri' })
+  })
+
+  it('rejects the consent approve when redirect_uri is not registered for the client', async () => {
+    const clientId = await registerClient()
+    const { challenge } = pkcePair()
+    const response = await postForm('/oauth/authorize', {
+      client_id: clientId,
+      // Same loopback host but a DIFFERENT PATH → not a registered redirect
+      // (loopback ignores only the port, never the path).
+      redirect_uri: 'http://127.0.0.1:8765/evil-path',
+      resource: RESOURCE,
+      scope: 'read',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      state: 's',
+      csrf: consentCsrfToken(cookie),
+      decision: 'approve',
+    })
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toMatchObject({ error: 'invalid_request' })
+  })
+
+  it('rejects an approve whose resource is not the /mcp audience', async () => {
+    const clientId = await registerClient()
+    const { challenge } = pkcePair()
+    const response = await postForm('/oauth/authorize', {
+      client_id: clientId,
+      redirect_uri: REDIRECT_URI,
+      resource: 'http://localhost:3000/not-mcp', // wrong audience → service rejects
+      scope: 'read',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      state: 's',
+      csrf: consentCsrfToken(cookie),
+      decision: 'approve',
+    })
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toMatchObject({ error: 'invalid_request' })
+  })
+
   it('deny redirects with error=access_denied and the original state', async () => {
     const clientId = await registerClient()
     const { challenge } = pkcePair()
