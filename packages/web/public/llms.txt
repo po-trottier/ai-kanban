@@ -4,10 +4,11 @@ Rivian Kanban is a facilities-management Kanban board for tracking work orders: 
 drag-and-drop web UI for humans, an MCP server for AI agents, and Slack ticket intake, all
 over one audited service layer.
 
-This app exposes an MCP server at the `/mcp` path (Streamable HTTP, stateless mode),
-authenticated with a per-user bearer token shaped `rkb_...`. Connect an AI agent to it and it
-can read the board and (with a write-scoped token) drive card lifecycle through task-shaped
-tools.
+This app exposes an MCP server at the `/mcp` path (Streamable HTTP, stateless mode). It is an
+OAuth 2.1 protected resource, so the primary way to connect is to let your client run its OAuth
+sign-in flow -- nothing to copy. Clients that cannot do OAuth (and headless service accounts)
+can fall back to a bearer token shaped `rkb_...`. Once connected, an agent can read the board
+and (with write access) drive card lifecycle through task-shaped tools.
 
 ## Use this app's own origin -- do not assume localhost
 
@@ -17,18 +18,50 @@ and the MCP endpoint is `https://kanban.example.com/mcp`. Substitute your real `
 everywhere it appears; never hard-code `localhost`. (Local-from-source dev is the one
 exception -- see "Local development" at the end.)
 
-## Setup -- guide the human through these steps
+## Primary setup -- OAuth (recommended, no token to copy)
 
-You (the agent) orchestrate; the human holds the secret. Do NOT ask the human to paste the
-token into this chat. Walk them through:
+This is client-independent: it works the same for any OAuth-capable MCP client (Claude Code,
+Codex, Cursor, and others). The client -- not you, and never the human's chat -- holds the
+credential, and every action is audited as "<your client's name> on behalf of <the human>",
+bounded by that human's own permissions.
 
-1. Mint a token. Open `<origin>/settings` -> Service tokens -> New token. Pick scope `read`
-   for a summarizer/reporter, `read_write` for an agent that acts. The raw `rkb_...` value is
-   shown exactly once -- the human copies it there.
-2. Write the MCP config for them, with a placeholder. Add this block to the agent's MCP config
-   (e.g. `.mcp.json` for Claude, the equivalent for your client). Replace `<origin>` with the
-   app's origin, and tell the human to replace `<PASTE_YOUR_TOKEN_HERE>` with the token they
-   copied:
+1. Add an HTTP (Streamable HTTP) MCP server pointing at `<origin>/mcp` with NO Authorization
+   header and NO token. Use whatever your client provides for "add an HTTP MCP server":
+   - a CLI command, for example:
+       - Claude Code:  `claude mcp add --transport http rivian-kanban <origin>/mcp`
+       - Codex:        `codex mcp add rivian-kanban --transport http --url <origin>/mcp`
+       - or your client's equivalent "add HTTP/remote MCP server" command; OR
+   - an entry in the client's MCP config file (`.mcp.json`, `mcp.json`, or the client's own),
+     with just the URL and no headers:
+
+       {
+         "mcpServers": {
+           "rivian-kanban": { "url": "<origin>/mcp" }
+         }
+       }
+
+   Leaving the token OUT is what triggers the OAuth flow. (Exact commands/keys vary by client;
+   the rule is the same everywhere -- register the server by URL only.)
+2. Trigger a connection (list tools, or run the client's "authenticate"/"login" for this
+   server). The client gets a 401, reads the app's OAuth metadata, registers itself, and opens
+   a browser sign-in page. Hand that URL to the human if it does not open on its own.
+3. The HUMAN logs in and approves the consent screen. The client completes the exchange and
+   holds its own access token (auto-refreshed -- no re-auth churn). Smoke-test by listing tools
+   or calling `whoami` (it reports the connected agent identity).
+
+You never see or handle the token in this flow.
+
+## Fallback setup -- service token (headless or non-OAuth clients)
+
+Use this only if the client cannot run the OAuth browser flow, or for a headless service
+account. You (the agent) orchestrate; the human holds the secret. Do NOT ask the human to paste
+the token into this chat.
+
+1. Mint a token. Open `<origin>/settings` -> Service tokens -> New token. Pick scope `read` for
+   a summarizer/reporter, `read_write` for an agent that acts. The raw `rkb_...` value is shown
+   exactly once -- the human copies it there.
+2. Write the MCP config for them, with a placeholder. Add this block to the client's MCP config,
+   replacing `<origin>` and telling the human to replace `<PASTE_YOUR_TOKEN_HERE>`:
 
    {
      "mcpServers": {
@@ -44,10 +77,13 @@ token into this chat. Walk them through:
 
 ## SECURITY -- read this
 
-- The bearer token is a secret. The human MUST paste it into their own config file themselves.
-  It must NEVER be shared with, pasted into, or shown to the assistant/chat.
-- Your job as the agent is to write the config with the `<PASTE_YOUR_TOKEN_HERE>` placeholder
-  and tell the human to fill it in. Do not offer to hold, echo, or store the token.
+- Prefer the OAuth flow above: the token stays in the client's own credential store and is never
+  exposed to the assistant or chat.
+- For the service-token fallback, the bearer token is a secret. The human MUST paste it into
+  their own config file themselves. It must NEVER be shared with, pasted into, or shown to the
+  assistant/chat.
+- Your job as the agent is to write the config with the `<PASTE_YOUR_TOKEN_HERE>` placeholder and
+  tell the human to fill it in. Do not offer to hold, echo, or store the token.
 - If a human pastes a token to you anyway, tell them to revoke it (`<origin>/settings` ->
   Service tokens) and mint a new one -- a leaked token is game over until revoked.
 
@@ -58,6 +94,3 @@ the API + MCP by the server (default port 3000), and the Vite dev proxy forwards
 `/mcp`. So in local dev only, point the MCP client at `http://localhost:3000/mcp` (the server
 port), not the Vite port. In every real deployment the server serves both the UI and `/mcp` on
 one origin, so `<origin>/mcp` is correct.
-
-Future: an OAuth 2.0 device-code flow could replace the manual paste so the token never leaves
-the token endpoint; today the human-in-the-loop paste is the safe, simple flow.

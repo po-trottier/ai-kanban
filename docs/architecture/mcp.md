@@ -78,6 +78,31 @@ phase 1); service tokens remain for headless automation. External-IdP-issued sig
 
 ## Connecting a client
 
+**OAuth is the primary, recommended flow for interactive agents** (Claude Code, Codex, and most
+modern MCP clients): the agent copies no secret and every action is attributed to the human it
+acts for. Reach for a **service token** only for a headless account or a client that can't run the
+browser flow.
+
+### OAuth agents (recommended — no token to copy)
+
+Point the agent at the bare `/mcp` endpoint and it runs the flow itself. With Claude Code:
+
+```
+claude mcp add --transport http rivian-kanban https://<host>/mcp
+```
+
+On first use the agent hits `401` + `WWW-Authenticate`, discovers the AS via RFC 9728/8414
+metadata, dynamically registers (RFC 7591), and opens the authorize URL in the human's browser.
+The human logs in and approves the consent screen; the agent completes the PKCE code exchange and
+holds an `rka_…` access token (auto-refreshed via a rotating refresh token — no re-auth churn).
+Every action it takes is audited as "**&lt;client&gt; on behalf of &lt;you&gt;**" — the client
+label is whatever name the agent registered itself under, so Codex reads "**Codex on behalf of
+P-O**" and Claude Code "**Claude Code on behalf of P-O**" — bounded by **your** role and the
+token's scope. The secret never touches the agent's prompt; it lives only in the agent's own
+credential store. (ADR-021 phase 1.)
+
+### Service tokens (headless / non-OAuth clients)
+
 1. **Mint a token.** In the app: **Settings → Service tokens → New token** (pick `read` for
    summarizers, `read_write` for agents that act). Headless: `POST /api/v1/service-tokens` with
    `{ name, role, scope }` as an admin. The raw `rkb_…` value is shown once — copy it then.
@@ -103,24 +128,6 @@ Smoke-test with the MCP Inspector — Transport **Streamable HTTP**, URL `<host>
 ```
 npx @modelcontextprotocol/inspector
 ```
-
-### OAuth agents (browser flow, no token to copy)
-
-An agent that speaks OAuth (Claude Code, Codex) needs **no** pre-minted token — point it at the
-bare endpoint and it runs the flow itself:
-
-```
-claude mcp add --transport http rivian-kanban https://<host>/mcp
-```
-
-On first use the agent hits `401` + `WWW-Authenticate`, discovers the AS via RFC 9728/8414
-metadata, dynamically registers (RFC 7591), and opens the authorize URL in the human's browser.
-The human logs in and approves the consent screen; the agent completes the PKCE code exchange and
-holds an `rka_…` access token (auto-refreshed via a rotating refresh token — no re-auth churn).
-Every action it takes is then audited as "&lt;client&gt; on behalf of &lt;you&gt;" and bounded by
-**your** role and the token's scope. The secret never touches the agent's prompt — it lives only
-in the agent's own credential store. This is the ADR-021 phase-1 path; service tokens above remain
-for headless accounts.
 
 ### Agent-driven setup via `/llms.txt`
 
