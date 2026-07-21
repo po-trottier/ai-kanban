@@ -104,6 +104,24 @@ Smoke-test with the MCP Inspector — Transport **Streamable HTTP**, URL `<host>
 npx @modelcontextprotocol/inspector
 ```
 
+### OAuth agents (browser flow, no token to copy)
+
+An agent that speaks OAuth (Claude Code, Codex) needs **no** pre-minted token — point it at the
+bare endpoint and it runs the flow itself:
+
+```
+claude mcp add --transport http rivian-kanban https://<host>/mcp
+```
+
+On first use the agent hits `401` + `WWW-Authenticate`, discovers the AS via RFC 9728/8414
+metadata, dynamically registers (RFC 7591), and opens the authorize URL in the human's browser.
+The human logs in and approves the consent screen; the agent completes the PKCE code exchange and
+holds an `rka_…` access token (auto-refreshed via a rotating refresh token — no re-auth churn).
+Every action it takes is then audited as "&lt;client&gt; on behalf of &lt;you&gt;" and bounded by
+**your** role and the token's scope. The secret never touches the agent's prompt — it lives only
+in the agent's own credential store. This is the ADR-021 phase-1 path; service tokens above remain
+for headless accounts.
+
 ### Agent-driven setup via `/llms.txt`
 
 The app publishes a static `/llms.txt` (source: `packages/web/public/llms.txt`) so a human can
@@ -140,7 +158,7 @@ listing tools accept the same filters and cursors as REST.
 | `list_locations`     | LocationService     | the location tree as a flat `parentId`-linked list (`id, kind, name, parentId`) — resolve an id before setting `card.locationId` (that field takes an id, not a name)                                                                                                                                                                                                           |
 | `list_tags`          | BoardQueryService   | every tag in use (`id, name`) — reuse an existing name when tagging instead of coining near-duplicates                                                                                                                                                                                                                                                                          |
 | `list_blocked_cards` | card list           | thin `blocked=true` slice of `list_cards`, newest-first, cursor-paginated                                                                                                                                                                                                                                                                                                       |
-| `whoami`             | ServiceToken read   | the calling token's own `{ id, name, role, scope, createdAt, lastUsedAt }` (any token inspects itself; the hash is never returned)                                                                                                                                                                                                                                              |
+| `whoami`             | caller identity     | the caller's own identity, discriminated by `kind`: an `mcp` service token returns `{ kind:'mcp', id, name, role, scope, createdAt, lastUsedAt }` (hash never returned); an OAuth `agent` (no token row) returns `{ kind:'agent', userId, role, scope, client:{ id, name } }` — the operator it acts on behalf of plus the client it authorized                                 |
 | `create_card`        | CardService.create  | same schema as `POST /cards`; lands in intake, origin `mcp`; optional `reporterEmail` resolves the reporter (active accounts only; unknown and deactivated emails fail identically), otherwise the seeded `system` user                                                                                                                                                         |
 | `update_card`        | CardService.update  | requires `expectedVersion` like REST                                                                                                                                                                                                                                                                                                                                            |
 | `move_card`          | CardService.move    | same configurable permission policy as REST                                                                                                                                                                                                                                                                                                                                     |

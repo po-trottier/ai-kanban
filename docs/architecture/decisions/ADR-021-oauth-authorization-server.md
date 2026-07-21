@@ -1,6 +1,10 @@
 # ADR-021: First-party OAuth 2.1 — agent auth, external IdP sign-in, on-behalf-of audit
 
-**Status**: proposed (2026-07-20) — research + design for PO review; not yet implemented.
+**Status**: accepted (2026-07-20) — **Phase 1** (RS + minimal AS + `agent` on-behalf-of audit)
+implemented and verified end-to-end against a real MCP client (the `@modelcontextprotocol/sdk`
+client Claude Code uses): OAuth-minted `rka_` token → `/mcp` → tools + a scope-bounded mutation →
+audit reading "&lt;client&gt; on behalf of &lt;user&gt;". Phases 2–3 (external OIDC federation,
+manual-token deprecation) still to come.
 
 ## Context
 
@@ -243,10 +247,12 @@ chain alive. Both paths have unit tests (`token-service.unit.test.ts`).
 
 ## Phased delivery
 
-1. **RS + minimal AS, local accounts.** RFC 9728 metadata + `WWW-Authenticate` on `/mcp`; AS with
-   RFC 8414 metadata, dynamic registration, authorize/consent (over the existing session + local
-   login), token endpoint, PKCE, opaque tokens; **`agent` Actor + on-behalf-of audit**. Delivers
-   R1, R3, R4, R5. Agents stop copying tokens.
+1. **RS + minimal AS, local accounts.** ✅ **Implemented.** RFC 9728 metadata + `WWW-Authenticate`
+   on `/mcp`; AS with RFC 8414 metadata, dynamic registration, authorize/consent (over the existing
+   session + local login), token endpoint, PKCE, opaque tokens; **`agent` Actor + on-behalf-of
+   audit**. Delivers R1, R3, R4, R5. Agents stop copying tokens. Verified end-to-end with a real MCP
+   client (see the Status line); `whoami` and `get_card_history` report the agent identity /
+   attribution and their output schemas validate under a real client's strict checks.
 2. **External OIDC federation + invited-only onboarding.** AS-as-RP to Entra ID / Google;
    `external_identities`; invite-accept + reset links (§D′); **home-realm discovery** on the login
    email field + the `domain → provider` map in Settings → Users (§D″). Delivers R2.
