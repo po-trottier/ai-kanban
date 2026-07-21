@@ -98,3 +98,31 @@ export const registerClientResponseSchema = z.object({
   token_endpoint_auth_method: z.literal('none'),
 })
 export type RegisterClientResponse = z.infer<typeof registerClientResponseSchema>
+
+/**
+ * RFC 8414 authorization-server metadata (`/.well-known/oauth-authorization-server`).
+ * The AS advertises exactly what this phase-1 build supports: the code grant with
+ * refresh rotation, S256 PKCE, and public (no client secret) clients.
+ */
+export const authorizationServerMetadataSchema = z.object({
+  issuer: z.string(),
+  authorization_endpoint: z.string(),
+  token_endpoint: z.string(),
+  registration_endpoint: z.string(),
+  response_types_supported: z.array(z.string()),
+  grant_types_supported: z.array(z.string()),
+  code_challenge_methods_supported: z.array(z.string()),
+  token_endpoint_auth_methods_supported: z.array(z.string()),
+})
+export type AuthorizationServerMetadata = z.infer<typeof authorizationServerMetadataSchema>
+
+/**
+ * RFC 9728 protected-resource metadata (`/.well-known/oauth-protected-resource`).
+ * Names the `/mcp` resource and the AS(es) that issue tokens for it — the client's
+ * discovery hop from a 401 (the RS 401/WWW-Authenticate wiring is a later slice).
+ */
+export const protectedResourceMetadataSchema = z.object({
+  resource: z.string(),
+  authorization_servers: z.array(z.string()),
+})
+export type ProtectedResourceMetadata = z.infer<typeof protectedResourceMetadataSchema>

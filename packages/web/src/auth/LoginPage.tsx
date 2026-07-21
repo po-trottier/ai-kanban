@@ -54,6 +54,30 @@ function offerToSaveCredential(email: string, password: string): void {
   }
 }
 
+/**
+ * The OAuth login hop (ADR-021): `GET /oauth/authorize` bounces an
+ * unauthenticated agent here with `?returnTo=<absolute /oauth/authorize URL>`.
+ * After login we send the BROWSER back to that server route (not react-router).
+ *
+ * Open-redirect guard: accept ONLY a SAME-ORIGIN URL whose path is exactly
+ * `/oauth/authorize`. Anything else (another origin, another path, a
+ * `javascript:`/`//evil.com` payload) is rejected — resolving against our own
+ * origin and re-checking the origin defeats protocol- and host-relative tricks.
+ * Returns the safe absolute URL to assign, or null.
+ */
+function safeOAuthReturnTo(rawReturnTo: string | null): string | null {
+  if (rawReturnTo === null || rawReturnTo === '') return null
+  let url: URL
+  try {
+    url = new URL(rawReturnTo, window.location.origin)
+  } catch {
+    return null
+  }
+  if (url.origin !== window.location.origin) return null
+  if (url.pathname !== '/oauth/authorize') return null
+  return url.toString()
+}
+
 export function LoginPage() {
   const navigate = useNavigate()
   const setupRequired = useSetupRequired()
@@ -87,8 +111,16 @@ export function LoginPage() {
               login.mutate(values, {
                 onSuccess: () => {
                   // Prompt the browser's password manager to save (fetch logins
-                  // don't trigger it automatically), then go to the board.
+                  // don't trigger it automatically), then continue.
                   offerToSaveCredential(values.email, values.password)
+                  const returnTo = safeOAuthReturnTo(
+                    new URLSearchParams(window.location.search).get('returnTo'),
+                  )
+                  if (returnTo !== null) {
+                    // A server route, not a react-router path — hard navigate.
+                    window.location.assign(returnTo)
+                    return
+                  }
                   void navigate('/')
                 },
               })

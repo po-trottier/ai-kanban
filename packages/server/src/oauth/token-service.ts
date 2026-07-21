@@ -48,6 +48,29 @@ export class TokenService {
   }
 
   /**
+   * RFC 7009 revocation: hash the presented token and revoke a matching access
+   * OR refresh token issued to `clientId` — for a refresh token, the whole
+   * rotation family (a client revoking one member kills the chain). Scoped to
+   * the presenting client so a client can only revoke its own grants; a token
+   * that matches nothing (unknown, expired, or another client's) is a silent
+   * no-op — RFC 7009 §2.2 makes revoking an unknown token a success.
+   */
+  async revoke(rawToken: string, clientId: string): Promise<void> {
+    const tokenHash = sha256hex(rawToken)
+    await this.deps.uow.run(async (tx) => {
+      const access = await tx.oauthAccessTokens.findByHash(tokenHash)
+      if (access !== null && access.clientId === clientId) {
+        await tx.oauthAccessTokens.revoke(access.id)
+        return
+      }
+      const refresh = await tx.oauthRefreshTokens.findByHash(tokenHash)
+      if (refresh !== null && refresh.clientId === clientId) {
+        await tx.oauthRefreshTokens.revokeFamily(refresh.familyId)
+      }
+    })
+  }
+
+  /**
    * authorization_code grant: atomically consume the code (single-use — a second
    * exchange finds nothing), assert it is unexpired and bound to this client +
    * redirect URI, verify PKCE, then mint an access token (for the code's

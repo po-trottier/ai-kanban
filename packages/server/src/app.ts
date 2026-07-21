@@ -21,6 +21,7 @@ import { cardRoutes } from './routes/card-routes.ts'
 import { commentRoutes } from './routes/comment-routes.ts'
 import { filterPresetRoutes } from './routes/filter-preset-routes.ts'
 import { notificationRoutes } from './routes/notification-routes.ts'
+import { oauthRoutes } from './routes/oauth-routes.ts'
 import { relationRoutes } from './routes/relation-routes.ts'
 import { watchRoutes } from './routes/watch-routes.ts'
 import { metaRoutes } from './routes/meta-routes.ts'
@@ -28,6 +29,7 @@ import { operationalRoutes } from './routes/operational-routes.ts'
 import { serviceTokenRoutes } from './routes/service-token-routes.ts'
 import { streamRoutes } from './routes/stream-routes.ts'
 import { userRoutes } from './routes/user-routes.ts'
+import { wellKnownRoutes } from './routes/well-known-routes.ts'
 import { UploadQuota } from './uploads/upload-quota.ts'
 import { type AppDeps } from './types.ts'
 
@@ -124,6 +126,11 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   // session-auth and CSRF hooks skip it by URL while the global per-IP
   // bucket, helmet and under-pressure (all app-level) still cover it.
   mcpRoutes(deps)(app)
+
+  // OAuth 2.1 AS surface (ADR-021) — also outside /api/v1 (same reasoning):
+  // discovery metadata + /oauth/{register,authorize,token,revoke}.
+  wellKnownRoutes(deps)(app)
+  oauthRoutes(deps)(app)
 
   operationalRoutes(deps)(app)
 

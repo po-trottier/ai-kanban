@@ -91,6 +91,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
       login: { max: 100_000, timeWindowMs: 60_000 },
       upload: { max: 100_000, timeWindowMs: 60_000 },
       mcp: { max: 100_000, timeWindowMs: 60_000 },
+      oauthRegister: { max: 100_000, timeWindowMs: 60_000 },
       ...wireOptions.rateLimits,
     },
   })

@@ -66,6 +66,8 @@ export interface AppConfig {
     upload: RateLimitBudget
     /** /mcp bucket, keyed per service-token id — agents share egress IPs. */
     mcp: RateLimitBudget
+    /** POST /oauth/register bucket, keyed per IP — open registration is abuse-throttled (ADR-021). */
+    oauthRegister: RateLimitBudget
   }
   sse: {
     /** 25 s in production (ADR-008); tests shorten it. */
