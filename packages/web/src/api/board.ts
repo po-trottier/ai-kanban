@@ -21,6 +21,7 @@ import { useApi } from './api-context.ts'
 import { applyMoveToBoard, type MoveIntent } from './board-cache.ts'
 import { queryKeys } from './keys.ts'
 import { notifyCardError, notifyError, notifySuccess } from './notify.ts'
+import { notifyUndoable } from './notify-undoable.tsx'
 import { movedToMessage } from './toast-messages.tsx'
 import {
   boardResponseSchema,
@@ -229,6 +230,18 @@ const ACTION_TOAST: Record<CardAction['action'], string> = {
   unblock: strings.card.unblockedToast,
 }
 
+/**
+ * The reversible, "scary" actions and their one-step inverse — the ones that
+ * hide a card from the working board (cancel / archive) or freeze it (block) get
+ * a Gmail-style **Undo** toast. Reopen / unblock are themselves the inverses, so
+ * they just confirm.
+ */
+const UNDO_INVERSE: Partial<Record<CardAction['action'], 'reopen' | 'unblock'>> = {
+  cancel: 'reopen',
+  archive: 'reopen',
+  block: 'unblock',
+}
+
 /** Cancel / reopen / block / unblock — explicit card actions, never drags. */
 export function useCardAction() {
   const api = useApi()
@@ -242,10 +255,32 @@ export function useCardAction() {
         ifMatch: card.version,
       }),
     onSuccess: (updated, { action }) => {
-      // Name the outcome and (for cancel/reopen) its destination lane so a
-      // card that "vanishes" to Done is never a mystery (workflow.md).
-      notifySuccess(ACTION_TOAST[action])
       invalidateCard(queryClient, updated.id)
+      const inverse = UNDO_INVERSE[action]
+      if (inverse === undefined) {
+        // Name the outcome and (for cancel/reopen) its destination lane so a
+        // card that "vanishes" to Done is never a mystery (workflow.md).
+        notifySuccess(ACTION_TOAST[action])
+        return
+      }
+      // A reversible action: confirm it AND offer Undo, which POSTs the inverse
+      // on the just-updated card (its fresh version is the If-Match). Undoing a
+      // cancel reopens it back to its exact prior lane + state.
+      notifyUndoable(ACTION_TOAST[action], () => {
+        void api
+          .post(`/cards/${String(updated.id)}/${inverse}`, cardSchema, {
+            body: {},
+            ifMatch: updated.version,
+          })
+          .then((reverted) => {
+            invalidateCard(queryClient, reverted.id)
+            notifySuccess(ACTION_TOAST[inverse])
+          })
+          .catch((error: unknown) => {
+            notifyCardError(error)
+            invalidateCard(queryClient, updated.id)
+          })
+      })
     },
     onError: (error, { card }) => {
       notifyCardError(error)

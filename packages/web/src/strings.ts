@@ -35,6 +35,8 @@ export const strings = {
     create: 'Create',
     delete: 'Delete',
     edit: 'Edit',
+    /** The Undo button on a reversible-action toast (cancel / archive / block). */
+    undo: 'Undo',
     copy: 'Copy',
     copied: 'Copied',
     reply: 'Reply',
