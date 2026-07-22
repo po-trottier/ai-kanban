@@ -60,9 +60,12 @@ export const SIZES = {
   /** Resizable-panel bounds: a readable minimum, a fallback max when the
    * viewport width is unknown, and the sliver of board kept visible when the
    * panel is dragged to its (viewport-relative) maximum. */
-  cardPanelMinWidth: 470,
+  cardPanelMinWidth: 500,
   cardPanelMaxWidth: 900,
   cardPanelMinBoardVisible: 140,
+  /** Fixed width for the detail-panel priority badge so it never collapses or
+   * jitters (all labels — P0/P1/P2 — are the same length). */
+  priorityBadgeWidth: '2.5rem',
 } as const
 
 export const theme = createTheme({

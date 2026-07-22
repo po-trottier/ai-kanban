@@ -46,6 +46,7 @@ import {
   EMPHASIS_FONT_WEIGHT,
   OVERDUE_COLOR,
   PRIORITY_COLORS,
+  SIZES,
   WAITING_COLOR,
 } from '../theme.ts'
 import { isOverdueResume } from '@rivian-kanban/core'
@@ -159,6 +160,10 @@ export function CardPanel({ cardId }: { cardId: string }) {
               color={PRIORITY_COLORS[card.priority]}
               size="sm"
               variant="filled"
+              // Fixed width (theme token) so the badge never collapses to nothing
+              // or shifts the header — all priority labels are the same length.
+              w={SIZES.priorityBadgeWidth}
+              style={{ flexShrink: 0 }}
             >
               {strings.priorities[card.priority]}
             </Badge>
