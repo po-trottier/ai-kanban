@@ -70,8 +70,8 @@ business-time elapsed since it first entered In Progress (`work_started_at`) mee
 
 - **Business minutes** are Monday–Friday within the working day the policy configures — the
   `businessHours` start/end pair, default 09:00–17:00 (1 working day = 8 hours,
-  [workflow.md](../product/workflow.md#priorities-and-estimates), editable under Settings →
-  Permissions, [ADR-013](decisions/ADR-013-configurable-permissions.md)). Core owns a framework-free
+  [workflow.md](../product/workflow.md#priorities-and-estimates), editable under Settings → Hours,
+  [ADR-013](decisions/ADR-013-configurable-permissions.md)). Core owns a framework-free
   `businessMinutesBetween(start, end, hours)` in `dates.ts` (no dayjs — core imports no libraries);
   the board query passes the active policy's hours in.
 - **Time zone.** The web burn-down counts business hours in the _viewer's_ zone (ADR-019). A

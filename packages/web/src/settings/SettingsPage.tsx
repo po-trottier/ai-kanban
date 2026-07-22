@@ -12,6 +12,7 @@ import { PolicyEditorForm } from './PolicyEditorForm.tsx'
 import { PreferencesTab } from './PreferencesTab.tsx'
 import { TokensAdmin } from './TokensAdmin.tsx'
 import { UsersAdmin } from './UsersAdmin.tsx'
+import { WorkingHoursForm } from './WorkingHoursForm.tsx'
 
 /**
  * The Settings page: a Preferences tab EVERY role can open (their per-user time
@@ -54,6 +55,7 @@ export function SettingsPage() {
             {canUsers ? <Tabs.Tab value="users">{strings.settings.tabUsers}</Tabs.Tab> : null}
             {canLanes ? <Tabs.Tab value="lanes">{strings.settings.tabLanes}</Tabs.Tab> : null}
             {canPolicy ? <Tabs.Tab value="policy">{strings.settings.tabPolicy}</Tabs.Tab> : null}
+            {canPolicy ? <Tabs.Tab value="hours">{strings.settings.tabHours}</Tabs.Tab> : null}
             {canLocations ? (
               <Tabs.Tab value="locations">{strings.settings.tabLocations}</Tabs.Tab>
             ) : null}
@@ -81,6 +83,18 @@ export function SettingsPage() {
                 value={policy.data}
                 saving={putPolicy.isPending}
                 roleInUseError={isConflictError(putPolicy.error)}
+                onSave={(document) => {
+                  putPolicy.mutate(document)
+                }}
+              />
+            </Tabs.Panel>
+          ) : null}
+          {canPolicy && policy.data !== undefined ? (
+            <Tabs.Panel value="hours" pt="md">
+              <WorkingHoursForm
+                key={policy.dataUpdatedAt}
+                value={policy.data}
+                saving={putPolicy.isPending}
                 onSave={(document) => {
                   putPolicy.mutate(document)
                 }}

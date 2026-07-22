@@ -79,8 +79,9 @@ custom roles and toggle each permission per role from the dashboard.
 - **The working day is policy, not a hard-coded constant.** `businessHours` (default Mon–Fri
   09:00–17:00) is the window the work burn-down and the `overdue` facet count business time within;
   time outside it — and weekends — never accrues against an estimate. It rides the same policy
-  document, edited by `managePolicy` holders under the Permissions tab (a start/end hour pair), and
-  is Zod-refined so the day always starts before it ends. `businessMinutesBetween(start, end, hours)`
+  document (so it is `managePolicy`-gated), but is edited on its own **Hours** Settings tab — a
+  start/end hour pair — rather than crowding the roles matrix; it is Zod-refined so the day always
+  starts before it ends. `businessMinutesBetween(start, end, hours)`
   in `core` takes it as a parameter (defaulting to 09:00–17:00), so REST, MCP, and the web burn-down
   share one definition (see [board-filters.md](../board-filters.md#the-overdue-facet)).
 - **The manage\* permissions replace the fixed admin surface.** The app-wide settings view and

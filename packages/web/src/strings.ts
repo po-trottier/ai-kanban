@@ -118,6 +118,7 @@ export const strings = {
     // Policy admin.
     addRole: 'Add a new role to the permissions matrix',
     savePolicy: 'Save the roles, permissions, and workflow policy',
+    saveBusinessHours: 'Save the business hours',
     renameRole: 'Rename this role',
     deleteRole: 'Delete this role',
     createRole: 'Add the role to the matrix',
@@ -777,6 +778,7 @@ export const strings = {
     tabUsers: 'Users',
     tabLanes: 'Columns',
     tabPolicy: 'Permissions',
+    tabHours: 'Hours',
     tabLocations: 'Locations',
     tabTokens: 'Service tokens',
   },
@@ -873,7 +875,7 @@ export const strings = {
     /** Guardrail: the last role that can manage roles cannot lose that power. */
     lastManageRoles: 'At least one role must be able to manage roles & permissions.',
     saved: 'Policy updated',
-    /** The business-hours section beneath the matrix (a policy-wide setting). */
+    /** The Hours tab: the working day the burn-down + overdue clock count within. */
     businessHoursTitle: 'Business hours',
     businessHoursHint:
       'The working day that estimates, the burn-down timer, and overdue alerts count against. Time outside these hours — and weekends — never counts toward a work order’s estimate.',
