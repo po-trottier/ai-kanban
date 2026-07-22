@@ -20,7 +20,7 @@
     "@mantine/hooks": "9.4.1",
     "@mantine/notifications": "9.4.1",
     "@mantine/tiptap": "9.4.1",
-    "@rivian-kanban/core": "0.1.0",
+    "@rivian-kanban/core": "1.0.0",
     "@tanstack/react-query": "5.101.2",
     "@tiptap/extension-link": "3.28.0",
     "@tiptap/pm": "3.28.0",
