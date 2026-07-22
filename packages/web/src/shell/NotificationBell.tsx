@@ -1,6 +1,7 @@
 import { type NotificationKind, type NotificationView } from '@rivian-kanban/core'
 import {
   ActionIcon,
+  Box,
   Divider,
   Group,
   Indicator,
@@ -12,7 +13,7 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core'
-import { Bell, Mail, MailOpen, X } from 'lucide-react'
+import { Bell, X } from 'lucide-react'
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { cx } from '../lib/cx.ts'
@@ -136,8 +137,6 @@ export function NotificationBell() {
                   notification={notification}
                   timezone={timezone}
                   clearing={clearOne.isPending && clearOne.variables === notification.id}
-                  markingRead={markRead.isPending && markRead.variables === notification.id}
-                  markingUnread={markUnread.isPending && markUnread.variables === notification.id}
                   onOpen={() => {
                     openCard(notification)
                   }}
@@ -191,15 +190,13 @@ export function NotificationBell() {
 /**
  * One inbox row: who did what, on which card, when — bold + tinted while unread.
  * The content is the click target (opens the card + marks read); a trailing
- * envelope toggles read/unread and a ✕ clears the notification outright. Separate
- * controls, never nested buttons.
+ * status marker toggles read/unread and a ✕ clears the notification outright.
+ * Separate controls, never nested buttons.
  */
 function NotificationRow({
   notification,
   timezone,
   clearing,
-  markingRead,
-  markingUnread,
   onOpen,
   onMarkRead,
   onMarkUnread,
@@ -208,8 +205,6 @@ function NotificationRow({
   notification: NotificationView
   timezone: string
   clearing: boolean
-  markingRead: boolean
-  markingUnread: boolean
   onOpen: () => void
   onMarkRead: () => void
   onMarkUnread: () => void
@@ -246,49 +241,49 @@ function NotificationRow({
           </Text>
         </Stack>
       </UnstyledButton>
-      {/* One consistent read/unread affordance in both states: an envelope that
-          toggles, distinguished by open/closed shape AND color — a CLOSED envelope
-          in the primary indigo while unread (click to mark read), an OPEN grey
-          envelope once read (click to flip back to unread). */}
-      {notification.read ? (
-        <Tooltip label={strings.notifications.markUnreadTooltip} withArrow>
+      {/* Read/unread marker — colour AND fill both change: a FILLED primary-indigo
+          disc while unread, a hollow grey circle OUTLINE once read. No button
+          chrome, no circle behind an icon; a quiet chrome-less click target that
+          toggles read/unread. It sits in a `center`-aligned group with the ✕ so
+          the two line up exactly regardless of the taller multi-line text left. */}
+      <Group gap="xs" align="center" wrap="nowrap">
+        <Tooltip
+          label={
+            notification.read
+              ? strings.notifications.markUnreadTooltip
+              : strings.notifications.markReadTooltip
+          }
+          withArrow
+        >
+          <UnstyledButton
+            className={classes.statusDot}
+            aria-label={
+              notification.read
+                ? strings.notifications.markUnread(notification.cardTitle)
+                : strings.notifications.markRead(notification.cardTitle)
+            }
+            onClick={notification.read ? onMarkUnread : onMarkRead}
+          >
+            <Box
+              w={10}
+              h={10}
+              className={cx(classes.mark, notification.read && classes.markRead)}
+            />
+          </UnstyledButton>
+        </Tooltip>
+        <Tooltip label={strings.notifications.clearTooltip} withArrow>
           <ActionIcon
             variant="subtle"
             color="gray"
             size="sm"
-            aria-label={strings.notifications.markUnread(notification.cardTitle)}
-            loading={markingUnread}
-            onClick={onMarkUnread}
+            aria-label={strings.notifications.clear(notification.cardTitle)}
+            loading={clearing}
+            onClick={onClear}
           >
-            <MailOpen size={16} aria-hidden />
+            <X size={16} aria-hidden />
           </ActionIcon>
         </Tooltip>
-      ) : (
-        <Tooltip label={strings.notifications.markReadTooltip} withArrow>
-          <ActionIcon
-            variant="subtle"
-            color="indigo"
-            size="sm"
-            aria-label={strings.notifications.markRead(notification.cardTitle)}
-            loading={markingRead}
-            onClick={onMarkRead}
-          >
-            <Mail size={16} aria-hidden />
-          </ActionIcon>
-        </Tooltip>
-      )}
-      <Tooltip label={strings.notifications.clearTooltip} withArrow>
-        <ActionIcon
-          variant="subtle"
-          color="gray"
-          size="sm"
-          aria-label={strings.notifications.clear(notification.cardTitle)}
-          loading={clearing}
-          onClick={onClear}
-        >
-          <X size={16} aria-hidden />
-        </ActionIcon>
-      </Tooltip>
+      </Group>
     </Group>
   )
 }

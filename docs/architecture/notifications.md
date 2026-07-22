@@ -125,13 +125,15 @@ reading "_actor_ _verb_" and the card; while unread it is bold and sits on a qui
 `gray` shade via `light-dark()` (pale grey in light mode, `gray-8` in dark, the palette's closest
 to a neutral blue-tinted slate). The bell's count badge stays **red** as the strong at-a-glance
 signal; the row itself is only lightly tinted so a full-width coloured block doesn't read as
-alarming), a per-row **✕ to clear** that notification, and a per-row **envelope that toggles
-read/unread** — one consistent affordance in both states, distinguished by shape AND colour: a
-**closed envelope in the primary indigo** while unread (click to mark it read without opening the
-card, `POST /notifications/:id/read`) and an **open grey envelope** once read (click to flip it back
-to unread, `POST /notifications/:id/unread` sets `read_at` back to null) — plus the **"Clear all"**
-and **"Mark all as read"** bulk actions. Opening a notification also marks it read and navigates to
-the card (preserving the URL filter). The inbox **polls every 30s**
+alarming), a per-row **✕ to clear** that notification, and a per-row **status marker** — one
+consistent circle in both states where **colour and fill both change**: a **filled solid
+primary-indigo disc** (`--mantine-primary-color-filled`) while unread, and a **hollow muted-grey
+circle outline** once read, so state reads at a glance. No button chrome, no circle behind an icon;
+it is a quiet, chrome-less click target grouped and centre-aligned with the ✕ so the two line up
+exactly. Clicking it toggles read/unread (`POST /notifications/:id/read`, or
+`POST /notifications/:id/unread` which sets `read_at` back to null) — plus the **"Clear all"** and
+**"Mark all as read"** bulk actions. Opening a notification also marks it read and navigates to the
+card (preserving the URL filter). The inbox **polls every 30s**
 and refetches on card SSE hints, so new notifications appear without a reload; targeting the SSE
 refresh to only the recipients (rather than a broadcast) is a deliberate follow-up.
 

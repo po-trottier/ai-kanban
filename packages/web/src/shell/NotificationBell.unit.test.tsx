@@ -115,8 +115,8 @@ describe('NotificationBell', () => {
     ).toBe(true)
   })
 
-  it('marks an unread notification read from its envelope, without opening the card', async () => {
-    // Arrange — an UNREAD notification; the row's closed-envelope marks it read.
+  it('marks an unread notification read from its status dot, without opening the card', async () => {
+    // Arrange — an UNREAD notification; the row's indigo status dot marks it read.
     const user = userEvent.setup()
     const fake = createFakeFetch({
       'GET /api/v1/notifications/unread-count': { unread: 1 },

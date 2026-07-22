@@ -1,6 +1,6 @@
 /* One notification row: the content button (open + mark read) plus a trailing
-   read/unread envelope toggle and ✕ (clear). The bell's count badge + the per-row
-   envelope (closed+indigo unread, open+grey read) carry the read/unread signal;
+   read/unread status dot and ✕ (clear). The bell's count badge + the per-row
+   colour circle (filled indigo unread, grey outline read) carry the read/unread signal;
    an unread ROW only needs a quiet slate tint so the popover doesn't read as
    alarming. The tint must be scheme-aware (the app is `auto`), so `light-dark()`
    picks a theme `gray` shade per scheme: a pale grey in light mode, and in dark
@@ -25,4 +25,32 @@
   flex: 1;
   min-width: 0;
   text-align: start;
+}
+
+/* The read/unread status marker: a chrome-less click target (no button styling)
+   — just padding around the colour ring for a comfortable hit area matching the
+   ✕ beside it, dimming a touch on hover so it still reads as actionable. */
+.statusDot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mantine-spacing-xs);
+}
+
+.statusDot:hover {
+  opacity: 0.7;
+}
+
+/* The marker itself — colour AND fill both change: a FILLED primary-indigo disc
+   while unread, a hollow grey circle OUTLINE once read (2px to match the app's
+   other hairline borders). box-sizing is border-box, so the outline read state
+   keeps the same 10px outer diameter as the filled unread disc. */
+.mark {
+  border-radius: 50%;
+  background-color: var(--mantine-primary-color-filled);
+}
+
+.markRead {
+  background-color: transparent;
+  border: 2px solid var(--mantine-color-gray-5);
 }
