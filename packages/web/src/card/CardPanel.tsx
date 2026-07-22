@@ -237,17 +237,26 @@ function CardPanelBody({ cardId }: { cardId: string }) {
   const deleteComment = useDeleteComment(cardId)
 
   // A mention / comment notification deep-links with `?tab=comments&comment=<id>`
-  // (CommentsThread then jumps to + flashes the comment). Tabs are controlled;
-  // the initial tab is lazily read from the URL so a deep-link opens Comments on
-  // mount, and thereafter it's local (manual switches). A normal open with no
-  // params defaults to details.
+  // (CommentsThread then jumps to + flashes the comment). Tabs are controlled; the
+  // initial tab is lazily read from the URL (a deep-link opens Comments on mount),
+  // and thereafter it's local (manual switches). A normal open defaults to details.
   const [searchParams, setSearchParams] = useSearchParams()
   const focusCommentId = searchParams.get('comment') ?? undefined
-  const [tab, setTab] = useState<string | null>(() =>
-    searchParams.get('tab') === 'comments' || searchParams.get('comment') !== null
-      ? 'comments'
-      : 'details',
-  )
+  const wantComments = searchParams.get('tab') === 'comments' || focusCommentId !== undefined
+  const [tab, setTab] = useState<string | null>(wantComments ? 'comments' : 'details')
+  // Also force the Comments tab when the deep-link params ARRIVE while the panel
+  // is already open on this card (clicking a mention for the open card) — the lazy
+  // initial state above can't catch that. Deferred so setState isn't synchronous
+  // in the effect (cascading-render lint).
+  useEffect(() => {
+    if (!wantComments) return
+    const timer = setTimeout(() => {
+      setTab('comments')
+    }, 0)
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [wantComments])
   const clearCommentDeepLink = () => {
     setSearchParams(
       (prev) => {
