@@ -137,8 +137,7 @@ What is security-relevant here:
   headroom for SQLite+WAL on the shared volume — either quota rejects the upload with 507.
 - Blobs stored under random UUID keys (original filename only in DB metadata — no path
   traversal surface). Downloads: `Content-Disposition: attachment` with the filename sanitized
-  (CR/LF/quotes stripped, ASCII fallback + RFC 5987 `filename*`), `nosniff`. Blob directory
-  has no execute permissions.
+  (CR/LF/quotes stripped, ASCII fallback + RFC 5987 `filename*`), `nosniff`.
 
 ## Secrets & configuration
 

@@ -2,6 +2,10 @@
 
 **Status**: accepted (2026-07-16)
 
+> **Update (v1.0.0):** forms use `react-hook-form` + `standardSchemaResolver`
+> (`@hookform/resolvers/standard-schema`), not `@mantine/form` + `mantine-form-zod-resolver`.
+> The Zod-4-schemas-from-`core` single-schema rule below is unchanged; only the form library differs.
+
 ## Context
 
 The product owner asked for a framework with **pre-built components** and a **styling system
@@ -38,9 +42,9 @@ Why it wins for this product-owner ask specifically:
   component `size`/spacing props accept only named tokens (`xs…xl`). The Tailwind
   arbitrary-value class of inconsistency (`p-[13px]`, `text-[15px]`) is structurally
   unavailable unless someone writes raw CSS — which the rules below ban.
-- **Forms**: `@mantine/form` + `zod4Resolver` (mantine-form-zod-resolver 1.3.0) validates with
-  the Zod 4 schemas imported from `@rivian-kanban/core` — the single-schema rule
-  (dev/standards.md) holds with no adapter code.
+- **Forms**: `react-hook-form` with `standardSchemaResolver` from
+  `@hookform/resolvers/standard-schema` validates with the Zod 4 schemas imported from
+  `@rivian-kanban/core` — the single-schema rule (dev/standards.md) holds with no adapter code.
 - **Dark mode** is built in (`data-mantine-color-scheme` + variables), satisfying theming
   without a second styling system.
 

@@ -20,7 +20,7 @@ cluster to track.
 
 Ecosystem facts verified July 2026 (npm registry + official docs, not memory):
 
-- `openai` **6.48.0** (`npm view openai version`; dist-tag `latest`). MIT, single package.
+- `openai` **6.48.0** (`npm view openai version`; dist-tag `latest`). Apache-2.0, single package.
 - Client: `new OpenAI({ apiKey, baseURL })` — `apiKey` explicit (never ambient `OPENAI_API_KEY`),
   `baseURL` any OpenAI-compatible endpoint. Verified against
   <https://github.com/openai/openai-node> README.
@@ -37,11 +37,11 @@ Ecosystem facts verified July 2026 (npm registry + official docs, not memory):
 
 ## Alternatives
 
-| Option                                                         | Swap-by-config fidelity                                          | Structured-output guarantee                                                                    | Dependency weight               | Fixture-server testability                          | Maintenance                                                                    |
-| -------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------ |
-| **(a) Single `openai` client, base-URL selected** — **chosen** | Full: the provider IS `SUMMARIZER_BASE_URL`; call site identical | Native OpenAI `response_format` json_schema + zod parse — on every endpoint that honors it     | One package (`openai`), MIT     | One fixture shape (`POST /chat/completions`)        | One vendor-tracked surface; new providers are a URL, not a package             |
-| (b) Vercel AI SDK (`ai` + 4 provider packages) — previous      | Full, via a per-provider `LanguageModel` factory                 | Native per provider (Anthropic `output_format`, OpenAI `json_schema`, Gemini `responseSchema`) | 5 packages sharing one core     | Four fixture wire shapes to record and keep current | We track 4 provider protocol drifts (via the SDK) plus SDK major-version churn |
-| (c) Hand-rolled thin adapters per provider SDK                 | Full, after we re-implement N clients                            | We re-implement N divergent schema protocols + retries ourselves                               | 0–N SDKs; most first-party code | Same base-URL story, hand-built                     | Highest: we own protocol drift, error taxonomy, streaming/retry forever        |
+| Option                                                         | Swap-by-config fidelity                                          | Structured-output guarantee                                                                    | Dependency weight                  | Fixture-server testability                          | Maintenance                                                                    |
+| -------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **(a) Single `openai` client, base-URL selected** — **chosen** | Full: the provider IS `SUMMARIZER_BASE_URL`; call site identical | Native OpenAI `response_format` json_schema + zod parse — on every endpoint that honors it     | One package (`openai`), Apache-2.0 | One fixture shape (`POST /chat/completions`)        | One vendor-tracked surface; new providers are a URL, not a package             |
+| (b) Vercel AI SDK (`ai` + 4 provider packages) — previous      | Full, via a per-provider `LanguageModel` factory                 | Native per provider (Anthropic `output_format`, OpenAI `json_schema`, Gemini `responseSchema`) | 5 packages sharing one core        | Four fixture wire shapes to record and keep current | We track 4 provider protocol drifts (via the SDK) plus SDK major-version churn |
+| (c) Hand-rolled thin adapters per provider SDK                 | Full, after we re-implement N clients                            | We re-implement N divergent schema protocols + retries ourselves                               | 0–N SDKs; most first-party code    | Same base-URL story, hand-built                     | Highest: we own protocol drift, error taxonomy, streaming/retry forever        |
 
 ## Decision
 

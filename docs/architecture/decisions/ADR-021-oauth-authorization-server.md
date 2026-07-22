@@ -187,13 +187,17 @@ Extend the `core` `Actor` (today `{ kind, id, role, scope? }`) with an **agent**
 
 ```
 { kind: 'agent', id: <userId>, role: <the user's role>, scope: 'read' | 'read_write',
-  onBehalfOf: { userId, displayName }, client: { id, name } }   // name e.g. "Codex"
+  client: { id, name } }   // name e.g. "Codex"
 ```
+
+> **Update (v1.0.0):** the shipped `Actor` has no `onBehalfOf` field — the agent acts _as_ the user
+> (its `id` IS the user's), so on-behalf-of is implicit; `client.name` denormalizes to the audit
+> event's `actorLabel`, from which "&lt;client&gt; on behalf of &lt;user&gt;" is derived at read time.
 
 Key properties: the agent's **`id`/`role` are the USER's** — so the policy engine already bounds the
 agent to its operator's permissions (R4), and the always-on identity rules (read-scope-can't-write,
 comment-author-only, system-bypass) apply unchanged. The audit event records `actor_kind: 'agent'`
-plus `client.name` + `onBehalfOf`, and the UI/history renders **"Codex on behalf of P-O"**. Consent
+plus the `client.name` label, from which the UI/history renders **"Codex on behalf of P-O"**. Consent
 may **narrow** scope below the user's role (e.g. a read-only agent), never widen it. `ACTOR_KINDS`
 gains `'agent'`; the audit renderer and history strings learn the new phrasing.
 

@@ -55,9 +55,10 @@ Dependency rules (machine-enforced by dependency-cruiser, see
 
 Exactly **one Node process** while on SQLite (single-writer model). It hosts Fastify (REST, MCP,
 SSE, static SPA), the Bolt Socket Mode client (outbound WebSocket to Slack — no inbound
-endpoint), and the croner in-process scheduler. Multi-instance deployment is only possible after
-the Postgres migration; the EventBus and scheduler are ports precisely so that move swaps them
-(Postgres LISTEN/NOTIFY, external job queue) without touching core.
+endpoint), and the croner in-process scheduler. On the Postgres backend (selected via
+`DATABASE_URL`) the same process model applies; multi-instance deployment is a still-future move,
+and the EventBus and scheduler are ports precisely so that move swaps them (Postgres LISTEN/NOTIFY,
+external job queue) without touching core.
 
 ## Request lifecycle (example: drag a card)
 

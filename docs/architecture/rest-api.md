@@ -106,11 +106,11 @@ rows, so they have no endpoint.)
 Typed card-to-card links, shown only in the detail panel. Full spec:
 [card-relations.md](card-relations.md).
 
-| Method & path                      | Role | Description                                                              |
-| ---------------------------------- | ---- | ------------------------------------------------------------------------ |
-| GET /cards/:id/relations           | any  | the card's relations (both directions), each resolved to the other card  |
-| POST /cards/:id/relations          | any  | `{ toCardId, type }` → `201`; self/duplicate `409`, unknown target `404` |
-| DELETE /cards/:id/relations/:relId | any  | `204` — must touch `:id` (else `404`)                                    |
+| Method & path                           | Role | Description                                                              |
+| --------------------------------------- | ---- | ------------------------------------------------------------------------ |
+| GET /cards/:id/relations                | any  | the card's relations (both directions), each resolved to the other card  |
+| POST /cards/:id/relations               | any  | `{ toCardId, type }` → `201`; self/duplicate `409`, unknown target `404` |
+| DELETE /cards/:id/relations/:relationId | any  | `204` — must touch `:id` (else `404`)                                    |
 
 ### Watching & notifications
 
@@ -125,6 +125,7 @@ spec: [notifications.md](notifications.md).
 | GET /notifications              | any  | inbox, newest-first (`?unreadOnly=true`, `?limit=`) |
 | GET /notifications/unread-count | any  | `{ unread }` — the bell badge                       |
 | POST /notifications/:id/read    | any  | mark one read → `{ unread }`                        |
+| POST /notifications/:id/unread  | any  | mark one unread → `{ unread }`                      |
 | POST /notifications/read-all    | any  | bulk: mark all read → `{ unread: 0 }`               |
 | DELETE /notifications/:id       | any  | clear (delete) one → `{ unread }`                   |
 | DELETE /notifications           | any  | bulk: clear all (read + unread) → `{ unread: 0 }`   |

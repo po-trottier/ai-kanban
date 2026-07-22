@@ -29,8 +29,8 @@ exist from the first commit.
 ## Consequences
 
 Repositories expose mutation + event-append under one UnitOfWork. The table grows unbounded by
-design; day-one indexes `(card_id, created_at)` and `(event_type, created_at)` keep it
-queryable, and archival/partitioning is deferred to the Postgres era.
+design; a day-one index `(card_id, created_at)` keeps it queryable, and
+archival/partitioning is deferred to the Postgres era.
 
 ## Addendum: discarding an intake draft (2026-07-19)
 

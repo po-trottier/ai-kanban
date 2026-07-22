@@ -85,15 +85,16 @@ sync.
 
 `notifications` (`packages/db`):
 
-| Column       | Type          | Notes                                               |
-| ------------ | ------------- | --------------------------------------------------- |
-| `id`         | UUIDv7        |                                                     |
-| `user_id`    | text FK       | the RECIPIENT                                       |
-| `card_id`    | integer FK    | the card the event was on                           |
-| `actor_id`   | text          | who acted; **no FK** — may be a service-token id    |
-| `event_type` | text          | `NotificationKind` (a `CardEventType` or `mention`) |
-| `created_at` | ISO-8601 UTC  |                                                     |
-| `read_at`    | ISO-8601 UTC? | null while unread                                   |
+| Column       | Type            | Notes                                                                |
+| ------------ | --------------- | -------------------------------------------------------------------- |
+| `id`         | UUIDv7          |                                                                      |
+| `user_id`    | text FK         | the RECIPIENT                                                        |
+| `card_id`    | integer FK      | the card the event was on                                            |
+| `actor_id`   | text            | who acted; **no FK** — may be a service-token id                     |
+| `event_type` | text            | `NotificationKind` (a `CardEventType` or `mention`)                  |
+| `comment_id` | text FK? (soft) | the comment to deep-link to (`mention` / `comment.added`), else null |
+| `created_at` | ISO-8601 UTC    |                                                                      |
+| `read_at`    | ISO-8601 UTC?   | null while unread                                                    |
 
 Indexed on `(user_id, created_at)` — the per-user newest-first page.
 
@@ -106,6 +107,7 @@ Every route is scoped to the acting user — you only ever list or mark your OWN
 | `GET /notifications`              | `200 NotificationView[]` | inbox, newest-first (`?unreadOnly=true` filters, `?limit=`) |
 | `GET /notifications/unread-count` | `200 { unread }`         | the bell badge                                              |
 | `POST /notifications/:id/read`    | `200 { unread }`         | mark one read (returns the fresh count)                     |
+| `POST /notifications/:id/unread`  | `200 { unread }`         | mark one unread (returns the fresh count)                   |
 | `POST /notifications/read-all`    | `200 { unread: 0 }`      | bulk: mark the whole inbox read                             |
 | `DELETE /notifications/:id`       | `200 { unread }`         | clear (delete) one — removes it from the inbox              |
 | `DELETE /notifications`           | `200 { unread: 0 }`      | bulk: clear the whole inbox (read + unread)                 |

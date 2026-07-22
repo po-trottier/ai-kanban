@@ -23,23 +23,23 @@ advice, and follow-up nudges.
 4. **Slack-native intake** — a ticket can be created from any Slack thread via a message
    shortcut or bot @-mention, with optional AI summarization of the thread into a draft ticket
    that the invoker reviews before creation.
-5. **Production-ready design** — SQLite today, but no hard dependency on it; every
-   infrastructure choice sits behind a port so Postgres, S3, SMTP, and SSO swap in without
-   touching business logic.
+5. **Production-ready design** — no hard dependency on any single backend; every infrastructure
+   choice sits behind a port. SQLite and PostgreSQL both ship as first-class storage backends,
+   and S3, SMTP, and SSO swap in without touching business logic.
 
 ## Non-goals (v1)
 
-| Deferred                                           | Why                                     | Door left open by                                                     |
-| -------------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------- |
-| Preventive/recurring maintenance schedules         | Large scope step toward a full CMMS     | `origin` field reserves `pm`; in-process scheduler exists             |
-| Asset registry (equipment tags, per-asset history) | Scope step-change                       | optional `location_id` dimension already normalized                   |
-| Multiple boards                                    | Single facilities team                  | cards already reference `board_id`                                    |
-| Corporate SSO (OIDC)                               | Pilot uses local accounts               | auth behind a port; session design unchanged by OIDC                  |
-| High availability / multi-instance                 | Single-node is fine for the pilot scale | EventBus/scheduler/DB behind ports; Postgres migration is the trigger |
-| i18n                                               | Internal English-speaking team          | UI strings centralized; lane labels are seeded data                   |
-| CSV import of incumbent work orders                | No incumbent system identified          | `origin` field reserves `import`                                      |
-| Email notifications                                | Slack DMs cover the pilot               | NotifierPort; SMTP is a second adapter                                |
-| Slack thread file import                           | Enlarges data-handling surface          | stored Slack permalink preserves access                               |
+| Deferred                                           | Why                                     | Door left open by                                                    |
+| -------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------- |
+| Preventive/recurring maintenance schedules         | Large scope step toward a full CMMS     | `origin` field reserves `pm`; in-process scheduler exists            |
+| Asset registry (equipment tags, per-asset history) | Scope step-change                       | optional `location_id` dimension already normalized                  |
+| Multiple boards                                    | Single facilities team                  | cards already reference `board_id`                                   |
+| Corporate SSO (OIDC)                               | Pilot uses local accounts               | auth behind a port; session design unchanged by OIDC                 |
+| High availability / multi-instance                 | Single-node is fine for the pilot scale | EventBus/scheduler/DB behind ports; PostgreSQL backend already ships |
+| i18n                                               | Internal English-speaking team          | UI strings centralized; lane labels are seeded data                  |
+| CSV import of incumbent work orders                | No incumbent system identified          | `origin` field reserves `import`                                     |
+| Email notifications                                | Slack DMs cover the pilot               | NotifierPort; SMTP is a second adapter                               |
+| Slack thread file import                           | Enlarges data-handling surface          | stored Slack permalink preserves access                              |
 
 ## Personas
 
@@ -65,7 +65,7 @@ advice, and follow-up nudges.
 | Board shape             | 7 lanes (see [workflow.md](workflow.md)), single board                                                                                                                                                                                                       |
 | Slack integration       | Fully implemented and contract-tested in CI without a live workspace; credentials connected later                                                                                                                                                            |
 | AI thread summarization | Implemented, enabled per-deployment by config flag; **provider-agnostic** — the `openai` SDK over any OpenAI-compatible endpoint (OpenAI, NVIDIA NIM, LiteLLM proxy, vLLM, …) selected by `SUMMARIZER_BASE_URL`; invoker always reviews the draft in a modal |
-| Deployment              | Single-node Docker Compose; SQLite (WAL) + Litestream backups                                                                                                                                                                                                |
+| Deployment              | Single-node Docker Compose; PostgreSQL by default, or SQLite (WAL) + Litestream for dev/small deployments — backend selected via `DATABASE_URL` vs `DATABASE_PATH` (see [deployment.md](../architecture/deployment.md))                                      |
 | Attachments             | Images + PDF, 25 MB/file, 10 files/card, local blob volume behind a port                                                                                                                                                                                     |
 | Location                | Optional per card, from a seeded building/floor/room tree                                                                                                                                                                                                    |
 | Review → Done           | Requester auto-notified with reopen path; an approval gate on this edge is available via policy (transition enforcement + a role that grants `card.move`), off by default                                                                                    |

@@ -2,6 +2,11 @@
 
 **Status**: accepted (2026-07-16)
 
+> **Update (v1.0.0):** PostgreSQL is now implemented and shipped as a first-class backend
+> behind the repository ports, selected via `DATABASE_URL` (see ADR-020). The "one-time
+> mechanical schema rewrite" below has happened; Postgres is a production option, not a future
+> migration.
+
 ## Context
 
 Requirement: SQLite today, production-portable to Postgres, no hard SQLite dependency.
@@ -27,6 +32,7 @@ Candidates: Drizzle, Kysely, Knex, Prisma.
 
 ## Consequences
 
-Exactly one Node process until the Postgres migration (see deployment.md). A nightly
-Postgres-testcontainers CI job is added **when the pg schema exists** (at migration time), not
-before — there is nothing to test until then.
+The single-process constraint applies only to SQLite deployments; on Postgres (via
+`DATABASE_URL`) the app scales to multiple Node processes / nodes (see deployment.md). A
+dedicated Postgres CI job against a real `postgres` service remains as future hardening —
+today the SQL is proven in normal CI by PGlite integration tests.

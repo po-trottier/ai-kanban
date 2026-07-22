@@ -1,7 +1,8 @@
 # Deployment
 
-Single-node Docker Compose (PO decision). One app container, one optional Litestream sidecar,
-one named volume.
+Single-node Docker Compose (PO decision). One postgres container, one app container, two named
+volumes (`pgdata` for postgres, `data` for app). Litestream is available as a standalone config
+file (`litestream.yml`) for optional S3-compatible WAL streaming, not as a docker-compose service.
 
 ## Topology
 
@@ -94,8 +95,9 @@ the Slack/summarizer secrets.
   forward-only and committed to the repo.
 - **Never copy a live SQLite database file** — a naive file copy of a WAL database silently
   corrupts. Backups are:
-  1. **Litestream** continuous WAL streaming to S3-compatible storage (RPO ~seconds) — the
-     compose `backup` profile, opt-in until S3 credentials exist (`litestream.yml`), and
+  1. **Litestream** continuous WAL streaming to S3-compatible storage (RPO ~seconds) — a
+     standalone config file (`litestream.yml`), run separately (not a docker-compose profile)
+     once S3 credentials exist, and
   2. nightly online-backup snapshots (self-contained files, safe to copy) under
      `SNAPSHOT_DIR`, dated `app-YYYY-MM-DD.sqlite`, newest 7 retained, and
   3. the blob directory synced in the same backup job.
@@ -131,7 +133,7 @@ decision above).
 The data layer runs on **PostgreSQL** for production (set `DATABASE_URL`;
 [ADR-020](decisions/ADR-020-postgresql-support.md)) — the `sqlite-core` → `pg-core` rewrite behind
 the unchanged repository ports: a `pgTable` schema, async repositories, an async unit of work, and
-a single `0000_init` pg migration. `docker-compose.yml` launches `postgres:17` and points the app at
+a single `0000_init` pg migration. `docker-compose.yml` launches `postgres:17-alpine` and points the app at
 it; back up with standard pg tooling (`pg_dump` / WAL archiving) instead of Litestream. Remaining
 HA follow-ups (still open): the in-process EventBus → `LISTEN/NOTIFY` and the croner scheduler →
 an external scheduler before scaling the app past one replica.

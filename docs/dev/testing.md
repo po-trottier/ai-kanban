@@ -20,7 +20,7 @@ the source of truth**; unit tests prove micro-logic, they never substitute for t
 | **AAA pattern** in every unit test: explicit `// Arrange`, `// Act`, `// Assert` comments marking the three sections, in order, in every test body; one behavior per test                                                     | custom local ESLint rule `local/require-aaa-comments` on `*.unit.test.ts` (presence + order are machine-checked) plus `@vitest/eslint-plugin` `max-expects`, `expect-expect`, `valid-title` |
 | **No mocking in integration/e2e** — no `vi.mock`, `vi.fn`, `vi.spyOn`, `vi.stubGlobal`, `vi.useFakeTimers`, no mock libraries                                                                                                 | ESLint flat-config override on `**/*.integration.test.ts` and `e2e/**`: `no-restricted-properties` + `no-restricted-imports`                                                                |
 | External services are faked only as **real local HTTP servers** serving recorded fixture responses (Slack Web API, the summarizer LLM's OpenAI-compatible endpoint) — our code (the `openai` client included) runs unmodified | integration harness provides them; the lint rule above blocks the lazy alternative                                                                                                          |
-| Unit-test doubles are **hand-written fakes implementing core ports** (e.g. `InMemoryCardRepository`), never mocking-library constructs                                                                                        | same lint rules applied repo-wide for `vi.mock`/`vi.spyOn`; fakes live in `packages/core/test/fakes/`                                                                                       |
+| Unit-test doubles are **hand-written fakes implementing core ports** (e.g. `InMemoryCardRepository`), never mocking-library constructs                                                                                        | same lint rules applied repo-wide for `vi.mock`/`vi.spyOn`; fakes live in `packages/core/src/testing/`                                                                                      |
 | Time and randomness are **ports** (`Clock`, `IdGenerator`) — tests inject fixed values instead of faking globals                                                                                                              | design + `vi.useFakeTimers` ban                                                                                                                                                             |
 | Every test file owns its data: fresh DB file (integration) or fresh fake instances (unit); no shared mutable fixtures, no test-order dependence                                                                               | forks-pool per-file isolation + `createTestApp()` per test                                                                                                                                  |
 | No focused/skipped/conditional tests in CI                                                                                                                                                                                    | `@vitest/eslint-plugin`: `no-focused-tests`, `no-disabled-tests`, `no-conditional-expect`, `no-conditional-tests`                                                                           |
@@ -77,8 +77,8 @@ UI. When an e2e failure disagrees with the source, `rm -rf packages/web/dist` an
 
 GitHub Actions, gates in order:
 
-1. `npm ci` → typecheck → lint (`--max-warnings 0`) → prettier check → dependency-cruiser →
-   knip → commitlint
+1. `npm ci` → prettier check (`format:check`) → lint (`--max-warnings 0`) → typecheck →
+   dependency-cruiser → knip → commitlint
 2. Unit tests + coverage gate
 3. Integration tests + coverage gate (includes MCP e2e and Slack contract tests)
 4. **Build the production Linux Docker image and run the full integration suite inside it**
@@ -91,7 +91,8 @@ GitHub Actions, gates in order:
 7. (scheduled, weekly) snapshot **restore drill**: boot the production image, snapshot via
    the same online backup the nightly job runs, restore that snapshot into a fresh container
    (boot runs migrations), and require `/readyz` plus the seeded data to survive the trip.
-   The Litestream restore path is the operator command documented atop `docker-compose.yml`
+   Production backup uses standard PostgreSQL tooling (`pg_dump`, or WAL archiving for
+   point-in-time recovery) — the operator command is documented atop `docker-compose.yml`
    (see deployment.md#database-operations)
 
 All actions SHA-pinned. A red step blocks merge; there are no manual overrides.

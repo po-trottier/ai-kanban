@@ -15,7 +15,8 @@ Ports-and-adapters:
 
 - `packages/core` holds entities, Zod schemas, the policy engine (configurable permissions +
   opt-in transition rules — see ADR-013),
-  services (CardService, CommentService, AuditService, BoardQueryService, AttachmentService),
+  services (CardService, CommentService, BoardQueryService, AttachmentService) — plus
+  PolicyService, WatchService, NotificationService, and CardRelationService,
   and **ports** (interfaces): CardRepository, CommentRepository, UserRepository, UnitOfWork,
   EventBus, Clock, IdGenerator, BlobStorePort, SummarizerPort, NotifierPort. (Outbound Slack
   needs no dedicated port beyond NotifierPort: the SlackNotifier adapter consumes the Slack

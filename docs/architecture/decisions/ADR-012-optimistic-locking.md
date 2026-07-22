@@ -12,8 +12,7 @@ later would break all three consumer types at once.
 
 - `cards.version` INTEGER, incremented on every mutation inside the transaction.
 - Every field-mutating command (PATCH, move, cancel, block…) requires `expectedVersion` —
-  REST expresses it as `If-Match`/ETag; MCP tools take it as a parameter; Slack flows read the
-  fresh version inside their own transaction.
+  REST expresses it as `If-Match`/ETag; MCP tools take it as a parameter.
 - Mismatch → **409 Conflict** with the current resource state in the body. The SPA rolls back
   its optimistic update, refetches, and shows a non-blocking "card was just updated by someone
   else" toast.

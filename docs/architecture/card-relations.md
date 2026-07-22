@@ -42,7 +42,7 @@ reads.
 - **Who may manage them.** Managing relations is collaborative card metadata available to **any
   authenticated user** (like adding a comment) — there is no `manage*` RBAC gate; the routes sit
   behind the normal web-session gate.
-- **v0 scope.** Relations do **not** yet append to the card audit trail (`card_events`) or fan out
+- **Deferred.** Relations do **not** yet append to the card audit trail (`card_events`) or fan out
   over SSE — a link carries no lifecycle weight, and cross-user liveness is a deliberate follow-up
   (the acting client refetches its own list). Cards are never hard-deleted, so a relation never
   dangles.
@@ -80,7 +80,7 @@ OTHER card. `outgoing` = the requesting card is `from` (reads the forward label)
 
 ## Frontend
 
-`packages/web/src/card/RelationsSection.tsx`, rendered in the detail panel's **Details** tab (below
+`packages/web/src/card/RelationsSection.tsx`, rendered in the detail panel's **Details** tab (above
 Attachments). It is a **quiet list**: each related card shows the relationship as seen from the open
 card (a grey badge) and links through to the other card (preserving the board filter query in the URL),
 with a subtle red remove action per row. Unless the card is archived (read-only), a single **"Add
