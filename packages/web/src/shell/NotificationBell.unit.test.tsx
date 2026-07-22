@@ -115,6 +115,35 @@ describe('NotificationBell', () => {
     ).toBe(true)
   })
 
+  it('marks an unread notification read from its envelope, without opening the card', async () => {
+    // Arrange — an UNREAD notification; the row's closed-envelope marks it read.
+    const user = userEvent.setup()
+    const fake = createFakeFetch({
+      'GET /api/v1/notifications/unread-count': { unread: 1 },
+      'GET /api/v1/notifications': [notif({ id: uid(800), read: false })],
+      [`POST /api/v1/notifications/${uid(800)}/read`]: jsonResponse({ unread: 0 }),
+    })
+    renderWithProviders(
+      <>
+        <NotificationBell />
+        <LocationProbe />
+      </>,
+      { fetchFn: fake.fetch },
+    )
+    // Act — open the bell, click the row's "Mark as read" (closed envelope).
+    await user.click(await screen.findByRole('button', { name: /Notifications, 1 unread/ }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Mark notification about Leaky faucet as read' }),
+    )
+    // Assert — the mark-read POST fired and we did NOT navigate to the card.
+    expect(
+      fake.calls.some(
+        (call) => call.method === 'POST' && call.url === `/api/v1/notifications/${uid(800)}/read`,
+      ),
+    ).toBe(true)
+    expect(screen.getByTestId('location').textContent).not.toContain('/cards/5')
+  })
+
   it('marks the whole inbox read via the bulk action', async () => {
     // Arrange
     const user = userEvent.setup()

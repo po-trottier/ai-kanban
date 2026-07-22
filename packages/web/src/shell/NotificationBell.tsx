@@ -1,7 +1,6 @@
 import { type NotificationKind, type NotificationView } from '@rivian-kanban/core'
 import {
   ActionIcon,
-  Box,
   Divider,
   Group,
   Indicator,
@@ -13,7 +12,7 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core'
-import { Bell, Mail, X } from 'lucide-react'
+import { Bell, Mail, MailOpen, X } from 'lucide-react'
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { cx } from '../lib/cx.ts'
@@ -137,9 +136,13 @@ export function NotificationBell() {
                   notification={notification}
                   timezone={timezone}
                   clearing={clearOne.isPending && clearOne.variables === notification.id}
+                  markingRead={markRead.isPending && markRead.variables === notification.id}
                   markingUnread={markUnread.isPending && markUnread.variables === notification.id}
                   onOpen={() => {
                     openCard(notification)
+                  }}
+                  onMarkRead={() => {
+                    markRead.mutate(notification.id)
                   }}
                   onMarkUnread={() => {
                     markUnread.mutate(notification.id)
@@ -187,23 +190,28 @@ export function NotificationBell() {
 
 /**
  * One inbox row: who did what, on which card, when — bold + tinted while unread.
- * The content is the click target (opens the card + marks read); a trailing ✕
- * clears the notification outright. Two separate controls, never nested buttons.
+ * The content is the click target (opens the card + marks read); a trailing
+ * envelope toggles read/unread and a ✕ clears the notification outright. Separate
+ * controls, never nested buttons.
  */
 function NotificationRow({
   notification,
   timezone,
   clearing,
+  markingRead,
   markingUnread,
   onOpen,
+  onMarkRead,
   onMarkUnread,
   onClear,
 }: {
   notification: NotificationView
   timezone: string
   clearing: boolean
+  markingRead: boolean
   markingUnread: boolean
   onOpen: () => void
+  onMarkRead: () => void
   onMarkUnread: () => void
   onClear: () => void
 }) {
@@ -238,9 +246,11 @@ function NotificationRow({
           </Text>
         </Stack>
       </UnstyledButton>
+      {/* One consistent read/unread affordance in both states: an envelope that
+          toggles, distinguished by open/closed shape AND color — a CLOSED envelope
+          in the primary indigo while unread (click to mark read), an OPEN grey
+          envelope once read (click to flip back to unread). */}
       {notification.read ? (
-        // A read row can be flipped BACK to unread ("come back later") — an
-        // envelope, the conventional mark-unread affordance.
         <Tooltip label={strings.notifications.markUnreadTooltip} withArrow>
           <ActionIcon
             variant="subtle"
@@ -250,19 +260,22 @@ function NotificationRow({
             loading={markingUnread}
             onClick={onMarkUnread}
           >
-            <Mail size={16} aria-hidden />
+            <MailOpen size={16} aria-hidden />
           </ActionIcon>
         </Tooltip>
       ) : (
-        // Unread dot in the theme PRIMARY color (the app's indigo, rgb(59,91,219)
-        // = --mantine-primary-color-filled) — the crisp per-row "unread" marker.
-        <Box
-          aria-hidden
-          w={8}
-          h={8}
-          mt={6}
-          style={{ borderRadius: '50%', backgroundColor: 'var(--mantine-primary-color-filled)' }}
-        />
+        <Tooltip label={strings.notifications.markReadTooltip} withArrow>
+          <ActionIcon
+            variant="subtle"
+            color="indigo"
+            size="sm"
+            aria-label={strings.notifications.markRead(notification.cardTitle)}
+            loading={markingRead}
+            onClick={onMarkRead}
+          >
+            <Mail size={16} aria-hidden />
+          </ActionIcon>
+        </Tooltip>
       )}
       <Tooltip label={strings.notifications.clearTooltip} withArrow>
         <ActionIcon

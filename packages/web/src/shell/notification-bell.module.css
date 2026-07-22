@@ -1,5 +1,6 @@
 /* One notification row: the content button (open + mark read) plus a trailing
-   ✕ (clear). The bell's count badge + the per-row dot carry the strong signal;
+   read/unread envelope toggle and ✕ (clear). The bell's count badge + the per-row
+   envelope (closed+indigo unread, open+grey read) carry the read/unread signal;
    an unread ROW only needs a quiet slate tint so the popover doesn't read as
    alarming. The tint must be scheme-aware (the app is `auto`), so `light-dark()`
    picks a theme `gray` shade per scheme: a pale grey in light mode, and in dark

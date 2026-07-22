@@ -524,7 +524,10 @@ export const strings = {
     /** Per-row clear (✕) button — names the work order it removes. */
     clear: (cardTitle: string) => `Clear notification about ${cardTitle}`,
     clearTooltip: 'Remove this notification',
-    /** Per-row mark-unread (envelope) button — names the work order it flips back. */
+    /** Per-row mark-read (closed-envelope) button — names the work order it marks read. */
+    markRead: (cardTitle: string) => `Mark notification about ${cardTitle} as read`,
+    markReadTooltip: 'Mark as read',
+    /** Per-row mark-unread (open-envelope) button — names the work order it flips back. */
     markUnread: (cardTitle: string) => `Mark notification about ${cardTitle} as unread`,
     markUnreadTooltip: 'Mark as unread',
     filterAll: 'All',
