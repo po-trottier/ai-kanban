@@ -551,8 +551,12 @@ function WaitingBanner({
     resumeAt !== null &&
     (reason !== card.waitingReason || resumeAt !== card.expectedResumeAt)
 
+  // Once the resume date has passed, the whole banner (and its save button) turns
+  // the OVERDUE colour — matching the card's overdue badge — instead of staying
+  // the regular waiting colour.
+  const waitingColor = overdue ? OVERDUE_COLOR : WAITING_COLOR
   return (
-    <Alert color={WAITING_COLOR} title={strings.detail.waitingBannerTitle}>
+    <Alert color={waitingColor} title={strings.detail.waitingBannerTitle}>
       <Stack gap="sm">
         <Text size="sm">
           {overdue ? strings.detail.waitingOverdueNote : strings.detail.waitingEditHint}
@@ -578,7 +582,7 @@ function WaitingBanner({
           <HintButton
             size="xs"
             variant="white"
-            color={WAITING_COLOR}
+            color={waitingColor}
             tooltip={strings.tooltips.saveWaiting}
             disabledReason={dirty ? undefined : strings.tooltips.disabledNoChanges}
             leftSection={<Save size={14} aria-hidden />}
