@@ -26,27 +26,34 @@ harness does for deterministic logins (refused in production, like `SEED_DEMO_DA
 
 ## Commands (root)
 
-| Command                                        | What                                                              |
-| ---------------------------------------------- | ----------------------------------------------------------------- |
-| `npm run dev`                                  | run backend + frontend in watch mode against `data/app.sqlite`    |
-| `npm test`                                     | unit + integration suites                                         |
-| `npm run test:unit` / `test:integration`       | one layer                                                         |
-| `npm run test:e2e`                             | Playwright (builds web, boots server on a temp DB)                |
-| `npm run lint` / `lint:fix`                    | ESLint + prettier                                                 |
-| `npm run check`                                | everything CI runs, locally, in order                             |
-| `npm run db:generate`                          | regenerate `0000_init` from `schema.ts` (see Changing the schema) |
-| `npm run db:migrate` / `db:seed` / `db:studio` | drizzle-kit migrate / reseed dev DB / data browser                |
-| `npm run build`                                | compile all packages + SPA bundle                                 |
+| Command                                        | What                                                                 |
+| ---------------------------------------------- | -------------------------------------------------------------------- |
+| `npm run dev`                                  | run backend + frontend in watch mode against `data/app.sqlite`       |
+| `npm test`                                     | unit + integration suites                                            |
+| `npm run test:unit` / `test:integration`       | one layer                                                            |
+| `npm run test:e2e`                             | Playwright (builds web, boots server on a temp DB)                   |
+| `npm run lint` / `lint:fix`                    | ESLint + prettier                                                    |
+| `npm run check`                                | everything CI runs, locally, in order                                |
+| `npm run db:generate`                          | append the next migration from `schema.ts` (see Changing the schema) |
+| `npm run db:migrate` / `db:seed` / `db:studio` | drizzle-kit migrate / reseed dev DB / data browser                   |
+| `npm run build`                                | compile all packages + SPA bundle                                    |
 
-## Changing the schema (v0)
+## Changing the schema
 
-There is exactly **one** migration — `packages/db/migrations/0000_init.sql`. While pre-1.0 there
-is no deployed schema to preserve, so a schema change **regenerates that single file in place**
-instead of adding an incremental `0001_*` migration: edit `packages/db/src/schema.ts`, delete
-`migrations/0000_init.sql` and `migrations/meta/`, run `npm run db:generate`, then recreate a
-fresh dev DB (`rm -rf data` then `npm run dev`). The forward-only migration chain that
-[deployment.md](../architecture/deployment.md) describes begins at the first production release;
-until then, keep it a single `0000_init` — this is a deliberate simplification, not an oversight.
+`packages/db/migrations/0000_init.sql` (and its `pg/` twin) is the **frozen v1 baseline** — the
+complete schema as it first stabilised. It is **immutable**: never edit or regenerate it. From here
+the schema is **forward-only** — a change appends the next incremental migration rather than
+rewriting the baseline:
+
+1. Edit `packages/db/src/schema.ts` **and** `packages/db/src/schema.pg.ts` (keep the two twins in
+   step — the single-schema rule).
+2. Run `npm run db:generate` and `npm run generate:pg`; drizzle diffs the schema against the last
+   snapshot and writes the next migration (`0001_*.sql`, `0002_*.sql`, …) for each dialect.
+3. Commit the new migration file(s) **in the same commit** as the schema change.
+
+`npm run db:migrate` applies any unapplied migrations in order; a fresh dev DB (`rm -rf data` then
+`npm run dev`) replays the whole chain. (Pre-v1 this single file was regenerated in place; that era
+is over — the baseline is now fixed.)
 
 ## Docker quickstart
 

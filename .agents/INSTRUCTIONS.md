@@ -26,8 +26,9 @@ changing behavior**, starting with `docs/architecture/overview.md` and the ADRs.
 - **Commits.** Atomic, Conventional Commits (`type(scope): subject`, lowercase subject), with docs
   updated in the SAME commit as the behavior they describe. End every commit message with
   `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`. Never skip hooks or bypass signing.
-- **v0, no legacy.** Pre-1.0: exactly one `0000_init` migration, regenerated in place rather than
-  chained (see `docs/dev/getting-started.md` → "Changing the schema"). No back-compat branches.
+- **Frozen v1 baseline, forward-only, no legacy.** `0000_init` is the immutable v1 schema baseline;
+  schema changes now **append** the next migration (`0001_*`, …) — never regenerate the baseline
+  (see `docs/dev/getting-started.md` → "Changing the schema"). No back-compat branches.
 - **Enforced conventions** (`docs/dev/standards.md`): `core` imports no framework/IO; only `db` touches
   drizzle/better-sqlite3; every REST route declares Zod request+response schemas; no dead code or
   unused deps (knip); one shape defined once in `core` drives REST + MCP + forms (single-schema rule).
