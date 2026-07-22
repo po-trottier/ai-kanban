@@ -123,11 +123,20 @@ reading "_actor_ _verb_" and the card; while unread it is bold, carries a **prim
 `gray` shade via `light-dark()` (pale grey in light mode, `gray-8` in dark, the palette's closest
 to a neutral blue-tinted slate). The bell's count badge stays **red** as the strong at-a-glance
 signal; the row itself is only lightly tinted so a full-width coloured block doesn't read as
-alarming), a per-row **✕ to clear** that notification, and the
-**"Clear all"** and **"Mark all as read"** bulk actions. Opening a notification marks it read and
-navigates to the card (preserving the URL filter). The inbox **polls every 30s** and refetches on
-card SSE hints, so new notifications appear without a reload; targeting the SSE refresh to only the
-recipients (rather than a broadcast) is a deliberate follow-up.
+alarming), a per-row **✕ to clear** that notification, and — on a **read** row — an **envelope to
+mark it unread again** (come back to it later; `POST /notifications/:id/unread` sets `read_at` back
+to null), plus the **"Clear all"** and **"Mark all as read"** bulk actions. Opening a notification
+marks it read and navigates to the card (preserving the URL filter). The inbox **polls every 30s**
+and refetches on card SSE hints, so new notifications appear without a reload; targeting the SSE
+refresh to only the recipients (rather than a broadcast) is a deliberate follow-up.
+
+**Deep-link to the comment.** A `mention` (and a watcher `comment.added`) notification stores the
+triggering `comment_id` on the row (nullable, FK-free like `actor_id` — a soft reference that
+no-ops if the comment is later purged). Opening such a notification navigates to
+`/cards/:id?tab=comments&comment=<id>`: `CardPanelBody` reads the params (controlled tabs) to open
+the **Comments** tab, and `CommentsThread` jumps to that comment and briefly **flashes** it — reusing
+the same scroll + highlight the "Replied to…" jump uses — then the caller drops the params so
+re-opening the card doesn't keep re-jumping. Every other event type stores a null `comment_id`.
 
 **Not spam.** Watch defaults keep the set relevant (your reported/assigned cards); you never notify
 yourself; noise events (reorders, comment edits) are filtered out; and unwatching or "mark all read"

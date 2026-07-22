@@ -67,6 +67,16 @@ export class SqliteNotificationRepository implements NotificationRepository {
     return Promise.resolve()
   }
 
+  markUnread(id: string, userId: string): Promise<void> {
+    this.db
+      .update(notifications)
+      .set({ readAt: null })
+      // Only the owner's own row; idempotent if already unread.
+      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
+      .run()
+    return Promise.resolve()
+  }
+
   markAllRead(userId: string, readAt: string): Promise<number> {
     const result = this.db
       .update(notifications)

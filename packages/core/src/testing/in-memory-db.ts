@@ -1371,6 +1371,14 @@ class InMemoryNotificationRepository implements NotificationRepository {
     return Promise.resolve()
   }
 
+  markUnread(id: string, userId: string): Promise<void> {
+    const row = this.state.notifications.find(
+      (candidate) => candidate.id === id && candidate.userId === userId,
+    )
+    if (row !== undefined) row.readAt = null
+    return Promise.resolve()
+  }
+
   markAllRead(userId: string, readAt: string): Promise<number> {
     let count = 0
     for (const row of this.state.notifications) {

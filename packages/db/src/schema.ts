@@ -539,6 +539,12 @@ export const notifications = sqliteTable(
     /** User id or service-token id — deliberately no FK (mirrors card_events). */
     actorId: text('actor_id'),
     eventType: text('event_type').$type<NotificationKind>().notNull(),
+    /**
+     * The comment to deep-link to (a `mention` / `comment.added`), else null.
+     * Deliberately FK-free (like `actor_id`): a soft reference for jumping to the
+     * comment — if it's ever purged, the deep-link just no-ops, no cascade.
+     */
+    commentId: text('comment_id'),
     createdAt: text('created_at').notNull(),
     /** Null while unread. */
     readAt: text('read_at'),

@@ -116,6 +116,28 @@ describe('SqliteNotificationRepository', () => {
     expect(await run((tx) => tx.notifications.unreadCount(me))).toBe(0)
   })
 
+  it('flips read → unread (owner-scoped) and round-trips the deep-link commentId', async () => {
+    // Arrange — a read notification carrying a comment id to deep-link to.
+    const me = insertUser(db.connection).id
+    const other = insertUser(db.connection).id
+    const c = card()
+    await run((tx) => tx.cards.insert(c))
+    const commentId = newId()
+    const read = notification({ userId: me, cardId: c.id, readAt: T0, commentId })
+    await run((tx) => tx.notifications.insert(read))
+
+    // Assert — the commentId round-trips through the column, and it starts read.
+    const stored = await run((tx) => tx.notifications.listForUser(me, { limit: 50 }))
+    expect(stored[0]?.commentId).toBe(commentId)
+    expect(await run((tx) => tx.notifications.unreadCount(me))).toBe(0)
+
+    // Another user cannot flip mine; the owner can restore it to unread.
+    await run((tx) => tx.notifications.markUnread(read.id, other))
+    expect(await run((tx) => tx.notifications.unreadCount(me))).toBe(0)
+    await run((tx) => tx.notifications.markUnread(read.id, me))
+    expect(await run((tx) => tx.notifications.unreadCount(me))).toBe(1)
+  })
+
   it('clears one (owner-scoped) and clears all (read + unread)', async () => {
     // Arrange — a fresh recipient with one read + one unread notification.
     const me = insertUser(db.connection).id

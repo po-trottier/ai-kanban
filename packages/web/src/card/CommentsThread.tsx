@@ -38,6 +38,10 @@ export interface CommentsThreadProps {
   onEdit: (commentId: string, body: string, onEdited: () => void) => void
   /** `onDeleted` fires on success so the confirm dialog closes only then. */
   onDelete: (commentId: string, onDeleted: () => void) => void
+  /** A comment to jump to + flash on open (mention deep-link); once, when loaded. */
+  focusCommentId?: string
+  /** Fired after the focus jump so the caller can drop the deep-link params. */
+  onFocusHandled?: () => void
 }
 
 /** A comment's DOM id, so a reply can jump to its parent by id (no per-item ref). */
@@ -61,6 +65,8 @@ export function CommentsThread({
   onAdd,
   onEdit,
   onDelete,
+  focusCommentId,
+  onFocusHandled,
 }: CommentsThreadProps) {
   const thread = buildCommentThread(comments)
   const [replyTo, setReplyTo] = useState<string | null>(null)
@@ -90,6 +96,31 @@ export function CommentsThread({
       setHighlightedId(null)
     }, HIGHLIGHT_MS)
   }
+
+  // A mention / comment notification deep-links to its comment: jump to it and
+  // flash it ONCE, but only after it has actually loaded (guard on the DOM node,
+  // so an unloaded or purged comment is a graceful no-op). Same scroll + flash as
+  // the "Replied to…" jump. `onFocusHandled` lets the caller drop the deep-link
+  // URL params so switching tabs / reopening the card doesn't keep re-jumping.
+  useEffect(() => {
+    if (focusCommentId === undefined) return
+    const target = document.getElementById(commentDomId(focusCommentId))
+    if (target === null) return
+    // Defer a tick so the panel/tab has laid out before we scroll, and so the
+    // state update happens off the effect's synchronous path.
+    const jump = setTimeout(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setHighlightedId(focusCommentId)
+      clearTimeout(highlightTimer.current)
+      highlightTimer.current = setTimeout(() => {
+        setHighlightedId(null)
+      }, HIGHLIGHT_MS)
+      onFocusHandled?.()
+    }, 0)
+    return () => {
+      clearTimeout(jump)
+    }
+  }, [focusCommentId, comments, onFocusHandled])
 
   return (
     // A bounded flex column: the LIST scrolls, the top-level composer below it

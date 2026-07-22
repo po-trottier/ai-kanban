@@ -1,5 +1,5 @@
 {
-  "id": "ea5f09a9-ec40-4d59-bbdb-59348d2c5eb5",
+  "id": "bb69a233-9439-4f32-92b9-8332f0789e89",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1363,6 +1363,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "comment_id": {
+          "name": "comment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

@@ -466,7 +466,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       mentions: [demoUsers.admin],
     })
     // A reply that mentions the parent author (thread-style back-and-forth).
-    addComment({
+    const replyComment = addComment({
       card: inProgressCard,
       author: demoUsers.admin,
       body: `Hydraulic pump is out ${mention(demoUsers.user)} — new seal kit arrives tomorrow morning.`,
@@ -475,7 +475,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       mentions: [demoUsers.user],
     })
     // A second mention thread on another card so the inbox spans multiple cards.
-    addComment({
+    const filterMentionComment = addComment({
       card: readyCard,
       author: demoUsers.admin,
       body: `${mention(demoUsers.user)} can you confirm the filter sizes before Friday?`,
@@ -518,6 +518,8 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
       cardId: number
       actorId: string
       eventType: NotificationKind
+      /** The comment to deep-link to (mention / comment.added); null otherwise. */
+      commentId?: string | null
       createdMinutesAgo: number
       readMinutesAgo: number | null
     }): void => {
@@ -529,6 +531,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
             cardId: raw.cardId,
             actorId: raw.actorId,
             eventType: raw.eventType,
+            commentId: raw.commentId ?? null,
             createdAt: new Date(nowMs - raw.createdMinutesAgo * 60_000).toISOString(),
             readAt:
               raw.readMinutesAgo === null
@@ -550,6 +553,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
         cardId: inProgressCard.id,
         actorId: demoUsers.admin.id,
         eventType: 'mention',
+        commentId: replyComment.id,
         createdMinutesAgo: 120,
         readMinutesAgo: null,
       },
@@ -558,6 +562,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
         cardId: readyCard.id,
         actorId: demoUsers.admin.id,
         eventType: 'mention',
+        commentId: filterMentionComment.id,
         createdMinutesAgo: 300,
         readMinutesAgo: null,
       },
@@ -591,6 +596,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
         cardId: inProgressCard.id,
         actorId: demoUsers.user.id,
         eventType: 'mention',
+        commentId: parentComment.id,
         createdMinutesAgo: 180,
         readMinutesAgo: null,
       },
@@ -599,6 +605,7 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
         cardId: inProgressCard.id,
         actorId: demoUsers.user.id,
         eventType: 'comment.added',
+        commentId: parentComment.id,
         createdMinutesAgo: 190,
         readMinutesAgo: null,
       },

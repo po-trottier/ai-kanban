@@ -1,6 +1,7 @@
 import { type NotificationView } from '@rivian-kanban/core'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useLocation } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { createFakeFetch, jsonResponse } from '../test/fake-fetch.ts'
 import { uid } from '../test/fixtures.ts'
@@ -18,6 +19,12 @@ function notif(overrides: Partial<NotificationView> = {}): NotificationView {
     read: false,
     ...overrides,
   }
+}
+
+/** Renders the live router URL so a click's navigation target is assertable. */
+function LocationProbe() {
+  const location = useLocation()
+  return <div data-testid="location">{location.pathname + location.search}</div>
 }
 
 describe('NotificationBell', () => {
@@ -51,6 +58,59 @@ describe('NotificationBell', () => {
     expect(
       fake.calls.some(
         (call) => call.method === 'POST' && call.url === `/api/v1/notifications/${uid(800)}/read`,
+      ),
+    ).toBe(true)
+  })
+
+  it('deep-links a mention notification to its comment (comments tab + comment id)', async () => {
+    // Arrange — a mention notification carrying the id of the comment it came from.
+    const user = userEvent.setup()
+    const fake = createFakeFetch({
+      'GET /api/v1/notifications/unread-count': { unread: 1 },
+      'GET /api/v1/notifications': [
+        notif({ id: uid(800), eventType: 'mention', commentId: uid(900) }),
+      ],
+      [`POST /api/v1/notifications/${uid(800)}/read`]: jsonResponse({ unread: 0 }),
+    })
+    renderWithProviders(
+      <>
+        <NotificationBell />
+        <LocationProbe />
+      </>,
+      { fetchFn: fake.fetch },
+    )
+    // Act — open the bell and click the mention.
+    await user.click(await screen.findByRole('button', { name: /Notifications, 1 unread/ }))
+    await user.click(
+      screen.getByRole('button', { name: /Terry Tech mentioned you in a comment.*Leaky faucet/ }),
+    )
+    // Assert — navigates to the card, opens the comments tab, targets the comment.
+    const url = screen.getByTestId('location').textContent
+    expect(url).toContain('/cards/5')
+    expect(url).toContain('tab=comments')
+    expect(url).toContain(`comment=${uid(900)}`)
+  })
+
+  it('flips a read notification back to unread from its row action', async () => {
+    // Arrange — a READ notification (no commentId needed).
+    const user = userEvent.setup()
+    const fake = createFakeFetch({
+      'GET /api/v1/notifications/unread-count': { unread: 0 },
+      'GET /api/v1/notifications': [notif({ id: uid(800), read: true })],
+      [`POST /api/v1/notifications/${uid(800)}/unread`]: jsonResponse({ unread: 1 }),
+    })
+    renderWithProviders(<NotificationBell />, { fetchFn: fake.fetch })
+    // Act — open the bell, click the row's "Mark as unread" (envelope).
+    await user.click(await screen.findByRole('button', { name: /Notifications/ }))
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Mark notification about Leaky faucet as unread',
+      }),
+    )
+    // Assert — a POST to the unread route fired for that id.
+    expect(
+      fake.calls.some(
+        (call) => call.method === 'POST' && call.url === `/api/v1/notifications/${uid(800)}/unread`,
       ),
     ).toBe(true)
   })

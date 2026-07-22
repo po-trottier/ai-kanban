@@ -99,6 +99,35 @@ describe('NotificationService inbox', () => {
     expect(finalCount).toBe(0)
   })
 
+  it('flips a read notification back to unread — owner-scoped (markUnread)', async () => {
+    // Arrange — one already-read notification for the technician.
+    const scenario = createScenario()
+    const card = scenario.seedCard()
+    const me = scenario.actors.technician
+    scenario.db.seedNotification({
+      id: fixtureId(106),
+      userId: me.id,
+      cardId: card.id,
+      actorId: scenario.users.requester.id,
+      eventType: 'comment.added',
+      createdAt: '2026-07-10T00:00:00.000Z',
+      readAt: '2026-07-10T01:00:00.000Z',
+    })
+
+    // Act — starts read (count 0); flip back to unread; a stranger cannot flip mine.
+    const readCount = await scenario.notifications.unreadCount(me)
+    await scenario.notifications.markUnread(me, fixtureId(106))
+    const afterFlip = await scenario.notifications.unreadCount(me)
+    await scenario.notifications.markRead(me, fixtureId(106))
+    await scenario.notifications.markUnread(scenario.actors.supervisor, fixtureId(106))
+    const afterStranger = await scenario.notifications.unreadCount(me)
+
+    // Assert
+    expect(readCount).toBe(0)
+    expect(afterFlip).toBe(1) // come-back-later: unread again
+    expect(afterStranger).toBe(0) // the stranger's markUnread was a no-op
+  })
+
   it('scopes reads to the owner — a stranger cannot mark my notification read', async () => {
     // Arrange
     const scenario = createScenario()
@@ -171,16 +200,21 @@ describe('comment @-mentions', () => {
     })
 
     // Act — comment with an @-mention of the technician.
-    await scenario.comments.add(scenario.actors.requester, card.id, {
+    const comment = await scenario.comments.add(scenario.actors.requester, card.id, {
       body: 'hey @tech please look',
       mentions: [scenario.users.technician.id],
     })
 
-    // Assert — the technician now watches the card and has ONE `mention` notice.
+    // Assert — the technician now watches the card and has ONE `mention` notice
+    // that deep-links to the exact comment (its commentId).
     expect(scenario.db.watcherIdsFor(card.id)).toContain(scenario.users.technician.id)
     const inbox = await scenario.notifications.list(scenario.actors.technician)
     expect(inbox).toHaveLength(1)
-    expect(inbox[0]).toMatchObject({ eventType: 'mention', cardId: card.id })
+    expect(inbox[0]).toMatchObject({
+      eventType: 'mention',
+      cardId: card.id,
+      commentId: comment.id,
+    })
 
     // Fanning the comment.added event out must SKIP the mentioned technician
     // (they already got the higher-signal mention), so no duplicate notice.

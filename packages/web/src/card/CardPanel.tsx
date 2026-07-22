@@ -15,7 +15,7 @@ import {
 import { DatePickerInput } from '@mantine/dates'
 import { Bell, BellOff, RotateCcw, Save, ShieldOff } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { WAITING_REASONS, type Card, type WaitingReason } from '@rivian-kanban/core'
 import { useBoard, useCardAction, useUpdateCard } from '../api/board.ts'
 import { useCardWatch, useUnwatchCard, useWatchCard } from '../api/watch.ts'
@@ -231,6 +231,30 @@ function CardPanelBody({ cardId }: { cardId: string }) {
   const editComment = useEditComment(cardId)
   const deleteComment = useDeleteComment(cardId)
 
+  // A mention / comment notification deep-links with `?tab=comments&comment=<id>`
+  // (CommentsThread then jumps to + flashes the comment). Tabs are controlled;
+  // the initial tab is lazily read from the URL so a deep-link opens Comments on
+  // mount, and thereafter it's local (manual switches). A normal open with no
+  // params defaults to details.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const focusCommentId = searchParams.get('comment') ?? undefined
+  const [tab, setTab] = useState<string | null>(() =>
+    searchParams.get('tab') === 'comments' || searchParams.get('comment') !== null
+      ? 'comments'
+      : 'details',
+  )
+  const clearCommentDeepLink = () => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('tab')
+        next.delete('comment')
+        return next
+      },
+      { replace: true },
+    )
+  }
+
   if (detailQuery.isPending) {
     return <CardPanelSkeleton />
   }
@@ -299,7 +323,7 @@ function CardPanelBody({ cardId }: { cardId: string }) {
           </HintButton>
         </Group>
       ) : null}
-      <Tabs defaultValue="details" keepMounted={false}>
+      <Tabs value={tab} onChange={setTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="details">{strings.detail.tabDetails}</Tabs.Tab>
           <Tabs.Tab value="comments">{strings.detail.tabComments}</Tabs.Tab>
@@ -334,6 +358,8 @@ function CardPanelBody({ cardId }: { cardId: string }) {
             onDelete={(commentId, onDeleted) => {
               deleteComment.mutate(commentId, { onSuccess: onDeleted })
             }}
+            {...(focusCommentId !== undefined ? { focusCommentId } : {})}
+            onFocusHandled={clearCommentDeepLink}
           />
         </Tabs.Panel>
         <Tabs.Panel value="history" pt="md">

@@ -25,6 +25,13 @@ export const notificationSchema = z.strictObject({
   /** Who caused the event; null for the system actor. */
   actorId: z.uuid().nullable(),
   eventType: z.enum(NOTIFICATION_KINDS),
+  /**
+   * The comment that triggered this notification, for deep-linking straight to
+   * it (a `mention` or a `comment.added` watcher notification). Null for every
+   * other event type — no comment to jump to. Nullable AND optional so existing
+   * fixtures/mocks that omit it stay valid (hydrated rows always carry it).
+   */
+  commentId: z.uuid().nullable().optional(),
   createdAt: z.iso.datetime(),
   /** Null while unread; set to the read time once acknowledged. */
   readAt: z.iso.datetime().nullable(),
@@ -43,6 +50,8 @@ export const notificationViewSchema = z.strictObject({
   eventType: z.enum(NOTIFICATION_KINDS),
   /** The actor's display name, or null when the system acted. */
   actorName: z.string().nullable(),
+  /** The comment to deep-link to (mention / comment.added), else null. */
+  commentId: z.uuid().nullable().optional(),
   createdAt: z.iso.datetime(),
   read: z.boolean(),
 })

@@ -66,6 +66,19 @@ export function notificationRoutes(deps: AppDeps) {
     )
 
     r.post(
+      '/notifications/:id/unread',
+      {
+        config: { bodyless: true },
+        schema: { params: idParamsSchema, response: { 200: unreadCountResponseSchema } },
+      },
+      async (request) => {
+        const actor = actorOf(request)
+        await notifications.markUnread(actor, request.params.id)
+        return { unread: await notifications.unreadCount(actor) }
+      },
+    )
+
+    r.post(
       '/notifications/read-all',
       { config: { bodyless: true }, schema: { response: { 200: unreadCountResponseSchema } } },
       async (request) => {

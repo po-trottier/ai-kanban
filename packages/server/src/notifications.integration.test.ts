@@ -14,6 +14,7 @@ interface NotifRow {
   cardId: number
   eventType: string
   read: boolean
+  commentId: string | null
 }
 
 let t: TestApp
@@ -94,6 +95,46 @@ describe('notifications (watch → fan-out → inbox)', () => {
       url: `/api/v1/notifications/${String(notification?.id)}/read`,
     })
     expect(read.json<{ unread: number }>().unread).toBe(before - 1)
+  })
+
+  it('a comment notification carries the comment id and can be flipped read ↔ unread', async () => {
+    // Arrange — Alice files a card (auto-watching it); Bob comments on it.
+    const alice = await t.asRole('user')
+    const bob = await t.asRole('user')
+    const cardId = await createCard(alice.cookie, 'Deep-link job')
+    const comment = await t.request(bob.cookie, {
+      method: 'POST',
+      url: `/api/v1/cards/${String(cardId)}/comments`,
+      payload: { body: 'Take a look' },
+    })
+    const commentId = comment.json<{ id: string }>().id
+
+    // Assert — Alice's `comment.added` notification deep-links to that exact comment.
+    const list = await waitForNotifications(alice.cookie, (rows) =>
+      rows.some((row) => row.cardId === cardId),
+    )
+    const notification = list.find((row) => row.cardId === cardId)
+    expect(notification?.eventType).toBe('comment.added')
+    expect(notification?.commentId).toBe(commentId)
+
+    // Read it…
+    await t.request(alice.cookie, {
+      method: 'POST',
+      url: `/api/v1/notifications/${String(notification?.id)}/read`,
+    })
+    const afterRead = await listNotifications(alice.cookie)
+    expect(afterRead.find((row) => row.id === notification?.id)?.read).toBe(true)
+
+    // …then flip it BACK to unread (come-back-later): the row is unread again and
+    // the response returns the fresh, non-zero badge count.
+    const reopened = await t.request(alice.cookie, {
+      method: 'POST',
+      url: `/api/v1/notifications/${String(notification?.id)}/unread`,
+    })
+    expect(reopened.statusCode).toBe(200)
+    expect(reopened.json<{ unread: number }>().unread).toBeGreaterThan(0)
+    const afterUnread = await listNotifications(alice.cookie)
+    expect(afterUnread.find((row) => row.id === notification?.id)?.read).toBe(false)
   })
 
   it('mark-all-read clears the badge', async () => {

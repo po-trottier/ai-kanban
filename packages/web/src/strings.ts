@@ -521,6 +521,9 @@ export const strings = {
     /** Per-row clear (✕) button — names the work order it removes. */
     clear: (cardTitle: string) => `Clear notification about ${cardTitle}`,
     clearTooltip: 'Remove this notification',
+    /** Per-row mark-unread (envelope) button — names the work order it flips back. */
+    markUnread: (cardTitle: string) => `Mark notification about ${cardTitle} as unread`,
+    markUnreadTooltip: 'Mark as unread',
     filterAll: 'All',
     filterUnread: 'Unread',
     /** The bell's accessible name carries the unread count for assistive tech. */

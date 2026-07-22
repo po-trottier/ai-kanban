@@ -44,6 +44,19 @@ export function useMarkNotificationRead() {
   })
 }
 
+/** Restores one notification to unread (so you can come back to it later). */
+export function useMarkNotificationUnread() {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.postVoid(`/notifications/${id}/unread`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+    onError: notifyError,
+  })
+}
+
 /** Marks the whole inbox read (bulk action). */
 export function useMarkAllNotificationsRead() {
   const api = useApi()

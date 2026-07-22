@@ -536,6 +536,8 @@ export interface NotificationRepository {
   unreadCount(userId: string): Promise<number>
   /** Marks one notification read IF it belongs to `userId`; no-op otherwise. */
   markRead(id: string, userId: string, readAt: string): Promise<void>
+  /** Restores one notification to unread (`read_at = null`) IF it belongs to `userId`; no-op otherwise. */
+  markUnread(id: string, userId: string): Promise<void>
   /** Marks every unread notification of `userId` read; returns the count affected. */
   markAllRead(userId: string, readAt: string): Promise<number>
   /** Deletes one notification IF it belongs to `userId`; no-op otherwise. */

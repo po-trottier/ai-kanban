@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { fixtureAdmin, fixtureTech, makeCard, makeComment, nth, uid } from '../test/fixtures.ts'
@@ -113,6 +113,50 @@ describe('CommentsThread', () => {
     const highlight = classes.commentHighlight
     expect(highlight).toBeTruthy()
     expect(parentArticle).toHaveClass(String(highlight))
+  })
+
+  it('jumps to and flashes a focused comment (mention deep-link), consuming it once', async () => {
+    // Arrange — two comments; a notification deep-links to the second.
+    const cardId = makeCard('intake').id
+    const other = makeComment({ id: uid(81), cardId, body: 'Thanks for the heads up' })
+    const target = makeComment({
+      id: uid(82),
+      cardId,
+      body: 'Ordered the seal kit',
+      createdAt: '2026-07-02T10:00:00.000Z',
+    })
+    let focusHandled = 0
+    // Act — mount with the target as the focus id (this schedules the jump).
+    renderWithProviders(
+      <CommentsThread
+        comments={[other, target]}
+        currentUserId={fixtureAdmin.id}
+        userNames={userNames}
+        canDeleteOthers={false}
+        onAdd={noop}
+        onEdit={noop}
+        onDelete={noop}
+        focusCommentId={target.id}
+        onFocusHandled={() => {
+          focusHandled += 1
+        }}
+      />,
+    )
+    // scrollIntoView isn't in happy-dom — record it on the TARGET element (the flash
+    // is deferred a tick, so overriding right after render is in time). No mocking
+    // libs, per the repo rule.
+    const targetArticle = screen
+      .getAllByRole('article')
+      .find((el) => within(el).queryByText('Ordered the seal kit'))
+    if (targetArticle === undefined) throw new Error('target comment not rendered')
+    const scrolled: unknown[] = []
+    targetArticle.scrollIntoView = (arg) => scrolled.push(arg)
+    // Assert — the target is scrolled + flashed, and the deep-link is consumed once.
+    await waitFor(() => {
+      expect(scrolled).toEqual([{ behavior: 'smooth', block: 'center' }])
+      expect(targetArticle).toHaveClass(String(classes.commentHighlight))
+    })
+    expect(focusHandled).toBe(1)
   })
 
   it('shows a graceful label when a reply’s parent was deleted', () => {

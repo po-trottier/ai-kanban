@@ -48,6 +48,9 @@ export class NotificationService {
         for (const id of event.payload.mentionedUserIds) excluded.add(id)
       }
       const recipients = watchers.filter((id) => !excluded.has(id))
+      // A `comment.added` fan-out deep-links to the comment (like a mention);
+      // every other event type has no comment to jump to.
+      const commentId = event.eventType === 'comment.added' ? event.payload.commentId : null
       const nowIso = this.deps.clock.now().toISOString()
       for (const userId of recipients) {
         const notification: Notification = {
@@ -56,6 +59,7 @@ export class NotificationService {
           cardId,
           actorId: event.actorId,
           eventType: event.eventType,
+          commentId,
           createdAt: nowIso,
           readAt: null,
         }
@@ -100,6 +104,11 @@ export class NotificationService {
     )
   }
 
+  /** Restores one of the caller's notifications to unread (no-op if not theirs). */
+  async markUnread(actor: Actor, id: string): Promise<void> {
+    await this.deps.uow.run((tx) => tx.notifications.markUnread(id, actor.id))
+  }
+
   /** Clears (deletes) one of the caller's notifications (no-op if not theirs). */
   async clear(actor: Actor, id: string): Promise<void> {
     await this.deps.uow.run((tx) => tx.notifications.clear(id, actor.id))
@@ -121,6 +130,7 @@ export class NotificationService {
       cardTitle: card?.title ?? '',
       eventType: row.eventType,
       actorName: actor?.displayName ?? null,
+      commentId: row.commentId,
       createdAt: row.createdAt,
       read: row.readAt !== null,
     }

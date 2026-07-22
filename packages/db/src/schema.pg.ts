@@ -425,6 +425,8 @@ export const notifications = pgTable(
       .references(() => cards.id),
     actorId: text('actor_id'),
     eventType: text('event_type').$type<NotificationKind>().notNull(),
+    /** Deep-link target comment (mention / comment.added), else null; FK-free like actor_id. */
+    commentId: text('comment_id'),
     createdAt: text('created_at').notNull(),
     readAt: text('read_at'),
   },

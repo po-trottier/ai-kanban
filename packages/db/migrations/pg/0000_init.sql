@@ -131,6 +131,7 @@ CREATE TABLE "notifications" (
 	"card_id" integer NOT NULL,
 	"actor_id" text,
 	"event_type" text NOT NULL,
+	"comment_id" text,
 	"created_at" text NOT NULL,
 	"read_at" text
 );

@@ -101,6 +101,7 @@ export class CommentService {
         input.mentions ?? [],
         authorId,
         targetCard.id,
+        created.id,
         nowIso,
       )
       const added = await this.appendCommentEvent(tx, actor, targetCard, 'comment.added', created, {
@@ -122,6 +123,7 @@ export class CommentService {
     rawMentions: readonly string[],
     authorId: string,
     cardId: number,
+    commentId: string,
     nowIso: string,
   ): Promise<string[]> {
     const resolved: string[] = []
@@ -137,6 +139,8 @@ export class CommentService {
         cardId,
         actorId: authorId,
         eventType: 'mention',
+        // Deep-link the mention straight to the comment it came from.
+        commentId,
         createdAt: nowIso,
         readAt: null,
       })

@@ -13,7 +13,7 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core'
-import { Bell, X } from 'lucide-react'
+import { Bell, Mail, X } from 'lucide-react'
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { cx } from '../lib/cx.ts'
@@ -22,6 +22,7 @@ import {
   useClearNotification,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
+  useMarkNotificationUnread,
   useNotifications,
   useUnreadCount,
 } from '../api/notifications.ts'
@@ -46,6 +47,7 @@ export function NotificationBell() {
   const unreadQuery = useUnreadCount()
   const notificationsQuery = useNotifications(unreadOnly)
   const markRead = useMarkNotificationRead()
+  const markUnread = useMarkNotificationUnread()
   const markAll = useMarkAllNotificationsRead()
   const clearOne = useClearNotification()
   const clearAll = useClearAllNotifications()
@@ -59,8 +61,15 @@ export function NotificationBell() {
   const openCard = (notification: NotificationView) => {
     if (!notification.read) markRead.mutate(notification.id)
     setOpened(false)
-    // Preserve the board filter query (URL state) when jumping to the card.
-    void navigate({ pathname: `/cards/${String(notification.cardId)}`, search: location.search })
+    // Preserve the board filter query (URL state); a mention / comment
+    // notification also deep-links to the comments tab + its specific comment,
+    // which CommentsThread then jumps to and flashes.
+    const search = new URLSearchParams(location.search)
+    if (notification.commentId != null) {
+      search.set('tab', 'comments')
+      search.set('comment', notification.commentId)
+    }
+    void navigate({ pathname: `/cards/${String(notification.cardId)}`, search: search.toString() })
   }
 
   return (
@@ -128,8 +137,12 @@ export function NotificationBell() {
                   notification={notification}
                   timezone={timezone}
                   clearing={clearOne.isPending && clearOne.variables === notification.id}
+                  markingUnread={markUnread.isPending && markUnread.variables === notification.id}
                   onOpen={() => {
                     openCard(notification)
+                  }}
+                  onMarkUnread={() => {
+                    markUnread.mutate(notification.id)
                   }}
                   onClear={() => {
                     clearOne.mutate(notification.id)
@@ -181,13 +194,17 @@ function NotificationRow({
   notification,
   timezone,
   clearing,
+  markingUnread,
   onOpen,
+  onMarkUnread,
   onClear,
 }: {
   notification: NotificationView
   timezone: string
   clearing: boolean
+  markingUnread: boolean
   onOpen: () => void
+  onMarkUnread: () => void
   onClear: () => void
 }) {
   const actor = notification.actorName ?? strings.notifications.systemActor
@@ -221,7 +238,22 @@ function NotificationRow({
           </Text>
         </Stack>
       </UnstyledButton>
-      {notification.read ? null : (
+      {notification.read ? (
+        // A read row can be flipped BACK to unread ("come back later") — an
+        // envelope, the conventional mark-unread affordance.
+        <Tooltip label={strings.notifications.markUnreadTooltip} withArrow>
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            size="sm"
+            aria-label={strings.notifications.markUnread(notification.cardTitle)}
+            loading={markingUnread}
+            onClick={onMarkUnread}
+          >
+            <Mail size={16} aria-hidden />
+          </ActionIcon>
+        </Tooltip>
+      ) : (
         // Unread dot in the theme PRIMARY color (the app's indigo, rgb(59,91,219)
         // = --mantine-primary-color-filled) — the crisp per-row "unread" marker.
         <Box

@@ -62,6 +62,14 @@ export class PgNotificationRepository implements NotificationRepository {
       )
   }
 
+  async markUnread(id: string, userId: string): Promise<void> {
+    await this.db
+      .update(notifications)
+      .set({ readAt: null })
+      // Only the owner's own row; idempotent if already unread.
+      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
+  }
+
   async markAllRead(userId: string, readAt: string): Promise<number> {
     const updated = await this.db
       .update(notifications)
