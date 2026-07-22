@@ -600,15 +600,9 @@ export function demoSeed(db: BetterSQLite3Database): DemoSeedResult {
         createdMinutesAgo: 180,
         readMinutesAgo: null,
       },
-      {
-        userId: demoUsers.admin.id,
-        cardId: inProgressCard.id,
-        actorId: demoUsers.user.id,
-        eventType: 'comment.added',
-        commentId: parentComment.id,
-        createdMinutesAgo: 190,
-        readMinutesAgo: null,
-      },
+      // NB: admin gets NO `comment.added` for parentComment — being @-mentioned in
+      // it supersedes the generic comment notice (fanOutForEvent excludes mentioned
+      // users), so seeding both would be a state the real fan-out never produces.
       {
         userId: demoUsers.admin.id,
         cardId: readyCard.id,

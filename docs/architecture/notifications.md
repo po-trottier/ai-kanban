@@ -20,9 +20,12 @@ the row's PRESENCE is the whole state (no "muted" middle ground).
   unwatch themselves.
 - **Auto-watch on mention.** Being @-mentioned in a comment auto-watches you (see the mentions
   section, added with that feature).
+- **Auto-watch on comment.** **Commenting on a card auto-watches it** — as soon as you join a thread
+  you keep getting its notifications (a reply to you, a status change) even without an @-mention.
+  Unwatch to opt out.
 - **Manual.** Any user can **watch or unwatch any card they can see** from the detail panel. Unwatch
-  wins: if you unwatch, you stay unwatched until something re-subscribes you (a fresh assignment or
-  mention).
+  wins: if you unwatch, you stay unwatched until something re-subscribes you (a fresh assignment,
+  mention, or your own comment).
 
 All auto-watch writes are **idempotent** (the `(card, user)` row is unique), so re-triggering a watch
 never duplicates or errors.

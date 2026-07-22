@@ -227,4 +227,21 @@ describe('comment @-mentions', () => {
     expect(after).toHaveLength(1)
     expect(after.filter((row) => row.eventType === 'comment.added')).toHaveLength(0)
   })
+
+  it('commenting on a thread auto-watches it, so the author gets its later notices', async () => {
+    // Arrange — the requester files a card; the technician is NOT the reporter,
+    // assignee, or @-mentioned — they simply comment.
+    const scenario = createScenario()
+    const card = await scenario.cards.create(scenario.actors.requester, {
+      title: 'Thread',
+      priority: 'P2',
+    })
+
+    // Act — a plain comment (no @-mention) by the technician.
+    await scenario.comments.add(scenario.actors.technician, card.id, { body: 'looking into it' })
+
+    // Assert — commenting alone made them a watcher (they can unwatch to opt out),
+    // so any later event on the card now fans out to them.
+    expect(scenario.db.watcherIdsFor(card.id)).toContain(scenario.users.technician.id)
+  })
 })

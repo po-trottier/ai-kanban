@@ -137,6 +137,35 @@ describe('notifications (watch → fan-out → inbox)', () => {
     expect(afterUnread.find((row) => row.id === notification?.id)?.read).toBe(false)
   })
 
+  it('commenting auto-watches, so a later reply notifies the commenter without an @-tag', async () => {
+    // Arrange — Alice files a card; Bob comments (he is NOT the reporter, is not
+    // @-mentioned, and never pressed watch) — commenting now auto-watches him.
+    const alice = await t.asRole('user')
+    const bob = await t.asRole('user')
+    const cardId = await createCard(alice.cookie, 'Threaded job')
+    const bobComment = await t.request(bob.cookie, {
+      method: 'POST',
+      url: `/api/v1/cards/${String(cardId)}/comments`,
+      payload: { body: 'looking into it' },
+    })
+    const parentId = bobComment.json<{ id: string }>().id
+    // Wait for Bob's comment to fan out to Alice first (deterministic ordering).
+    await waitForNotifications(alice.cookie, (rows) => rows.some((row) => row.cardId === cardId))
+
+    // Act — Alice REPLIES to Bob, WITHOUT @-tagging him.
+    await t.request(alice.cookie, {
+      method: 'POST',
+      url: `/api/v1/cards/${String(cardId)}/comments`,
+      payload: { body: 'thanks, keep me posted', parentCommentId: parentId },
+    })
+
+    // Assert — Bob, now a watcher via his own comment, is notified of the reply.
+    const bobInbox = await waitForNotifications(bob.cookie, (rows) =>
+      rows.some((row) => row.cardId === cardId && row.eventType === 'comment.added'),
+    )
+    expect(bobInbox.some((row) => row.cardId === cardId)).toBe(true)
+  })
+
   it('mark-all-read clears the badge', async () => {
     // Arrange
     const alice = await t.asRole('user')

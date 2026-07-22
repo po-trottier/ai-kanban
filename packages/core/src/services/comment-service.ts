@@ -92,6 +92,11 @@ export class CommentService {
       }
       await tx.comments.insert(created)
 
+      // Commenting on a thread auto-watches the card (like being assigned or
+      // @-mentioned): the author now gets its notifications and can unwatch to
+      // opt out. Idempotent — a no-op if they already watch.
+      await tx.cardWatchers.add(targetCard.id, authorId, nowIso)
+
       // @-mentions (docs/architecture/notifications.md): each mentioned user
       // (de-duped, must exist, never the author themselves) is auto-watched and
       // gets a dedicated `mention` notification. Their ids ride on the event so
