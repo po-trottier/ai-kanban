@@ -26,6 +26,16 @@ changing behavior**, starting with `docs/architecture/overview.md` and the ADRs.
 - **Commits.** Atomic, Conventional Commits (`type(scope): subject`, lowercase subject), with docs
   updated in the SAME commit as the behavior they describe. End every commit message with
   `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`. Never skip hooks or bypass signing.
+- **Changelog — every change.** Every user-facing or behavioural change MUST add an entry to the
+  root `CHANGELOG.md` under the `## [Unreleased]` heading, in the SAME commit, following
+  [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) — grouped under **Added / Changed /
+  Deprecated / Removed / Fixed / Security**. Write the entry for a human reading release notes (what
+  changed and why it matters), not the diff. A purely internal refactor with no observable effect can
+  note that in the commit body instead of the changelog.
+- **Releasing.** Cutting a release is: (1) verify **every doc is current** against the code — docs are
+  part of the release, not an afterthought (run the doc audit / reconcile drift); (2) `npm run check`
+  green; (3) rename `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD` (add a fresh empty `[Unreleased]`
+  above it), bump the workspace `package.json` versions, commit, then tag `vx.y.z` and push the tag.
 - **Frozen v1 baseline, forward-only, no legacy.** `0000_init` is the immutable v1 schema baseline;
   schema changes now **append** the next migration (`0001_*`, …) — never regenerate the baseline
   (see `docs/dev/getting-started.md` → "Changing the schema"). No back-compat branches.

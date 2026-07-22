@@ -14,11 +14,13 @@ server for AI agents, and Slack-native ticket intake — all over one audited se
   the token into their own config, never into the chat (see [MCP server](docs/architecture/mcp.md)).
 - **Slack**: create tickets from any thread via a message shortcut or @-mention, with optional
   AI thread summarization (human always reviews).
-- **Storage**: SQLite (WAL) today behind repository ports; Postgres is a planned mechanical
-  migration, not a rewrite.
+- **Storage**: pluggable behind repository ports — SQLite (WAL) by default for single-node and
+  development, PostgreSQL for production/multi-node (selected via `DATABASE_URL`); see
+  [ADR-020](docs/architecture/decisions/ADR-020-postgresql-support.md).
 
 ## Documentation
 
+- [Changelog](CHANGELOG.md) — release notes ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format)
 - **Users**
   - [User guide](docs/user/guide.md) — using the board, cards, comments, history
   - [Slack guide](docs/user/slack.md) — creating tickets from Slack threads
@@ -69,7 +71,8 @@ The table is a summary only; the [LICENSE](LICENSE) text governs.
 ## Tech stack
 
 - **Language**: TypeScript end-to-end (one Zod schema source for REST, OpenAPI, MCP, and forms)
-- **Backend**: Node 24 LTS, Fastify 5, Drizzle ORM on better-sqlite3 (WAL), SSE realtime
+- **Backend**: Node 24 LTS, Fastify 5, Drizzle ORM (better-sqlite3 WAL, or PostgreSQL via `pg`),
+  SSE realtime
 - **MCP**: official `@modelcontextprotocol/sdk` (Streamable HTTP at `/mcp`)
 - **Slack**: Bolt (Socket Mode), OpenAI-compatible API (any OpenAI-compatible endpoint) for optional thread summarization
 - **Frontend**: React 19, Vite, Pragmatic drag-and-drop, TanStack Query, Mantine 9 (ADR-016)
