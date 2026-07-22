@@ -1,3 +1,4 @@
+import { DEFAULT_BUSINESS_HOURS, type BusinessHours } from '@rivian-kanban/core'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useApi } from './api-context.ts'
 import { queryKeys } from './keys.ts'
@@ -63,6 +64,15 @@ export function usePolicy() {
     queryKey: queryKeys.policy,
     queryFn: () => api.get('/policy', policyResponseSchema),
   })
+}
+
+/**
+ * The board's admin-configured business hours (Settings → Permissions) that the
+ * burn-down clock + overdue verdict count against — the default 09:00–17:00 until
+ * the policy loads (or if it omits them).
+ */
+export function useBusinessHours(): BusinessHours {
+  return usePolicy().data?.businessHours ?? DEFAULT_BUSINESS_HOURS
 }
 
 export function useLocations() {

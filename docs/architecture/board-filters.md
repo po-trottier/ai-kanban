@@ -68,9 +68,12 @@ business-time elapsed since it first entered In Progress (`work_started_at`) mee
 `estimate_minutes` — the same rule the web work-progress bar paints red
 ([ADR-019](decisions/ADR-019-per-user-timezone.md), `packages/web/src/lib/work-progress.ts`).
 
-- **Business minutes** are Monday–Friday 09:00–17:00 (1 working day = 8 hours,
-  [workflow.md](../product/workflow.md#priorities-and-estimates)). Core owns a framework-free
-  `businessMinutesBetween(start, end)` in `dates.ts` (no dayjs — core imports no libraries).
+- **Business minutes** are Monday–Friday within the working day the policy configures — the
+  `businessHours` start/end pair, default 09:00–17:00 (1 working day = 8 hours,
+  [workflow.md](../product/workflow.md#priorities-and-estimates), editable under Settings →
+  Permissions, [ADR-013](decisions/ADR-013-configurable-permissions.md)). Core owns a framework-free
+  `businessMinutesBetween(start, end, hours)` in `dates.ts` (no dayjs — core imports no libraries);
+  the board query passes the active policy's hours in.
 - **Time zone.** The web burn-down counts business hours in the _viewer's_ zone (ADR-019). A
   server-side board filter has no single viewer, so — exactly like the overdue-resume date rule,
   which ADR-019 keeps a global UTC business rule for precisely this reason — the filter counts

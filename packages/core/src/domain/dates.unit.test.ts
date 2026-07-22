@@ -101,6 +101,18 @@ describe('businessMinutesBetween', () => {
     // Assert
     expect(minutes).toBe(0)
   })
+
+  it('honours a custom working day', () => {
+    // Arrange — same 08:00–18:00 Thursday span, but an 08:00–18:00 (10h) day.
+    const start = new Date('2026-07-16T08:00:00.000Z')
+    const end = new Date('2026-07-16T18:00:00.000Z')
+
+    // Act
+    const minutes = businessMinutesBetween(start, end, { startHour: 8, endHour: 18 })
+
+    // Assert — the whole 10h span now counts (600 minutes).
+    expect(minutes).toBe(600)
+  })
 })
 
 describe('isWorkOverdue', () => {

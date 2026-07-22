@@ -873,6 +873,20 @@ export const strings = {
     /** Guardrail: the last role that can manage roles cannot lose that power. */
     lastManageRoles: 'At least one role must be able to manage roles & permissions.',
     saved: 'Policy updated',
+    /** The business-hours section beneath the matrix (a policy-wide setting). */
+    businessHoursTitle: 'Business hours',
+    businessHoursHint:
+      'The working day that estimates, the burn-down timer, and overdue alerts count against. Time outside these hours — and weekends — never counts toward a work order’s estimate.',
+    businessHoursStart: 'Working day starts',
+    businessHoursEnd: 'Working day ends',
+    /** Whole-hour clock label for the start/end pickers (e.g. 9 → “9:00 AM”). */
+    hourLabel: (hour: number): string => {
+      if (hour === 0 || hour === 24) return 'Midnight'
+      if (hour === 12) return 'Noon'
+      const period = hour < 12 ? 'AM' : 'PM'
+      const display = hour % 12 === 0 ? 12 : hour % 12
+      return `${String(display)}:00 ${period}`
+    },
     /** Human labels for each permission, grouped into admin-legible sections. */
     sections: {
       cards: 'Work orders',

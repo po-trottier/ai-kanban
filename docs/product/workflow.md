@@ -165,6 +165,10 @@ history.
   bar tracks elapsed **business** time against the estimate; once it passes the estimate the bar
   turns pink and the card shows an **"Overdue"** chip — the same overdue chip + hover tooltip the
   waiting-resume overdue uses (`board/CardBadges.tsx`), so both overdue states read consistently.
+  **Business** time is counted within the working day the admin configures (default Mon–Fri
+  09:00–17:00) — a start/end hour pair under Settings → Permissions; hours outside it, and weekends,
+  don't count, so a card left overnight doesn't burn down until the next working morning
+  ([ADR-013](../architecture/decisions/ADR-013-configurable-permissions.md)).
 
 ## Archival
 

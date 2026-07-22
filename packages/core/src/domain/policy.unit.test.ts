@@ -11,6 +11,22 @@ describe('policyDocumentSchema transitions', () => {
     expect(result.success).toBe(true)
   })
 
+  it('defaults the business hours and rejects a day that ends before it starts', () => {
+    // Arrange — the default day is 09:00–17:00; a start ≥ end must be refused.
+    const backwards = { ...DEFAULT_POLICY_DOCUMENT, businessHours: { startHour: 17, endHour: 9 } }
+
+    // Act
+    const parsed = policyDocumentSchema.parse({
+      ...DEFAULT_POLICY_DOCUMENT,
+      businessHours: undefined,
+    })
+    const rejected = policyDocumentSchema.safeParse(backwards)
+
+    // Assert
+    expect(parsed.businessHours).toEqual({ startHour: 9, endHour: 17 })
+    expect(rejected.success).toBe(false)
+  })
+
   it('rejects a transition that loops a lane to itself', () => {
     // Arrange
     const doc = { ...DEFAULT_POLICY_DOCUMENT, transitions: [{ from: 'ready', to: 'ready' }] }

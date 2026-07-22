@@ -226,9 +226,11 @@ export class BoardQueryService {
       let rows = await tx.cards.queryBoardSummaries(repoFilter)
       if (filter.overdue) {
         // Candidate set already restricted to started+estimated cards in SQL;
-        // finish the business-minutes verdict here (consistent with ADR-019).
+        // finish the business-minutes verdict here (consistent with ADR-019),
+        // against the admin-configured business hours (in UTC, board-filters.md).
+        const { businessHours } = await activePolicy(tx, this.deps.boardId)
         rows = rows.filter((row) =>
-          isWorkOverdue(row.card.workStartedAt, row.card.estimateMinutes, now),
+          isWorkOverdue(row.card.workStartedAt, row.card.estimateMinutes, now, businessHours),
         )
       }
       const byLane = new Map<string, BoardCardRow[]>()

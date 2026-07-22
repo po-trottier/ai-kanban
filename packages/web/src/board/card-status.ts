@@ -1,4 +1,10 @@
-import { isOverdueResume, type BoardCard, type Card } from '@rivian-kanban/core'
+import {
+  DEFAULT_BUSINESS_HOURS,
+  isOverdueResume,
+  type BoardCard,
+  type BusinessHours,
+  type Card,
+} from '@rivian-kanban/core'
 import { type MantineColor } from '@mantine/core'
 import { workProgress } from '../lib/work-progress.ts'
 import {
@@ -27,10 +33,11 @@ export function isWorkOverdue(
   laneKey: string | null,
   now: Date,
   timezone: string,
+  hours: BusinessHours = DEFAULT_BUSINESS_HOURS,
 ): boolean {
   if (laneKey === null || !WORKING_LANES.has(laneKey)) return false
   if (card.workStartedAt === null || card.estimateMinutes === null) return false
-  return workProgress(card.workStartedAt, card.estimateMinutes, now, timezone).overdue
+  return workProgress(card.workStartedAt, card.estimateMinutes, now, timezone, hours).overdue
 }
 
 /** The fields that decide whether a card shows any status badge. */

@@ -11,6 +11,7 @@ import {
 import { DatePickerInput } from '@mantine/dates'
 import { Info } from 'lucide-react'
 import { useState } from 'react'
+import { useBusinessHours } from '../api/meta.ts'
 import { useUserTimezone } from '../auth/session-context.ts'
 import {
   ESTIMATE_UNITS,
@@ -61,6 +62,7 @@ export function EstimateInput({
   cleared,
 }: EstimateInputProps) {
   const timezone = useUserTimezone()
+  const businessHours = useBusinessHours()
   const [mode, setMode] = useState<EstimateMode>('duration')
   const [targetDate, setTargetDate] = useState<string | null>(null)
   const [unit, setUnit] = useState<EstimateUnit>(() =>
@@ -104,7 +106,7 @@ export function EstimateInput({
       onChange(cleared)
       return
     }
-    const next = minutesUntilTargetDate(date, new Date(), timezone)
+    const next = minutesUntilTargetDate(date, new Date(), timezone, businessHours)
     setSyncedMinutes(next)
     onChange(next)
   }

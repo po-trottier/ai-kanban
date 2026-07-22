@@ -62,6 +62,29 @@ export const policyTransitionSchema = z.strictObject({
 })
 export type PolicyTransition = z.infer<typeof policyTransitionSchema>
 
+/**
+ * The working day the burn-down clock + overdue verdict count against — the
+ * board's business hours, admin-configurable (Settings → Permissions). Hours are
+ * whole numbers in [0, 24]; the day is Monday–Friday. Applied in the VIEWER's own
+ * time zone on the web burn-down (ADR-019) and in UTC for the server-side overdue
+ * filter (SQLite can't count business time — board-filters.md).
+ */
+export const businessHoursSchema = z
+  .strictObject({
+    /** Local hour the working day starts (0–23). */
+    startHour: z.number().int().min(0).max(23),
+    /** Local hour the working day ends (1–24); must be after `startHour`. */
+    endHour: z.number().int().min(1).max(24),
+  })
+  .refine((hours) => hours.startHour < hours.endHour, {
+    message: 'the working day must start before it ends',
+    path: ['endHour'],
+  })
+export type BusinessHours = z.infer<typeof businessHoursSchema>
+
+/** The seeded 09:00–17:00 working day (workflow.md: 1 working day = 8 hours). */
+export const DEFAULT_BUSINESS_HOURS: BusinessHours = { startHour: 9, endHour: 17 }
+
 export const policyDocumentSchema = z
   .strictObject({
     /** false in the seed — permissive by default (product-owner decision). */
@@ -70,6 +93,9 @@ export const policyDocumentSchema = z
     transitions: z.array(policyTransitionSchema),
     /** The defined roles; a user/token's `role` string must match a key here. */
     roles: z.array(roleDefinitionSchema).min(1),
+    /** The working day the burn-down + overdue verdict count against. Defaulted so
+     * policies written before this setting existed stay valid. */
+    businessHours: businessHoursSchema.default(DEFAULT_BUSINESS_HOURS),
   })
   .refine((doc) => new Set(doc.roles.map((role) => role.key)).size === doc.roles.length, {
     message: 'role keys must be unique',
@@ -117,6 +143,7 @@ const ALL_PERMISSIONS_GRANTED: RoleDefinition['permissions'] = Object.fromEntrie
  */
 export const DEFAULT_POLICY_DOCUMENT: PolicyDocument = {
   transitionEnforcement: false,
+  businessHours: DEFAULT_BUSINESS_HOURS,
   transitions: [
     { from: 'intake', to: 'waiting_approval' },
     { from: 'waiting_approval', to: 'ready' },

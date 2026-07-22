@@ -1,5 +1,6 @@
 import { Group, Progress, Text, Tooltip } from '@mantine/core'
 import { Pause, Play } from 'lucide-react'
+import { useBusinessHours } from '../api/meta.ts'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { formatEstimate } from '../lib/format.ts'
 import { useNow } from '../lib/use-now.ts'
@@ -33,13 +34,15 @@ export function WorkProgressBar({
 }) {
   const now = useNow(TICK_MS)
   const timezone = useUserTimezone()
+  const hours = useBusinessHours()
   const { percent, overdue, elapsedMinutes } = workProgress(
     workStartedAt,
     estimateMinutes,
     now,
     timezone,
+    hours,
   )
-  const timer = timerState(now, timezone, { waiting, blocked })
+  const timer = timerState(now, timezone, { waiting, blocked }, hours)
   const elapsed = formatEstimate(elapsedMinutes)
   const estimate = formatEstimate(estimateMinutes)
   const stateLabel = timer.running ? strings.card.timerRunning : strings.card.timerPaused

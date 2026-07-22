@@ -51,6 +51,11 @@ custom roles and toggle each permission per role from the dashboard.
         >
       >
     }>
+    businessHours: {
+      // the working day the burn-down + overdue clock count within
+      startHour: number // 0–23, default 9
+      endHour: number //  1–24, default 17; must be after startHour
+    } // defaulted, so policies written before it existed stay valid
   }
   ```
 
@@ -71,6 +76,13 @@ custom roles and toggle each permission per role from the dashboard.
   every permission. Stored as append-only versions in `board_policies` — configuration changes
   have history and authorship like everything else.
 
+- **The working day is policy, not a hard-coded constant.** `businessHours` (default Mon–Fri
+  09:00–17:00) is the window the work burn-down and the `overdue` facet count business time within;
+  time outside it — and weekends — never accrues against an estimate. It rides the same policy
+  document, edited by `managePolicy` holders under the Permissions tab (a start/end hour pair), and
+  is Zod-refined so the day always starts before it ends. `businessMinutesBetween(start, end, hours)`
+  in `core` takes it as a parameter (defaulting to 09:00–17:00), so REST, MCP, and the web burn-down
+  share one definition (see [board-filters.md](../board-filters.md#the-overdue-facet)).
 - **The manage\* permissions replace the fixed admin surface.** The app-wide settings view and
   its APIs are no longer gated on a hard-coded `admin` role. Each surface checks its own
   permission against the active policy: user management → `manageUsers`, service tokens →

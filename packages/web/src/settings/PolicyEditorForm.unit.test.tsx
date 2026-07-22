@@ -99,6 +99,25 @@ describe('PolicyEditorForm — roles × permissions matrix', () => {
     expect(lead).toEqual({ key: 'lead', name: 'Team Lead', permissions: {} })
   })
 
+  it('edits the business hours and PUTs them with the rest of the document', async () => {
+    // Arrange — the seed working day is 9:00 AM–5:00 PM.
+    const user = userEvent.setup()
+    const saved: PolicyDocument[] = []
+    render((document) => saved.push(document))
+    expect(screen.getByRole('combobox', { name: 'Working day starts' })).toHaveValue('9:00 AM')
+    expect(screen.getByRole('combobox', { name: 'Working day ends' })).toHaveValue('5:00 PM')
+
+    // Act — shift to an 8:00 AM–6:00 PM day, then save.
+    await user.click(screen.getByRole('combobox', { name: 'Working day starts' }))
+    await user.click(await screen.findByRole('option', { name: '8:00 AM' }))
+    await user.click(screen.getByRole('combobox', { name: 'Working day ends' }))
+    await user.click(await screen.findByRole('option', { name: '6:00 PM' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    // Assert
+    expect(saved[0]?.businessHours).toEqual({ startHour: 8, endHour: 18 })
+  })
+
   it('no longer renders the workflow-transitions matrix (moved to Columns)', () => {
     // Arrange
     const onSave = () => undefined

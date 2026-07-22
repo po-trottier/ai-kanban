@@ -3,6 +3,7 @@ import { Avatar, Badge, Group, Paper, Text, Tooltip } from '@mantine/core'
 import { Paperclip } from 'lucide-react'
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { useRef } from 'react'
+import { useBusinessHours } from '../api/meta.ts'
 import { type PickerUser } from '../api/schemas.ts'
 import { useUserTimezone } from '../auth/session-context.ts'
 import { formatDate, formatEstimate, formatTicketNumber, initials } from '../lib/format.ts'
@@ -64,7 +65,7 @@ export function CardItem({
   // overdue card reads like a waiting-overdue one (both get the chip + tooltip).
   const timezone = useUserTimezone()
   const now = useNow(WORK_TICK_MS)
-  const workOverdue = isWorkOverdue(card, laneKey, now, timezone)
+  const workOverdue = isWorkOverdue(card, laneKey, now, timezone, useBusinessHours())
 
   return (
     <Paper

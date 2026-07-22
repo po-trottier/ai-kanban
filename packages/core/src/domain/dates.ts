@@ -20,22 +20,36 @@ export function isOverdueResume(expectedResumeAt: string | null, today: string):
   return expectedResumeAt !== null && expectedResumeAt < today
 }
 
-/** A business day is 09:00–17:00 (1 working day = 8h, workflow.md#priorities-and-estimates). */
-const BUSINESS_START_HOUR = 9
-const BUSINESS_END_HOUR = 17
 const MS_PER_MINUTE = 60_000
 const MS_PER_DAY = 86_400_000
 
 /**
- * Business minutes between two instants, counting only Monday–Friday
- * 09:00–17:00 in **UTC** — the org-wide, viewer-independent analog of the web
- * burn-down's per-viewer count (`packages/web/src/lib/work-progress.ts`). Core
- * imports no dayjs, so this walks UTC calendar days directly; the board-filter
- * `overdue` facet counts business time in UTC for the same reason the
- * overdue-resume date rule is a global UTC rule (ADR-019,
- * docs/architecture/board-filters.md#the-overdue-facet). 0 when `end <= start`.
+ * The working day (whole local hours, Mon–Fri) the burn-down counts against — an
+ * inline shape (structurally the policy's `BusinessHours`) so this low-level date
+ * util stays free of the policy domain.
  */
-export function businessMinutesBetween(start: Date, end: Date): number {
+interface BusinessHours {
+  startHour: number
+  endHour: number
+}
+/** The seeded 09:00–17:00 day (1 working day = 8h, workflow.md#priorities-and-estimates). */
+const DEFAULT_HOURS: BusinessHours = { startHour: 9, endHour: 17 }
+
+/**
+ * Business minutes between two instants, counting only Monday–Friday within the
+ * given `hours` (default 09:00–17:00) in **UTC** — the org-wide, viewer-independent
+ * analog of the web burn-down's per-viewer count
+ * (`packages/web/src/lib/work-progress.ts`). Core imports no dayjs, so this walks
+ * UTC calendar days directly; the board-filter `overdue` facet counts business
+ * time in UTC for the same reason the overdue-resume date rule is a global UTC
+ * rule (ADR-019, docs/architecture/board-filters.md#the-overdue-facet). 0 when
+ * `end <= start`.
+ */
+export function businessMinutesBetween(
+  start: Date,
+  end: Date,
+  hours: BusinessHours = DEFAULT_HOURS,
+): number {
   if (end.getTime() <= start.getTime()) return 0
   let total = 0
   // Walk from UTC midnight of the day containing `start` to the day of `end`.
@@ -43,8 +57,8 @@ export function businessMinutesBetween(start: Date, end: Date): number {
   while (dayStart <= end.getTime()) {
     const weekday = new Date(dayStart).getUTCDay() // 0 = Sunday, 6 = Saturday
     if (weekday !== 0 && weekday !== 6) {
-      const windowStart = dayStart + BUSINESS_START_HOUR * 60 * MS_PER_MINUTE
-      const windowEnd = dayStart + BUSINESS_END_HOUR * 60 * MS_PER_MINUTE
+      const windowStart = dayStart + hours.startHour * 60 * MS_PER_MINUTE
+      const windowEnd = dayStart + hours.endHour * 60 * MS_PER_MINUTE
       const from = Math.max(start.getTime(), windowStart)
       const to = Math.min(end.getTime(), windowEnd)
       if (to > from) total += (to - from) / MS_PER_MINUTE
@@ -64,7 +78,8 @@ export function isWorkOverdue(
   workStartedAt: string | null,
   estimateMinutes: number | null,
   now: Date,
+  hours?: BusinessHours,
 ): boolean {
   if (workStartedAt === null || estimateMinutes === null) return false
-  return businessMinutesBetween(new Date(workStartedAt), now) >= estimateMinutes
+  return businessMinutesBetween(new Date(workStartedAt), now, hours) >= estimateMinutes
 }

@@ -1,3 +1,4 @@
+import { DEFAULT_BUSINESS_HOURS, type BusinessHours } from '@rivian-kanban/core'
 import dayjs from './dayjs.ts'
 
 /**
@@ -10,14 +11,17 @@ import dayjs from './dayjs.ts'
  * (a local business day is 7h or 9h of real time across a shift, not always 8).
  */
 
-const BUSINESS_START_HOUR = 9
-const BUSINESS_END_HOUR = 17
 const MS_PER_MINUTE = 60_000
 /** Loop backstop (~3 years of weekdays): a stale start just reads as overdue. */
 const MAX_DAYS = 800
 
-/** Business minutes (local 09:00–17:00, Mon–Fri in `timezone`) between two instants; 0 if end ≤ start. */
-export function businessMinutesBetween(start: Date, end: Date, timezone: string): number {
+/** Business minutes (Mon–Fri within `hours`, in `timezone`) between two instants; 0 if end ≤ start. */
+export function businessMinutesBetween(
+  start: Date,
+  end: Date,
+  timezone: string,
+  hours: BusinessHours = DEFAULT_BUSINESS_HOURS,
+): number {
   if (end.getTime() <= start.getTime()) return 0
   let total = 0
   // Walk local calendar days in the viewer's zone from the day containing `start`.
@@ -25,8 +29,8 @@ export function businessMinutesBetween(start: Date, end: Date, timezone: string)
   for (let day = 0; day < MAX_DAYS; day += 1) {
     const weekday = cursor.day() // 0 = Sunday, 6 = Saturday, in the local zone
     if (weekday !== 0 && weekday !== 6) {
-      const windowStart = cursor.hour(BUSINESS_START_HOUR).valueOf()
-      const windowEnd = cursor.hour(BUSINESS_END_HOUR).valueOf()
+      const windowStart = cursor.hour(hours.startHour).valueOf()
+      const windowEnd = cursor.hour(hours.endHour).valueOf()
       const from = Math.max(start.getTime(), windowStart)
       const to = Math.min(end.getTime(), windowEnd)
       if (to > from) total += (to - from) / MS_PER_MINUTE
@@ -37,12 +41,16 @@ export function businessMinutesBetween(start: Date, end: Date, timezone: string)
   return total
 }
 
-/** Is `at` inside a business-hours window (weekday 09:00–17:00 in `timezone`)? */
-export function isBusinessHours(at: Date, timezone: string): boolean {
+/** Is `at` inside a business-hours window (weekday within `hours`, in `timezone`)? */
+export function isBusinessHours(
+  at: Date,
+  timezone: string,
+  hours: BusinessHours = DEFAULT_BUSINESS_HOURS,
+): boolean {
   const local = dayjs(at).tz(timezone)
   const weekday = local.day() // 0 = Sunday, 6 = Saturday, in the local zone
   if (weekday === 0 || weekday === 6) return false
-  return local.hour() >= BUSINESS_START_HOUR && local.hour() < BUSINESS_END_HOUR
+  return local.hour() >= hours.startHour && local.hour() < hours.endHour
 }
 
 /**
@@ -62,8 +70,9 @@ export function timerState(
   now: Date,
   timezone: string,
   context: { waiting: boolean; blocked: boolean },
+  hours: BusinessHours = DEFAULT_BUSINESS_HOURS,
 ): TimerState {
-  if (!isBusinessHours(now, timezone)) return { running: false, reason: 'off_hours' }
+  if (!isBusinessHours(now, timezone, hours)) return { running: false, reason: 'off_hours' }
   // Blocked is the stronger exception signal, so it wins the label over waiting.
   if (context.blocked) return { running: true, reason: 'blocked' }
   if (context.waiting) return { running: true, reason: 'waiting' }
@@ -79,9 +88,14 @@ export function timerState(
  * day. Rounds to a whole minute (the stored unit); a target with no business
  * time left (e.g. today after 17:00) yields 0, which the form flags as invalid.
  */
-export function minutesUntilTargetDate(targetDate: string, now: Date, timezone: string): number {
-  const end = dayjs.tz(targetDate, timezone).hour(BUSINESS_END_HOUR).minute(0).second(0).toDate()
-  return Math.round(businessMinutesBetween(now, end, timezone))
+export function minutesUntilTargetDate(
+  targetDate: string,
+  now: Date,
+  timezone: string,
+  hours: BusinessHours = DEFAULT_BUSINESS_HOURS,
+): number {
+  const end = dayjs.tz(targetDate, timezone).hour(hours.endHour).minute(0).second(0).toDate()
+  return Math.round(businessMinutesBetween(now, end, timezone, hours))
 }
 
 export interface WorkProgress {
@@ -99,8 +113,9 @@ export function workProgress(
   estimateMinutes: number,
   now: Date,
   timezone: string,
+  hours: BusinessHours = DEFAULT_BUSINESS_HOURS,
 ): WorkProgress {
-  const elapsed = businessMinutesBetween(new Date(workStartedAt), now, timezone)
+  const elapsed = businessMinutesBetween(new Date(workStartedAt), now, timezone, hours)
   const ratio = estimateMinutes <= 0 ? 1 : elapsed / estimateMinutes
   return {
     percent: Math.min(100, Math.max(0, Math.round(ratio * 100))),

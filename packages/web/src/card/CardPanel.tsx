@@ -27,7 +27,7 @@ import {
   useDeleteComment,
   useEditComment,
 } from '../api/card.ts'
-import { usePolicy, useUsers } from '../api/meta.ts'
+import { useBusinessHours, usePolicy, useUsers } from '../api/meta.ts'
 import { useCurrentUser, useUserTimezone } from '../auth/session-context.ts'
 import { CardBadges } from '../board/CardBadges.tsx'
 import { isWorkOverdue } from '../board/card-status.ts'
@@ -505,10 +505,17 @@ function StateBanner({
 function WorkOverdueBanner({ card, laneKey }: { card: Card; laneKey: string | null }) {
   const now = useNow(60_000)
   const timezone = useUserTimezone()
-  if (!isWorkOverdue(card, laneKey, now, timezone)) return null
+  const hours = useBusinessHours()
+  if (!isWorkOverdue(card, laneKey, now, timezone, hours)) return null
   // isWorkOverdue guarantees both are set; narrow for formatEstimate/workProgress.
   if (card.workStartedAt === null || card.estimateMinutes === null) return null
-  const { elapsedMinutes } = workProgress(card.workStartedAt, card.estimateMinutes, now, timezone)
+  const { elapsedMinutes } = workProgress(
+    card.workStartedAt,
+    card.estimateMinutes,
+    now,
+    timezone,
+    hours,
+  )
   return (
     <Alert color={OVERDUE_COLOR} title={strings.detail.overdueBannerTitle}>
       <Text size="sm">
