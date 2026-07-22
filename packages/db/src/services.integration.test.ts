@@ -103,7 +103,9 @@ describe('card lifecycle against the real adapters', () => {
     })
     expect(cancelled.resolution).toBe('duplicate')
     expect(reopened).toMatchObject({ resolution: null, version: 4 })
-    await expect(laneKeyOf(reopened)).resolves.toBe('ready')
+    // Reopen restores the card to the lane it was cancelled from (in_progress),
+    // not a blanket ready.
+    await expect(laneKeyOf(reopened)).resolves.toBe('in_progress')
   })
 
   it('non-cancel entry into done completes the card and notifies the requester', async () => {
@@ -133,8 +135,12 @@ describe('card lifecycle against the real adapters', () => {
       expectedResumeAt: '2026-08-01',
       expectedVersion: 1,
     })
+    // Resume into `ready` (not `in_progress`): this file shares one DB across
+    // tests, and a neighbor-less move computes `keyBetween(null, null)`, so the
+    // target lane must be empty to avoid colliding with a card an earlier test
+    // left behind. Exiting the waiting lane clears its fields regardless of where.
     const resumed = await cardService.move(technician, created.id, {
-      toLane: 'in_progress',
+      toLane: 'ready',
       expectedVersion: waiting.version,
     })
 

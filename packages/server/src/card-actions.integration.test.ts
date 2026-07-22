@@ -294,8 +294,8 @@ describe('POST /cards/:id/cancel', () => {
 })
 
 describe('POST /cards/:id/reopen', () => {
-  it('reopens a done card into ready, clearing the resolution', async () => {
-    const card = await createCard('Reopen me')
+  it('reopens a cancelled card back to the lane it came from, clearing the resolution', async () => {
+    const card = await createCard('Reopen me') // lands in intake
     const cancelled = await act(card, 'cancel', { resolution: 'declined' })
 
     const response = await act(cancelled.json<CardBody>(), 'reopen')
@@ -303,7 +303,8 @@ describe('POST /cards/:id/reopen', () => {
     expect(response.statusCode).toBe(200)
     expect(response.json<CardBody>().resolution).toBeNull()
     const event = await lastEvent(card.id)
-    expect(event).toMatchObject({ eventType: 'card.reopened', payload: { toLane: 'ready' } })
+    // Restored to its prior lane (intake, where it was cancelled from) — not `ready`.
+    expect(event).toMatchObject({ eventType: 'card.reopened', payload: { toLane: 'intake' } })
   })
 
   it('422s a card that is not in done, naming from and to', async () => {

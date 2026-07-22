@@ -1,6 +1,13 @@
 import { z } from 'zod'
 import { ACTOR_KINDS, CANCEL_RESOLUTIONS } from './constants.ts'
-import { cardSchema, isoDateTimeSchema, laneKeySchema, tagNameSchema } from './entities.ts'
+import {
+  cardSchema,
+  isoDateSchema,
+  isoDateTimeSchema,
+  laneKeySchema,
+  tagNameSchema,
+  waitingReasonSchema,
+} from './entities.ts'
 
 /**
  * `card_events` audit trail — append-only, written in the same transaction as
@@ -99,6 +106,11 @@ export const cardEventSchema = z.discriminatedUnion('eventType', [
     payload: z.strictObject({
       resolution: z.enum(CANCEL_RESOLUTIONS),
       fromLane: laneKeySchema,
+      // The waiting state at cancel time, so reopen can restore a vendor card
+      // exactly (cancel clears these fields; the event is the only record).
+      // Optional: cancel events written before this feature omit them.
+      waitingReason: waitingReasonSchema.nullable().optional(),
+      expectedResumeAt: isoDateSchema.nullable().optional(),
     }),
   }),
   z.strictObject({

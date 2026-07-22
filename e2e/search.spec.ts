@@ -92,10 +92,10 @@ test('archives a Done card from the menu: it leaves the active board but the arc
   await expect(boardCard(page, title)).toBeHidden()
 })
 
-test('reopens a terminal card into Ready', async ({ page, context }) => {
+test('reopens a cancelled card back to the lane it came from', async ({ page, context }) => {
   await signIn(context)
   const title = `Reopen ${randomUUID()}`
-  const card = await createCard(context.request, title)
+  const card = await createCard(context.request, title) // lands in Intake
   await cancelCard(context.request, card, 'duplicate')
 
   await openBoard(page)
@@ -105,10 +105,11 @@ test('reopens a terminal card into Ready', async ({ page, context }) => {
 
   await openCardMenu(page, title, 'Reopen')
 
-  await expect(laneList(page, 'Ready').getByRole('group', { name: title })).toBeVisible()
+  // Restored to Intake (where it was cancelled from) — not a blanket Ready.
+  await expect(laneList(page, 'Intake').getByRole('group', { name: title })).toBeVisible()
   await expect(laneList(page, 'Done').getByRole('group', { name: title })).toBeHidden()
   await expect(
-    laneList(page, 'Ready').getByRole('group', { name: title }).getByText('Duplicate'),
+    laneList(page, 'Intake').getByRole('group', { name: title }).getByText('Duplicate'),
   ).toBeHidden()
 })
 

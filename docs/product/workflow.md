@@ -48,8 +48,12 @@ drag target). See [Terminal states](#terminal-states) for the exact semantics.
   (system-set — clients never write `completed`) and notifies the requester by Slack DM,
   regardless of which lane the card came from.
 - **Reopen** (any card in `done`, including cancelled and archived): clears `resolution` and
-  `archived_at`, emits `card.reopened`, and places the card at the **bottom** of Ready.
-  Dragging a non-archived card out of `done` is reopen semantics too: it consults the same
+  `archived_at` and emits `card.reopened`. A **cancelled** card returns to the **exact lane and
+  state it was in before cancellation** — its prior lane, its in-progress burn-down, and (for the
+  waiting/vendor lane) its waiting reason and resume date, all recorded on the `card.cancelled`
+  event. A completed card, or a cancelled one whose prior lane was since deleted, falls back to the
+  **bottom** of Ready. Dragging a non-archived card out of `done` is reopen semantics too: it
+  consults the same
   `reopen` action gate and clears `resolution`, but honors the drag's target lane/position and
   is recorded as an ordinary `card.status_changed` event. Archived cards can only be reopened
   through the explicit action.

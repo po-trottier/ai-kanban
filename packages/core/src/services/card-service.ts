@@ -497,7 +497,16 @@ export class CardService {
         await tx.cards.update(updated)
         const event = makeEvent(this.deps.ids, this.deps.clock, actor, card.id, {
           eventType: 'card.cancelled',
-          payload: { resolution: input.resolution, fromLane: fromLane.key },
+          payload: {
+            resolution: input.resolution,
+            fromLane: fromLane.key,
+            // Capture the waiting state before it's cleared, so reopen can restore
+            // it — only when the card was actually waiting (keeps other cancel
+            // events unchanged).
+            ...(card.waitingReason !== null
+              ? { waitingReason: card.waitingReason, expectedResumeAt: card.expectedResumeAt }
+              : {}),
+          },
         })
         await tx.events.append(event)
         return { card: updated, events: [event] } satisfies MutationResult
@@ -510,12 +519,17 @@ export class CardService {
 
   /**
    * Reopens a card in `done` (including cancelled and archived): clears
-   * `resolution` and `archivedAt` and places it at the bottom of `ready`.
+   * `resolution` and `archivedAt`. A GENUINELY-cancelled card (one with a
+   * `card.cancelled` event) returns to the EXACT lane + state it was in before
+   * cancellation — its prior lane, its burn-down, and (for the vendor lane) its
+   * waiting reason + date, all recorded on that event. Everything else (a
+   * completed card, or a cancelled one whose prior lane was deleted / whose
+   * vendor reason predates this feature) lands at the bottom of `ready`, then the
+   * entry column.
    *
-   * Policy checks: `card.reopen` action gate plus the done→ready edge when
-   * transition enforcement is on; cards outside `done` are an illegal
+   * Policy checks: `card.reopen` action gate; cards outside `done` are an illegal
    * transition (422); stale `expectedVersion` conflicts.
-   * Audit events: `card.reopened`.
+   * Audit events: `card.reopened` (its `toLane` names where the card landed).
    */
   async reopen(actor: Actor, cardId: number, rawInput: unknown): Promise<Card> {
     const input = reopenCardInputSchema.parse(rawInput)
@@ -531,10 +545,34 @@ export class CardService {
         decide(evaluatePolicy(actor, { type: 'card.reopen' }, policy))
         ensureVersion(card, input.expectedVersion)
 
-        // Reopen returns the card to actionable work — historically `ready`,
-        // falling back to the entry (first) column if that lane was deleted.
+        // A CANCELLED card returns to EXACTLY the lane + state it was in before
+        // cancellation (recorded on its `card.cancelled` event) rather than a
+        // blanket `ready`. A completed card — or a cancelled one whose prior lane
+        // was since deleted (or whose vendor waiting-reason predates this feature)
+        // — falls back to `ready`, then the entry (first) column.
+        const wasCancelled = card.resolution !== null && card.resolution !== 'completed'
+        const [cancelEvent] = wasCancelled
+          ? await tx.events.listLatestByCard(cardId, 1, ['card.cancelled'])
+          : []
+        const cancelPayload =
+          cancelEvent?.eventType === 'card.cancelled' ? cancelEvent.payload : null
+        // Can't rebuild a valid vendor card without its recorded waiting reason.
+        const priorLaneKey =
+          cancelPayload !== null &&
+          !(
+            cancelPayload.fromLane === 'waiting_parts_vendor' && cancelPayload.waitingReason == null
+          )
+            ? cancelPayload.fromLane
+            : null
+        const restored =
+          priorLaneKey !== null ? await tx.lanes.findByKey(card.boardId, priorLaneKey) : null
         const target =
-          (await tx.lanes.findByKey(card.boardId, 'ready')) ?? (await firstLane(tx, card.boardId))
+          restored ??
+          (await tx.lanes.findByKey(card.boardId, 'ready')) ??
+          (await firstLane(tx, card.boardId))
+        // Only the vendor lane carries waiting fields; restore them there (resetting
+        // the overdue-alert flag so it can re-fire), null everywhere else.
+        const restoreWaiting = restored !== null && target.key === 'waiting_parts_vendor'
         const bottom = await tx.cards.edgeOfLane(target.id, 'last')
         const updated: Card = {
           ...card,
@@ -542,9 +580,16 @@ export class CardService {
           position: generateKeyBetween(bottom?.position ?? null, null),
           resolution: null,
           archivedAt: null,
-          // A reopened card is a fresh work cycle — the burn-down restarts when
-          // it next enters In Progress.
-          workStartedAt: null,
+          // Restoring a cancelled card to its working lane keeps its burn-down (the
+          // exact prior state); any other reopen starts a fresh cycle at null.
+          workStartedAt: restored !== null ? card.workStartedAt : null,
+          waitingReason: restoreWaiting
+            ? (cancelPayload?.waitingReason ?? null)
+            : card.waitingReason,
+          expectedResumeAt: restoreWaiting
+            ? (cancelPayload?.expectedResumeAt ?? null)
+            : card.expectedResumeAt,
+          resumeAlertedAt: restoreWaiting ? null : card.resumeAlertedAt,
           version: card.version + 1,
           updatedAt: this.deps.clock.now().toISOString(),
         }

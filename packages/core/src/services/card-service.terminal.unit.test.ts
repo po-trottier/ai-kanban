@@ -149,6 +149,59 @@ describe('CardService.reopen', () => {
     })
   })
 
+  it('restores a genuinely-cancelled card to its EXACT prior lane, not ready', async () => {
+    // Arrange — a card being worked in In Progress, cancelled via the service
+    // (so a `card.cancelled` event records where it came from).
+    const scenario = createScenario()
+    const card = scenario.seedCard({
+      laneId: scenario.lanes.in_progress.id,
+      workStartedAt: '2026-07-01T09:00:00.000Z',
+    })
+    await scenario.cards.cancel(scenario.actors.technician, card.id, {
+      resolution: 'duplicate',
+      expectedVersion: 1,
+    })
+
+    // Act — reopen it.
+    const reopened = await scenario.cards.reopen(scenario.actors.supervisor, card.id, {
+      expectedVersion: 2,
+    })
+
+    // Assert — back to In Progress (its prior lane), burn-down preserved (exact
+    // prior state) — NOT the blanket `ready`.
+    expect(reopened.laneId).toBe(scenario.lanes.in_progress.id)
+    expect(reopened.workStartedAt).toBe('2026-07-01T09:00:00.000Z')
+    expect(reopened.resolution).toBeNull()
+    expect(
+      scenario.db.eventsFor(card.id).find((event) => event.eventType === 'card.reopened'),
+    ).toMatchObject({ payload: { toLane: 'in_progress' } })
+  })
+
+  it('restores a cancelled vendor card to the waiting lane WITH its waiting reason + date', async () => {
+    // Arrange — a waiting-on-vendor card cancelled via the service; cancel clears
+    // the waiting fields, but the event records them for restore.
+    const scenario = createScenario()
+    const card = scenario.seedCard({
+      laneId: scenario.lanes.waiting_parts_vendor.id,
+      waitingReason: 'parts',
+      expectedResumeAt: '2026-07-20',
+    })
+    await scenario.cards.cancel(scenario.actors.technician, card.id, {
+      resolution: 'cancelled',
+      expectedVersion: 1,
+    })
+
+    // Act
+    const reopened = await scenario.cards.reopen(scenario.actors.supervisor, card.id, {
+      expectedVersion: 2,
+    })
+
+    // Assert — the vendor lane invariant is rebuilt from the event.
+    expect(reopened.laneId).toBe(scenario.lanes.waiting_parts_vendor.id)
+    expect(reopened.waitingReason).toBe('parts')
+    expect(reopened.expectedResumeAt).toBe('2026-07-20')
+  })
+
   it('rejects reopening a card that is not in done as an illegal transition', async () => {
     // Arrange
     const scenario = createScenario()
