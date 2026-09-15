@@ -1,7 +1,7 @@
 # Frontend (SPA) Architecture
 
 React 19 + Vite single-page app in `packages/web`, served by the backend in production
-([overview.md](overview.md)); in dev, Vite proxies `/api` to `:3000`. UI framework is
+([overview.md](overview.md)); in dev, Vite proxies `/api` and `/version` to `:3000`. UI framework is
 **Mantine 9** with token-only styling rules ([ADR-016](decisions/ADR-016-ui-framework.md));
 the board's drag-and-drop is **Pragmatic drag-and-drop**
 ([ADR-007](decisions/ADR-007-pragmatic-drag-and-drop.md)).
@@ -22,6 +22,23 @@ the board's drag-and-drop is **Pragmatic drag-and-drop**
 | `core-domain.ts` | Domain-only view of `@rivian-kanban/core` (see below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ## Data flow
+
+### Installable app
+
+`public/manifest.webmanifest` defines the stable `/` app identity, root scope/start URL, standalone
+window, name, and app icons. `index.html` links it with `crossorigin="use-credentials"` so a
+Cloudflare Access session can fetch it. Vite copies the manifest and PNG icons into the normal
+static build; no plugin or service worker is needed for [Chrome's installation criteria](https://web.dev/articles/install-criteria).
+The app remains online-only and uses the existing session and live API behavior after installation.
+
+The install metadata uses Mantine's dark-7 background (`#242424`) with the existing white logo:
+192px and 512px square launcher icons use 80% width; the separate 512px maskable icon uses 55%
+width, keeping the mark inside the central 80%-diameter safe circle. These packaged assets and
+the static browser theme-color use that fixed brand color independently of a user's saved theme.
+`e2e/pwa.spec.ts` checks Chromium's own installability diagnostics, manifest MIME type and identity,
+and the PNG dimensions of every icon.
+
+### Application state
 
 - **Single-schema rule**: every response body is parsed with Zod schemas composed from
   `@rivian-kanban/core` (`api/schemas.ts`); request bodies are the core command schemas minus

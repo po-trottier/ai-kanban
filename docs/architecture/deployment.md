@@ -182,6 +182,25 @@ Package owners can
 enable anonymous pulls by changing the package visibility to public in GitHub package settings.
 See [GitHub's container registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
 
+## Install as an app (PWA)
+
+Facilities Kanban can be installed from Chrome on the deployed HTTPS origin, for example
+`https://rivian.p-o.me`. Sign in through Cloudflare Access first if it is enabled, then use the
+address-bar install icon or **Chrome menu → Cast, save, and share → Install page as app**.
+On Android, use Chrome's **Install app** menu option. Chrome controls when the install promotion
+appears; the menu remains the manual installation route. See [Chrome's installation help](https://support.google.com/chrome/answer/9658361).
+
+The installed app opens the board in a standalone window. The same login, Cloudflare Access
+policies, and permissions apply. It requires a network connection; work orders and pending edits
+are not saved for offline use. After an image update, reload or reopen the app and check
+**Settings → Preferences → About**. No service worker caches old application bundles.
+
+The static build serves `/manifest.webmanifest` and `/icons/*.png`. Keep those paths reachable
+under the same hostname; the manifest link sends same-origin credentials for authenticated
+Cloudflare routes. Direct HTTP access on a LAN IP is not an installable secure origin; use the
+public HTTPS address (localhost is a development exception). App identity stays `/` across
+releases, so version changes do not create a second installed app.
+
 ## Release workflow
 
 GitHub releases are the source of truth for versioned images, starting with `v1.0.1`.

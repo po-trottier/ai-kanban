@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-09-14
+
+### Added
+
+- Install Facilities Kanban from Chrome as a standalone app, with app icons and a stable identity
+  across deployments. The app requires an internet connection.
+
 ## [1.0.4] - 2026-09-14
 
 ### Added

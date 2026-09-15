@@ -86,6 +86,13 @@ are retained in GitHub Actions. See [security](docs/architecture/security.md) fo
 See the [deployment guide](docs/architecture/deployment.md) for
 registry access, configuration, backups, rollback, and troubleshooting.
 
+## Install as an app
+
+Open the deployed HTTPS site in Chrome, sign in if prompted, and use the install icon in the
+address bar (or Chrome's menu → **Cast, save, and share → Install page as app**). Facilities Kanban
+opens in its own window and appears in your device's app launcher. An internet connection is
+required. See [PWA deployment](docs/architecture/deployment.md#install-as-an-app-pwa) for details.
+
 ## Local development
 
 ```bash
