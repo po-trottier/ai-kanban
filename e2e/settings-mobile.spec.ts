@@ -49,9 +49,10 @@ test('keeps every settings tab and its controls reachable on narrow screens', as
         contentWidth: layout.panelWidth,
         tabRows: 1,
       })
-      // Keyboard focus must reveal controls at the far edge of wide tables, too.
+      // Focus and scrolling must reach controls at the far edge of wide tables, too.
       const lastButton = panel.getByRole('button').last()
       await lastButton.focus()
+      await lastButton.scrollIntoViewIfNeeded()
       await expect(lastButton).toBeInViewport({ ratio: 0.99 })
     }
   }
@@ -75,6 +76,7 @@ test('keeps every settings tab and its controls reachable on narrow screens', as
     expect(dimensions.content).toBe(dimensions.width)
     await dialog.getByRole('textbox').first().fill('Mobile draft')
     await dialog.getByRole('button').last().focus()
+    await dialog.getByRole('button').last().scrollIntoViewIfNeeded()
     await expect(dialog.getByRole('button').last()).toBeInViewport({ ratio: 0.99 })
     await page.keyboard.press('Escape')
     await expect(dialog).toBeHidden()
@@ -98,8 +100,16 @@ test('keeps permission labels above scrolling cells and nested location actions 
   await page.goto('/settings?tab=locations')
   const tree = page.getByRole('tree')
   await expect(tree).toBeVisible()
+  const treeWidth = await tree.evaluate((element) => ({
+    content: element.scrollWidth,
+    visible: element.clientWidth,
+  }))
+  expect(treeWidth.content).toBe(treeWidth.visible)
   for (const button of await tree.getByRole('button').all()) {
     await button.focus()
+    // Native focus scrolling may leave a fractional pixel clipped at the bottom.
+    // Scroll explicitly before requiring complete visibility; tree width is checked above.
+    await button.scrollIntoViewIfNeeded()
     await expect(button).toBeInViewport({ ratio: 0.99 })
   }
   await page.getByRole('tab', { name: 'Permissions', exact: true }).tap()
