@@ -304,6 +304,20 @@ existing PostgreSQL user's password; update the database user and configuration 
 
 ## Upgrade & rollback
 
+Upgrades preserve existing records and settings. Startup checks that the database's applied
+migrations are an unchanged prefix of the image's migration history, then runs pending migrations
+in a transaction. It refuses incompatible history (including a database newer than the image)
+or lost history on an existing database; it never repairs this by resetting or recreating your data.
+If a pending migration fails, its SQL changes and the earlier pending migrations roll back together.
+The structural seed inserts missing initial structure only; it does not overwrite saved settings
+or recreate admin-deleted columns on an existing board.
+
+Released migration files are immutable in CI. Tests upgrade populated SQLite and PostgreSQL
+databases, checking tickets (including archived ones), comments, attachment metadata/storage keys,
+users and credentials, policies, groups/access rules, defaults, and other persisted records.
+These checks prevent known upgrade failure modes; they do not replace backups for an unforeseen
+bug, storage failure, or operator mistake. Never delete Docker volumes when updating the image.
+
 1. Record the current `/version` response and back up the database and uploads.
 2. Set `IMAGE_TAG=1.0.1` in `.env` to select a release (or choose the desired newer version).
    Use `latest` to follow the latest stable release, or `sha-<full git SHA>` to pin a commit.
@@ -314,6 +328,10 @@ Brief downtime is acceptable. Because migrations are forward-only, rollback afte
 change means stopping the app, restoring the matching database and uploads backup, selecting
 the previous `IMAGE_TAG`, and starting again. Merely changing the image tag does not undo a
 database migration.
+
+If startup reports incompatible or missing migration history, keep the database and uploads intact.
+Use an image with the matching migration chain or restore a verified, matching backup; do not edit
+the history table to force startup. Images predating this guard cannot themselves reject downgrades.
 
 Note for operators: single-node Docker never restarts an unhealthy-but-running container —
 the `HEALTHCHECK` feeds `docker compose ps` and monitoring visibility only. A wedged process

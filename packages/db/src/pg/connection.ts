@@ -7,6 +7,8 @@ import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator'
 // node-postgres is CommonJS — the named `Pool` export isn't ESM-importable.
 import pg from 'pg'
 import { type PgDb } from './database.ts'
+import { sql } from 'drizzle-orm'
+import { assertMigrationHistory } from '../migration-history.ts'
 
 /**
  * A Postgres database handle for the unit of work (ADR-020). Two drivers back
@@ -24,6 +26,27 @@ function defaultMigrationsFolder(): string {
   return fileURLToPath(new URL('../../migrations/pg', import.meta.url))
 }
 
+async function checkHistory(db: PgDb, folder: string): Promise<void> {
+  const [history] = await db
+    .select({
+      exists: sql<boolean>`to_regclass('drizzle.__drizzle_migrations') is not null`,
+      populated: sql<boolean>`to_regclass('public.boards') is not null`,
+    })
+    .from(sql`pg_catalog.pg_namespace`)
+    .limit(1)
+  const applied = history?.exists
+    ? await db
+        .select({ hash: sql<string>`hash`, created_at: sql<string | number | null>`created_at` })
+        .from(sql`drizzle.__drizzle_migrations`)
+        .orderBy(sql`created_at`)
+    : []
+  if (applied.length === 0 && history?.populated)
+    throw new Error(
+      'Missing migration history on an existing database; restore its migration history before upgrading',
+    )
+  assertMigrationHistory(folder, applied)
+}
+
 /**
  * Production: a pooled node-postgres connection to `DATABASE_URL`. The
  * node-postgres wire driver needs a real server, so this is not exercised
@@ -37,7 +60,14 @@ export async function openPgConnection(
 ): Promise<PgConnection> {
   const pool = new pg.Pool({ connectionString: url })
   const db = drizzleNodePg({ client: pool })
-  await migrateNodePg(db, { migrationsFolder: migrationsFolder ?? defaultMigrationsFolder() })
+  try {
+    const folder = migrationsFolder ?? defaultMigrationsFolder()
+    await checkHistory(db, folder)
+    await migrateNodePg(db, { migrationsFolder: folder })
+  } catch (error) {
+    await pool.end()
+    throw error
+  }
   return {
     db,
     close: async () => {
@@ -48,10 +78,20 @@ export async function openPgConnection(
 /* v8 ignore stop */
 
 /** Tests: an in-process PGlite database (real Postgres semantics, no server). */
-export async function openPgliteConnection(migrationsFolder?: string): Promise<PgConnection> {
-  const client = new PGlite()
+export async function openPgliteConnection(
+  migrationsFolder?: string,
+  dataDir?: string,
+): Promise<PgConnection> {
+  const client = new PGlite(dataDir)
   const db = drizzlePglite(client)
-  await migratePglite(db, { migrationsFolder: migrationsFolder ?? defaultMigrationsFolder() })
+  try {
+    const folder = migrationsFolder ?? defaultMigrationsFolder()
+    await checkHistory(db, folder)
+    await migratePglite(db, { migrationsFolder: folder })
+  } catch (error) {
+    await client.close()
+    throw error
+  }
   return {
     db,
     close: async () => {

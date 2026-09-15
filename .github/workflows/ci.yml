@@ -47,6 +47,7 @@ jobs:
           }
           NODE
       - run: npm ci
+      - run: npm run check:migrations
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck

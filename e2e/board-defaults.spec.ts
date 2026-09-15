@@ -19,7 +19,7 @@ test.afterEach(async ({ context }) => {
   }
 })
 
-test('admins assign a group default and members can override it without managing boards', async ({
+test('admins assign global and group defaults and members can override without changing the global badge', async ({
   page,
   context,
   browser,
@@ -56,12 +56,19 @@ test('admins assign a group default and members can override it without managing
     await page.goto('/settings?tab=boards')
     await page.getByRole('button', { name: `Edit (${name})`, exact: true }).tap()
     const modal = page.getByRole('dialog')
+    await modal.getByRole('checkbox', { name: 'Use as the global default board' }).check()
     await modal.getByRole('combobox', { name: 'Default for groups', exact: true }).fill(group.name)
     await page.getByRole('option', { name: group.name, exact: true }).tap()
     await modal.getByText('Default board assignments', { exact: true }).tap()
     await page.screenshot({ path: join(tmpdir(), 'rivian-board-defaults-admin-mobile.png') })
     await modal.getByRole('button', { name: 'Save', exact: true }).tap()
     await expect(modal).toBeHidden()
+    await expect(
+      page.getByRole('row').filter({ hasText: name }).getByText('Default', { exact: true }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('row').filter({ hasText: originalName }).getByText('Default', { exact: true }),
+    ).toHaveCount(0)
 
     const memberPage = await member.newPage()
     await memberPage.setViewportSize({ width: 320, height: 844 })
@@ -85,6 +92,15 @@ test('admins assign a group default and members can override it without managing
     ).toBeVisible()
     await memberPage.reload()
     await expect(switcher).toHaveAccessibleName(`Switch board (current: ${originalName})`)
+    await expect(
+      memberPage
+        .getByRole('row')
+        .filter({ hasText: originalName })
+        .getByText('Your default', { exact: true }),
+    ).toBeVisible()
+    await expect(
+      memberPage.getByRole('row').filter({ hasText: name }).getByText('Default', { exact: true }),
+    ).toBeVisible()
     await memberPage.getByRole('combobox', { name: 'My default board' }).click()
     await memberPage.getByRole('option', { name: 'Use assigned default', exact: true }).click()
     await expect(

@@ -45,6 +45,9 @@ export function BoardsAdmin() {
   const catalog = useBoardCatalog()
   const boards = catalog.data?.items ?? []
   const canManage = catalog.data?.canManage ?? false
+  const globalDefaultId = catalog.data?.defaultAssignments.find(
+    (assignment) => assignment.scope === 'application',
+  )?.boardId
   const preference = useSetBoardPreference()
   const [editing, setEditing] = useState<Board | 'new' | null>(null)
 
@@ -107,7 +110,8 @@ export function BoardsAdmin() {
               key={board.id}
               board={board}
               canManage={canManage}
-              isDefault={catalog.data?.defaultBoardId === board.id}
+              isGlobalDefault={globalDefaultId === board.id}
+              isResolvedDefault={catalog.data?.defaultBoardId === board.id}
               isLastBoard={boards.length <= 1}
               onEdit={() => {
                 setEditing(board)
@@ -131,13 +135,15 @@ export function BoardsAdmin() {
 function BoardRow({
   board,
   canManage,
-  isDefault,
+  isGlobalDefault,
+  isResolvedDefault,
   isLastBoard,
   onEdit,
 }: {
   board: Board
   canManage: boolean
-  isDefault: boolean
+  isGlobalDefault: boolean
+  isResolvedDefault: boolean
   isLastBoard: boolean
   onEdit: () => void
 }) {
@@ -152,9 +158,15 @@ function BoardRow({
           <Text size="sm" style={{ overflowWrap: 'anywhere' }}>
             {board.name}
           </Text>
-          {isDefault ? (
-            <Badge size="xs" variant="light" color="gray">
-              {strings.boards.defaultBadge}
+          {isGlobalDefault ? (
+            <Tooltip label={strings.boards.defaultBadgeHelp}>
+              <Badge size="xs" variant="light" color="gray">
+                {strings.boards.defaultBadge}
+              </Badge>
+            </Tooltip>
+          ) : isResolvedDefault ? (
+            <Badge size="xs" variant="outline" color="gray">
+              {strings.boards.resolvedDefaultBadge}
             </Badge>
           ) : null}
         </Group>

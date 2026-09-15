@@ -38,8 +38,11 @@ On startup, the catalog's server-resolved `defaultBoardId` wins over the browser
 Manual selection remains until the session ends or access is revoked. Settings → Boards saves the
 caller's personal preference through `PUT /boards/preference`; the admin board form also edits global,
 role, and group assignments in the same transaction as board changes. The original `isDefault` flag
-remains the role-authority anchor and is not used as the UI's default badge: that badge identifies the
-caller's resolved startup board. Defaults never bypass board visibility.
+remains the role-authority anchor and is not used as the UI's default badge. **Default** identifies
+only the configured global default; **Your default** identifies the caller's resolved startup board
+when it differs. Without a global assignment, no board gets the Default badge. The catalog exposes
+the visible global assignment to everyone, while role/group assignments remain admin-only and
+other users' preferences remain private. Defaults never bypass board visibility.
 
 React 19 + Vite single-page app in `packages/web`, served by the backend in production
 ([overview.md](overview.md)); in dev, Vite proxies `/api` and `/version` to `:3000`. UI framework is

@@ -336,6 +336,8 @@ export const strings = {
     restrictedEmptyHint:
       'No roles, groups, or people selected — only administrators can select this board.',
     defaultBadge: 'Default',
+    defaultBadgeHelp: 'Global default for users without a personal, group, or role default.',
+    resolvedDefaultBadge: 'Your default',
     created: (name: string) => `Board "${name}" created`,
     updated: (name: string) => `Board "${name}" updated`,
     deleted: 'Board deleted',

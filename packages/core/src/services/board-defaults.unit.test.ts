@@ -51,6 +51,7 @@ describe('default boards', () => {
     await service.update(s.actors.admin, global.id, { ...input, accessMode: 'restricted' })
     const fallback = await service.list(user)
     expect(fallback.defaultBoardId).toBe(fallback.items[0]?.id)
+    expect(fallback.defaultAssignments).toEqual([])
     await service.update(s.actors.admin, s.boardId, { ...input, accessMode: 'restricted' })
     expect(await service.list(user)).toMatchObject({
       items: [],
@@ -104,11 +105,13 @@ describe('default boards', () => {
     expect(await service.list(user)).toMatchObject({
       defaultBoardId: crew.id,
       defaultSource: 'group',
+      defaultAssignments: [{ scope: 'application', subject: 'all', boardId: global.id }],
     })
     await service.setPreference(user, { boardId: global.id })
     expect(await service.list(user)).toMatchObject({
       defaultBoardId: global.id,
       defaultSource: 'personal',
+      defaultAssignments: [{ scope: 'application', subject: 'all', boardId: global.id }],
     })
     await service.setPreference(user, { boardId: null })
     await service.remove(s.actors.admin, crew.id)

@@ -81,10 +81,14 @@ UI. When an e2e failure disagrees with the source, `rm -rf packages/web/dist` an
 
 GitHub Actions, gates in order:
 
-1. `npm ci` → prettier check (`format:check`) → lint (`--max-warnings 0`) → typecheck →
+1. `npm ci` → released-migration immutability gate (`check:migrations`, including its isolated
+   Git-fixture self-test) → prettier check (`format:check`) → lint (`--max-warnings 0`) → typecheck →
    dependency-cruiser → knip → commitlint
 2. Unit tests + coverage gate
-3. Integration tests + coverage gate (includes MCP e2e and Slack contract tests)
+3. Integration tests + coverage gate (includes MCP e2e and Slack contract tests). The database
+   migration safety suite upgrades populated legacy databases on SQLite and PostgreSQL/PGlite,
+   compares retained rows and settings, verifies repeat startup, and deliberately fails a later
+   pending migration to prove transaction rollback of earlier pending data/schema changes.
 4. **Build the production Linux Docker image and run the full integration suite inside it**
    (catches native-module drift: better-sqlite3/argon2 prebuilds differ between Windows dev
    and Linux prod)

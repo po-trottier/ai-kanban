@@ -42,6 +42,12 @@ changing behavior**, starting with `docs/architecture/overview.md` and the ADRs.
 - **Frozen v1 baseline, forward-only, no legacy.** `0000_init` is the immutable v1 schema baseline;
   schema changes now **append** the next migration (`0001_*`, …) — never regenerate the baseline
   (see `docs/dev/getting-started.md` → "Changing the schema"). No back-compat branches.
+- **Upgrade data preservation.** ALL released migrations and journal entries are immutable.
+  Append forward migrations for both databases. Never reset, truncate, or reseed away user data or
+  settings during upgrades. Table rebuilds must copy retained data and relationships transactionally
+  before dropping the old table. Extend populated upgrade tests for new persisted entities and prove
+  upgrade preservation, restart idempotence, and failed-migration rollback. `npm run check:migrations`
+  enforces released history; never bypass it or rewrite applied migration records.
 - **Enforced conventions** (`docs/dev/standards.md`): `core` imports no framework/IO; only `db` touches
   drizzle/better-sqlite3; every REST route declares Zod request+response schemas; no dead code or
   unused deps (knip); one shape defined once in `core` drives REST + MCP + forms (single-schema rule).

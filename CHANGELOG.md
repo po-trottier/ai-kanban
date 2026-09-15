@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-09-15
+
+### Fixed
+
+- Board settings now reserve the **Default** badge for the configured global default. A different
+  resolved startup board is labeled **Your default**, including personal, group, and role choices.
+
+### Added
+
+- Protect database upgrades with migration-history validation: refuse modified, missing, or newer
+  applied migrations before running upgrade SQL. CI enforces immutable released migrations, and
+  populated SQLite/PostgreSQL upgrade tests verify saved data, settings, restart preservation, and
+  rollback when a pending migration fails.
+
 ## [1.0.8] - 2026-09-15
 
 ### Fixed

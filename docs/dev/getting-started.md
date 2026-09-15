@@ -50,11 +50,20 @@ rewriting the baseline:
    step — the single-schema rule).
 2. Run `npm run db:generate` and `npm run generate:pg -w @rivian-kanban/db`; drizzle diffs the schema against the last
    snapshot and writes the next migration (`0001_*.sql`, `0002_*.sql`, …) for each dialect.
-3. Commit the new migration file(s) **in the same commit** as the schema change.
+3. Review the generated SQL for data preservation. A table rebuild must copy existing values and
+   relationships before dropping the old table, within the migration transaction. No upgrade may
+   reset, truncate, or replace user data/settings with seed defaults.
+4. Extend `packages/db/src/migration-safety.integration.test.ts` and its populated fixture for new
+   persisted entities. Verify older-schema upgrades, repeat startup, and failed-migration rollback
+   on both SQLite and PostgreSQL (PGlite).
+5. Run `npm run check:migrations` and the tests, then commit the new migration file(s) **in the same
+   commit** as the schema change. ALL released SQL, journal entries, and snapshots are immutable;
+   the gate compares against the preceding release. New timestamps must strictly increase.
 
-`npm run db:migrate` applies any unapplied migrations in order; a fresh dev DB (`rm -rf data` then
-`npm run dev`) replays the whole chain. (Pre-v1 this single file was regenerated in place; that era
-is over — the baseline is now fixed.)
+`npm run db:migrate` validates applied history and applies pending SQLite migrations in order;
+application startup does the same for either database. A fresh database replays the whole chain.
+Never delete an existing data directory to resolve migration failures. Forward migration means
+using the original history plus new migrations, not rewriting history to make startup succeed.
 
 ## Docker quickstart
 

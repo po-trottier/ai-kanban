@@ -54,7 +54,7 @@ describe('boards and groups over REST', () => {
       preferredBoardId: board.id,
       defaultBoardId: board.id,
       defaultSource: 'personal',
-      defaultAssignments: [],
+      defaultAssignments: [{ scope: 'application', subject: 'all', boardId: board.id }],
     })
     expect([escalation.statusCode, forged.statusCode]).toEqual([400, 400])
     const denied = await t.request(member.cookie, {

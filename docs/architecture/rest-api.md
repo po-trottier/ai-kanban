@@ -29,8 +29,9 @@ Board create/update accepts optional `defaultAssignments: { application: boolean
 groupIds: UUID[] }`. Omission leaves assignments unchanged; an explicit object replaces this board's
 admin assignments without changing personal preferences or clearing defaults moved to another board.
 Assigning a role or group to this board replaces its previous default.
-Assignments validate roles/groups and never grant access. Only managers receive admin assignments in
-the catalog; other users receive an empty array. Other users' personal preferences are never returned.
+Assignments validate roles/groups and never grant access. Everyone receives the global assignment
+when its board is visible to them; only managers also receive role/group assignments in the catalog.
+Other users' personal preferences are never returned.
 `defaultBoardId` is resolved server-side: personal, one distinct accessible group default, role,
 global, then first accessible board (or null when none are accessible). `defaultSource` is `personal`, `group`, `role`,
 `application`, or `fallback`. `preferredBoardId` is null when unset or no longer accessible.

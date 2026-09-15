@@ -20,7 +20,7 @@ export const boardCatalogSchema = z.strictObject({
   preferredBoardId: z.uuid().nullable(),
   defaultBoardId: z.uuid().nullable(),
   defaultSource: z.enum(['personal', 'group', 'role', 'application', 'fallback']),
-  /** Administrators see admin assignments only, never other users' preferences. */
+  /** Visible global assignment for everyone; role/group assignments for admins only. */
   defaultAssignments: z.array(boardDefaultSchema),
 })
 export type BoardCatalog = z.infer<typeof boardCatalogSchema>

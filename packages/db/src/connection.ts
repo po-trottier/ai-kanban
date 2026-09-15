@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import { assertMigrationHistory, type AppliedMigration } from './migration-history.ts'
 
 /** One process-wide database handle (single-writer, ADR-003/deployment.md). */
 export interface DbConnection {
@@ -41,9 +42,31 @@ export function openDatabase(databasePath: string, migrationsFolder?: string): D
   raw.pragma('busy_timeout = 5000')
   raw.pragma('foreign_keys = ON')
   const db = drizzle({ client: raw })
-  migrate(db, {
-    migrationsFolder: migrationsFolder ?? fileURLToPath(new URL('../migrations', import.meta.url)),
-  })
+  const folder = migrationsFolder ?? fileURLToPath(new URL('../migrations', import.meta.url))
+  try {
+    const hasHistory = raw
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '__drizzle_migrations'")
+      .get()
+    const applied = hasHistory
+      ? raw
+          .prepare<[], AppliedMigration>(
+            'SELECT hash, created_at FROM __drizzle_migrations ORDER BY created_at',
+          )
+          .all()
+      : []
+    if (
+      applied.length === 0 &&
+      raw.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'boards'").get()
+    )
+      throw new Error(
+        'Missing migration history on an existing database; restore its migration history before upgrading',
+      )
+    assertMigrationHistory(folder, applied)
+    migrate(db, { migrationsFolder: folder })
+  } catch (error) {
+    raw.close()
+    throw error
+  }
   // Opened after the pragmas + migration so WAL mode and the schema exist.
   // readonly makes SQLite itself reject any write attempted through a
   // read-only unit of work.

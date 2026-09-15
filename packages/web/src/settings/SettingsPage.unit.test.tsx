@@ -1,5 +1,5 @@
 import { type PolicyDocument } from '@rivian-kanban/core'
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { createFakeFetch, problemResponse } from '../test/fake-fetch.ts'
@@ -37,6 +37,60 @@ function settingsApp(extra: Record<string, unknown> = {}) {
 }
 
 describe('SettingsPage', () => {
+  it.each(['personal', 'group', 'role', 'fallback'])(
+    'reserves Default for the global board when the %s default points elsewhere',
+    async (source) => {
+      // Arrange
+      const crossTeam = makeBoardEntity({ id: uid(502), name: 'Cross-Team' })
+      const fake = settingsApp({
+        'GET /api/v1/boards': {
+          ...makeBoardCatalog([defaultBoard, crossTeam], true),
+          preferredBoardId: defaultBoard.id,
+          defaultBoardId: defaultBoard.id,
+          defaultSource: source,
+          defaultAssignments: [{ scope: 'application', subject: 'all', boardId: crossTeam.id }],
+        },
+      })
+      // Act
+      renderApp({ fetchFn: fake.fetch, route: '/settings?tab=boards' })
+      const globalRow = await screen.findByRole('row', { name: /Cross-Team/ })
+      const personalRow = screen.getByRole('row', { name: /Facilities/ })
+      // Assert
+      expect(within(globalRow).getByText('Default', { exact: true })).toBeInTheDocument()
+      expect(within(personalRow).queryByText('Default', { exact: true })).not.toBeInTheDocument()
+      expect(within(personalRow).getByText('Your default')).toBeInTheDocument()
+    },
+  )
+
+  it('shows the global default to non-admins and does not duplicate the resolved badge', async () => {
+    // Arrange
+    const fake = settingsApp({
+      'GET /api/v1/boards': {
+        ...makeBoardCatalog([defaultBoard], false),
+        defaultSource: 'application',
+        defaultAssignments: [{ scope: 'application', subject: 'all', boardId: defaultBoard.id }],
+      },
+    })
+    // Act
+    renderApp({ fetchFn: fake.fetch, route: '/settings?tab=boards' })
+    const row = await screen.findByRole('row', { name: /Facilities/ })
+    // Assert
+    expect(within(row).getByText('Default', { exact: true })).toBeInTheDocument()
+    expect(within(row).queryByText('Your default')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit (Facilities)' })).not.toBeInTheDocument()
+  })
+
+  it('does not label the original authority board as global when no global default is set', async () => {
+    // Arrange
+    const fake = settingsApp()
+    // Act
+    renderApp({ fetchFn: fake.fetch, route: '/settings?tab=boards' })
+    const row = await screen.findByRole('row', { name: /Facilities/ })
+    // Assert
+    expect(within(row).queryByText('Default', { exact: true })).not.toBeInTheDocument()
+    expect(within(row).getByText('Your default')).toBeInTheDocument()
+  })
+
   it('switches column boards in place and sends edits to the selected board', async () => {
     // Arrange
     const user = userEvent.setup()

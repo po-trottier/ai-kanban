@@ -5,7 +5,8 @@
 `list_boards` returns the shared board catalog: `{ items: Board[], canManage, preferredBoardId,
 defaultBoardId, defaultSource, defaultAssignments }` for the credential's visible active boards.
 Service tokens use role/global defaults, never their creator's personal or group preferences.
-Admin assignments are visible only to managers; personal preferences are never exposed to tokens.
+The global assignment is visible when its board is accessible; role/group assignments are visible
+only to managers. Personal preferences are never exposed to service tokens.
 Board collection tools (`get_board_snapshot`, `list_cards`, `list_lanes`, `list_tags`,
 `list_waiting_reasons`, `list_activity`, `list_stale_cards`, `list_blocked_cards`) and `create_card`
 accept an optional `boardId`; omission selects the original board. Selection is per invocation,

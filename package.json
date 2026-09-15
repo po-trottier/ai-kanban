@@ -1,6 +1,6 @@
 {
   "name": "rivian-kanban",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "private": true,
   "license": "Polyform-Strict-1.0.0",
   "type": "module",
@@ -58,7 +58,8 @@
     "db:studio": "npm run studio -w @rivian-kanban/db",
     "depcruise": "depcruise packages e2e --config .dependency-cruiser.cjs",
     "knip": "knip",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run knip && npm run test && npm run test:e2e"
+    "check:migrations": "node --test scripts/check-migrations.test.mjs && node scripts/check-migrations.mjs",
+    "check": "npm run check:migrations && npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run knip && npm run test && npm run test:e2e"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.1",

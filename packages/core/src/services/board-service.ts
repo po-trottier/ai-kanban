@@ -67,9 +67,9 @@ export class BoardService {
         preferredBoardId,
         defaultBoardId: chosen?.[1] ?? items[0]?.id ?? null,
         defaultSource: chosen?.[0] ?? 'fallback',
-        defaultAssignments: canManage
-          ? defaults.filter((row) => row.scope !== 'user' && visible.has(row.boardId))
-          : [],
+        defaultAssignments: allowedDefaults.filter(
+          (row) => row.scope === 'application' || (canManage && row.scope !== 'user'),
+        ),
       }
     })
   }
