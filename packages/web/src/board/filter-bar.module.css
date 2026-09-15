@@ -1,17 +1,28 @@
-/* The board filter bar: three zones (search · facets · presets) on one wrapping
-   row. It renders into the shell's FULL-WIDTH strip above the board+detail-panel
-   row (#128), so it spans the whole width and is unaffected by the panel. Its
-   inner Group wraps across desktop widths (no horizontal overflow at 1280–2560).
-   Token-only values (ADR-016 rule 1). */
+/* The full-width toolbar owns its horizontal scrolling, independently of the
+   board and detail panel. Token-only values (ADR-016 rule 1). */
 .bar {
-  /* Never let the fixed-width zones force a horizontal scrollbar: cap to the
-     strip width and let the inner Group wrap instead. */
   max-inline-size: 100%;
   padding-block-end: var(--mantine-spacing-sm);
   border-bottom: 1px solid var(--mantine-color-default-border);
   margin-block-end: var(--mantine-spacing-sm);
   /* Anchor the indeterminate progress bar to the bar's bottom edge. */
   position: relative;
+}
+
+.scrollContent {
+  min-inline-size: 100%;
+  /* Leave room for Mantine's keyboard focus outline inside the scroll clip. */
+  padding: calc(var(--mantine-spacing-xs) / 2);
+}
+
+.scrollContainer {
+  user-select: auto;
+  scroll-padding-inline: var(--scroller-control-size);
+}
+
+.row {
+  inline-size: 100%;
+  min-inline-size: max-content;
 }
 
 /* Indeterminate "filtering in progress" bar riding the bar's bottom border,
@@ -59,14 +70,9 @@
   min-width: var(--app-filter-query-width);
 }
 
-/* CENTER zone: takes the space between the search box and the presets and
-   centers the facet group within it (justify-content: center), so the facets
-   read as centered rather than left-hugging. Wraps gracefully on narrow widths. */
+/* Spare space belongs to the center zone; controls never shrink or wrap. */
 .center {
-  flex: 1 1 auto;
-  /* min-width:0 lets this flex child shrink below its content so the inner facet
-     Group WRAPS instead of overflowing the strip on narrower desktops. */
-  min-width: 0;
+  flex: 1 0 auto;
   display: flex;
   justify-content: center;
 }
@@ -113,7 +119,7 @@
   overflow: hidden;
 }
 
-/* Vertical group separators between facet sections. In a center-aligned wrap
+/* Vertical group separators between facet sections. In a center-aligned
    row a vertical Divider would collapse to zero height, so pin it to the input
    height token to read as a deliberate section break. */
 .divider {

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-09-14
+
+### Fixed
+
+- Keep board filters on one horizontally scrollable row at desktop and mobile widths, with
+  navigation arrows and touch scrolling when the controls do not fit.
+
 ## [1.0.2] - 2026-09-14
 
 ### Security

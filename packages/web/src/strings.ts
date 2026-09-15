@@ -370,6 +370,8 @@ export const strings = {
     queryLabel: 'Filter work orders',
     queryPlaceholder: 'Search work orders…',
     queryClear: 'Clear the text filter',
+    scrollStart: 'Scroll filters left',
+    scrollEnd: 'Scroll filters right',
     filterBusy: 'Filtering…',
     /** Any-of enumerable facets, rendered as MultiSelect pill dropdowns. */
     priorityLabel: 'Priority',

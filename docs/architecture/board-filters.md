@@ -196,17 +196,19 @@ The SPA renders the filter as a **filter bar** below the header and above the bo
   board row is a flex sibling of the panel, opening or resizing the panel squeezes the board — the
   filter bar above never shrinks or reflows. The panel goes full-screen below the `62em` breakpoint
   (CSS media query on `.panelColumn`).
-- **Layout.** The bar is a single wrapping row laid out in **three zones**: the text search (left) ·
-  the facet group **centered** in the flexible middle (a `flex:1` wrapper with `justify-content:center`
-  and `min-width:0` so it wraps rather than overflows) · right-aligned **presets + Reset**. The
+- **Layout.** The bar is a single horizontally scrollable row in **three zones**: the text search
+  (left) · the facet group **centered** in any spare space · **presets + Reset** (right). Mantine's
+  `Scroller` contains the whole toolbar and shows labeled navigation arrows only when content
+  overflows. Trackpad, Shift+wheel, touch scrolling, and keyboard focus reveal off-screen controls.
+  Mouse drag scrolling is disabled so users can select text in the search inputs. The
   centered facet group keeps its deliberately ordered, `Divider`-separated sections: **attributes**
   (Priority) · **people** (Assignee, Reporter) · **classification** (Tags, Location) · **scope**
   (Scope, Overdue). The section-divider height is a theme token (`filterSectionHeight`), the field
   widths are `filterQueryWidth`/`filterPillWidth` (ADR-016 rule 1). Each pill facet uses a **fixed**
   width (plus a single-row, overflow-clipped `pillsList` via the Styles API) so selecting or clearing
-  values never resizes the control or reflows the bar. The bar is **responsive** across desktop
-  widths: the inner `Group` wraps (`wrap="wrap"`) and the strip caps to `max-inline-size:100%`, so
-  there is no horizontal overflow/clipping at common resolutions (1280–2560); mobile is out of scope.
+  values never resizes the control or reflows the bar. All groups use `wrap="nowrap"`; the toolbar
+  fills its strip on wide screens and scrolls inside it at narrower desktop and mobile widths.
+  Dropdowns render in portals outside the scrolling container so their options remain usable.
 - **Controls.** Every any-of facet — Priority and the high-cardinality assignee / reporter / tags /
   location — is a `MultiSelect` pill combobox (selected values render as compact pills, keeping the
   bar dense); the Priority options render each code + plain-language name + P0/P1/P2 description via

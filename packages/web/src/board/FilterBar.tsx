@@ -13,6 +13,7 @@ import {
   Group,
   MultiSelect,
   type MultiSelectProps,
+  Scroller,
   SegmentedControl,
   Stack,
   Text,
@@ -41,7 +42,7 @@ export interface FilterBarProps {
 
 /**
  * The board filter bar (below the header, above the board): every facet of the
- * shared `BoardFilter` on one wrapping row laid out in THREE zones — the search
+ * shared `BoardFilter` on one horizontally scrolling row in three zones — the search
  * input (left), the facet group centered in the flexible middle, and the presets
  * + Reset-filters control (right). The bar is placeholder-only — no visible field
  * labels — so each control carries an `aria-label` for its accessible name
@@ -88,162 +89,181 @@ export function FilterBar({
 
   return (
     <div className={classes.bar} role="region" aria-label={strings.filterBar.regionLabel}>
-      {/* Three zones on one wrapping row: search (left) · facets (centered in the
-          flexible middle) · presets + Reset (right). align="center" vertically
-          centers every zone. */}
-      <Group gap="sm" align="center" wrap="wrap">
-        {/* LEFT: the text query. */}
-        <Tooltip label={strings.filterBar.tooltips.query} withArrow>
-          <TextInput
-            className={classes.query}
-            aria-label={strings.filterBar.queryLabel}
-            placeholder={strings.filterBar.queryPlaceholder}
-            value={filter.q}
-            leftSection={<SearchIcon size={16} />}
-            rightSection={
-              filter.q === '' ? null : (
-                <Tooltip label={strings.filterBar.queryClear}>
-                  <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    size="sm"
-                    aria-label={strings.filterBar.queryClear}
-                    onClick={() => {
-                      set('q', '')
-                    }}
-                  >
-                    <CloseIcon size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              )
+      <Scroller
+        draggable={false}
+        classNames={{ content: classes.scrollContent, container: classes.scrollContainer }}
+        startControlProps={{ 'aria-label': strings.filterBar.scrollStart }}
+        endControlProps={{ 'aria-label': strings.filterBar.scrollEnd }}
+      >
+        <Group
+          className={classes.row}
+          gap="sm"
+          align="center"
+          wrap="nowrap"
+          onFocusCapture={(event) => {
+            // Portal dropdowns share React's event tree but are outside this row.
+            if (event.currentTarget.contains(event.target)) {
+              // SegmentedControl focuses a hidden radio; reveal its visible label.
+              const control =
+                event.target instanceof HTMLInputElement && event.target.type === 'radio'
+                  ? (event.target.labels?.[0] ?? event.target)
+                  : event.target
+              control.scrollIntoView({ block: 'nearest', inline: 'nearest' })
             }
-            onChange={(event) => {
-              set('q', event.currentTarget.value)
-            }}
-          />
-        </Tooltip>
-
-        {/* CENTER: the facet group, horizontally centered in the space between
-            the search box and the presets (classes.center is flex:1 +
-            justify-content:center). Wraps gracefully on narrow widths. */}
-        <div className={classes.center}>
-          <Group gap="sm" align="center" wrap="wrap" justify="center">
-            {/* Card attributes: priority. */}
-            <PillFacet
-              label={strings.filterBar.priorityLabel}
-              placeholder={strings.filterBar.priorityPlaceholder}
-              tooltip={strings.filterBar.tooltips.priority}
-              data={PRIORITIES.map((p) => ({ value: p, label: strings.priorities[p] }))}
-              value={filter.priorities}
-              onChange={(next) => {
-                set('priorities', next as Priority[])
-              }}
-              renderOption={renderPriorityOption}
-            />
-
-            <Divider orientation="vertical" className={classes.divider} />
-
-            {/* People: assignee · reporter — ASYNC searchable (never load the
-                whole roster); selected ids stay resolved so pills show names. */}
-            <UserPillFacet
-              label={strings.filterBar.assigneeLabel}
-              placeholder={strings.filterBar.assigneePlaceholder}
-              tooltip={strings.filterBar.tooltips.assignee}
-              value={filter.assigneeIds}
-              onChange={(next) => {
-                set('assigneeIds', next)
-              }}
-              currentUserId={currentUserId}
-            />
-
-            <UserPillFacet
-              label={strings.filterBar.reporterLabel}
-              placeholder={strings.filterBar.reporterPlaceholder}
-              tooltip={strings.filterBar.tooltips.reporter}
-              value={filter.reporterIds}
-              onChange={(next) => {
-                set('reporterIds', next)
-              }}
-              currentUserId={currentUserId}
-            />
-
-            <Divider orientation="vertical" className={classes.divider} />
-
-            {/* Classification: tags · location. */}
-            <PillFacet
-              label={strings.filterBar.tagsLabel}
-              placeholder={strings.filterBar.tagsPlaceholder}
-              tooltip={strings.filterBar.tooltips.tags}
-              data={tagOptions}
-              value={filter.tags}
-              onChange={(next) => {
-                set('tags', next)
+          }}
+        >
+          {/* LEFT: the text query. */}
+          <Tooltip label={strings.filterBar.tooltips.query} withArrow>
+            <TextInput
+              className={classes.query}
+              aria-label={strings.filterBar.queryLabel}
+              placeholder={strings.filterBar.queryPlaceholder}
+              value={filter.q}
+              leftSection={<SearchIcon size={16} />}
+              rightSection={
+                filter.q === '' ? null : (
+                  <Tooltip label={strings.filterBar.queryClear}>
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      size="sm"
+                      aria-label={strings.filterBar.queryClear}
+                      onClick={() => {
+                        set('q', '')
+                      }}
+                    >
+                      <CloseIcon size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                )
+              }
+              onChange={(event) => {
+                set('q', event.currentTarget.value)
               }}
             />
-
-            <PillFacet
-              label={strings.filterBar.locationsLabel}
-              placeholder={strings.filterBar.locationsPlaceholder}
-              tooltip={strings.filterBar.tooltips.locations}
-              data={locationOptions}
-              value={filter.locationIds}
-              onChange={(next) => {
-                set('locationIds', next)
-              }}
-            />
-
-            <Divider orientation="vertical" className={classes.divider} />
-
-            {/* Scope + overdue toggles. */}
-            <SegmentedFacet
-              groupLabel={strings.filterBar.scopeGroupLabel}
-              tooltip={strings.filterBar.tooltips.scope}
-              value={filter.scope}
-              data={[
-                { value: 'active', label: strings.filterBar.scopeActive },
-                { value: 'archived', label: strings.filterBar.scopeArchived },
-                { value: 'all', label: strings.filterBar.scopeAll },
-              ]}
-              onChange={(next) => {
-                set('scope', next as FilterScope)
-              }}
-            />
-
-            <SegmentedFacet
-              groupLabel={strings.filterBar.overdueLabel}
-              tooltip={strings.filterBar.tooltips.overdue}
-              value={filter.overdue ? 'overdue' : 'any'}
-              data={[
-                { value: 'any', label: strings.filterBar.overdueAny },
-                { value: 'overdue', label: strings.filterBar.overdueOnly },
-              ]}
-              onChange={(next) => {
-                set('overdue', next === 'overdue')
-              }}
-            />
-          </Group>
-        </div>
-
-        {/* RIGHT: presets + the Reset-filters control. */}
-        <Group gap="sm" align="center" wrap="nowrap">
-          <FilterPresets filter={filter} onApply={onChange} currentUserId={currentUserId} />
-
-          <Tooltip label={strings.filterBar.tooltips.clearAll} withArrow>
-            <Button
-              variant="subtle"
-              color="gray"
-              size="sm"
-              leftSection={<RotateCcw size={16} aria-hidden />}
-              aria-label={strings.filterBar.clearAll}
-              onClick={() => {
-                onChange(EMPTY_BOARD_FILTER)
-              }}
-            >
-              {strings.filterBar.clearAll}
-            </Button>
           </Tooltip>
+
+          {/* Facets stay centered when there is spare room and scroll with the
+            other zones when the toolbar is wider than its container. */}
+          <div className={classes.center}>
+            <Group gap="sm" align="center" wrap="nowrap" justify="center">
+              {/* Card attributes: priority. */}
+              <PillFacet
+                label={strings.filterBar.priorityLabel}
+                placeholder={strings.filterBar.priorityPlaceholder}
+                tooltip={strings.filterBar.tooltips.priority}
+                data={PRIORITIES.map((p) => ({ value: p, label: strings.priorities[p] }))}
+                value={filter.priorities}
+                onChange={(next) => {
+                  set('priorities', next as Priority[])
+                }}
+                renderOption={renderPriorityOption}
+              />
+
+              <Divider orientation="vertical" className={classes.divider} />
+
+              {/* People: assignee · reporter — ASYNC searchable (never load the
+                whole roster); selected ids stay resolved so pills show names. */}
+              <UserPillFacet
+                label={strings.filterBar.assigneeLabel}
+                placeholder={strings.filterBar.assigneePlaceholder}
+                tooltip={strings.filterBar.tooltips.assignee}
+                value={filter.assigneeIds}
+                onChange={(next) => {
+                  set('assigneeIds', next)
+                }}
+                currentUserId={currentUserId}
+              />
+
+              <UserPillFacet
+                label={strings.filterBar.reporterLabel}
+                placeholder={strings.filterBar.reporterPlaceholder}
+                tooltip={strings.filterBar.tooltips.reporter}
+                value={filter.reporterIds}
+                onChange={(next) => {
+                  set('reporterIds', next)
+                }}
+                currentUserId={currentUserId}
+              />
+
+              <Divider orientation="vertical" className={classes.divider} />
+
+              {/* Classification: tags · location. */}
+              <PillFacet
+                label={strings.filterBar.tagsLabel}
+                placeholder={strings.filterBar.tagsPlaceholder}
+                tooltip={strings.filterBar.tooltips.tags}
+                data={tagOptions}
+                value={filter.tags}
+                onChange={(next) => {
+                  set('tags', next)
+                }}
+              />
+
+              <PillFacet
+                label={strings.filterBar.locationsLabel}
+                placeholder={strings.filterBar.locationsPlaceholder}
+                tooltip={strings.filterBar.tooltips.locations}
+                data={locationOptions}
+                value={filter.locationIds}
+                onChange={(next) => {
+                  set('locationIds', next)
+                }}
+              />
+
+              <Divider orientation="vertical" className={classes.divider} />
+
+              {/* Scope + overdue toggles. */}
+              <SegmentedFacet
+                groupLabel={strings.filterBar.scopeGroupLabel}
+                tooltip={strings.filterBar.tooltips.scope}
+                value={filter.scope}
+                data={[
+                  { value: 'active', label: strings.filterBar.scopeActive },
+                  { value: 'archived', label: strings.filterBar.scopeArchived },
+                  { value: 'all', label: strings.filterBar.scopeAll },
+                ]}
+                onChange={(next) => {
+                  set('scope', next as FilterScope)
+                }}
+              />
+
+              <SegmentedFacet
+                groupLabel={strings.filterBar.overdueLabel}
+                tooltip={strings.filterBar.tooltips.overdue}
+                value={filter.overdue ? 'overdue' : 'any'}
+                data={[
+                  { value: 'any', label: strings.filterBar.overdueAny },
+                  { value: 'overdue', label: strings.filterBar.overdueOnly },
+                ]}
+                onChange={(next) => {
+                  set('overdue', next === 'overdue')
+                }}
+              />
+            </Group>
+          </div>
+
+          {/* RIGHT: presets + the Reset-filters control. */}
+          <Group gap="sm" align="center" wrap="nowrap">
+            <FilterPresets filter={filter} onApply={onChange} currentUserId={currentUserId} />
+
+            <Tooltip label={strings.filterBar.tooltips.clearAll} withArrow>
+              <Button
+                variant="subtle"
+                color="gray"
+                size="sm"
+                leftSection={<RotateCcw size={16} aria-hidden />}
+                aria-label={strings.filterBar.clearAll}
+                onClick={() => {
+                  onChange(EMPTY_BOARD_FILTER)
+                }}
+              >
+                {strings.filterBar.clearAll}
+              </Button>
+            </Tooltip>
+          </Group>
         </Group>
-      </Group>
+      </Scroller>
       {/* An indeterminate progress bar along the bar's bottom edge whenever ANY
           filter change is applying (the debounce window + the fetch), so every
           filter — search or facet — reads as "working" immediately, not only

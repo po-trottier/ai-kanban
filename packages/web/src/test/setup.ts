@@ -3,6 +3,17 @@ import { notifications } from '@mantine/notifications'
 import { cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
 
+// happy-dom does not lay out or scroll elements; browser tests cover visibility.
+if (!('scrollIntoView' in HTMLElement.prototype)) {
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    writable: true,
+    value: () => {
+      // Geometry and scrolling are verified in Playwright.
+    },
+  })
+}
+
 // Auto-cleanup does not hook itself without vitest globals; do it explicitly.
 // The notifications store is a module singleton — drain it so toasts from one
 // test cannot crowd out the next test's (display limit is 5).

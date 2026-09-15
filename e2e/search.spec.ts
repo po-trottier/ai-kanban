@@ -17,6 +17,80 @@ import {
  * segmented control drive `POST /board/query`, narrowing the board in place.
  */
 
+test('keeps filters on one scrollable row from mobile to wide desktop', async ({
+  page,
+  context,
+}) => {
+  await signIn(context)
+  await openBoard(page)
+  const bar = page.getByRole('region', { name: 'Board filters' })
+  const query = bar.getByRole('textbox', { name: 'Filter work orders' })
+  const priority = bar.getByRole('combobox', { name: 'Priority', exact: true })
+  const reset = bar.getByRole('button', { name: 'Reset filters' })
+
+  for (const width of [1902, 1280, 768, 390, 320, 2560]) {
+    await page.setViewportSize({ width, height: 900 })
+    const controls = bar.getByRole('combobox').or(query).or(reset).or(bar.getByRole('radiogroup'))
+    await expect(async () => {
+      const centers = await Promise.all(
+        (await controls.all()).map(async (control) => {
+          const box = await control.boundingBox()
+          return (box?.y ?? Number.NaN) + (box?.height ?? Number.NaN) / 2
+        }),
+      )
+      expect(Math.max(...centers) - Math.min(...centers)).toBeLessThan(2)
+      const box = await bar.boundingBox()
+      expect((box?.x ?? Number.NaN) + (box?.width ?? Number.NaN)).toBeLessThanOrEqual(width)
+    }).toPass({ timeout: 3000 })
+  }
+
+  await page.setViewportSize({ width: 390, height: 900 })
+  const queryStart = (await query.boundingBox())?.x ?? Number.NaN
+  await bar.getByRole('button', { name: 'Scroll filters right' }).click()
+  await expect(async () => {
+    expect((await query.boundingBox())?.x ?? Number.NaN).toBeLessThan(queryStart)
+  }).toPass({ timeout: 3000 })
+  await query.focus()
+  await page.keyboard.press('Tab')
+  await expect(priority).toBeFocused()
+  await expect(priority).toBeInViewport({ ratio: 1 })
+  await priority.click()
+  await page.getByRole('option', { name: /P1 —/ }).click()
+  await page.keyboard.press('Escape')
+  await expect(bar.getByText('P1', { exact: true })).toBeVisible()
+  await bar.getByRole('combobox', { name: 'Preset' }).focus()
+  await page.keyboard.press('Tab')
+  await expect(reset).toBeFocused()
+  await expect(reset).toBeInViewport({ ratio: 1 })
+  const resetBox = await reset.boundingBox()
+  const scrollBox = await bar.locator('.mantine-Scroller-container').boundingBox()
+  // Mantine's 2px outline + 2px offset must fit inside the scrolling viewport.
+  expect((resetBox?.y ?? Number.NaN) - (scrollBox?.y ?? Number.NaN)).toBeGreaterThanOrEqual(4)
+  expect(
+    (scrollBox?.y ?? Number.NaN) +
+      (scrollBox?.height ?? Number.NaN) -
+      ((resetBox?.y ?? Number.NaN) + (resetBox?.height ?? Number.NaN)),
+  ).toBeGreaterThanOrEqual(4)
+  await page.keyboard.press('Enter')
+  await expect(bar.getByText('P1', { exact: true })).toBeHidden()
+
+  const scope = bar.getByRole('radiogroup', { name: 'Active, archived, or all work orders' })
+  await scope.getByRole('radio', { name: 'Active', exact: true }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(scope.getByRole('radio', { name: 'Archived', exact: true })).toBeChecked()
+  await expect(scope.getByText('Archived', { exact: true })).toBeInViewport({ ratio: 1 })
+  const overdue = bar.getByRole('radiogroup', { name: 'Overdue', exact: true })
+  await overdue.getByRole('radio', { name: 'Any', exact: true }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(overdue.getByRole('radio', { name: 'Overdue', exact: true })).toBeChecked()
+  await expect(overdue.getByText('Overdue', { exact: true })).toBeInViewport({ ratio: 1 })
+  const overdueBox = await overdue.getByText('Overdue', { exact: true }).boundingBox()
+  const arrowBox = await bar.getByRole('button', { name: 'Scroll filters right' }).boundingBox()
+  expect((overdueBox?.x ?? Number.NaN) + (overdueBox?.width ?? Number.NaN)).toBeLessThanOrEqual(
+    (arrowBox?.x ?? Number.NaN) + 1,
+  )
+})
+
 test('narrows the board to a seeded card by a text-query substring', async ({ page, context }) => {
   await signIn(context)
   await openBoard(page)
