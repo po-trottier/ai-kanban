@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-09-14
+
+### Fixed
+
+- Keep sign-in, setup, and password-change forms within narrow phone and installed-app windows.
+
 ## [1.0.5] - 2026-09-14
 
 ### Added

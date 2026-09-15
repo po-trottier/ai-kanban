@@ -110,6 +110,10 @@ move API; both the modal and drag paths announce successful moves through
 
 ## Forms
 
+Sign-in, first-run setup, and password-change cards share `SIZES.authCardWidth`: at most 24rem,
+bounded by the viewport minus the medium spacing on each side. Narrow installed-app windows
+and 320px phones must not gain horizontal page scrolling.
+
 react-hook-form + `standardSchemaResolver` (`@hookform/resolvers`) consuming the core Zod
 schemas directly (Zod 4 implements Standard Schema). Deviation from ADR-016's
 `@mantine/form` + `mantine-form-zod-resolver` line: the task pinned react-hook-form, and

@@ -47,7 +47,7 @@ export const EMPHASIS_FONT_WEIGHT = 600
 /** One-off component dimensions (ADR-016 rule 1: defined here, consumed by import). */
 export const SIZES = {
   headerHeight: 56,
-  authCardWidth: '24rem',
+  authCardWidth: 'min(24rem, calc(100vw - 2 * var(--mantine-spacing-md)))',
   /** Brand logo height inside the sign-in / setup cards (a touch larger than the header mark). */
   authLogoHeight: '2.75rem',
   skeletonLaneHeaderHeight: '1.5rem',

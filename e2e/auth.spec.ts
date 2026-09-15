@@ -8,6 +8,19 @@ import { appVersionSchema } from '@rivian-kanban/core'
 
 /** Login/logout and the must-change-password interstitial (guide.md, ADR-009). */
 
+test('keeps the sign-in form inside narrow app windows', async ({ page }) => {
+  await page.goto('/login')
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeInViewport({
+      ratio: 1,
+    })
+    const card = await page.locator('.mantine-Paper-root').boundingBox()
+    expect(card?.x ?? Number.NaN).toBeGreaterThanOrEqual(0)
+    expect((card?.x ?? Number.NaN) + (card?.width ?? Number.NaN)).toBeLessThanOrEqual(width)
+  }
+})
+
 test('shows the live server version in About for a regular user', async ({ page, context }) => {
   await signIn(context, 'user')
   await page.goto('/settings')
