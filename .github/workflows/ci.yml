@@ -107,7 +107,15 @@ jobs:
             --build-arg BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" .
       - name: Smoke-boot the runtime image
         run: |
-          docker run -d --name app -p 3000:3000 -v rk-smoke-data:/data rivian-kanban
+          docker network create rk-smoke
+          docker run -d --name rk-smoke-postgres --network rk-smoke \
+            -e POSTGRES_USER=rivian -e POSTGRES_DB=rivian -e POSTGRES_PASSWORD=ci-smoke-password postgres:17-alpine
+          for i in $(seq 1 30); do
+            docker exec rk-smoke-postgres pg_isready -U rivian -d rivian && break
+            sleep 1
+          done
+          docker run -d --name app --network rk-smoke -p 3000:3000 -v rk-smoke-data:/data \
+            -e DATABASE_URL=postgres://rivian:ci-smoke-password@rk-smoke-postgres:5432/rivian rivian-kanban
           for i in $(seq 1 30); do
             curl -fsS http://localhost:3000/readyz >/dev/null 2>&1 && break
             sleep 1
@@ -118,9 +126,27 @@ jobs:
             --arg version "$(node -p 'require("./package.json").version')" \
             --arg sha "$GITHUB_SHA" '.version == $version and .gitSha == $sha'
           # Structural seed ran at boot; the break-glass CLI works in-image.
-          docker exec app npm run cli -- users create-admin --email ci-smoke@example.com
-          docker rm -f app
+          docker exec app node dist/cli.js users create-admin --email ci-smoke@example.com
+          admin_count="$(docker exec rk-smoke-postgres psql -U rivian -d rivian -tAc \
+            "SELECT count(*) FROM users WHERE email = 'ci-smoke@example.com'")"
+          test "$admin_count" = 1
+          docker rm -f app rk-smoke-postgres
           docker volume rm rk-smoke-data
+          docker network rm rk-smoke
+      - name: Scan the runtime image for known vulnerabilities
+        run: |
+          curl -sSfL https://github.com/aquasecurity/trivy/releases/download/v0.74.0/trivy_0.74.0_Linux-64bit.tar.gz -o trivy.tar.gz
+          echo '2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a  trivy.tar.gz' | sha256sum --check
+          tar -xzf trivy.tar.gz trivy
+          ./trivy image --scanners vuln --format json --output image-vulnerabilities.json rivian-kanban
+          ./trivy image --scanners vuln --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 rivian-kanban
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: image-vulnerabilities
+          path: image-vulnerabilities.json
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Publish tested image to GitHub Container Registry
         if: github.event_name == 'release' || (github.ref == 'refs/heads/main' && github.event_name != 'pull_request')
         env:

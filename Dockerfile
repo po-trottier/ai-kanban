@@ -1,14 +1,14 @@
 # syntax=docker/dockerfile:1
 # Production image (docs/architecture/deployment.md#image), three stages:
-#   build   — node:24 full: npm ci (scripts disabled) + explicit native rebuild
+#   build   — node:24-trixie full: npm ci (scripts disabled) + explicit native rebuild
 #             for linux, Vite SPA bundle, esbuild server bundle, and a minimal
 #             runtime node_modules holding ONLY the two native externals.
 #   test    — build + dev deps; `docker run` executes the full integration
 #             suite INSIDE the production build context (testing.md CI step 4:
 #             catches native-module drift between Windows dev and Linux prod).
-#   runtime — node:24-slim, non-root, production artifacts only.
+#   runtime — node:24-trixie-slim, non-root, production artifacts only.
 
-FROM node:24 AS build
+FROM node:24-trixie AS build
 WORKDIR /app
 
 # Workspace manifests first: npm ci layer caches until a manifest changes.
@@ -44,8 +44,16 @@ FROM build AS test
 ENV NODE_ENV=test CI=true
 CMD ["npx", "vitest", "run", "--project", "integration"]
 
-FROM node:24-slim AS runtime
+FROM node:24-trixie-slim AS runtime
 WORKDIR /app
+
+# Install available Debian security fixes and omit package managers from the
+# shipped runtime. The app and recovery CLI both run directly with node.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* /usr/local/lib/node_modules/npm \
+        /usr/local/lib/node_modules/corepack /opt/yarn-* \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+        /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 ENV NODE_ENV=production \
     PORT=3000 \
@@ -76,7 +84,7 @@ USER node
 VOLUME /data
 EXPOSE 3000
 
-# node:24-slim ships no curl; node's global fetch does the readiness probe.
+# node:24-trixie-slim ships no curl; node's global fetch does the readiness probe.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/readyz').then((r)=>process.exit(r.ok?0:1),()=>process.exit(1))"
 

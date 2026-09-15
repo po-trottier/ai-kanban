@@ -64,6 +64,11 @@ export class PgUserAccountRepository implements UserAccountRepository {
     return rows[0] === undefined ? null : toCredentials(rows[0])
   }
 
+  async findByIdForUpdate(id: string): Promise<UserCredentials | null> {
+    const rows = await this.db.select().from(users).where(eq(users.id, id)).for('update')
+    return rows[0] === undefined ? null : toCredentials(rows[0])
+  }
+
   /** Exact match on the stored Slack binding (docs/architecture/slack.md#identity-mapping). */
   async findBySlackUserId(slackUserId: string): Promise<UserCredentials | null> {
     const rows = await this.db

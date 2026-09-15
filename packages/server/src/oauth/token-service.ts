@@ -65,7 +65,16 @@ export class TokenService {
       }
       const refresh = await tx.oauthRefreshTokens.findByHash(tokenHash)
       if (refresh !== null && refresh.clientId === clientId) {
+        await tx.userAccounts.findByIdForUpdate(refresh.userId)
+        const current = await tx.oauthRefreshTokens.findByHash(tokenHash)
+        // A repeated revocation must not kill a newer authorization for this client.
+        if (
+          current?.revokedAt !== null ||
+          new Date(current.expiresAt).getTime() <= this.deps.clock.now().getTime()
+        )
+          return
         await tx.oauthRefreshTokens.revokeFamily(refresh.familyId)
+        await tx.oauthAccessTokens.revokeForClient(refresh.userId, clientId)
       }
     })
   }
@@ -79,38 +88,44 @@ export class TokenService {
   private async authorizationCodeGrant(request: unknown): Promise<TokenResponse> {
     const grant = tokenCodeGrantSchema.parse(request)
     const now = this.deps.clock.now()
-    // Burn the code FIRST, in its own committed transaction: a code is single-use
-    // on ANY exchange attempt (OAuth 2.1). If validation below fails and we
-    // throw, the burn must persist — otherwise a PKCE-failed attempt would leave
-    // the code replayable, turning the token endpoint into a verifier brute-force
-    // oracle. (Throwing inside one `run` ROLLs the consume back — see
-    // SqliteUnitOfWork — so consume and validate can't share a transaction.)
-    const code = await this.deps.uow.run((tx) =>
-      tx.oauthAuthorizationCodes.consume(sha256hex(grant.code)),
-    )
-    // Uniform `invalid_grant` across every failure — no oracle for which check
-    // tripped (consumed/absent vs expired vs wrong client vs bad verifier).
-    if (code === null) throw new OAuthError('invalid_grant', 'invalid or used authorization code')
-    if (new Date(code.expiresAt).getTime() <= now.getTime()) {
-      throw new OAuthError('invalid_grant', 'authorization code expired')
-    }
-    if (code.clientId !== grant.clientId || code.redirectUri !== grant.redirectUri) {
-      throw new OAuthError('invalid_grant', 'authorization code was issued to a different client')
-    }
-    if (!verifyPkce(grant.codeVerifier, code.codeChallenge)) {
-      throw new OAuthError('invalid_grant', 'PKCE verification failed')
-    }
-    // The audience is the CODE's (already canonical); it is the app's one /mcp.
-    return this.deps.uow.run((tx) =>
-      this.issue(tx, {
-        userId: code.userId,
-        clientId: code.clientId,
-        scope: code.scope,
-        resource: code.resource,
-        familyId: this.deps.ids.newId(),
-        now,
-      }),
-    )
+    // Consume and issue atomically with account revocation. Return protocol
+    // errors as values, then throw AFTER commit so failed PKCE still burns the
+    // code. Splitting consumption from issuance lets a reset run between them.
+    const result = await this.deps.uow.run(async (tx) => {
+      const pending = await tx.oauthAuthorizationCodes.findByHash(sha256hex(grant.code))
+      // Match reset's lock order (user, then grants), avoiding PostgreSQL deadlocks.
+      if (pending !== null) await tx.userAccounts.findByIdForUpdate(pending.userId)
+      const code = await tx.oauthAuthorizationCodes.consume(sha256hex(grant.code))
+      if (code === null)
+        return new OAuthError('invalid_grant', 'invalid or used authorization code')
+      if (new Date(code.expiresAt).getTime() <= now.getTime()) {
+        return new OAuthError('invalid_grant', 'authorization code expired')
+      }
+      if (code.clientId !== grant.clientId || code.redirectUri !== grant.redirectUri) {
+        return new OAuthError(
+          'invalid_grant',
+          'authorization code was issued to a different client',
+        )
+      }
+      if (!verifyPkce(grant.codeVerifier, code.codeChallenge)) {
+        return new OAuthError('invalid_grant', 'PKCE verification failed')
+      }
+      try {
+        return await this.issue(tx, {
+          userId: code.userId,
+          clientId: code.clientId,
+          scope: code.scope,
+          resource: code.resource,
+          familyId: this.deps.ids.newId(),
+          now,
+        })
+      } catch (error) {
+        if (error instanceof OAuthError) return error
+        throw error
+      }
+    })
+    if (result instanceof OAuthError) throw result
+    return result
   }
 
   /**
@@ -131,7 +146,12 @@ export class TokenService {
     // by rolling the revoke back with the error (throwing inside `run` discards
     // the whole transaction, which would leave the stolen family alive).
     const result = await this.deps.uow.run<TokenResponse | { reuse: true }>(async (tx) => {
-      const row = await tx.oauthRefreshTokens.findByHash(sha256hex(grant.refreshToken))
+      let row = await tx.oauthRefreshTokens.findByHash(sha256hex(grant.refreshToken))
+      if (row === null) throw new OAuthError('invalid_grant', 'invalid refresh token')
+      // Account changes lock this same row before revoking grants. Read the token
+      // again after acquiring it so a concurrent reset cannot be undone by rotation.
+      await tx.userAccounts.findByIdForUpdate(row.userId)
+      row = await tx.oauthRefreshTokens.findByHash(sha256hex(grant.refreshToken))
       if (row === null) throw new OAuthError('invalid_grant', 'invalid refresh token')
       if (row.revokedAt !== null || new Date(row.expiresAt).getTime() <= now.getTime()) {
         throw new OAuthError('invalid_grant', 'expired or revoked refresh token')
@@ -177,6 +197,10 @@ export class TokenService {
       now: Date
     },
   ): Promise<TokenResponse> {
+    const credentials = await tx.userAccounts.findByIdForUpdate(args.userId)
+    if (!credentials?.user.isActive || credentials.user.mustChangePassword) {
+      throw new OAuthError('invalid_grant', 'account credentials changed or account is unavailable')
+    }
     const { accessTokenTtlMs, refreshTokenTtlMs } = this.deps.config
     const nowIso = args.now.toISOString()
     const accessSecret = mintSecret(ACCESS_TOKEN_PREFIX)

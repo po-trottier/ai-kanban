@@ -11,7 +11,7 @@
 #                          # TRUST_PROXY, plus any Slack/summarizer secrets
 #   docker compose pull
 #   docker compose up -d
-#   docker compose exec app npm run cli -- users create-admin --email you@org.com
+#   docker compose exec app node dist/cli.js users create-admin --email you@org.com
 #
 # Backups: use standard Postgres tooling against the postgres service, e.g.
 #   docker compose exec postgres pg_dump -U rivian rivian > backup.sql

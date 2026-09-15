@@ -17,6 +17,7 @@ import {
 import { loadActivePolicy, manageUsersRoleKeys, roleExists } from '../authz.ts'
 import { LastActiveAdminError, RequestValidationError } from '../errors.ts'
 import { type PasswordHasher } from '../auth/password-hasher.ts'
+import { revokeUserCredentials } from '../auth/revoke-user-credentials.ts'
 
 /**
  * Admin users CRUD (docs/architecture/rest-api.md#auth--users). Gated by the
@@ -188,7 +189,7 @@ export class UserAdminService {
       const roleChanged = updated.role !== found.role
       const deactivated = found.isActive && !updated.isActive
       if (roleChanged || deactivated || passwordHash !== undefined) {
-        await tx.sessions.revokeOthersForUser(userId)
+        await revokeUserCredentials(tx, userId)
       }
       return updated
     })

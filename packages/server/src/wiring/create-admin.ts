@@ -8,6 +8,7 @@ import {
   type User,
 } from '@rivian-kanban/core'
 import { type PasswordHasher } from '../auth/password-hasher.ts'
+import { revokeUserCredentials } from '../auth/revoke-user-credentials.ts'
 
 /**
  * `users create-admin --email` (docs/architecture/deployment.md#bootstrap):
@@ -70,7 +71,7 @@ export async function createAdminUser(
     await uow.run(async (tx) => {
       await tx.userAccounts.update(user)
       await tx.userAccounts.setPassword(user.id, passwordHash, true)
-      await tx.sessions.revokeOthersForUser(user.id)
+      await revokeUserCredentials(tx, user.id)
     })
     return { user, tempPassword, created: false }
   }

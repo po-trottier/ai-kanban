@@ -1,6 +1,6 @@
 {
   "name": "@rivian-kanban/server",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "license": "Polyform-Strict-1.0.0",
   "type": "module",
@@ -19,8 +19,8 @@
     "@fastify/swagger": "9.8.1",
     "@fastify/under-pressure": "9.1.0",
     "@modelcontextprotocol/sdk": "1.29.0",
-    "@rivian-kanban/core": "1.0.1",
-    "@rivian-kanban/db": "1.0.1",
+    "@rivian-kanban/core": "1.0.2",
+    "@rivian-kanban/db": "1.0.2",
     "@slack/bolt": "4.7.3",
     "@slack/web-api": "7.19.0",
     "argon2": "0.44.0",

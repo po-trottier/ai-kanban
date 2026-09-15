@@ -60,6 +60,10 @@ export class AuthorizationService {
     ).toISOString()
 
     await this.deps.uow.run(async (tx) => {
+      const credentials = await tx.userAccounts.findByIdForUpdate(userId)
+      if (!credentials?.user.isActive || credentials.user.mustChangePassword) {
+        throw new OAuthError('access_denied', 'account must complete password setup')
+      }
       const client = await tx.oauthClients.findById(request.clientId)
       if (client === null) throw new OAuthError('invalid_client', 'unknown client')
       if (findMatchingRedirectUri(client.redirectUris, request.redirectUri) === null) {

@@ -56,6 +56,11 @@ const USER_ENTITY_COLUMNS = {
  * the `User` entity so response schemas can never carry it.
  */
 export class SqliteUserAccountRepository implements UserAccountRepository {
+  // SQLite's write unit of work already holds the single-writer lock.
+  findByIdForUpdate(id: string): Promise<UserCredentials | null> {
+    return this.findById(id)
+  }
+
   private readonly db: BetterSQLite3Database
 
   constructor(db: BetterSQLite3Database) {

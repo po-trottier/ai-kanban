@@ -16,6 +16,7 @@ import {
 import { type LoginBackoff } from './backoff.ts'
 import { type PasswordHasher } from './password-hasher.ts'
 import { passwordPolicyViolation } from './password-policy.ts'
+import { revokeUserCredentials } from './revoke-user-credentials.ts'
 
 /**
  * Session lifecycle constants (ADR-009, docs/architecture/security.md):
@@ -149,8 +150,16 @@ export class AuthService {
     backoff.reset(email)
 
     const { rawSessionId, session } = mintSession(credentials.user.id, clock.now())
-    await uow.run((tx) => tx.sessions.create(session))
-    return { user: credentials.user, rawSessionId }
+    const user = await uow.run(async (tx) => {
+      // Argon2 ran outside the transaction: a reset may have changed the hash.
+      const current = await tx.userAccounts.findByIdForUpdate(credentials.user.id)
+      if (!current?.user.isActive || current.passwordHash !== credentials.passwordHash) {
+        throw new InvalidCredentialsError()
+      }
+      await tx.sessions.create(session)
+      return current.user
+    })
+    return { user, rawSessionId }
   }
 
   /**
@@ -245,8 +254,18 @@ export class AuthService {
     const newHash = await hasher.hash(newPassword)
     const keepHash = sessionHashOf(rawSessionId)
     await uow.run(async (tx) => {
+      const current = await tx.userAccounts.findByIdForUpdate(userId)
+      const session = await tx.sessions.findByHash(keepHash)
+      if (
+        !current?.user.isActive ||
+        current.passwordHash !== credentials.passwordHash ||
+        session?.userId !== userId ||
+        session.expiresAt <= this.deps.clock.now().toISOString()
+      ) {
+        throw new CurrentPasswordMismatchError()
+      }
       await tx.userAccounts.setPassword(userId, newHash, false)
-      await tx.sessions.revokeOthersForUser(userId, keepHash)
+      await revokeUserCredentials(tx, userId, keepHash)
     })
   }
 

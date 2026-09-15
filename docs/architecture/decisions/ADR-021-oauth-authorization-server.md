@@ -241,10 +241,11 @@ Everything in `security.md` still applies; additions specific to OAuth:
 
 **Implementation note — burn/revoke must COMMIT, not roll back (phase-1 `TokenService`).** A
 `UnitOfWork.run` that throws ROLLs its whole transaction back (`SqliteUnitOfWork`). So the two
-single-use/anti-replay writes cannot share a transaction with the rejection they cause: (1) the
-authorization-code `consume` runs in its own committed transaction BEFORE PKCE/expiry/client
-validation, so a code is burned on ANY exchange attempt — a PKCE-failed retry finds nothing, closing
-the verifier-brute-force oracle; (2) refresh-token reuse detection commits the `revokeFamily` +
+single-use/anti-replay writes return protocol errors as values, throwing only AFTER commit:
+(1) authorization-code consumption, validation, and issuance share one transaction, so an
+account reset cannot run between consuming a code and issuing its tokens. A PKCE-failed retry
+still finds nothing because rejection commits the consumed code. Account rows are locked before
+grant rows in PostgreSQL, matching reset/revocation lock order; (2) refresh-token reuse detection commits the `revokeFamily` +
 access-token revoke and returns a "reuse" marker, and the `invalid_grant` is thrown AFTER the
 transaction commits — throwing inside it would roll the family revocation back and leave the stolen
 chain alive. Both paths have unit tests (`token-service.unit.test.ts`).

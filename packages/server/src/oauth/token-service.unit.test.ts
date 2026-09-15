@@ -1,6 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { FixedClock, InMemoryDb, SequentialIdGenerator } from '@rivian-kanban/core/testing'
+import {
+  FixedClock,
+  InMemoryDb,
+  SequentialIdGenerator,
+  userWith,
+} from '@rivian-kanban/core/testing'
 import { AuthorizationService } from './authorization-service.ts'
 import { canonicalMcpUri } from './canonical-uri.ts'
 import { DEFAULT_OAUTH_TTLS, type OAuthConfig } from './oauth-config.ts'
@@ -46,6 +51,18 @@ interface Harness {
 
 async function harness(): Promise<Harness> {
   const db = new InMemoryDb()
+  await db.run((tx) =>
+    tx.userAccounts.insert(
+      userWith({
+        id: USER_ID,
+        email: 'oauth@test.example',
+        displayName: 'Operator',
+        role: 'user',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+      'test-password-hash',
+    ),
+  )
   const clock = new FixedClock()
   const ids = new SequentialIdGenerator()
   const config = makeConfig()
@@ -214,6 +231,33 @@ describe('TokenService — authorization_code grant', () => {
 })
 
 describe('TokenService — refresh_token grant', () => {
+  it('does not let an expired refresh token revoke a newer authorization', async () => {
+    // Arrange
+    const h = await harness()
+    const expired = await issueRefresh(h)
+    for (let day = 0; day < 46; day += 1) h.clock.advanceDays(1)
+    const { code, verifier } = await h.freshCode()
+    const fresh = await h.tokens.token({
+      grantType: 'authorization_code',
+      code,
+      codeVerifier: verifier,
+      clientId: h.clientId,
+      redirectUri: REDIRECT_URI,
+      resource: h.config.canonicalMcpUri,
+    })
+
+    // Act
+    await h.tokens.revoke(expired, h.clientId)
+    const stored = await h.db.read((tx) =>
+      tx.oauthAccessTokens.findByHash(
+        createHash('sha256').update(fresh.access_token).digest('hex'),
+      ),
+    )
+
+    // Assert
+    expect(stored?.revokedAt).toBeNull()
+  })
+
   /** Runs the code grant and returns the issued refresh token. */
   async function issueRefresh(h: Harness): Promise<string> {
     const { code, verifier } = await h.freshCode()

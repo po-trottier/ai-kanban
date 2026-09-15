@@ -1,5 +1,5 @@
 import { SystemClock } from '@rivian-kanban/core'
-import { openDatabase, structuralSeed, SqliteUnitOfWork } from '@rivian-kanban/db'
+import { createDataLayer } from '@rivian-kanban/db'
 import { PasswordHasher } from './auth/password-hasher.ts'
 import { parseEnv } from './env.ts'
 import { ActiveAdminExistsError, createAdminUser } from './wiring/create-admin.ts'
@@ -7,7 +7,7 @@ import { ActiveAdminExistsError, createAdminUser } from './wiring/create-admin.t
 /**
  * Operational CLI (docs/architecture/deployment.md#bootstrap):
  *
- *   npm run cli -- users create-admin --email you@org.com [--force]
+ *   node dist/cli.js users create-admin --email you@org.com [--force]
  *
  * Prints a one-time temp password (`must_change_password` set). Refuses when
  * an active admin already exists unless --force — the same command is the
@@ -15,7 +15,7 @@ import { ActiveAdminExistsError, createAdminUser } from './wiring/create-admin.t
  */
 
 function usage(): never {
-  console.error('usage: npm run cli -- users create-admin --email <email> [--force]')
+  console.error('usage: node dist/cli.js users create-admin --email <email> [--force]')
   process.exit(2)
 }
 
@@ -27,12 +27,17 @@ if (email?.includes('@') !== true) usage()
 const force = args.includes('--force')
 
 const env = parseEnv()
-const connection = openDatabase(env.DATABASE_PATH, env.MIGRATIONS_DIR)
+const dataLayer = await createDataLayer({
+  databaseUrl: env.DATABASE_URL,
+  databasePath: env.DATABASE_PATH,
+  sqliteMigrationsDir: env.MIGRATIONS_DIR,
+  pgMigrationsDir: env.MIGRATIONS_DIR === undefined ? undefined : `${env.MIGRATIONS_DIR}/pg`,
+})
 try {
-  const { systemUserId } = structuralSeed(connection.db)
+  const { systemUserId, uow } = dataLayer
   const result = await createAdminUser(
     {
-      uow: new SqliteUnitOfWork(connection),
+      uow,
       clock: new SystemClock(),
       hasher: new PasswordHasher(),
       systemUserId,
@@ -46,9 +51,10 @@ try {
 } catch (error) {
   if (error instanceof ActiveAdminExistsError) {
     console.error(error.message)
-    process.exit(1)
+    process.exitCode = 1
+  } else {
+    throw error
   }
-  throw error
 } finally {
-  connection.close()
+  await dataLayer.close()
 }

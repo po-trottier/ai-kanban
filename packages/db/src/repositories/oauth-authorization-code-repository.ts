@@ -38,4 +38,18 @@ export class SqliteOAuthAuthorizationCodeRepository implements OAuthAuthorizatio
       .get()
     return Promise.resolve(row ?? null)
   }
+
+  findByHash(codeHash: string): Promise<OAuthAuthorizationCode | null> {
+    const row = this.db
+      .select()
+      .from(oauthAuthorizationCodes)
+      .where(eq(oauthAuthorizationCodes.codeHash, codeHash))
+      .get()
+    return Promise.resolve(row ?? null)
+  }
+
+  revokeForUser(userId: string): Promise<void> {
+    this.db.delete(oauthAuthorizationCodes).where(eq(oauthAuthorizationCodes.userId, userId)).run()
+    return Promise.resolve()
+  }
 }

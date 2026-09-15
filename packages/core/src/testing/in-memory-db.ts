@@ -597,6 +597,10 @@ class InMemoryUserRepository implements UserRepository {
 }
 
 class InMemoryUserAccountRepository implements UserAccountRepository {
+  findByIdForUpdate(id: string): Promise<UserCredentials | null> {
+    return this.findById(id)
+  }
+
   private readonly state: DbState
 
   constructor(state: DbState) {
@@ -806,6 +810,11 @@ class InMemoryOAuthClientRepository implements OAuthClientRepository {
 }
 
 class InMemoryOAuthAuthorizationCodeRepository implements OAuthAuthorizationCodeRepository {
+  findByHash(codeHash: string): Promise<OAuthAuthorizationCode | null> {
+    return Promise.resolve(
+      clone(this.state.oauthAuthorizationCodes.find((row) => row.codeHash === codeHash) ?? null),
+    )
+  }
   private readonly state: DbState
 
   constructor(state: DbState) {
@@ -814,6 +823,13 @@ class InMemoryOAuthAuthorizationCodeRepository implements OAuthAuthorizationCode
 
   insert(code: OAuthAuthorizationCode): Promise<void> {
     this.state.oauthAuthorizationCodes.push(clone(code))
+    return Promise.resolve()
+  }
+
+  revokeForUser(userId: string): Promise<void> {
+    this.state.oauthAuthorizationCodes = this.state.oauthAuthorizationCodes.filter(
+      (row) => row.userId !== userId,
+    )
     return Promise.resolve()
   }
 
@@ -827,6 +843,13 @@ class InMemoryOAuthAuthorizationCodeRepository implements OAuthAuthorizationCode
 }
 
 class InMemoryOAuthAccessTokenRepository implements OAuthAccessTokenRepository {
+  revokeForClient(userId: string, clientId: string): Promise<void> {
+    const now = new Date().toISOString()
+    for (const token of this.state.oauthAccessTokens) {
+      if (token.userId === userId && token.clientId === clientId) token.revokedAt ??= now
+    }
+    return Promise.resolve()
+  }
   private readonly state: DbState
 
   constructor(state: DbState) {

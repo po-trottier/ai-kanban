@@ -85,7 +85,7 @@ async function authenticateAccessToken(deps: BearerDeps, rawToken: string): Prom
   })
 
   // Unknown token, or an operator that is gone/deactivated → uniform 401.
-  if (token === null || !user?.isActive) {
+  if (token === null || !user?.isActive || user.mustChangePassword) {
     throw reject(deps)
   }
   if (

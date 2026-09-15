@@ -10,6 +10,20 @@ import { oauthAccessTokens } from '../schema.ts'
  * timestamps — so every `/mcp` request is one indexed hash lookup (like sessions).
  */
 export class SqliteOAuthAccessTokenRepository implements OAuthAccessTokenRepository {
+  revokeForClient(userId: string, clientId: string): Promise<void> {
+    this.db
+      .update(oauthAccessTokens)
+      .set({ revokedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(oauthAccessTokens.userId, userId),
+          eq(oauthAccessTokens.clientId, clientId),
+          isNull(oauthAccessTokens.revokedAt),
+        ),
+      )
+      .run()
+    return Promise.resolve()
+  }
   private readonly db: BetterSQLite3Database
 
   constructor(db: BetterSQLite3Database) {

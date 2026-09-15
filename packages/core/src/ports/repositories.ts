@@ -219,6 +219,8 @@ export interface UserAccountRepository {
   findBySlackUserId(slackUserId: string): Promise<UserCredentials | null>
   /** Lookup by id, hash included (change-password verifies the current one). */
   findById(id: string): Promise<UserCredentials | null>
+  /** Lock the account until transaction commit, serializing credential issuance with resets. */
+  findByIdForUpdate(id: string): Promise<UserCredentials | null>
   /** Every user, active and inactive (admin management, last-admin guard). */
   list(): Promise<User[]>
   /**
@@ -308,6 +310,9 @@ export interface OAuthClientRepository {
  */
 export interface OAuthAuthorizationCodeRepository {
   insert(code: OAuthAuthorizationCode): Promise<void>
+  findByHash(codeHash: string): Promise<OAuthAuthorizationCode | null>
+  /** Delete pending grants when the user's credentials or permissions change. */
+  revokeForUser(userId: string): Promise<void>
   /**
    * Atomic single-use redemption: delete the row matching `codeHash` and return
    * it, or null if no row matched (absent or already consumed). Delete-returning
@@ -331,6 +336,8 @@ export interface OAuthAccessTokenRepository {
   revoke(id: string): Promise<void>
   /** Revokes every access token of the user (logout/deactivate/role-change). */
   revokeForUser(userId: string): Promise<void>
+  /** Revokes this user's access tokens for a client when its refresh grant is revoked. */
+  revokeForClient(userId: string, clientId: string): Promise<void>
 }
 
 /**

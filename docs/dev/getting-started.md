@@ -78,7 +78,7 @@ For private-package login and pinning a commit with `IMAGE_TAG`, see
 Then open the app in a browser: the first boot shows the **setup page**, which creates the
 first admin account (see
 [deployment.md#bootstrap](../architecture/deployment.md#bootstrap-first-production-deployment)).
-The `docker compose exec app npm run cli -- users create-admin --email you@org.com` command
+The `docker compose exec app node dist/cli.js users create-admin --email you@org.com` command
 remains as break-glass recovery if every admin is ever locked out.
 
 The SPA, REST API, MCP mount, and SSE all serve from port 3000; Prometheus metrics live on the
@@ -131,7 +131,7 @@ React (react.dev) and Fastify (fastify.dev) publish only standard HTML docs — 
 Run `npm run dev`, log in as the seeded admin, and create a token in **Settings → Service
 tokens** (pick `read` unless the agent needs writes). Connect any MCP client (Streamable HTTP)
 to `http://localhost:3000/mcp` with that bearer token. The only CLI is the break-glass
-admin recovery (`npm run cli -- users create-admin`, see
+admin recovery (`node dist/cli.js users create-admin`, see
 [deployment.md](../architecture/deployment.md#bootstrap-first-production-deployment)) — dev
 doesn't need it because the demo seed includes an admin, and a fresh production database
 creates its first admin through the browser setup page.

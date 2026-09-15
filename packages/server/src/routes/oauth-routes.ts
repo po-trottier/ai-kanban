@@ -1,6 +1,7 @@
 import { parse as parseQuery } from 'node:querystring'
 import { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
 import { OAuthError } from '../oauth/oauth-errors.ts'
+import { MustChangePasswordError } from '../errors.ts'
 import {
   consentCsrfToken,
   renderConsentPage,
@@ -107,6 +108,7 @@ export function oauthRoutes(deps: AppDeps) {
       const rawSessionId = rawSessionIdOf(request, nodeEnv)
       if (rawSessionId === undefined || rawSessionId === '') return null
       const user = await deps.services.auth.authenticate(rawSessionId)
+      if (user?.mustChangePassword) throw new MustChangePasswordError()
       return user === null ? null : { user, rawSessionId }
     }
 

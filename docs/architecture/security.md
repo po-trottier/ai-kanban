@@ -6,6 +6,19 @@ Slack and summarizer-LLM calls. Every control below is enforced by code or CI, n
 
 ## Authentication
 
+OAuth credentials follow the same account restrictions as browser sessions. Password changes,
+admin password resets, role changes, deactivation, and break-glass recovery revoke all of the
+user's OAuth access/refresh tokens and pending codes in the account update's transaction.
+The current browser session survives a self-service password change. OAuth consent and token
+issuance reject inactive users and users who must change their temporary password; MCP checks
+these restrictions on every request. Code consumption and issuance share one transaction,
+and issuance locks the account row against concurrent resets in PostgreSQL.
+Loopback callback matching ignores only the port; queries, fragments, and user information
+must still match the registered callback.
+Revoking a refresh token revokes its refresh family and this user's access tokens for the
+same client immediately. Other clients are unaffected; other sessions of that same client
+may need to refresh their access tokens.
+
 - **Web**: email + password (argon2id, per-user salt, tuned params) → server-side session:
   256-bit random id, stored **sha256-hashed** (the cookie is the only place the raw id exists),
   httpOnly + Secure + SameSite=Lax cookie, named `__Host-sid` in production (the `__Host-`
@@ -159,6 +172,13 @@ is Litestream's continuous off-host replication — already-shipped WAL history 
 rewritten retroactively. Event hash-chaining is a noted Postgres-era hardening option.
 
 ## Dependency & supply chain
+
+CI scans the complete runtime image with Trivy before publication and fails on HIGH/CRITICAL
+findings with available fixes. The `image-vulnerabilities` Actions artifact retains the full
+report, including unfixed and lower-severity findings. A green build does not mean zero known
+vulnerabilities: Debian may defer or not yet provide fixes. Review the full report when
+deploying, keep the host and reverse proxy patched, and rebuild for base-image updates.
+The runtime installs available Debian updates and omits npm, Corepack, and Yarn.
 
 Exact-pinned versions (`save-exact`), lockfile committed, `npm ci` only in CI, GitHub Actions
 SHA-pinned, no postinstall scripts from untrusted packages (`ignore-scripts` + explicit

@@ -41,6 +41,23 @@ describe('isLoopbackRedirectUri', () => {
 })
 
 describe('redirectUriMatches', () => {
+  it('rejects loopback changes other than the port', () => {
+    // Arrange
+    const registered = 'http://127.0.0.1:1111/cb?tenant=trusted'
+    const candidates = [
+      'http://127.0.0.1:2222/cb?tenant=attacker',
+      'http://127.0.0.1:2222/cb?tenant=trusted#fragment',
+      'http://attacker@127.0.0.1:2222/cb?tenant=trusted',
+    ]
+
+    // Act
+    const results = candidates.map((uri) => redirectUriMatches(registered, uri))
+
+    // Assert
+    expect(results).toEqual([false, false, false])
+    expect(redirectUriMatches(registered, 'http://127.0.0.1:2222/cb?tenant=trusted')).toBe(true)
+  })
+
   it('matches an https callback only byte-exact', () => {
     // Arrange
     const registered = 'https://app.example/cb'

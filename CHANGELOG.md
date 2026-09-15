@@ -7,8 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-09-14
+
+### Security
+
+- Reject login/password-change attempts whose verified credentials became stale during a
+  concurrent account reset, preventing old passwords from surviving recovery.
+- Revoke OAuth access tokens, refresh tokens, and pending authorization codes on password
+  changes, administrator resets, role changes, deactivation, and break-glass recovery.
+  Reject OAuth consent, token issuance, and MCP access while a password change is required.
+- Revoke a client's access tokens when its refresh grant is revoked, while keeping other
+  clients connected and making repeated or expired revocations harmless.
+- Require loopback OAuth callbacks to preserve every component except the ephemeral port.
+- Update the runtime to Debian Trixie with available security updates and remove unused
+  npm/Yarn tooling. CI now scans the runtime image, blocks fixable high/critical findings,
+  and retains the complete report including findings without vendor fixes.
+
 ### Fixed
 
+- Make the administrator recovery CLI honor `DATABASE_URL`, so PostgreSQL deployments
+  recover the live account instead of creating an administrator in an unused SQLite file.
+- Submit the OAuth consent form using the field names accepted by the authorization endpoint.
+- Document Arcane environment configuration and Cloudflare Tunnel through a separate VM.
 - Clarify that the published GHCR image supports anonymous pulls; registry login is only
   needed for private packages.
 
@@ -215,5 +235,7 @@ Initial release.
 - Immutable, append-only audit trail (no updates or deletes on events; PII removal via tombstones)
   preserving a tamper-evident record of every change
 
-[Unreleased]: https://github.com/po-trottier/ai-kanban/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/po-trottier/ai-kanban/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/po-trottier/ai-kanban/releases/tag/v1.0.2
+[1.0.1]: https://github.com/po-trottier/ai-kanban/releases/tag/v1.0.1
 [1.0.0]: https://github.com/po-trottier/ai-kanban/releases/tag/v1.0.0

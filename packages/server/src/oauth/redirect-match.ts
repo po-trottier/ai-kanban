@@ -20,9 +20,10 @@ export function isLoopbackRedirectUri(uri: string): boolean {
   return url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname)
 }
 
-/** A loopback URI reduced to `http://<host><path>` (port + query + hash dropped). */
+/** Ignore only the ephemeral port; preserve every other callback component. */
 function loopbackKey(url: URL): string {
-  return `http://${url.hostname}${url.pathname}`
+  url.port = ''
+  return url.href
 }
 
 /**

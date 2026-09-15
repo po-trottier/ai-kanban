@@ -75,12 +75,12 @@ export function renderConsentPage(args: {
 }): string {
   const { clientName, scope, csrfToken, params } = args
   const hidden = [
-    hiddenInput('clientId', params.clientId),
-    hiddenInput('redirectUri', params.redirectUri),
+    hiddenInput('client_id', params.clientId),
+    hiddenInput('redirect_uri', params.redirectUri),
     hiddenInput('resource', params.resource),
     hiddenInput('scope', params.scope),
-    hiddenInput('codeChallenge', params.codeChallenge),
-    hiddenInput('codeChallengeMethod', params.codeChallengeMethod),
+    hiddenInput('code_challenge', params.codeChallenge),
+    hiddenInput('code_challenge_method', params.codeChallengeMethod),
     hiddenInput('state', params.state),
     hiddenInput('csrf', csrfToken),
   ].join('\n      ')

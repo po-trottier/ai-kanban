@@ -1,6 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { FixedClock, InMemoryDb, SequentialIdGenerator } from '@rivian-kanban/core/testing'
+import {
+  FixedClock,
+  InMemoryDb,
+  SequentialIdGenerator,
+  userWith,
+} from '@rivian-kanban/core/testing'
 import { AuthorizationService } from './authorization-service.ts'
 import { canonicalMcpUri } from './canonical-uri.ts'
 import { DEFAULT_OAUTH_TTLS, type OAuthConfig } from './oauth-config.ts'
@@ -16,6 +21,18 @@ function config(): OAuthConfig {
 
 async function harness() {
   const db = new InMemoryDb()
+  await db.run((tx) =>
+    tx.userAccounts.insert(
+      userWith({
+        id: USER_ID,
+        email: 'oauth@test.example',
+        displayName: 'Operator',
+        role: 'user',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+      'test-password-hash',
+    ),
+  )
   const clock = new FixedClock()
   const ids = new SequentialIdGenerator()
   const cfg = config()

@@ -6,6 +6,18 @@ import { type PgDb } from '../database.ts'
 
 /** Opaque, sha256-hashed OAuth access tokens (ADR-021) — pg twin. */
 export class PgOAuthAccessTokenRepository implements OAuthAccessTokenRepository {
+  async revokeForClient(userId: string, clientId: string): Promise<void> {
+    await this.db
+      .update(oauthAccessTokens)
+      .set({ revokedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(oauthAccessTokens.userId, userId),
+          eq(oauthAccessTokens.clientId, clientId),
+          isNull(oauthAccessTokens.revokedAt),
+        ),
+      )
+  }
   private readonly db: PgDb
 
   constructor(db: PgDb) {

@@ -11,6 +11,7 @@
  * attacker can't distinguish which check failed (no oracle).
  */
 export type OAuthErrorCode =
+  | 'access_denied'
   | 'invalid_request'
   | 'invalid_client'
   | 'invalid_grant'

@@ -42,6 +42,37 @@ docker compose
 
 ## Bootstrap (first production deployment)
 
+### Cloudflare Tunnel on a separate VM
+
+Set `PUBLIC_BASE_URL` to the public HTTPS origin (for example, `https://rivian.p-o.me`).
+Set `TRUST_PROXY` to the private IP of the VM running `cloudflared`, with `/32` for one IPv4
+address (for example, `192.168.1.50/32`). This assumes routing preserves that VM's source IP;
+if there is NAT or another reverse proxy, use the actual proxy source address seen by the app.
+Do not use `loopback`, the Proxmox host's IP, or Cloudflare's public IP ranges for this topology.
+
+In the tunnel's published application route, point the hostname at
+`http://<app-VM-private-IP>:3000`. Add a Cloudflare Access policy for the hostname and restrict
+the app VM's port 3000 to the connector VM, including traffic forwarded through Docker.
+This prevents direct access around the Access policy. Cloudflare Access is an outer gate;
+the app's own login remains required. Cloudflare supplies the visitor's forwarded IP headers
+([header reference](https://developers.cloudflare.com/fundamentals/reference/http-headers/)).
+
+Open the public **HTTPS** hostname in the browser. Port 3000 serves plain HTTP to the
+connector; `PUBLIC_BASE_URL` does not enable TLS there. Opening the production UI directly at
+`http://<app-VM-IP>:3000` can fail to load CSS/JavaScript because the security policy upgrades
+asset requests to HTTPS (`ERR_SSL_PROTOCOL_ERROR`). Keep the tunnel's origin service on HTTP
+and use the HTTPS hostname for the UI. The `/readyz` HTTP endpoint remains useful for origin checks.
+
+### Start the stack
+
+For Arcane, paste `docker-compose.yml` into a new project and enter the settings below in
+its **Environment Configuration (.env)** editor. Keep the existing `env_file` block;
+Arcane saves the project `.env` beside the Compose file. `required: false` permits a missing
+file but does not supply defaults for required settings such as `POSTGRES_PASSWORD`.
+Use the project editor for these values; global interpolation variables alone are not
+automatically injected into the app container
+([Arcane projects](https://getarcane.app/docs/features/projects#create-a-project)).
+
 ```bash
 git clone https://github.com/po-trottier/ai-kanban.git rivian-kanban
 cd rivian-kanban
@@ -96,14 +127,20 @@ curl --fail http://localhost:3000/version
 
 The CLI remains as **break-glass recovery** when every admin is locked out (setup never
 reopens — deactivated users still count as existing):
-`docker compose exec app npm run cli -- users create-admin --email you@org.com`
+`docker compose exec app node dist/cli.js users create-admin --email you@org.com`
 — prints a one-time temp password (`must_change_password` set; first login forces a change).
 
 ## Image
 
 Multi-stage Dockerfile: build stage compiles TS + Vite bundle and rebuilds native modules
-(better-sqlite3, argon2) for linux; runtime stage is `node:24-slim`, non-root user, only
+(better-sqlite3, argon2) for linux; runtime stage is `node:24-trixie-slim`, non-root user, only
 production deps and built artifacts. `HEALTHCHECK` hits `/readyz`.
+
+The runtime installs available Debian security updates and excludes npm, Corepack, and Yarn.
+Use `node dist/cli.js` for recovery commands. CI tests that the CLI writes to the same
+PostgreSQL database as the app, scans the image before publishing it, and retains a full
+`image-vulnerabilities` report. Fixable HIGH/CRITICAL findings block publication; unfixed
+vendor findings remain visible in that report (see [security](security.md#dependency--supply-chain)).
 
 Because native-module prebuilds differ between Windows dev and Linux prod, **CI builds this
 image and runs the full integration suite inside it** — a Node bump cannot pass locally and

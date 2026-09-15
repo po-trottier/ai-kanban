@@ -34,4 +34,16 @@ export class PgOAuthAuthorizationCodeRepository implements OAuthAuthorizationCod
       .returning()
     return deleted[0] ?? null
   }
+
+  async findByHash(codeHash: string): Promise<OAuthAuthorizationCode | null> {
+    const rows = await this.db
+      .select()
+      .from(oauthAuthorizationCodes)
+      .where(eq(oauthAuthorizationCodes.codeHash, codeHash))
+    return rows[0] ?? null
+  }
+
+  async revokeForUser(userId: string): Promise<void> {
+    await this.db.delete(oauthAuthorizationCodes).where(eq(oauthAuthorizationCodes.userId, userId))
+  }
 }
