@@ -251,6 +251,7 @@ describe('the app factory used by production wiring', () => {
     const app = await buildApp(wired.deps)
     try {
       const version = await app.inject({ method: 'GET', url: '/version' })
+      expect(version.headers['cache-control']).toBe('no-store')
       expect(version.json()).toEqual({
         version: '1.2.3',
         gitSha: 'abc123',

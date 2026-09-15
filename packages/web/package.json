@@ -1,6 +1,6 @@
 {
   "name": "@rivian-kanban/web",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "license": "Polyform-Strict-1.0.0",
   "type": "module",
@@ -20,7 +20,7 @@
     "@mantine/hooks": "9.4.1",
     "@mantine/notifications": "9.4.1",
     "@mantine/tiptap": "9.4.1",
-    "@rivian-kanban/core": "1.0.3",
+    "@rivian-kanban/core": "1.0.4",
     "@tanstack/react-query": "5.101.2",
     "@tiptap/extension-link": "3.31.3",
     "@tiptap/pm": "3.31.3",

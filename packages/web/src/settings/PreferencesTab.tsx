@@ -1,8 +1,22 @@
-import { Center, Input, SegmentedControl, Select, Stack } from '@mantine/core'
-import { Monitor, Moon, Save, Sun } from 'lucide-react'
+import {
+  Alert,
+  Button,
+  Center,
+  Divider,
+  Group,
+  Input,
+  SegmentedControl,
+  Select,
+  Stack,
+  Text,
+  Title,
+} from '@mantine/core'
+import { Monitor, Moon, RefreshCw, Save, Sun } from 'lucide-react'
 import { THEMES, type Theme } from '@rivian-kanban/core'
 import { useState } from 'react'
 import { useUpdateProfile } from '../api/auth.ts'
+import { useAppVersion } from '../api/meta.ts'
+import { formatDateTime } from '../lib/format.ts'
 import { notifyError, notifySuccess } from '../api/notify.ts'
 import { useCurrentUser } from '../auth/session-context.ts'
 import { HintButton } from '../shell/HintButton.tsx'
@@ -36,6 +50,7 @@ const THEME_SELECT_DATA = THEMES.map((value) => {
 export function PreferencesTab() {
   const me = useCurrentUser()
   const update = useUpdateProfile()
+  const build = useAppVersion()
   const [timezone, setTimezone] = useState(me.timezone)
   const [theme, setTheme] = useState<Theme>(me.theme)
 
@@ -86,6 +101,53 @@ export function PreferencesTab() {
       >
         {strings.common.save}
       </HintButton>
+      <Divider />
+      <Stack gap="xs" component="section" aria-label={strings.about.title}>
+        <Group justify="space-between">
+          <Title order={3}>{strings.about.title}</Title>
+          <Button
+            variant="subtle"
+            size="xs"
+            loading={build.isFetching}
+            leftSection={<RefreshCw size={16} aria-hidden />}
+            onClick={() => {
+              void build.refetch()
+            }}
+          >
+            {strings.about.refresh}
+          </Button>
+        </Group>
+        <Text size="sm" c="dimmed">
+          {strings.about.description}
+        </Text>
+        <div aria-live="polite">
+          {build.isError ? (
+            <Alert color="red">{strings.about.failed}</Alert>
+          ) : build.isFetching ? (
+            <Text size="sm">{strings.about.loading}</Text>
+          ) : build.data ? (
+            <Stack gap="xs">
+              <Text size="sm">
+                {strings.about.version}:{' '}
+                <Text component="span" fw={600}>
+                  {build.data.version === 'dev' ? strings.about.development : build.data.version}
+                </Text>
+              </Text>
+              <Text size="sm">
+                {strings.about.revision}:{' '}
+                <Text component="span" title={build.data.gitSha}>
+                  {build.data.gitSha.slice(0, 12)}
+                </Text>
+              </Text>
+              {Number.isFinite(Date.parse(build.data.builtAt)) ? (
+                <Text size="sm">
+                  {strings.about.builtAt}: {formatDateTime(build.data.builtAt, me.timezone)}
+                </Text>
+              ) : null}
+            </Stack>
+          ) : null}
+        </div>
+      </Stack>
     </Stack>
   )
 }

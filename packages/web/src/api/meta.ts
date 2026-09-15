@@ -9,6 +9,17 @@ import {
   usersResponseSchema,
 } from './schemas.ts'
 
+/** Read the running build each time Preferences opens or the user refreshes. */
+export function useAppVersion() {
+  const api = useApi()
+  return useQuery({
+    queryKey: queryKeys.appVersion,
+    queryFn: () => api.getVersion(),
+    staleTime: 0,
+    retry: false,
+  })
+}
+
 /** Active users for avatar/name lookups (board cards, comments, history). */
 export function useUsers() {
   const api = useApi()

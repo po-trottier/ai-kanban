@@ -42,11 +42,23 @@ test('keeps filters on one scrollable row from mobile to wide desktop', async ({
       const box = await bar.boundingBox()
       expect((box?.x ?? Number.NaN) + (box?.width ?? Number.NaN)).toBeLessThanOrEqual(width)
     }).toPass({ timeout: 3000 })
+    const scrollbar = bar.locator('.mantine-ScrollArea-scrollbar[data-orientation="horizontal"]')
+    await expect(scrollbar).toBeVisible({ visible: width !== 2560 })
   }
 
   await page.setViewportSize({ width: 390, height: 900 })
   const queryStart = (await query.boundingBox())?.x ?? Number.NaN
-  await bar.getByRole('button', { name: 'Scroll filters right' }).click()
+  const thumb = bar.locator('.mantine-ScrollArea-thumb')
+  await expect(thumb).toBeVisible()
+  await bar.screenshot({ path: 'e2e/screenshots/filters-scrollbar-mobile.png' })
+  const thumbBox = await thumb.boundingBox()
+  expect(thumbBox).not.toBeNull()
+  const thumbX = (thumbBox?.x ?? Number.NaN) + (thumbBox?.width ?? Number.NaN) / 2
+  const thumbY = (thumbBox?.y ?? Number.NaN) + (thumbBox?.height ?? Number.NaN) / 2
+  await page.mouse.move(thumbX, thumbY)
+  await page.mouse.down()
+  await page.mouse.move(thumbX + 100, thumbY, { steps: 5 })
+  await page.mouse.up()
   await expect(async () => {
     expect((await query.boundingBox())?.x ?? Number.NaN).toBeLessThan(queryStart)
   }).toPass({ timeout: 3000 })
@@ -63,7 +75,7 @@ test('keeps filters on one scrollable row from mobile to wide desktop', async ({
   await expect(reset).toBeFocused()
   await expect(reset).toBeInViewport({ ratio: 1 })
   const resetBox = await reset.boundingBox()
-  const scrollBox = await bar.locator('.mantine-Scroller-container').boundingBox()
+  const scrollBox = await bar.locator('.mantine-ScrollArea-viewport').boundingBox()
   // Mantine's 2px outline + 2px offset must fit inside the scrolling viewport.
   expect((resetBox?.y ?? Number.NaN) - (scrollBox?.y ?? Number.NaN)).toBeGreaterThanOrEqual(4)
   expect(
@@ -84,11 +96,6 @@ test('keeps filters on one scrollable row from mobile to wide desktop', async ({
   await page.keyboard.press('ArrowRight')
   await expect(overdue.getByRole('radio', { name: 'Overdue', exact: true })).toBeChecked()
   await expect(overdue.getByText('Overdue', { exact: true })).toBeInViewport({ ratio: 1 })
-  const overdueBox = await overdue.getByText('Overdue', { exact: true }).boundingBox()
-  const arrowBox = await bar.getByRole('button', { name: 'Scroll filters right' }).boundingBox()
-  expect((overdueBox?.x ?? Number.NaN) + (overdueBox?.width ?? Number.NaN)).toBeLessThanOrEqual(
-    (arrowBox?.x ?? Number.NaN) + 1,
-  )
 })
 
 test('narrows the board to a seeded card by a text-query substring', async ({ page, context }) => {

@@ -1,6 +1,7 @@
 import { type FastifyInstance } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
+import { appVersionSchema } from '@rivian-kanban/core'
 import { type AppDeps } from '../types.ts'
 
 /**
@@ -49,11 +50,14 @@ export function operationalRoutes(deps: AppDeps) {
       {
         schema: {
           response: {
-            200: z.object({ version: z.string(), gitSha: z.string(), builtAt: z.string() }),
+            200: appVersionSchema,
           },
         },
       },
-      () => deps.config.version,
+      (_request, reply) => {
+        reply.header('Cache-Control', 'no-store')
+        return deps.config.version
+      },
     )
   }
 }

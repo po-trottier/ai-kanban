@@ -1,6 +1,13 @@
 import { z } from 'zod'
 import { cardSchema, userSchema, type Card } from './entities.ts'
 
+/** Public build identity shared by the operational endpoint and Settings. */
+export const appVersionSchema = z.object({
+  version: z.string(),
+  gitSha: z.string(),
+  builtAt: z.string(),
+})
+
 /**
  * Read-envelope layouts shared by every surface (single-schema rule,
  * docs/dev/standards.md): the cursor page, the board snapshot, the

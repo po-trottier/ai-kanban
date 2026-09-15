@@ -10,14 +10,15 @@
 }
 
 .scrollContent {
+  display: flex;
+  inline-size: max-content;
   min-inline-size: 100%;
   /* Leave room for Mantine's keyboard focus outline inside the scroll clip. */
   padding: calc(var(--mantine-spacing-xs) / 2);
 }
 
 .scrollContainer {
-  user-select: auto;
-  scroll-padding-inline: var(--scroller-control-size);
+  scroll-padding-inline: calc(var(--mantine-spacing-xs) / 2);
 }
 
 .row {

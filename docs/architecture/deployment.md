@@ -109,7 +109,12 @@ curl --fail http://localhost:3000/version
 ```
 
 `--wait` waits for both services to become healthy. `/readyz` must return HTTP 200;
-`/version` identifies the running build. If startup fails, inspect
+**Settings → Preferences → About** shows the running version, build revision, and build time
+for every signed-in user. Use **Refresh version** after redeploying in Arcane to verify the update.
+This reads `/version` without caching; checking for new images in Arcane does not itself recreate
+the running container unless automatic updates are enabled.
+
+`/version` identifies the running build and sends `Cache-Control: no-store`. If startup fails, inspect
 `docker compose logs --tail=100 app postgres`.
 
 1. Boot always runs migrations plus the idempotent **structural seed**: board, 7 lanes,

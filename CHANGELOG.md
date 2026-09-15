@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-09-14
+
+### Added
+
+- Show the running app version, build revision, and build time under Settings → Preferences → About,
+  with a refresh button to verify deployments.
+
+### Changed
+
+- Show a draggable scrollbar whenever board filters overflow, replacing the navigation arrows.
+
 ## [1.0.3] - 2026-09-14
 
 ### Fixed

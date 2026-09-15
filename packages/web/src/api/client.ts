@@ -1,4 +1,5 @@
 import { type ZodType } from 'zod'
+import { appVersionSchema } from '@rivian-kanban/core'
 import { ApiError, problemDetailsSchema, type ProblemDetails } from './problem.ts'
 
 /** Injectable fetch so tests supply a hand-written fake (docs/dev/testing.md — no mocks). */
@@ -32,6 +33,16 @@ export class ApiClient {
 
   async get<T>(path: string, schema: ZodType<T>, options: RequestOptions = {}): Promise<T> {
     return this.parse(await this.send('GET', path, options), schema)
+  }
+
+  /** Operational endpoint outside /api/v1; always read the running server. */
+  async getVersion() {
+    const response = await this.fetchFn('/version', {
+      cache: 'no-store',
+      credentials: 'same-origin',
+    })
+    if (!response.ok) throw new ApiError(response.status, await readProblem(response))
+    return this.parse(response, appVersionSchema)
   }
 
   async post<T>(path: string, schema: ZodType<T>, options: RequestOptions = {}): Promise<T> {

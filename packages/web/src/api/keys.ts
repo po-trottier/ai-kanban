@@ -2,6 +2,7 @@ import { type BoardFilter } from '@rivian-kanban/core'
 
 /** Query-key catalog — the one vocabulary shared by hooks and SSE invalidation. */
 export const queryKeys = {
+  appVersion: ['app-version'] as const,
   me: ['me'] as const,
   setup: ['setup'] as const,
   /**

@@ -79,6 +79,8 @@ For upgrades, back up both volumes, then run `docker compose pull` and
 `docker compose up -d --wait`. `latest` follows the stable GitHub release. Set
 `IMAGE_TAG=1.0.1` in `.env` to pin a release, or `sha-<full git SHA>` to pin a commit.
 GitHub releases automatically publish matching versioned images after CI passes.
+After redeploying, check **Settings → Preferences → About → Refresh version** to confirm the
+running version and build revision.
 Image publication also checks for fixable high/critical vulnerabilities; complete scan reports
 are retained in GitHub Actions. See [security](docs/architecture/security.md) for the checks and limits.
 See the [deployment guide](docs/architecture/deployment.md) for

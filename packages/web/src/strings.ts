@@ -370,8 +370,6 @@ export const strings = {
     queryLabel: 'Filter work orders',
     queryPlaceholder: 'Search work orders…',
     queryClear: 'Clear the text filter',
-    scrollStart: 'Scroll filters left',
-    scrollEnd: 'Scroll filters right',
     filterBusy: 'Filtering…',
     /** Any-of enumerable facets, rendered as MultiSelect pill dropdowns. */
     priorityLabel: 'Priority',
@@ -804,6 +802,19 @@ export const strings = {
       system: 'System',
     } satisfies Record<Theme, string>,
     saved: 'Preferences saved',
+  },
+
+  about: {
+    title: 'About',
+    description:
+      'The version currently running on the server. Refresh after redeploying to verify an update.',
+    version: 'Version',
+    revision: 'Build revision',
+    builtAt: 'Built',
+    development: 'Development build',
+    loading: 'Loading version…',
+    failed: 'Unable to load the running version. Try refreshing.',
+    refresh: 'Refresh version',
   },
 
   users: {

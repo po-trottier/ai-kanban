@@ -13,7 +13,7 @@ import {
   Group,
   MultiSelect,
   type MultiSelectProps,
-  Scroller,
+  ScrollArea,
   SegmentedControl,
   Stack,
   Text,
@@ -89,11 +89,11 @@ export function FilterBar({
 
   return (
     <div className={classes.bar} role="region" aria-label={strings.filterBar.regionLabel}>
-      <Scroller
-        draggable={false}
-        classNames={{ content: classes.scrollContent, container: classes.scrollContainer }}
-        startControlProps={{ 'aria-label': strings.filterBar.scrollStart }}
-        endControlProps={{ 'aria-label': strings.filterBar.scrollEnd }}
+      <ScrollArea
+        type="auto"
+        scrollbars="x"
+        offsetScrollbars="present"
+        classNames={{ content: classes.scrollContent, viewport: classes.scrollContainer }}
       >
         <Group
           className={classes.row}
@@ -263,7 +263,7 @@ export function FilterBar({
             </Tooltip>
           </Group>
         </Group>
-      </Scroller>
+      </ScrollArea>
       {/* An indeterminate progress bar along the bar's bottom edge whenever ANY
           filter change is applying (the debounce window + the fetch), so every
           filter — search or facet — reads as "working" immediately, not only

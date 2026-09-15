@@ -3,8 +3,26 @@ import { randomUUID } from 'node:crypto'
 import { apiLogin, createUser } from './support/api.ts'
 import { DEMO_PASSWORD, demoEmail } from './support/constants.ts'
 import { expect, test } from './support/fixtures.ts'
+import { signIn } from './support/ui.ts'
+import { appVersionSchema } from '@rivian-kanban/core'
 
 /** Login/logout and the must-change-password interstitial (guide.md, ADR-009). */
+
+test('shows the live server version in About for a regular user', async ({ page, context }) => {
+  await signIn(context, 'user')
+  await page.goto('/settings')
+  const about = page.getByRole('region', { name: 'About' })
+  const response = await context.request.get('/version')
+  const build = appVersionSchema.parse(await response.json())
+  await expect(about).toContainText(build.version === 'dev' ? 'Development build' : build.version)
+  await expect(about).toContainText(build.gitSha.slice(0, 12))
+  const refreshed = page.waitForResponse((response) => response.url().endsWith('/version'))
+  await about.getByRole('button', { name: 'Refresh version' }).click()
+  expect((await refreshed).headers()['cache-control']).toBe('no-store')
+  await expect(about.getByRole('button', { name: 'Refresh version' })).toBeEnabled()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({ path: 'e2e/screenshots/about-mobile.png', fullPage: true })
+})
 
 async function fillLogin(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login')

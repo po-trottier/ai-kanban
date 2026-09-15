@@ -198,9 +198,9 @@ The SPA renders the filter as a **filter bar** below the header and above the bo
   (CSS media query on `.panelColumn`).
 - **Layout.** The bar is a single horizontally scrollable row in **three zones**: the text search
   (left) · the facet group **centered** in any spare space · **presets + Reset** (right). Mantine's
-  `Scroller` contains the whole toolbar and shows labeled navigation arrows only when content
-  overflows. Trackpad, Shift+wheel, touch scrolling, and keyboard focus reveal off-screen controls.
-  Mouse drag scrolling is disabled so users can select text in the search inputs. The
+  `ScrollArea` contains the whole toolbar and shows a draggable horizontal scrollbar whenever content
+  overflows (not just on hover), with space below the controls for its track. Trackpad, Shift+wheel,
+  touch scrolling, and keyboard focus reveal off-screen controls. Input text remains selectable. The
   centered facet group keeps its deliberately ordered, `Divider`-separated sections: **attributes**
   (Priority) · **people** (Assignee, Reporter) · **classification** (Tags, Location) · **scope**
   (Scope, Overdue). The section-divider height is a theme token (`filterSectionHeight`), the field
