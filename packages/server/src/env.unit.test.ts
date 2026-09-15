@@ -14,7 +14,7 @@ describe('parseEnv', () => {
       NODE_ENV: 'development',
       PORT: 3000,
       PUBLIC_BASE_URL: 'http://localhost:3000',
-      TRUST_PROXY_HOPS: 0,
+      TRUST_PROXY: '',
       SEED_DEMO_DATA: false,
       SLACK_ENABLED: false,
       LOG_LEVEL: 'info',
@@ -24,14 +24,14 @@ describe('parseEnv', () => {
 
   it('coerces numeric and boolean strings', () => {
     // Arrange
-    const source = { PORT: '8080', TRUST_PROXY_HOPS: '2', SEED_DEMO_DATA: 'true' }
+    const source = { PORT: '8080', TRUST_PROXY: '127.0.0.1,::1', SEED_DEMO_DATA: 'true' }
 
     // Act
     const env = parseEnv(source)
 
     // Assert
     expect(env.PORT).toBe(8080)
-    expect(env.TRUST_PROXY_HOPS).toBe(2)
+    expect(env.TRUST_PROXY).toBe('127.0.0.1,::1')
     expect(env.SEED_DEMO_DATA).toBe(true)
   })
 

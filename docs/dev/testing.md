@@ -88,7 +88,11 @@ GitHub Actions, gates in order:
    production mode refuses — step 4 is the production-image gate until an image credential
    strategy exists)
 6. Security: `npm audit --omit=dev --audit-level=high`, OSV-Scanner, gitleaks
-7. (scheduled, weekly) snapshot **restore drill**: boot the production image, snapshot via
+7. Publish the tested runtime image to GHCR after all gates pass. GitHub releases must match
+   every workspace version and publish matching version tags; `latest` follows the current
+   stable release. Main builds publish as `main`. The image smoke test checks both version
+   and git SHA; see [Release workflow](../architecture/deployment.md#release-workflow).
+8. (scheduled, weekly) snapshot **restore drill**: boot the production image, snapshot via
    the same online backup the nightly job runs, restore that snapshot into a fresh container
    (boot runs migrations), and require `/readyz` plus the seeded data to survive the trip.
    Production backup uses standard PostgreSQL tooling (`pg_dump`, or WAL archiving for

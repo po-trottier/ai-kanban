@@ -10,7 +10,7 @@ import { type AppDeps } from '../types.ts'
  * connections survive proxies. Each user holds at most 5 concurrent streams
  * — opening a 6th drops the oldest (docs/architecture/security.md). Every
  * keepalive tick re-validates the session so logout/deactivation revokes a
- * live stream within one interval, and an onClose hook ends every stream so
+ * live stream within one interval, and a preClose hook ends every stream so
  * `app.close()` (SIGTERM) never hangs on connected browsers.
  */
 
@@ -40,11 +40,12 @@ export function streamRoutes(deps: AppDeps) {
 
     // SSE responses are hijacked and never look idle: without this, a single
     // connected browser would block graceful shutdown until SIGKILL.
-    app.addHook('onClose', () => {
+    app.addHook('preClose', (done) => {
       unsubscribe()
       for (const handles of [...streamsByUser.values()]) {
         for (const handle of [...handles]) handle.close()
       }
+      done()
     })
 
     r.get('/stream', { config: { rawResponse: true }, schema: {} }, (request, reply) => {

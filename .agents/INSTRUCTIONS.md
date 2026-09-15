@@ -35,7 +35,10 @@ changing behavior**, starting with `docs/architecture/overview.md` and the ADRs.
 - **Releasing.** Cutting a release is: (1) verify **every doc is current** against the code — docs are
   part of the release, not an afterthought (run the doc audit / reconcile drift); (2) `npm run check`
   green; (3) rename `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD` (add a fresh empty `[Unreleased]`
-  above it), bump the workspace `package.json` versions, commit, then tag `vx.y.z` and push the tag.
+  above it), bump the workspace `package.json` versions and internal dependency references, and
+  regenerate the lockfile; (4) commit, tag `vx.y.z`, and push; (5) publish the GitHub release for
+  that tag and verify CI publishes matching GHCR images. Pushing a tag alone does not publish
+  an image; see `docs/architecture/deployment.md` → "Release workflow".
 - **Frozen v1 baseline, forward-only, no legacy.** `0000_init` is the immutable v1 schema baseline;
   schema changes now **append** the next migration (`0001_*`, …) — never regenerate the baseline
   (see `docs/dev/getting-started.md` → "Changing the schema"). No back-compat branches.

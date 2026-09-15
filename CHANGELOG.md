@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-14
+
+### Added
+
+- Publish tested production images to GitHub Container Registry on GitHub releases, with
+  matching version tags and `latest` for the current stable release. Main builds publish
+  separately as `main`; all builds also get commit-specific tags. Docker Compose pulls the published image, so
+  deployment no longer requires building the app on the server.
+- Verify release tags against every workspace version and check the running image's version
+  and commit before publication. The README and deployment guide include complete setup steps.
+
+### Fixed
+
+- Leave the optional demo password unset in `.env.example` so copying it for production
+  does not trigger the server's demo-credential rejection.
+- Close live board streams before shutting down the HTTP server so container upgrades
+  can finish gracefully with browsers connected.
+
+### Security
+
+- Update Fastify/static serving, Tiptap, React Router, Vitest, PostCSS, and affected transitive
+  dependencies to patched versions so the deployment image passes the current security gates.
+- Replace `TRUST_PROXY_HOPS` with `TRUST_PROXY` (trusted proxy IPs/CIDRs). Configure the actual
+  proxy addresses on existing deployments; hop counts alone cannot prevent clients from
+  spoofing forwarded headers when they can reach the app directly.
+
 ## [1.0.0] - 2026-07-21
 
 Initial release.

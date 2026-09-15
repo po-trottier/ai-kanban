@@ -20,8 +20,8 @@ const envSchema = z
      */
     METRICS_HOST: z.string().min(1).default('127.0.0.1'),
     PUBLIC_BASE_URL: z.url().default('http://localhost:3000'),
-    /** Known reverse-proxy hop count — client-IP rate limits depend on it. */
-    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+    /** Comma-separated trusted proxy IPs/CIDRs; empty means trust no proxy. */
+    TRUST_PROXY: z.string().trim().default(''),
     DATABASE_PATH: z.string().min(1).default('./data/app.sqlite'),
     /**
      * Postgres connection string. When set, the app runs on PostgreSQL

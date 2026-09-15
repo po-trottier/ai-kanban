@@ -14,8 +14,8 @@ server for AI agents, and Slack-native ticket intake — all over one audited se
   the token into their own config, never into the chat (see [MCP server](docs/architecture/mcp.md)).
 - **Slack**: create tickets from any thread via a message shortcut or @-mention, with optional
   AI thread summarization (human always reviews).
-- **Storage**: pluggable behind repository ports — SQLite (WAL) by default for single-node and
-  development, PostgreSQL for production/multi-node (selected via `DATABASE_URL`); see
+- **Storage**: SQLite (WAL) for development, PostgreSQL for production (selected via
+  `DATABASE_URL`). Deploy one app container; see
   [ADR-020](docs/architecture/decisions/ADR-020-postgresql-support.md).
 
 ## Documentation
@@ -42,7 +42,49 @@ server for AI agents, and Slack-native ticket intake — all over one audited se
   - [Engineering standards (enforced)](docs/dev/standards.md)
   - [Testing standards (enforced)](docs/dev/testing.md)
 
-## Quick start
+## Deploy with Docker
+
+Requires a Linux AMD64 Docker host with Docker Compose v2. The stack runs the published
+`ghcr.io/po-trottier/ai-kanban:latest` image and PostgreSQL 17; Node.js and a local build are
+not required on the server.
+
+```bash
+git clone https://github.com/po-trottier/ai-kanban.git rivian-kanban
+cd rivian-kanban
+cp .env.example .env
+```
+
+Edit `.env` before starting:
+
+- `POSTGRES_PASSWORD`: replace `change-me` with a long random alphanumeric password.
+- `PUBLIC_BASE_URL`: your public HTTPS URL, or `http://localhost:3000` for a local trial.
+- `TRUST_PROXY`: comma-separated proxy IPs/CIDRs as seen by the app; leave empty for direct access.
+- Keep `SEED_DEMO_DATA=false` and `SEED_DEMO_PASSWORD` unset.
+
+For the private GHCR package, authenticate with a GitHub account that can read it. At the
+password prompt, enter a personal access token (classic) with `read:packages`:
+
+```bash
+docker login ghcr.io -u YOUR_GITHUB_USERNAME
+docker compose config --quiet
+docker compose pull
+docker compose up -d --wait
+docker compose ps
+curl --fail http://localhost:3000/readyz
+```
+
+Open the app and create the first administrator through the setup page. Put an HTTPS reverse
+proxy in front for production access. Database records and uploads persist in the `pgdata`
+and `data` named volumes; `docker compose down --volumes` deletes them.
+
+For upgrades, back up both volumes, then run `docker compose pull` and
+`docker compose up -d --wait`. `latest` follows the stable GitHub release. Set
+`IMAGE_TAG=1.0.1` in `.env` to pin a release, or `sha-<full git SHA>` to pin a commit.
+GitHub releases automatically publish matching versioned images after CI passes.
+See the [deployment guide](docs/architecture/deployment.md) for
+registry access, configuration, backups, rollback, and troubleshooting.
+
+## Local development
 
 ```bash
 npm ci && npm run setup && cp .env.example .env && npm run dev

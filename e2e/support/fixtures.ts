@@ -2,7 +2,7 @@ import { test as base } from '@playwright/test'
 import { randomInt } from 'node:crypto'
 
 /**
- * The e2e server runs with TRUST_PROXY_HOPS=1, so each test can present its
+ * The e2e server trusts loopback proxies, so each local test can present its
  * own client IP via X-Forwarded-For — per-IP rate-limit buckets (global,
  * login) then behave per-user exactly like production behind the reverse
  * proxy, instead of every browser context sharing 127.0.0.1 and tripping the

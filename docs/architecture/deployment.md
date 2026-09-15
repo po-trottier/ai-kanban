@@ -4,6 +4,16 @@ Single-node Docker Compose (PO decision). One postgres container, one app contai
 volumes (`pgdata` for postgres, `data` for app). Litestream is available as a standalone config
 file (`litestream.yml`) for optional S3-compatible WAL streaming, not as a docker-compose service.
 
+## Requirements
+
+- A Linux AMD64 host with Docker Engine and a current Docker Compose v2 plugin.
+- Access to the [GHCR package](https://github.com/po-trottier/ai-kanban/pkgs/container/ai-kanban).
+- An HTTPS reverse proxy for production access, plus persistent disk space for the two volumes.
+
+The commands below use a Bash shell on the Docker host. No Node.js install or app build is
+needed there. Only `docker-compose.yml` and `.env` are needed at runtime; cloning the repo
+is the simplest way to obtain the Compose file, example configuration, and these instructions.
+
 ## Topology
 
 ```
@@ -23,7 +33,7 @@ docker compose
   for `/api/v1/stream` (SSE) — e.g. nginx `X-Accel-Buffering: no`.
 - **Client IP derivation** (per-IP rate limits depend on it): the proxy must set/overwrite
   `X-Forwarded-For` — never append client-supplied values — and the app sets Fastify
-  `trustProxy` to the known hop count. Get this wrong and either the whole company shares one
+  `TRUST_PROXY` to the actual proxy IPs/CIDRs. Get this wrong and either the whole company shares one
   rate-limit bucket or attackers spoof their way out of it.
 - The app serves two listeners: the public port (SPA + API + MCP + SSE + health) and an
   **internal metrics port** that Compose does not publish and the proxy never routes; the org
@@ -31,6 +41,45 @@ docker compose
 - Slack needs no inbound route (Socket Mode is outbound).
 
 ## Bootstrap (first production deployment)
+
+```bash
+git clone https://github.com/po-trottier/ai-kanban.git rivian-kanban
+cd rivian-kanban
+cp .env.example .env
+```
+
+Edit `.env`:
+
+| Setting                               | Deployment value                                                                                                                              |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POSTGRES_PASSWORD`                   | A long random alphanumeric password, replacing `change-me`. Compose embeds it in a connection URL, so avoid URL-reserved characters.          |
+| `PUBLIC_BASE_URL`                     | The external HTTPS origin, such as `https://kanban.example.com`. Use `http://localhost:3000` only for a local trial.                          |
+| `TRUST_PROXY`                         | Comma-separated trusted proxy IPs/CIDRs as seen by the app. Leave empty for direct access. Trust only the proxy addresses, never all clients. |
+| `IMAGE_TAG`                           | `latest` for the current stable release, a release version such as `1.0.1`, or `sha-<full git SHA>` for a specific commit.                    |
+| `SEED_DEMO_DATA`                      | Keep `false`. Leave `SEED_DEMO_PASSWORD` commented out or remove it from an existing development `.env`.                                      |
+| `SLACK_ENABLED`, `SUMMARIZER_ENABLED` | Keep `false` unless you also configure their credentials.                                                                                     |
+
+For a proxy sharing the app's network namespace, `TRUST_PROXY=127.0.0.1,::1` trusts loopback.
+A proxy on the Docker host or in another container usually connects from a different address;
+use its actual IP/CIDR and restrict direct access to port 3000 to the proxy. Existing deployments
+must replace `TRUST_PROXY_HOPS` with these addresses; numeric hop counts are no longer supported.
+
+Keep the default `PORT=3000` unless you also update the Compose port mapping. Compose sets
+`NODE_ENV=production` and the database/storage paths automatically. Keep `.env` private and
+out of Git. Authenticate to GHCR as described under [Published image](#published-image), then:
+
+```bash
+docker compose config --quiet
+docker compose pull
+docker compose up -d --wait
+docker compose ps
+curl --fail http://localhost:3000/readyz
+curl --fail http://localhost:3000/version
+```
+
+`--wait` waits for both services to become healthy. `/readyz` must return HTTP 200;
+`/version` identifies the running build. If startup fails, inspect
+`docker compose logs --tail=100 app postgres`.
 
 1. Boot always runs migrations plus the idempotent **structural seed**: board, 7 lanes,
    default permissive policy, `system` user (see data-model.md#seeding) — **no locations**, so
@@ -60,12 +109,66 @@ Because native-module prebuilds differ between Windows dev and Linux prod, **CI 
 image and runs the full integration suite inside it** — a Node bump cannot pass locally and
 crash in prod.
 
+## Published image
+
+The deployment image is `ghcr.io/po-trottier/ai-kanban:latest` (Linux AMD64).
+The `CI` workflow publishes the exact runtime image that passed the Docker integration
+suite and smoke boot, after quality, coverage, browser, and security checks pass. Publishing
+a GitHub release triggers a build of that release's exact commit. Pushes and manual workflow
+runs on `main` also publish development images; pull requests never publish.
+The image includes the repository source, version, and git revision labels.
+
+Tags:
+
+- `1.0.1` and `v1.0.1`: the same image for GitHub release `v1.0.1`.
+- `latest`: the release marked latest by GitHub, updated only after its image passes CI.
+  Prereleases and older releases never replace it.
+- `main`: the most recently published passing `main` build, for testing before a release.
+- `sha-<full git SHA>`: a specific commit build. Set `IMAGE_TAG` in `.env` to pin it.
+
+GitHub creates new container packages as private. Before pulling a private image, log in
+with a GitHub personal access token (classic) with `read:packages` and access to the package:
+
+```bash
+docker login ghcr.io -u YOUR_GITHUB_USERNAME
+```
+
+Enter the token at the password prompt; do not use your GitHub account password. For unattended
+deployments, pipe the token from your secret store to `docker login --password-stdin`.
+Package owners can
+enable anonymous pulls by changing the package visibility to public in GitHub package settings.
+See [GitHub's container registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+
+## Release workflow
+
+GitHub releases are the source of truth for versioned images, starting with `v1.0.1`.
+The workflow rejects a release unless its tag is `v` followed by the root `package.json`
+version and every workspace version and internal dependency reference agrees. Before pushing,
+it also boots the image and checks that `/version` contains that version and the release's
+exact git SHA. Both `1.0.1` and `v1.0.1` tags therefore identify version `1.0.1` in the app.
+
+To release a new version:
+
+1. Update the changelog and all workspace versions/internal references; regenerate
+   `package-lock.json` with `npm install --package-lock-only`.
+2. Run `npm run check`, commit, and push the changes. Wait for CI to pass.
+3. Tag that checked commit `v<version>` and push the tag.
+4. Publish a GitHub release for the tag, through GitHub's Releases page or
+   `gh release create <tag> --verify-tag --notes-file release-notes.md`. Mark release
+   candidates as prereleases; they get versioned tags but do not update `latest`.
+5. Wait for the release's `CI` run to finish successfully, then deploy that image version.
+
+Pushing a git tag alone does not trigger publication. A failed gate leaves the existing
+release image untouched; inspect the failed Actions job and rerun the release workflow after
+resolving the failure. Automation does not backfill older releases that predate this workflow
+or retag newer application code as an old release.
+
 ## Configuration (env, Zod-validated at boot)
 
 | Variable                                                                              | Purpose                                                                                                                                                                                                                           |
 | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NODE_ENV`                                                                            | `production` disables demo seeding and dev docs UI                                                                                                                                                                                |
-| `PORT`, `METRICS_PORT`, `PUBLIC_BASE_URL`, `TRUST_PROXY_HOPS`                         | serving                                                                                                                                                                                                                           |
+| `PORT`, `METRICS_PORT`, `PUBLIC_BASE_URL`, `TRUST_PROXY`                              | serving                                                                                                                                                                                                                           |
 | `METRICS_HOST`                                                                        | metrics bind address: `127.0.0.1` by default; the image sets `0.0.0.0` so the org Prometheus can scrape over the internal network (the port is never published)                                                                   |
 | `DATABASE_PATH`, `BLOB_DIR`                                                           | `/data/app.sqlite`, `/data/blobs`                                                                                                                                                                                                 |
 | `SNAPSHOT_DIR`                                                                        | nightly online-backup snapshots (`/data/snapshots`); the newest 7 are retained                                                                                                                                                    |
@@ -84,10 +187,31 @@ Secrets are injected from the org secret store; the process refuses to boot on i
 `docker-compose.yml` re-pins `NODE_ENV=production` and the `/data` + `/app` path pins in its
 `environment:` block (which overrides `env_file`), so a dev-oriented `.env` copied from
 `.env.example` can never repoint the container off its volume or out of production mode. The
-`.env` file carries operator configuration only: `PUBLIC_BASE_URL`, `TRUST_PROXY_HOPS`, and
-the Slack/summarizer secrets.
+`.env` file carries operator configuration, including `IMAGE_TAG`, `POSTGRES_PASSWORD`,
+`PUBLIC_BASE_URL`, `TRUST_PROXY`, and the Slack/summarizer secrets.
 
 ## Database operations
+
+### Default PostgreSQL deployment
+
+Migrations run automatically before the app starts accepting requests. The `pgdata` volume
+holds PostgreSQL records; the `data` volume holds uploaded files under `/data/blobs`.
+Both survive container replacement and `docker compose down`. Do not use
+`docker compose down --volumes` unless you intend to delete the stored data.
+
+Back up the database with PostgreSQL tooling, for example:
+
+```bash
+docker compose exec -T postgres pg_dump -U rivian rivian > backup.sql
+```
+
+Also back up the app's `data` volume through your Docker host's backup tooling. Stop the app
+with `docker compose stop app` while taking a coordinated database-and-uploads backup,
+then restart it with `docker compose start app`. Store backups off the Docker host and test
+restores into a separate stack. Changing `POSTGRES_PASSWORD` in `.env` does not rotate an
+existing PostgreSQL user's password; update the database user and configuration together.
+
+### Optional SQLite deployment
 
 - SQLite in WAL mode (`journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout` set,
   `foreign_keys=ON`) — set on every connection by the db package.
@@ -104,8 +228,8 @@ the Slack/summarizer secrets.
 - **Restore drill**: the scheduled `restore-drill` workflow boots the image, snapshots via the
   same online backup, restores the snapshot into a fresh container (boot runs migrations), and
   requires `/readyz` plus the seeded data to survive — backups that are never restored don't
-  exist. The equivalent operator command for a Litestream restore is documented at the top of
-  `docker-compose.yml`.
+  exist. This drill covers the SQLite alternative; production PostgreSQL backups require
+  their own restore checks.
 
 ## Observability
 
@@ -118,9 +242,16 @@ the Slack/summarizer secrets.
 
 ## Upgrade & rollback
 
-Deploys are `docker compose pull && up -d` (brief downtime is acceptable — PO decision).
-Because migrations are forward-only, rollback = restore snapshot + previous image tag.
-Application releases are tagged; the image embeds the git SHA at `/version` and in logs.
+1. Record the current `/version` response and back up the database and uploads.
+2. Set `IMAGE_TAG=1.0.1` in `.env` to select a release (or choose the desired newer version).
+   Use `latest` to follow the latest stable release, or `sha-<full git SHA>` to pin a commit.
+3. Run `docker compose pull` followed by `docker compose up -d --wait`.
+4. Verify `/readyz`, `/version`, and the board in the browser.
+
+Brief downtime is acceptable. Because migrations are forward-only, rollback after a schema
+change means stopping the app, restoring the matching database and uploads backup, selecting
+the previous `IMAGE_TAG`, and starting again. Merely changing the image tag does not undo a
+database migration.
 
 Note for operators: single-node Docker never restarts an unhealthy-but-running container —
 the `HEALTHCHECK` feeds `docker compose ps` and monitoring visibility only. A wedged process

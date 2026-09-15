@@ -269,7 +269,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
 
   const config: AppConfig = {
     nodeEnv: env.NODE_ENV,
-    trustProxyHops: env.TRUST_PROXY_HOPS,
+    trustProxy: env.TRUST_PROXY,
     logLevel: options.logLevel ?? env.LOG_LEVEL,
     version: { version: env.APP_VERSION, gitSha: env.GIT_SHA, builtAt: env.BUILT_AT },
     spaRoot: options.spaRoot !== undefined ? options.spaRoot : (env.SPA_DIR ?? defaultSpaRoot()),

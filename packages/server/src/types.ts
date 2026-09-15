@@ -53,7 +53,7 @@ interface RateLimitBudget {
 
 export interface AppConfig {
   nodeEnv: 'development' | 'test' | 'production'
-  trustProxyHops: number
+  trustProxy: string
   /** pino level; 'silent' in tests. */
   logLevel: string
   version: { version: string; gitSha: string; builtAt: string }

@@ -89,6 +89,34 @@ describe('CSRF layers', () => {
 })
 
 describe('rate limiting', () => {
+  it('trusts forwarded client IPs only from configured proxy addresses', async () => {
+    const tight = await createTestApp({
+      env: { TRUST_PROXY: '127.0.0.1' },
+      rateLimits: { global: { max: 1, timeWindowMs: 60_000 } },
+    })
+    try {
+      const hit = (remoteAddress: string, forwardedIp: string) =>
+        tight.app.inject({
+          method: 'GET',
+          url: '/healthz',
+          remoteAddress,
+          headers: { 'x-forwarded-for': forwardedIp },
+        })
+
+      const firstProxied = await hit('127.0.0.1', '203.0.113.1')
+      const secondProxied = await hit('127.0.0.1', '203.0.113.2')
+      const firstDirect = await hit('192.0.2.1', '203.0.113.3')
+      const spoofedDirect = await hit('192.0.2.1', '203.0.113.4')
+
+      expect(firstProxied.statusCode).toBe(200)
+      expect(secondProxied.statusCode).toBe(200)
+      expect(firstDirect.statusCode).toBe(200)
+      expect(spoofedDirect.statusCode).toBe(429)
+    } finally {
+      await tight.cleanup()
+    }
+  })
+
   it('429s past the global per-IP budget with Retry-After problem+json', async () => {
     const tight = await createTestApp({
       rateLimits: { global: { max: 3, timeWindowMs: 60_000 } },

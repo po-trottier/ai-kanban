@@ -3,12 +3,14 @@
 # server runs on SQLite (zero-setup single file); this Compose stack is the
 # PRODUCTION posture and runs on Postgres — the app reads DATABASE_URL and
 # never touches the SQLite path. TLS + client-IP handling live at the org
-# reverse proxy in front (X-Forwarded-For + TRUST_PROXY_HOPS).
+# reverse proxy in front (X-Forwarded-For + TRUST_PROXY).
 #
 # Bootstrap (first deployment):
+#   Registry login: docs/architecture/deployment.md#published-image
 #   cp .env.example .env   # then set POSTGRES_PASSWORD, PUBLIC_BASE_URL,
-#                          # TRUST_PROXY_HOPS, plus any Slack/summarizer secrets
-#   docker compose up -d --build
+#                          # TRUST_PROXY, plus any Slack/summarizer secrets
+#   docker compose pull
+#   docker compose up -d
 #   docker compose exec app npm run cli -- users create-admin --email you@org.com
 #
 # Backups: use standard Postgres tooling against the postgres service, e.g.
@@ -33,16 +35,10 @@ services:
       retries: 5
 
   app:
-    build:
-      context: .
-      args:
-        APP_VERSION: ${APP_VERSION:-dev}
-        GIT_SHA: ${GIT_SHA:-dev}
-        BUILT_AT: ${BUILT_AT:-dev}
-    image: rivian-kanban:latest
+    image: ghcr.io/po-trottier/ai-kanban:${IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file:
-      # Operator configuration only: secrets, PUBLIC_BASE_URL, TRUST_PROXY_HOPS,
+      # Operator configuration only: secrets, PUBLIC_BASE_URL, TRUST_PROXY,
       # POSTGRES_PASSWORD, Slack/summarizer settings.
       - path: .env
         required: false

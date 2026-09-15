@@ -8,7 +8,7 @@ import { BASE_URL, DATA_DIR, DEMO_PASSWORD, SERVER_PORT } from './support/consta
  * data, no mocks (docs/dev/testing.md). The webServer command resets a temp
  * data dir, builds the SPA if missing (scripts/prepare.mjs), then boots the
  * real server entrypoint on a per-checkout port (support/constants.ts).
- * `SEED_DEMO_PASSWORD` makes the demo logins deterministic; TRUST_PROXY_HOPS=1
+ * `SEED_DEMO_PASSWORD` makes the demo logins deterministic; TRUST_PROXY=loopback
  * lets each test present its own client IP (support/fixtures.ts) so per-IP
  * rate limits behave per-user.
  */
@@ -45,7 +45,7 @@ export default defineConfig({
       SEED_DEMO_PASSWORD: DEMO_PASSWORD,
       SLACK_ENABLED: 'false',
       SUMMARIZER_ENABLED: 'false',
-      TRUST_PROXY_HOPS: '1',
+      TRUST_PROXY: 'loopback',
       LOG_LEVEL: 'warn',
     },
   },

@@ -41,7 +41,7 @@ import { type AppDeps } from './types.ts'
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const { config } = deps
   const app = Fastify({
-    trustProxy: config.trustProxyHops,
+    trustProxy: config.trustProxy || false,
     genReqId: () => randomUUID(),
     // The process-wide pino root from the composition root (redaction
     // configured there) — the notifier and Slack adapter share it.
