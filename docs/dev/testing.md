@@ -31,6 +31,10 @@ the source of truth**; unit tests prove micro-logic, they never substitute for t
 
 ## Fixtures
 
+- Component tests load application CSS so computed overflow matches the scroll-container setup.
+  Disabling CSS produces false drag-and-drop warnings and large DOM dumps that can delay async assertions.
+- Component queries allow three seconds for async rendering under coverage instrumentation;
+  assertions still fail if the requested UI never appears, and Vitest keeps its overall test timeout.
 - `packages/db/src/seed.ts` seeds the canonical dataset: the board, 7 lanes, the permissive
   default policy + workflow graph, demo users of each role, a location tree, and a spread of
   cards (each lane, blocked, waiting-with-overdue-resume, cancelled, archived) — used by dev

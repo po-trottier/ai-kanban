@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-09-15
+
+### Fixed
+
+- Load styles in component tests and allow bounded async rendering time under coverage, preventing
+  false scroll warnings and premature settings-test failures on CI runners.
+
 ## [1.0.7] - 2026-09-15
 
 ### Changed

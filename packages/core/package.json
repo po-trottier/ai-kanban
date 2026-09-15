@@ -1,6 +1,6 @@
 {
   "name": "@rivian-kanban/core",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "private": true,
   "license": "Polyform-Strict-1.0.0",
   "type": "module",

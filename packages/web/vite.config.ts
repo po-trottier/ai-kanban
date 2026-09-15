@@ -30,6 +30,8 @@ export default defineConfig({
   test: {
     name: 'web',
     environment: 'happy-dom',
+    // Auto-scroll checks computed overflow; load real CSS instead of warning on every mount.
+    css: true,
     include: ['src/**/*.unit.test.{ts,tsx}'],
     setupFiles: ['./src/test/setup.ts'],
     server: {

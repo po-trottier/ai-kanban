@@ -1,7 +1,11 @@
 import '@testing-library/jest-dom/vitest'
 import { notifications } from '@mantine/notifications'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterEach } from 'vitest'
+
+// Coverage instrumentation can take over a second to resolve the auth → board → policy chain.
+// Keep assertions event-driven, with a bounded wait below Vitest's five-second test timeout.
+configure({ asyncUtilTimeout: 3000 })
 
 // happy-dom does not lay out or scroll elements; browser tests cover visibility.
 if (!('scrollIntoView' in HTMLElement.prototype)) {
