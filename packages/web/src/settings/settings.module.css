@@ -1,0 +1,17 @@
+.page {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding-bottom: var(--mantine-spacing-xs);
+}
+
+.tabList {
+  flex-wrap: nowrap;
+  width: max-content;
+  min-width: 100%;
+}
+
+.tabList > button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}

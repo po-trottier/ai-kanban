@@ -1,8 +1,9 @@
 import { type SetupAdminInput, type UpdateProfileInput, type User } from '@rivian-kanban/core'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useApi } from './api-context.ts'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { useGlobalApi, useGlobalQueryClient } from './global-api-context.ts'
 import { queryKeys } from './keys.ts'
 import { loginResponseSchema, meResponseSchema, setupStatusResponseSchema } from './schemas.ts'
+import { clearSessionData } from './query-client.ts'
 
 export interface LoginInput {
   email: string
@@ -16,10 +17,18 @@ export interface ChangePasswordInput {
 
 /** The session query. `null` means "definitely signed out" (set on 401). */
 export function useMe() {
-  const api = useApi()
+  const api = useGlobalApi()
+  const queryClient = useGlobalQueryClient()
   return useQuery<User | null>({
     queryKey: queryKeys.me,
-    queryFn: () => api.get('/auth/me', meResponseSchema),
+    queryFn: async () => {
+      const user = await api.get('/auth/me', meResponseSchema)
+      const previous = queryClient.getQueryData<User | null>(queryKeys.me)
+      if (previous != null && previous.id !== user.id) {
+        clearSessionData(queryClient)
+      }
+      return user
+    },
   })
 }
 
@@ -28,7 +37,7 @@ export function useMe() {
  * including /login — redirects to /setup; once false it never flips back.
  */
 export function useSetupRequired() {
-  const api = useApi()
+  const api = useGlobalApi()
   return useQuery({
     queryKey: queryKeys.setup,
     queryFn: () => api.get('/setup', setupStatusResponseSchema),
@@ -37,8 +46,8 @@ export function useSetupRequired() {
 
 /** `POST /setup` — creates the first admin; the response mirrors login. */
 export function useSetupAdmin() {
-  const api = useApi()
-  const queryClient = useQueryClient()
+  const api = useGlobalApi()
+  const queryClient = useGlobalQueryClient()
   return useMutation({
     mutationFn: (input: SetupAdminInput) =>
       api.post('/setup', loginResponseSchema, { body: input }),
@@ -52,32 +61,33 @@ export function useSetupAdmin() {
 }
 
 export function useLogin() {
-  const api = useApi()
-  const queryClient = useQueryClient()
+  const api = useGlobalApi()
+  const queryClient = useGlobalQueryClient()
   return useMutation({
     mutationFn: (input: LoginInput) =>
       api.post('/auth/login', loginResponseSchema, { body: input }),
     onSuccess: (user) => {
+      clearSessionData(queryClient)
       queryClient.setQueryData(queryKeys.me, user)
     },
   })
 }
 
 export function useLogout() {
-  const api = useApi()
-  const queryClient = useQueryClient()
+  const api = useGlobalApi()
+  const queryClient = useGlobalQueryClient()
   return useMutation({
     mutationFn: () => api.postVoid('/auth/logout'),
     onSuccess: () => {
-      queryClient.clear()
+      clearSessionData(queryClient)
       queryClient.setQueryData(queryKeys.me, null)
     },
   })
 }
 
 export function useChangePassword() {
-  const api = useApi()
-  const queryClient = useQueryClient()
+  const api = useGlobalApi()
+  const queryClient = useGlobalQueryClient()
   return useMutation({
     mutationFn: (input: ChangePasswordInput) =>
       api.postVoid('/auth/change-password', { body: input }),
@@ -89,8 +99,8 @@ export function useChangePassword() {
 
 /** `PATCH /auth/me` — the signed-in user updates their own profile (time zone). */
 export function useUpdateProfile() {
-  const api = useApi()
-  const queryClient = useQueryClient()
+  const api = useGlobalApi()
+  const queryClient = useGlobalQueryClient()
   return useMutation({
     mutationFn: (input: UpdateProfileInput) =>
       api.patch('/auth/me', meResponseSchema, { body: input }),

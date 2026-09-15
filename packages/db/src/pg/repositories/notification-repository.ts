@@ -1,6 +1,6 @@
 import { type Notification, type NotificationRepository } from '@rivian-kanban/core'
-import { and, desc, eq, isNull, sql } from 'drizzle-orm'
-import { notifications } from '../../schema.pg.ts'
+import { and, desc, eq, exists, inArray, isNull, sql, type SQL } from 'drizzle-orm'
+import { cards, notifications } from '../../schema.pg.ts'
 import { type PgDb } from '../database.ts'
 
 /**
@@ -23,28 +23,44 @@ export class PgNotificationRepository implements NotificationRepository {
     await this.db.insert(notifications).values(notification)
   }
 
+  /** See the sqlite twin's comment: `boardIds` filters via an `exists` subquery. */
+  private boardScope(boardIds: readonly string[]): SQL {
+    return exists(
+      this.db
+        .select({ one: sql`1` })
+        .from(cards)
+        .where(and(eq(cards.id, notifications.cardId), inArray(cards.boardId, [...boardIds]))),
+    )
+  }
+
   async listForUser(
     userId: string,
-    options: { limit: number; unreadOnly?: boolean },
+    options: { limit: number; unreadOnly?: boolean; boardIds?: readonly string[] },
   ): Promise<Notification[]> {
-    const where =
-      options.unreadOnly === true
-        ? and(eq(notifications.userId, userId), isNull(notifications.readAt))
-        : eq(notifications.userId, userId)
+    if (options.boardIds?.length === 0) return []
+    const conditions: (SQL | undefined)[] = [eq(notifications.userId, userId)]
+    if (options.unreadOnly === true) conditions.push(isNull(notifications.readAt))
+    if (options.boardIds !== undefined) conditions.push(this.boardScope(options.boardIds))
     const rows = await this.db
       .select()
       .from(notifications)
-      .where(where)
+      .where(and(...conditions))
       .orderBy(desc(notifications.createdAt), desc(notifications.id))
       .limit(options.limit)
     return rows.map((row) => PgNotificationRepository.hydrate(row))
   }
 
-  async unreadCount(userId: string): Promise<number> {
+  async unreadCount(userId: string, boardIds?: readonly string[]): Promise<number> {
+    if (boardIds?.length === 0) return 0
+    const conditions: (SQL | undefined)[] = [
+      eq(notifications.userId, userId),
+      isNull(notifications.readAt),
+    ]
+    if (boardIds !== undefined) conditions.push(this.boardScope(boardIds))
     const rows = await this.db
       .select({ count: sql<string>`count(*)` })
       .from(notifications)
-      .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)))
+      .where(and(...conditions))
     return Number(rows[0]?.count ?? '0')
   }
 
@@ -70,11 +86,17 @@ export class PgNotificationRepository implements NotificationRepository {
       .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
   }
 
-  async markAllRead(userId: string, readAt: string): Promise<number> {
+  async markAllRead(userId: string, readAt: string, boardIds?: readonly string[]): Promise<number> {
+    if (boardIds?.length === 0) return 0
+    const conditions: (SQL | undefined)[] = [
+      eq(notifications.userId, userId),
+      isNull(notifications.readAt),
+    ]
+    if (boardIds !== undefined) conditions.push(this.boardScope(boardIds))
     const updated = await this.db
       .update(notifications)
       .set({ readAt })
-      .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)))
+      .where(and(...conditions))
       .returning({ id: notifications.id })
     return updated.length
   }
@@ -86,10 +108,13 @@ export class PgNotificationRepository implements NotificationRepository {
       .where(and(eq(notifications.id, id), eq(notifications.userId, userId)))
   }
 
-  async clearAll(userId: string): Promise<number> {
+  async clearAll(userId: string, boardIds?: readonly string[]): Promise<number> {
+    if (boardIds?.length === 0) return 0
+    const conditions: (SQL | undefined)[] = [eq(notifications.userId, userId)]
+    if (boardIds !== undefined) conditions.push(this.boardScope(boardIds))
     const deleted = await this.db
       .delete(notifications)
-      .where(eq(notifications.userId, userId))
+      .where(and(...conditions))
       .returning({ id: notifications.id })
     return deleted.length
   }

@@ -1,3 +1,4 @@
+import { boardServices } from './board-scope.ts'
 import {
   blockCardInputSchema,
   cancelCardInputSchema,
@@ -79,7 +80,6 @@ function sendCard(reply: FastifyReply, card: Card, status = 200) {
 export function cardRoutes(deps: AppDeps) {
   return function routes(app: FastifyInstance): void {
     const r = app.withTypeProvider<ZodTypeProvider>()
-    const { cards, queries } = deps.services
 
     r.get(
       '/cards',
@@ -91,7 +91,7 @@ export function cardRoutes(deps: AppDeps) {
       },
       async (request) => {
         const { cursor, limit, ...filter } = request.query
-        return queries.listCards(filter, {
+        return boardServices(deps, request).queries.listCards(actorOf(request), filter, {
           ...(cursor !== undefined ? { cursor } : {}),
           ...(limit !== undefined ? { limit } : {}),
         })
@@ -107,7 +107,7 @@ export function cardRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        const card = await cards.create(actorOf(request), request.body)
+        const card = await boardServices(deps, request).cards.create(actorOf(request), request.body)
         return sendCard(reply, card, 201)
       },
     )
@@ -121,7 +121,10 @@ export function cardRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        const detail = await queries.cardDetail(request.params.id)
+        const detail = await boardServices(deps, request).queries.cardDetail(
+          actorOf(request),
+          request.params.id,
+        )
         return reply.header('etag', etagOf(detail.card.version)).send(detail)
       },
     )
@@ -137,10 +140,14 @@ export function cardRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        const card = await cards.update(actorOf(request), request.params.id, {
-          ...request.body,
-          expectedVersion: expectedVersionOf(request),
-        })
+        const card = await boardServices(deps, request).cards.update(
+          actorOf(request),
+          request.params.id,
+          {
+            ...request.body,
+            expectedVersion: expectedVersionOf(request),
+          },
+        )
         return sendCard(reply, card)
       },
     )
@@ -156,7 +163,11 @@ export function cardRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        await cards.delete(actorOf(request), request.params.id, expectedVersionOf(request))
+        await boardServices(deps, request).cards.delete(
+          actorOf(request),
+          request.params.id,
+          expectedVersionOf(request),
+        )
         await reply.code(204).send(null)
       },
     )
@@ -172,10 +183,14 @@ export function cardRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        const card = await cards.move(actorOf(request), request.params.id, {
-          ...request.body,
-          expectedVersion: expectedVersionOf(request),
-        })
+        const card = await boardServices(deps, request).cards.move(
+          actorOf(request),
+          request.params.id,
+          {
+            ...request.body,
+            expectedVersion: expectedVersionOf(request),
+          },
+        )
         return sendCard(reply, card)
       },
     )
@@ -191,10 +206,14 @@ export function cardRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        const card = await cards.cancel(actorOf(request), request.params.id, {
-          resolution: request.body.resolution,
-          expectedVersion: expectedVersionOf(request),
-        })
+        const card = await boardServices(deps, request).cards.cancel(
+          actorOf(request),
+          request.params.id,
+          {
+            resolution: request.body.resolution,
+            expectedVersion: expectedVersionOf(request),
+          },
+        )
         return sendCard(reply, card)
       },
     )
@@ -210,9 +229,13 @@ export function cardRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        const card = await cards.reopen(actorOf(request), request.params.id, {
-          expectedVersion: expectedVersionOf(request),
-        })
+        const card = await boardServices(deps, request).cards.reopen(
+          actorOf(request),
+          request.params.id,
+          {
+            expectedVersion: expectedVersionOf(request),
+          },
+        )
         return sendCard(reply, card)
       },
     )
@@ -228,9 +251,13 @@ export function cardRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        const card = await cards.archive(actorOf(request), request.params.id, {
-          expectedVersion: expectedVersionOf(request),
-        })
+        const card = await boardServices(deps, request).cards.archive(
+          actorOf(request),
+          request.params.id,
+          {
+            expectedVersion: expectedVersionOf(request),
+          },
+        )
         return sendCard(reply, card)
       },
     )
@@ -246,10 +273,14 @@ export function cardRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        const card = await cards.block(actorOf(request), request.params.id, {
-          reason: request.body.reason,
-          expectedVersion: expectedVersionOf(request),
-        })
+        const card = await boardServices(deps, request).cards.block(
+          actorOf(request),
+          request.params.id,
+          {
+            reason: request.body.reason,
+            expectedVersion: expectedVersionOf(request),
+          },
+        )
         return sendCard(reply, card)
       },
     )
@@ -265,9 +296,13 @@ export function cardRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        const card = await cards.unblock(actorOf(request), request.params.id, {
-          expectedVersion: expectedVersionOf(request),
-        })
+        const card = await boardServices(deps, request).cards.unblock(
+          actorOf(request),
+          request.params.id,
+          {
+            expectedVersion: expectedVersionOf(request),
+          },
+        )
         return sendCard(reply, card)
       },
     )
@@ -283,11 +318,15 @@ export function cardRoutes(deps: AppDeps) {
       },
       async (request) => {
         const { type, cursor, limit } = request.query
-        return queries.cardHistory(request.params.id, {
-          ...(type !== undefined ? { type } : {}),
-          ...(cursor !== undefined ? { cursor } : {}),
-          ...(limit !== undefined ? { limit } : {}),
-        })
+        return boardServices(deps, request).queries.cardHistory(
+          actorOf(request),
+          request.params.id,
+          {
+            ...(type !== undefined ? { type } : {}),
+            ...(cursor !== undefined ? { cursor } : {}),
+            ...(limit !== undefined ? { limit } : {}),
+          },
+        )
       },
     )
   }

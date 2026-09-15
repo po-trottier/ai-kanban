@@ -16,6 +16,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  ne,
   or,
   sql,
   type SQL,
@@ -53,14 +54,25 @@ export class PgCardRepository implements CardRepository {
     return rows[0] ?? null
   }
 
-  async nextCardId(boardId: string): Promise<number> {
-    // MAX(id)+1 per board — the id IS the ticket number; atomic inside the
-    // create transaction (the unit-of-work), the id PK is the backstop.
-    const rows = await this.db
-      .select({ max: sql<number | null>`max(${cards.id})` })
-      .from(cards)
-      .where(eq(cards.boardId, boardId))
-    return (rows[0]?.max ?? 0) + 1
+  /**
+   * The next card id from the `card_ids` native sequence (multiple-boards:
+   * card ids are a single shared ticket sequence across every board,
+   * preserving pre-multi-board ids/URLs/FKs). The sequence is initialized
+   * once by the `0001_boards` migration (above the pre-existing MAX(id), or 1
+   * for an empty database) — this method only ever calls `nextval()`, never
+   * `setval()`, so a live production sequence is never reset on allocation.
+   * A card inserted with an explicit id ahead of the sequence's current
+   * position (tests, imports) can still collide with a later `nextval()`; the
+   * `cards.id` PRIMARY KEY is the backstop, matching the sqlite adapter.
+   */
+  async nextCardId(): Promise<number> {
+    // `execute()`'s return type resolves to `unknown` for the driver-generic
+    // `PgDb` (see the `PgDb` header comment) — the shape is a real `{ rows }`
+    // at runtime for both drivers (node-postgres and PGlite), asserted here.
+    const result = (await this.db.execute(sql`select nextval('card_ids') as nextval`)) as {
+      rows: { nextval: string }[]
+    }
+    return Number(result.rows[0]?.nextval)
   }
 
   async insert(card: Card): Promise<void> {
@@ -172,6 +184,26 @@ export class PgCardRepository implements CardRepository {
       .orderBy(edge === 'first' ? asc(cards.position) : desc(cards.position))
       .limit(1)
     return rows[0] ?? null
+  }
+
+  async positionBefore(
+    laneId: string,
+    nextPosition: string | null,
+    movingCardId: number,
+  ): Promise<string | null> {
+    const rows = await this.db
+      .select({ position: cards.position })
+      .from(cards)
+      .where(
+        and(
+          eq(cards.laneId, laneId),
+          ne(cards.id, movingCardId),
+          nextPosition === null ? undefined : lt(cards.position, nextPosition),
+        ),
+      )
+      .orderBy(desc(cards.position))
+      .limit(1)
+    return rows[0]?.position ?? null
   }
 
   /**

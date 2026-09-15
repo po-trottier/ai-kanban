@@ -58,9 +58,8 @@ function panelApp(extra: Record<string, unknown> = {}): FakeFetch {
 }
 
 describe('CardPanel', () => {
-  it('shows a skeleton body while the card detail is still loading', async () => {
-    // Arrange — the board/policy resolve, but the card detail fetch hangs so
-    // the panel body stays pending (its skeleton, not a blank Aside).
+  it('announces loading while a deep link resolves its board', async () => {
+    // Arrange — the card must resolve before selecting and rendering its board.
     const fake = panelApp()
     const fetchFn = (input: string, init?: RequestInit) =>
       input.split('?')[0] === `/api/v1/cards/${String(card.id)}`
@@ -68,9 +67,8 @@ describe('CardPanel', () => {
         : fake.fetch(input, init)
     // Act
     renderApp({ fetchFn, route: `/cards/${String(card.id)}` })
-    // Assert — the panel opened and its body announces loading via the skeleton.
-    await screen.findByRole('dialog', { name: /Work order details/ })
-    expect(screen.getByRole('status', { name: 'Loading…' })).toBeInTheDocument()
+    // Assert — show progress while keeping the unresolved card's fields hidden.
+    expect(await screen.findByRole('status', { name: 'Loading…' })).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: /Title/ })).not.toBeInTheDocument()
   })
 
@@ -693,7 +691,7 @@ describe('CardPanel', () => {
     await user.type(filterTitle, 'Never saved draft')
     // Jump BACK to Fix pump — already cached, so the panel reuses the mounted
     // form instead of unmounting through a load skeleton.
-    await user.click(await within(dialog).findByRole('button', { name: /— Fix pump/ }))
+    await user.click(await screen.findByRole('button', { name: /— Fix pump/ }))
     // Assert — the Title shows Fix pump, never the dirty Replace-filter draft.
     await waitFor(() => {
       expect(screen.getByRole('textbox', { name: /Title/ })).toHaveValue('Fix pump')

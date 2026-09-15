@@ -29,6 +29,11 @@ export class SqlitePolicyRepository implements PolicyRepository {
     return Promise.resolve(row === undefined ? null : boardPolicySchema.parse(row))
   }
 
+  getActiveForUpdate(boardId: string): Promise<BoardPolicy | null> {
+    // The SQLite write unit of work already holds BEGIN IMMEDIATE.
+    return this.getActive(boardId)
+  }
+
   /** Append-only: never updates or deletes prior versions. */
   insert(policy: BoardPolicy): Promise<void> {
     try {

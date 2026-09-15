@@ -1,3 +1,4 @@
+import { accessibleCard } from './board-access.ts'
 import { addAttachmentInputSchema } from '../domain/commands.ts'
 import { MAX_ACTIVE_ATTACHMENTS_PER_CARD, MAX_ATTACHMENT_BYTES } from '../domain/constants.ts'
 import { LimitExceededError, NotFoundError } from '../domain/errors.ts'
@@ -59,7 +60,7 @@ export class AttachmentService {
     await this.deps.blobStore.put(storageKey, input.content)
     try {
       const { attachment, card, event } = await this.deps.uow.run(async (tx) => {
-        const targetCard = requireFound(await tx.cards.findById(cardId), 'card')
+        const targetCard = await accessibleCard(tx, actor, cardId)
         ensureNotArchived(targetCard)
         const policy = await activePolicy(tx, targetCard.boardId)
         decide(evaluatePolicy(actor, { type: 'attachment.add' }, policy))
@@ -109,14 +110,14 @@ export class AttachmentService {
   }
 
   /**
-   * Active attachment metadata by id — the download route's lookup. Reads
-   * are never policy-checked (universal read visibility, ADR-008).
+   * Active attachment metadata by id, gated by the parent card's board visibility.
    * Soft-deleted attachments are NotFoundError, like a missing row.
    */
-  async getActive(attachmentId: string): Promise<Attachment> {
+  async getActive(actor: Actor, attachmentId: string): Promise<Attachment> {
     return this.deps.uow.read(async (tx) => {
       const attachment = requireFound(await tx.attachments.findById(attachmentId), 'attachment')
       if (attachment.deletedAt !== null) throw new NotFoundError('attachment')
+      await accessibleCard(tx, actor, attachment.cardId)
       return attachment
     })
   }
@@ -135,7 +136,7 @@ export class AttachmentService {
     const { attachment, card, event } = await this.deps.uow.run(async (tx) => {
       const existing = requireFound(await tx.attachments.findById(attachmentId), 'attachment')
       if (existing.deletedAt !== null) throw new NotFoundError('attachment')
-      const targetCard = requireFound(await tx.cards.findById(existing.cardId), 'card')
+      const targetCard = await accessibleCard(tx, actor, existing.cardId)
       ensureNotArchived(targetCard)
       const policy = await activePolicy(tx, targetCard.boardId)
       decide(

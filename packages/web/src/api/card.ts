@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-query'
 import { useApi } from './api-context.ts'
 import { API_BASE } from './client.ts'
+import { useGlobalApi, useGlobalQueryClient } from './global-api-context.ts'
 import { queryKeys } from './keys.ts'
 import { notifyError } from './notify.ts'
 import {
@@ -24,6 +25,25 @@ export function useCardDetail(cardId: string) {
     queryKey: queryKeys.card(cardId),
     queryFn: () => api.get(`/cards/${cardId}`, cardDetailResponseSchema),
   })
+}
+
+/**
+ * Resolves a deep-linked card's OWN board through the unscoped/global client
+ * (`GET /cards/:id` ignores `X-Board-Id`), independent of whichever board is
+ * currently selected — so a `/cards/:id` link never renders against the
+ * wrong board before the shell catches up.
+ */
+export function useCardBoardResolve(cardId: string) {
+  const api = useGlobalApi()
+  return useQuery(
+    {
+      queryKey: queryKeys.cardBoardResolve(cardId),
+      queryFn: () => api.get(`/cards/${cardId}`, cardDetailResponseSchema),
+      retry: false,
+      enabled: cardId !== '',
+    },
+    useGlobalQueryClient(),
+  )
 }
 
 export function useComments(cardId: string) {

@@ -3,52 +3,65 @@ import { type QueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys.ts'
 
 /**
- * SSE hints are invalidation signals, never data (ADR-008): map each hint to
- * the query keys to refetch, keeping REST the single serialization path.
+ * SSE hints are invalidation signals, never data (ADR-008). `scoped` keys
+ * belong on the board-scoped QueryClient (board/card/policy/lane/location
+ * data); `global` keys belong on the root client (session, board catalog,
+ * notifications) — the two clients are separate instances, so an
+ * invalidation on the wrong one is a silent no-op.
  */
-export function hintInvalidations(hint: SseHint): readonly (readonly string[])[] {
-  // Any card-scoped event can mint a notification for a watcher, so every such
-  // hint refreshes the inbox + bell badge (prefix key). The 30s inbox poll is
-  // the backstop if the fan-out hasn't committed by the time this fires.
-  const NOTIFICATIONS = ['notifications'] as const
+export interface HintInvalidations {
+  scoped: readonly (readonly string[])[]
+  global: readonly (readonly string[])[]
+}
+
+const NOTIFICATIONS = ['notifications'] as const
+
+export function hintInvalidations(hint: SseHint): HintInvalidations {
   switch (hint.type) {
+    case 'board.updated':
+      return { scoped: [], global: [queryKeys.boardCatalog, queryKeys.groups, NOTIFICATIONS] }
     case 'policy.updated':
-      return [queryKeys.policy]
+      // A role's grants can change who administers boards.
+      return { scoped: [queryKeys.policy], global: [queryKeys.boardCatalog, NOTIFICATIONS] }
     case 'lane.updated':
-      return [queryKeys.board]
+      return { scoped: [queryKeys.board], global: [] }
     case 'user.updated':
-      return [queryKeys.users, queryKeys.me]
+      return {
+        scoped: [queryKeys.users],
+        global: [queryKeys.me, queryKeys.boardCatalog, NOTIFICATIONS],
+      }
     case 'location.updated':
-      return [queryKeys.locations]
+      return { scoped: [queryKeys.locations], global: [] }
     case 'comment.added':
     case 'comment.edited':
     case 'comment.deleted': {
-      // Query keys are stringy (URL params are strings); the hint id is an int.
       const cardId = String(hint.cardId)
-      return [queryKeys.comments(cardId), queryKeys.events(cardId), NOTIFICATIONS]
+      return {
+        scoped: [queryKeys.comments(cardId), queryKeys.events(cardId)],
+        global: [NOTIFICATIONS],
+      }
     }
     case 'attachment.added':
     case 'attachment.removed': {
       const cardId = String(hint.cardId)
-      return [queryKeys.card(cardId), queryKeys.events(cardId), NOTIFICATIONS]
+      return {
+        scoped: [queryKeys.card(cardId), queryKeys.events(cardId)],
+        global: [NOTIFICATIONS],
+      }
     }
     default: {
-      // card.* — board summaries, the card detail, and its history all change.
       const cardId = String(hint.cardId)
-      const keys = [
+      const scoped: (readonly string[])[] = [
         queryKeys.board,
         queryKeys.card(cardId),
         queryKeys.events(cardId),
-        NOTIFICATIONS,
       ]
       // A create or a field edit can mint a new free-form tag (the tags table
-      // is insert-only, so no other card event alters the vocabulary): refresh
-      // the Tags facet so a tag another user just introduced appears here too.
-      // Mirrors the local useCreateCard / invalidateCard paths.
+      // is insert-only, so no other card event alters the vocabulary).
       if (hint.type === 'card.created' || hint.type === 'card.field_changed') {
-        return [...keys, queryKeys.tags]
+        scoped.push(queryKeys.tags)
       }
-      return keys
+      return { scoped, global: [NOTIFICATIONS] }
     }
   }
 }
@@ -103,7 +116,8 @@ const flushAfterWindow: FlushScheduler = (flush) => {
  * capped backoff.
  */
 export function connectStream(
-  queryClient: QueryClient,
+  scopedQueryClient: QueryClient,
+  globalQueryClient: QueryClient,
   createSource: () => StreamSource,
   schedule: RetryScheduler = scheduleWithBackoff,
   scheduleFlush: FlushScheduler = flushAfterWindow,
@@ -116,22 +130,25 @@ export function connectStream(
   let source: StreamSource
 
   // One coalescing window per hint burst: keys dedupe in the map, and the
-  // flush invalidates each pending key exactly once. The pending flag is
-  // separate from the cancel handle: a synchronous scheduler (tests) runs the
-  // flush BEFORE scheduleFlush returns, so the flag must already be reset by
-  // then — the handle exists only for dispose.
-  const pendingKeys = new Map<string, readonly string[]>()
+  // flush invalidates each pending key exactly once against its own client.
+  const pendingKeys = new Map<string, { client: QueryClient; key: readonly string[] }>()
   let flushPending = false
   const queueInvalidations = (hint: SseHint) => {
-    for (const key of hintInvalidations(hint)) pendingKeys.set(key.join('|'), key)
+    const { scoped, global } = hintInvalidations(hint)
+    for (const key of scoped) {
+      pendingKeys.set(`scoped:${key.join('|')}`, { client: scopedQueryClient, key })
+    }
+    for (const key of global) {
+      pendingKeys.set(`global:${key.join('|')}`, { client: globalQueryClient, key })
+    }
     if (flushPending) return
     flushPending = true
     cancelFlush = scheduleFlush(() => {
       flushPending = false
-      const keys = [...pendingKeys.values()]
+      const entries = [...pendingKeys.values()]
       pendingKeys.clear()
-      for (const key of keys) {
-        void queryClient.invalidateQueries({ queryKey: key })
+      for (const { client, key } of entries) {
+        void client.invalidateQueries({ queryKey: key })
       }
     })
   }
@@ -143,14 +160,16 @@ export function connectStream(
       attempt = 0
       if (!dropped) return
       dropped = false
-      void queryClient.invalidateQueries({ queryKey: queryKeys.board })
+      void scopedQueryClient.invalidateQueries({ queryKey: queryKeys.board })
     }
     current.onerror = () => {
       dropped = true
       if (current.readyState !== CLOSED || disposed) return
       current.close()
       // An expired session surfaces promptly: /auth/me refetch → 401 → login.
-      void queryClient.invalidateQueries({ queryKey: queryKeys.me })
+      void globalQueryClient.invalidateQueries({ queryKey: queryKeys.me })
+      void globalQueryClient.invalidateQueries({ queryKey: queryKeys.boardCatalog })
+      void globalQueryClient.invalidateQueries({ queryKey: NOTIFICATIONS })
       attempt += 1
       cancelRetry = schedule(connect, attempt)
     }

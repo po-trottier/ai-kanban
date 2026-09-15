@@ -3,6 +3,7 @@ import { Badge, Group, Tooltip } from '@mantine/core'
 import { hasCardStatus } from './card-status.ts'
 import { formatDate } from '../lib/format.ts'
 import { strings } from '../strings.ts'
+import { useWaitingReasons } from '../api/meta.ts'
 import {
   ARCHIVED_COLOR,
   BLOCKED_COLOR,
@@ -51,6 +52,9 @@ export function CardBadges({
    */
   workOverdue?: boolean
 }) {
+  const reasons = useWaitingReasons()
+  const waitingLabel =
+    reasons.find((reason) => reason.key === card.waitingReason)?.label ?? card.waitingReason ?? ''
   const overdue = isOverdueResume(card.expectedResumeAt, today)
   const cancelled = card.resolution !== null && card.resolution !== 'completed'
   const showWorkOverdue = workOverdue && card.waitingReason === null
@@ -91,11 +95,11 @@ export function CardBadges({
           label={
             overdue
               ? strings.card.overdueBadgeTooltip(
-                  strings.waiting.reasons[card.waitingReason],
+                  waitingLabel,
                   card.expectedResumeAt === null ? '' : formatDate(card.expectedResumeAt),
                 )
               : strings.card.waitingBadgeTooltip(
-                  strings.waiting.reasons[card.waitingReason],
+                  waitingLabel,
                   card.expectedResumeAt === null ? '' : formatDate(card.expectedResumeAt),
                 )
           }
@@ -103,8 +107,8 @@ export function CardBadges({
         >
           <Badge color={overdue ? OVERDUE_COLOR : WAITING_COLOR} size="sm" variant="light">
             {overdue
-              ? strings.card.overdueBadge(strings.waiting.reasons[card.waitingReason])
-              : strings.card.waitingBadge(strings.waiting.reasons[card.waitingReason])}
+              ? strings.card.overdueBadge(waitingLabel)
+              : strings.card.waitingBadge(waitingLabel)}
           </Badge>
         </Tooltip>
       ) : null}

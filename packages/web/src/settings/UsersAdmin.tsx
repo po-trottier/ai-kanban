@@ -8,6 +8,7 @@ import { SkeletonRows } from '../shell/SkeletonRows.tsx'
 import { strings } from '../strings.ts'
 import { RevealOnceModal } from './RevealOnceModal.tsx'
 import { useRoleOptions } from './role-select-data.ts'
+import { SIZES } from '../theme.ts'
 
 /** User administration: create, role change, reset password, deactivate. */
 export function UsersAdmin() {
@@ -52,85 +53,90 @@ export function UsersAdmin() {
           {strings.users.createButton}
         </HintButton>
       </Group>
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>{strings.users.nameLabel}</Table.Th>
-            <Table.Th>{strings.users.emailLabel}</Table.Th>
-            <Table.Th>{strings.users.roleLabel}</Table.Th>
-            <Table.Th />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {users.isPending ? <SkeletonRows cols={4} /> : null}
-          {(users.data ?? []).map((user) => (
-            <Table.Tr key={user.id}>
-              <Table.Td>
-                <Text size="sm">{user.displayName}</Text>
-              </Table.Td>
-              <Table.Td>
-                {/* Present only on admin reads of GET /users. */}
-                <Text size="sm" c="dimmed">
-                  {user.email ?? strings.common.notAvailable}
-                </Text>
-              </Table.Td>
-              <Table.Td>
-                <Select
-                  aria-label={`${strings.users.roleLabel}: ${user.displayName}`}
-                  size="xs"
-                  data={roleOptions}
-                  value={user.role}
-                  allowDeselect={false}
-                  // Spin (and lock) just this row's role picker while its change
-                  // is in flight, so the admin sees the save is happening.
-                  disabled={patchPending(user.id, 'role')}
-                  rightSection={patchPending(user.id, 'role') ? <Loader size="xs" /> : undefined}
-                  onChange={(role) => {
-                    if (role !== null) {
-                      patchUser.mutate({ userId: user.id, input: { role: role } })
-                    }
-                  }}
-                />
-              </Table.Td>
-              <Table.Td>
-                <Group gap="xs" justify="flex-end">
-                  <HintButton
-                    tooltip={strings.tooltips.resetPassword}
-                    size="compact-xs"
-                    variant="light"
-                    loading={patchPending(user.id, 'reset')}
-                    leftSection={<KeyRound size={14} aria-hidden />}
-                    onClick={() => {
-                      patchUser.mutate(
-                        { userId: user.id, input: { resetPassword: true } },
-                        {
-                          onSuccess: (response) => {
-                            showTempPassword(response.tempPassword)
-                          },
-                        },
-                      )
-                    }}
-                  >
-                    {strings.users.resetPassword}
-                  </HintButton>
-                  <HintButton
-                    tooltip={strings.tooltips.deactivateUser}
-                    size="compact-xs"
-                    variant="light"
-                    color="red"
-                    leftSection={<Ban size={14} aria-hidden />}
-                    onClick={() => {
-                      setDeactivating({ id: user.id, name: user.displayName })
-                    }}
-                  >
-                    {strings.users.deactivate}
-                  </HintButton>
-                </Group>
-              </Table.Td>
+      <Table.ScrollContainer
+        minWidth={SIZES.settingsTableMinWidth}
+        scrollAreaProps={{ type: 'auto' }}
+      >
+        <Table>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>{strings.users.nameLabel}</Table.Th>
+              <Table.Th>{strings.users.emailLabel}</Table.Th>
+              <Table.Th>{strings.users.roleLabel}</Table.Th>
+              <Table.Th />
             </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+          </Table.Thead>
+          <Table.Tbody>
+            {users.isPending ? <SkeletonRows cols={4} /> : null}
+            {(users.data ?? []).map((user) => (
+              <Table.Tr key={user.id}>
+                <Table.Td>
+                  <Text size="sm">{user.displayName}</Text>
+                </Table.Td>
+                <Table.Td>
+                  {/* Present only on admin reads of GET /users. */}
+                  <Text size="sm" c="dimmed">
+                    {user.email ?? strings.common.notAvailable}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  <Select
+                    aria-label={`${strings.users.roleLabel}: ${user.displayName}`}
+                    size="xs"
+                    data={roleOptions}
+                    value={user.role}
+                    allowDeselect={false}
+                    // Spin (and lock) just this row's role picker while its change
+                    // is in flight, so the admin sees the save is happening.
+                    disabled={patchPending(user.id, 'role')}
+                    rightSection={patchPending(user.id, 'role') ? <Loader size="xs" /> : undefined}
+                    onChange={(role) => {
+                      if (role !== null) {
+                        patchUser.mutate({ userId: user.id, input: { role: role } })
+                      }
+                    }}
+                  />
+                </Table.Td>
+                <Table.Td>
+                  <Group gap="xs" justify="flex-end">
+                    <HintButton
+                      tooltip={strings.tooltips.resetPassword}
+                      size="compact-xs"
+                      variant="light"
+                      loading={patchPending(user.id, 'reset')}
+                      leftSection={<KeyRound size={14} aria-hidden />}
+                      onClick={() => {
+                        patchUser.mutate(
+                          { userId: user.id, input: { resetPassword: true } },
+                          {
+                            onSuccess: (response) => {
+                              showTempPassword(response.tempPassword)
+                            },
+                          },
+                        )
+                      }}
+                    >
+                      {strings.users.resetPassword}
+                    </HintButton>
+                    <HintButton
+                      tooltip={strings.tooltips.deactivateUser}
+                      size="compact-xs"
+                      variant="light"
+                      color="red"
+                      leftSection={<Ban size={14} aria-hidden />}
+                      onClick={() => {
+                        setDeactivating({ id: user.id, name: user.displayName })
+                      }}
+                    >
+                      {strings.users.deactivate}
+                    </HintButton>
+                  </Group>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
 
       {createOpen ? (
         <Modal

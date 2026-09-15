@@ -327,15 +327,16 @@ function UserPillFacet({
 }) {
   return (
     <Tooltip label={tooltip} withArrow>
-      <AsyncUserMultiSelect
-        value={value}
-        onChange={onChange}
-        ariaLabel={label}
-        placeholder={placeholder}
-        className={classes.pill}
-        classNames={{ pillsList: classes.pillsList }}
-        currentUserId={currentUserId}
-      />
+      <div className={classes.pill}>
+        <AsyncUserMultiSelect
+          value={value}
+          onChange={onChange}
+          ariaLabel={label}
+          placeholder={placeholder}
+          classNames={{ pillsList: classes.pillsList }}
+          currentUserId={currentUserId}
+        />
+      </div>
     </Tooltip>
   )
 }

@@ -1,7 +1,10 @@
-﻿import { type ActorKind } from '../domain/constants.ts'
+﻿import { type Group } from '../domain/boards.ts'
+import { type ActorKind } from '../domain/constants.ts'
+import { type BoardDefault } from '../domain/boards.ts'
 import { type CursorKey } from '../domain/cursor.ts'
 import {
   type Attachment,
+  type Board,
   type Card,
   type Comment,
   type Lane,
@@ -24,6 +27,8 @@ import { type BoardPolicy } from '../domain/policy.ts'
 import {
   type AttachmentRepository,
   type BoardCardRow,
+  type BoardRepository,
+  type GroupRepository,
   type CardQueryFilter,
   type CardRelationRepository,
   type CardRepository,
@@ -76,6 +81,9 @@ interface PasswordHashRow {
 }
 
 interface DbState {
+  boardDefaults: BoardDefault[]
+  groups: Group[]
+  boards: Board[]
   lanes: Lane[]
   users: User[]
   passwordHashes: PasswordHashRow[]
@@ -101,6 +109,9 @@ interface DbState {
 
 function emptyState(): DbState {
   return {
+    boardDefaults: [],
+    groups: [],
+    boards: [],
     lanes: [],
     users: [],
     passwordHashes: [],
@@ -155,6 +166,8 @@ export class InMemoryDb implements UnitOfWork {
 
   private transactionOver(state: DbState): TransactionContext {
     return {
+      boards: new InMemoryBoardRepository(state),
+      groups: new InMemoryGroupRepository(state),
       cards: new InMemoryCardRepository(state, this),
       comments: new InMemoryCommentRepository(state),
       attachments: new InMemoryAttachmentRepository(state),
@@ -179,6 +192,10 @@ export class InMemoryDb implements UnitOfWork {
   }
 
   // ── Committed-state helpers for arranging and asserting in tests ──
+
+  seedBoard(board: Board): void {
+    this.state.boards.push(clone(board))
+  }
 
   seedLane(lane: Lane): void {
     this.state.lanes.push(clone(lane))
@@ -321,10 +338,8 @@ class InMemoryCardRepository implements CardRepository {
     return Promise.resolve(card ? clone(card) : null)
   }
 
-  nextCardId(boardId: string): Promise<number> {
-    const max = this.state.cards
-      .filter((card) => card.boardId === boardId)
-      .reduce((highest, card) => Math.max(highest, card.id), 0)
+  nextCardId(): Promise<number> {
+    const max = this.state.cards.reduce((highest, card) => Math.max(highest, card.id), 0)
     return Promise.resolve(max + 1)
   }
 
@@ -394,6 +409,22 @@ class InMemoryCardRepository implements CardRepository {
   async edgeOfLane(laneId: string, edge: 'first' | 'last'): Promise<Card | null> {
     const cards = await this.listByLane(laneId)
     return (edge === 'first' ? cards.at(0) : cards.at(-1)) ?? null
+  }
+
+  async positionBefore(
+    laneId: string,
+    nextPosition: string | null,
+    movingCardId: number,
+  ): Promise<string | null> {
+    const cards = await this.listByLane(laneId)
+    return (
+      cards
+        .filter(
+          (card) =>
+            card.id !== movingCardId && (nextPosition === null || card.position < nextPosition),
+        )
+        .at(-1)?.position ?? null
+    )
   }
 
   query(filter: CardQueryFilter, page?: { after?: CursorKey; limit?: number }): Promise<Card[]> {
@@ -1089,9 +1120,23 @@ class InMemoryTagRepository implements TagRepository {
     return Promise.resolve()
   }
 
-  listAll(): Promise<Tag[]> {
+  listAll(boardId?: string): Promise<Tag[]> {
     return Promise.resolve(
-      clone([...this.state.tags].sort((a, b) => binaryCompare(a.name, b.name))),
+      clone(
+        this.state.tags
+          .filter(
+            (tag) =>
+              boardId === undefined ||
+              this.state.cardTags.some(
+                (link) =>
+                  link.tagId === tag.id &&
+                  this.state.cards.some(
+                    (card) => card.id === link.cardId && card.boardId === boardId,
+                  ),
+              ),
+          )
+          .sort((a, b) => binaryCompare(a.name, b.name)),
+      ),
     )
   }
 }
@@ -1101,6 +1146,10 @@ class InMemoryPolicyRepository implements PolicyRepository {
 
   constructor(state: DbState) {
     this.state = state
+  }
+
+  getActiveForUpdate(boardId: string): Promise<BoardPolicy | null> {
+    return this.getActive(boardId)
   }
 
   getActive(boardId: string): Promise<BoardPolicy | null> {
@@ -1172,6 +1221,7 @@ class InMemoryEventRepository implements EventRepository {
   listBoardSince(
     sinceIso: string,
     options?: {
+      boardId?: string
       types?: readonly CardEventType[]
       cardId?: number
       actorKind?: ActorKind
@@ -1182,6 +1232,13 @@ class InMemoryEventRepository implements EventRepository {
   ): Promise<CardEvent[]> {
     let events = this.state.events
       .filter((event) => event.createdAt >= sinceIso)
+      .filter(
+        (event) =>
+          options?.boardId === undefined ||
+          this.state.cards.some(
+            (card) => card.id === event.cardId && card.boardId === options.boardId,
+          ),
+      )
       .filter((event) => options?.types === undefined || options.types.includes(event.eventType))
       .filter((event) => options?.cardId === undefined || event.cardId === options.cardId)
       .filter((event) => options?.actorKind === undefined || event.actorKind === options.actorKind)
@@ -1218,12 +1275,14 @@ class InMemoryFilterPresetRepository implements FilterPresetRepository {
     this.state = state
   }
 
-  listVisibleTo(userId: string): Promise<FilterPreset[]> {
+  listVisibleTo(userId: string, boardId: string): Promise<FilterPreset[]> {
     return Promise.resolve(
       clone(
         this.state.filterPresets
           // Own presets plus every team-shared one (mirrors the SQL OR).
-          .filter((preset) => preset.ownerId === userId || preset.shared)
+          .filter(
+            (preset) => preset.boardId === boardId && (preset.ownerId === userId || preset.shared),
+          )
           // Newest-first (createdAt DESC, id DESC) — mirrors the SQL adapter.
           .sort((a, b) =>
             a.createdAt === b.createdAt
@@ -1234,9 +1293,10 @@ class InMemoryFilterPresetRepository implements FilterPresetRepository {
     )
   }
 
-  findByIdForOwner(id: string, ownerId: string): Promise<FilterPreset | null> {
+  findByIdForOwner(id: string, ownerId: string, boardId: string): Promise<FilterPreset | null> {
     const preset = this.state.filterPresets.find(
-      (candidate) => candidate.id === id && candidate.ownerId === ownerId,
+      (candidate) =>
+        candidate.id === id && candidate.ownerId === ownerId && candidate.boardId === boardId,
     )
     return Promise.resolve(preset ? clone(preset) : null)
   }
@@ -1255,9 +1315,10 @@ class InMemoryFilterPresetRepository implements FilterPresetRepository {
     return Promise.resolve()
   }
 
-  delete(id: string, ownerId: string): Promise<void> {
+  delete(id: string, ownerId: string, boardId: string): Promise<void> {
     const index = this.state.filterPresets.findIndex(
-      (candidate) => candidate.id === id && candidate.ownerId === ownerId,
+      (candidate) =>
+        candidate.id === id && candidate.ownerId === ownerId && candidate.boardId === boardId,
     )
     if (index === -1) return Promise.reject(new NotFoundError('filter preset'))
     this.state.filterPresets.splice(index, 1)
@@ -1365,11 +1426,18 @@ class InMemoryNotificationRepository implements NotificationRepository {
 
   listForUser(
     userId: string,
-    options: { limit: number; unreadOnly?: boolean },
+    options: { limit: number; unreadOnly?: boolean; boardIds?: readonly string[] },
   ): Promise<Notification[]> {
     const rows = this.state.notifications
       .filter((row) => row.userId === userId)
       .filter((row) => options.unreadOnly !== true || row.readAt === null)
+      .filter(
+        (row) =>
+          options.boardIds === undefined ||
+          this.state.cards.some(
+            (card) => card.id === row.cardId && options.boardIds?.includes(card.boardId),
+          ),
+      )
       // Newest-first (createdAt DESC, id DESC) — mirrors the SQL adapter.
       .sort((a, b) =>
         a.createdAt === b.createdAt
@@ -1380,9 +1448,17 @@ class InMemoryNotificationRepository implements NotificationRepository {
     return Promise.resolve(clone(rows))
   }
 
-  unreadCount(userId: string): Promise<number> {
+  unreadCount(userId: string, boardIds?: readonly string[]): Promise<number> {
     return Promise.resolve(
-      this.state.notifications.filter((row) => row.userId === userId && row.readAt === null).length,
+      this.state.notifications.filter(
+        (row) =>
+          row.userId === userId &&
+          row.readAt === null &&
+          (boardIds === undefined ||
+            this.state.cards.some(
+              (card) => card.id === row.cardId && boardIds.includes(card.boardId),
+            )),
+      ).length,
     )
   }
 
@@ -1402,10 +1478,17 @@ class InMemoryNotificationRepository implements NotificationRepository {
     return Promise.resolve()
   }
 
-  markAllRead(userId: string, readAt: string): Promise<number> {
+  markAllRead(userId: string, readAt: string, boardIds?: readonly string[]): Promise<number> {
     let count = 0
     for (const row of this.state.notifications) {
-      if (row.userId === userId && row.readAt === null) {
+      if (
+        row.userId === userId &&
+        row.readAt === null &&
+        (boardIds === undefined ||
+          this.state.cards.some(
+            (card) => card.id === row.cardId && boardIds.includes(card.boardId),
+          ))
+      ) {
         row.readAt = readAt
         count += 1
       }
@@ -1420,9 +1503,83 @@ class InMemoryNotificationRepository implements NotificationRepository {
     return Promise.resolve()
   }
 
-  clearAll(userId: string): Promise<number> {
+  clearAll(userId: string, boardIds?: readonly string[]): Promise<number> {
     const before = this.state.notifications.length
-    this.state.notifications = this.state.notifications.filter((row) => row.userId !== userId)
+    this.state.notifications = this.state.notifications.filter(
+      (row) =>
+        row.userId !== userId ||
+        (boardIds !== undefined &&
+          !this.state.cards.some(
+            (card) => card.id === row.cardId && boardIds.includes(card.boardId),
+          )),
+    )
     return Promise.resolve(before - this.state.notifications.length)
+  }
+}
+
+class InMemoryBoardRepository implements BoardRepository {
+  listDefaults(userId: string | null): Promise<BoardDefault[]> {
+    return Promise.resolve(
+      clone(
+        this.state.boardDefaults.filter((row) => row.scope !== 'user' || row.subject === userId),
+      ),
+    )
+  }
+  setDefault(scope: BoardDefault['scope'], subject: string, boardId: string | null): Promise<void> {
+    this.state.boardDefaults = this.state.boardDefaults.filter(
+      (row) => row.scope !== scope || row.subject !== subject,
+    )
+    if (boardId !== null) this.state.boardDefaults.push({ scope, subject, boardId })
+    return Promise.resolve()
+  }
+  private readonly state: DbState
+  constructor(state: DbState) {
+    this.state = state
+  }
+  findById(id: string): Promise<Board | null> {
+    return Promise.resolve(clone(this.state.boards.find((board) => board.id === id) ?? null))
+  }
+  getDefault(): Promise<Board | null> {
+    return Promise.resolve(clone(this.state.boards.find((board) => board.isDefault) ?? null))
+  }
+  list(): Promise<Board[]> {
+    return Promise.resolve(clone(this.state.boards.filter((board) => board.archivedAt === null)))
+  }
+  insert(board: Board): Promise<void> {
+    this.state.boards.push(clone(board))
+    return Promise.resolve()
+  }
+  update(board: Board): Promise<void> {
+    const index = this.state.boards.findIndex((item) => item.id === board.id)
+    if (index < 0) return Promise.reject(new NotFoundError('board'))
+    this.state.boards.splice(index, 1, clone(board))
+    return Promise.resolve()
+  }
+}
+
+class InMemoryGroupRepository implements GroupRepository {
+  private readonly state: DbState
+  constructor(state: DbState) {
+    this.state = state
+  }
+  findById(id: string): Promise<Group | null> {
+    return Promise.resolve(clone(this.state.groups.find((group) => group.id === id) ?? null))
+  }
+  list(): Promise<Group[]> {
+    return Promise.resolve(clone(this.state.groups))
+  }
+  insert(group: Group): Promise<void> {
+    this.state.groups.push(clone(group))
+    return Promise.resolve()
+  }
+  update(group: Group): Promise<void> {
+    const index = this.state.groups.findIndex((item) => item.id === group.id)
+    if (index < 0) return Promise.reject(new NotFoundError('group'))
+    this.state.groups.splice(index, 1, clone(group))
+    return Promise.resolve()
+  }
+  remove(id: string): Promise<void> {
+    this.state.groups = this.state.groups.filter((group) => group.id !== id)
+    return Promise.resolve()
   }
 }

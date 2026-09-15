@@ -1,12 +1,14 @@
 import { type TransactionContext } from '@rivian-kanban/core'
 import { type PgDb } from './database.ts'
 import { PgAttachmentRepository } from './repositories/attachment-repository.ts'
+import { PgBoardRepository } from './repositories/board-repository.ts'
 import { PgCardRelationRepository } from './repositories/card-relation-repository.ts'
 import { PgCardRepository } from './repositories/card-repository.ts'
 import { PgCardWatcherRepository } from './repositories/card-watcher-repository.ts'
 import { PgCommentRepository } from './repositories/comment-repository.ts'
 import { PgEventRepository } from './repositories/event-repository.ts'
 import { PgFilterPresetRepository } from './repositories/filter-preset-repository.ts'
+import { PgGroupRepository } from './repositories/group-repository.ts'
 import { PgLaneRepository } from './repositories/lane-repository.ts'
 import { PgLocationRepository } from './repositories/location-repository.ts'
 import { PgNotificationRepository } from './repositories/notification-repository.ts'
@@ -28,6 +30,8 @@ import { PgUserRepository } from './repositories/user-repository.ts'
  */
 export function createPgTransactionContext(db: PgDb): TransactionContext {
   return {
+    boards: new PgBoardRepository(db),
+    groups: new PgGroupRepository(db),
     cards: new PgCardRepository(db),
     comments: new PgCommentRepository(db),
     attachments: new PgAttachmentRepository(db),

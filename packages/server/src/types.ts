@@ -2,6 +2,7 @@ import {
   type Actor,
   type AttachmentService,
   type BoardQueryService,
+  type BoardService,
   type CardRelationService,
   type CardService,
   type CardWatchService,
@@ -88,6 +89,7 @@ export interface AppConfig {
 }
 
 interface AppServices {
+  boards: BoardService
   cards: CardService
   comments: CommentService
   attachments: AttachmentService
@@ -128,6 +130,8 @@ export interface AppDeps {
    */
   metrics: AppMetrics
   services: AppServices
+  defaultBoardId: string
+  forBoard(boardId: string): AppServices
   /**
    * The seeded `system` user — the resolved reporter/author for MCP writes
    * when no `reporterEmail` is given (docs/architecture/mcp.md#tools): a

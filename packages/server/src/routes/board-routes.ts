@@ -1,3 +1,5 @@
+import { boardServices, selectedBoardId } from './board-scope.ts'
+import { type FastifyRequest } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import {
   ACTOR_KINDS,
@@ -71,38 +73,45 @@ export function boardRoutes(deps: AppDeps) {
     etag: string
     body: string
   }
-  let boardCache: BoardCacheEntry | null = null
-  let pendingSnapshot: { version: number; promise: Promise<BoardCacheEntry> } | null = null
+  const boardCaches = new Map<string, BoardCacheEntry>()
+  const pendingSnapshots = new Map<string, { version: number; promise: Promise<BoardCacheEntry> }>()
 
   return function routes(app: FastifyInstance): void {
     const r = app.withTypeProvider<ZodTypeProvider>()
-    const { queries, policies, lanes, locations } = deps.services
+    const { locations } = deps.services
 
-    const computeEntry = async (version: number): Promise<BoardCacheEntry> => {
+    const computeEntry = async (
+      version: number,
+      request: FastifyRequest,
+    ): Promise<BoardCacheEntry> => {
       // rawResponse route: the body is pre-serialized here; the schema parse
       // applies the same stripping serialization the schema route path would.
-      const snapshot = boardResponseSchema.parse(await queries.boardSnapshot())
+      const snapshot = boardResponseSchema.parse(
+        await boardServices(deps, request).queries.boardSnapshot(actorOf(request)),
+      )
       const entry: BoardCacheEntry = {
         version,
-        etag: `W/"board-${String(version)}-${bootNonce}"`,
+        etag: `W/"board-${selectedBoardId(deps, request)}-${String(version)}-${bootNonce}"`,
         body: JSON.stringify(snapshot),
       }
       // Don't publish a cache entry that raced a mutation's invalidation.
-      if (boardVersion === version) boardCache = entry
+      if (boardVersion === version) boardCaches.set(selectedBoardId(deps, request), entry)
       return entry
     }
 
     r.get('/board', { config: { rawResponse: true }, schema: {} }, async (request, reply) => {
+      const boardId = selectedBoardId(deps, request)
+      await deps.services.boards.requireAccess(actorOf(request), boardId)
       const version = boardVersion
-      let entry = boardCache
+      let entry = boardCaches.get(boardId)
       if (entry?.version !== version) {
-        let pending = pendingSnapshot
+        let pending = pendingSnapshots.get(boardId)
         if (pending?.version !== version) {
-          pending = { version, promise: computeEntry(version) }
-          pendingSnapshot = pending
+          pending = { version, promise: computeEntry(version, request) }
+          pendingSnapshots.set(boardId, pending)
           const settle = () => {
             // boardCache holds the success; a failure must not be memoized.
-            if (pendingSnapshot === pending) pendingSnapshot = null
+            if (pendingSnapshots.get(boardId) === pending) pendingSnapshots.delete(boardId)
           }
           void pending.promise.then(settle, settle)
         }
@@ -127,7 +136,8 @@ export function boardRoutes(deps: AppDeps) {
           response: { 200: boardResponseSchema },
         },
       },
-      async (request) => queries.filteredBoard(request.body),
+      async (request) =>
+        boardServices(deps, request).queries.filteredBoard(actorOf(request), request.body),
     )
 
     r.post(
@@ -139,7 +149,7 @@ export function boardRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        const lane = await lanes.create(actorOf(request), request.body)
+        const lane = await boardServices(deps, request).lanes.create(actorOf(request), request.body)
         return reply.code(201).send(lane)
       },
     )
@@ -152,7 +162,7 @@ export function boardRoutes(deps: AppDeps) {
           response: { 200: z.array(laneResponseSchema) },
         },
       },
-      async (request) => lanes.reorder(actorOf(request), request.body),
+      async (request) => boardServices(deps, request).lanes.reorder(actorOf(request), request.body),
     )
 
     r.patch(
@@ -164,7 +174,12 @@ export function boardRoutes(deps: AppDeps) {
           response: { 200: laneResponseSchema },
         },
       },
-      async (request) => lanes.update(actorOf(request), request.params.id, request.body),
+      async (request) =>
+        boardServices(deps, request).lanes.update(
+          actorOf(request),
+          request.params.id,
+          request.body,
+        ),
     )
 
     r.delete(
@@ -177,7 +192,7 @@ export function boardRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        await lanes.remove(actorOf(request), request.params.id)
+        await boardServices(deps, request).lanes.remove(actorOf(request), request.params.id)
         await reply.code(204).send(null)
       },
     )
@@ -229,12 +244,14 @@ export function boardRoutes(deps: AppDeps) {
       },
     )
 
-    r.get('/tags', { schema: { response: { 200: z.array(tagResponseSchema) } } }, async () =>
-      queries.listTags(),
+    r.get('/tags', { schema: { response: { 200: z.array(tagResponseSchema) } } }, async (request) =>
+      boardServices(deps, request).queries.listTags(actorOf(request)),
     )
 
-    r.get('/lanes', { schema: { response: { 200: z.array(laneResponseSchema) } } }, async () =>
-      queries.listLanes(),
+    r.get(
+      '/lanes',
+      { schema: { response: { 200: z.array(laneResponseSchema) } } },
+      async (request) => boardServices(deps, request).queries.listLanes(actorOf(request)),
     )
 
     r.get(
@@ -249,7 +266,7 @@ export function boardRoutes(deps: AppDeps) {
         const { since, type, cardId, actorKind, cursor, limit } = request.query
         // The cross-user feed is gated on `viewAllActivity`; a caller without it
         // is scoped to their own activity inside the service (query layer).
-        return queries.eventsSince(actorOf(request), {
+        return boardServices(deps, request).queries.eventsSince(actorOf(request), {
           ...(since !== undefined ? { sinceIso: since } : {}),
           ...(type !== undefined ? { type } : {}),
           ...(cardId !== undefined ? { cardId } : {}),
@@ -260,8 +277,13 @@ export function boardRoutes(deps: AppDeps) {
       },
     )
 
-    r.get('/policy', { schema: { response: { 200: boardPolicyResponseSchema } } }, async () =>
-      policies.getActive(),
+    r.get(
+      '/policy',
+      { schema: { response: { 200: boardPolicyResponseSchema } } },
+      async (request) => {
+        await deps.services.boards.requireAccess(actorOf(request), selectedBoardId(deps, request))
+        return boardServices(deps, request).policies.getActive()
+      },
     )
 
     r.put(
@@ -272,7 +294,8 @@ export function boardRoutes(deps: AppDeps) {
           response: { 200: boardPolicyResponseSchema },
         },
       },
-      async (request) => policies.apply(actorOf(request), request.body),
+      async (request) =>
+        boardServices(deps, request).policies.apply(actorOf(request), request.body),
     )
   }
 }

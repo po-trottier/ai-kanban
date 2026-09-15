@@ -105,9 +105,15 @@ export function scheduleJobs(deps: ScheduledJobsDeps): ScheduledJobs {
           ),
         ]),
     define('doneArchival', '20 3 * * *', () => deps.cards.archiveExpired(systemActor)),
-    define('positionRebalance', '40 3 * * *', () =>
-      runPositionRebalance({ uow: deps.uow, logger, boardId: deps.boardId }),
-    ),
+    define('positionRebalance', '40 3 * * *', async () => {
+      let rebalancedLanes = 0
+      for (const board of await deps.uow.read((tx) => tx.boards.list())) {
+        rebalancedLanes += (
+          await runPositionRebalance({ uow: deps.uow, logger, boardId: board.id })
+        ).rebalancedLanes
+      }
+      return { rebalancedLanes }
+    }),
     define('sessionPurge', '50 3 * * *', () => runSessionPurge({ auth: deps.auth, logger })),
   ]
 

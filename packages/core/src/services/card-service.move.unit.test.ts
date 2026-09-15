@@ -7,6 +7,37 @@ import { createScenario, policyDenyingUser } from '../testing/index.ts'
 const ENFORCED = { ...DEFAULT_POLICY_DOCUMENT, transitionEnforcement: true }
 
 describe('CardService.move — cross-lane', () => {
+  it('uses real lane neighbors when filters hide cards, including archived positions', async () => {
+    // Arrange
+    const scenario = createScenario()
+    const first = scenario.seedCard({ laneId: scenario.lanes.ready.id, position: 'a0' })
+    const hidden = scenario.seedCard({
+      laneId: scenario.lanes.ready.id,
+      position: 'a1',
+      archivedAt: '2026-09-01T00:00:00.000Z',
+    })
+    const last = scenario.seedCard({ laneId: scenario.lanes.ready.id, position: 'a2' })
+    const card = scenario.seedCard({ laneId: scenario.lanes.intake.id })
+
+    // Act
+    const moved = await scenario.cards.move(scenario.actors.technician, card.id, {
+      toLane: 'ready',
+      prevCardId: first.id,
+      nextCardId: last.id,
+      expectedVersion: 1,
+    })
+    const appended = await scenario.cards.move(scenario.actors.technician, card.id, {
+      toLane: 'ready',
+      prevCardId: null,
+      nextCardId: null,
+      expectedVersion: moved.version,
+    })
+
+    // Assert
+    expect(moved.position > hidden.position).toBe(true)
+    expect(moved.position < last.position).toBe(true)
+    expect(appended.position > last.position).toBe(true)
+  })
   it('moves between lanes and audits card.status_changed with lane keys', async () => {
     // Arrange
     const scenario = createScenario()
@@ -404,7 +435,11 @@ describe('CardService.move — conflicts and ordering races', () => {
   it('surfaces a conflict carrying the current card when the duplicate persists after the single retry', async () => {
     // Arrange
     const scenario = createScenario()
-    scenario.seedCard({ laneId: scenario.lanes.in_progress.id, position: 'a0' })
+    // Keep the fake's write fault armed across both transaction attempts.
+    Object.defineProperty(scenario.db, 'failNextCardPositionWrite', {
+      get: () => true,
+      set: () => undefined,
+    })
     const card = scenario.seedCard({ laneId: scenario.lanes.ready.id })
 
     // Act

@@ -2,6 +2,7 @@ import { type ActorKind, type Priority, type WaitingReason } from '../domain/con
 import { type CursorKey } from '../domain/cursor.ts'
 import {
   type Attachment,
+  type Board,
   type Card,
   type Comment,
   type Lane,
@@ -21,6 +22,7 @@ import { type FilterPreset } from '../domain/filters.ts'
 import { type Notification } from '../domain/notifications.ts'
 import { type CardRelation, type RelationType } from '../domain/relations.ts'
 import { type BoardPolicy } from '../domain/policy.ts'
+import { type BoardDefault, type Group } from '../domain/boards.ts'
 
 /**
  * Repository ports owned by core, implemented by packages/db (ADR-004).
@@ -78,15 +80,34 @@ export interface CardQueryFilter {
   archivedOnly?: boolean
 }
 
+export interface BoardRepository {
+  findById(id: string): Promise<Board | null>
+  /** Permanent role authority, even if the board has been archived. */
+  getDefault(): Promise<Board | null>
+  /** Active boards in creation order. */
+  list(): Promise<Board[]>
+  insert(board: Board): Promise<void>
+  update(board: Board): Promise<void>
+  /** Admin defaults plus this user's preference, excluding other users' preferences. */
+  listDefaults(userId: string | null): Promise<BoardDefault[]>
+  setDefault(scope: BoardDefault['scope'], subject: string, boardId: string | null): Promise<void>
+}
+
+export interface GroupRepository {
+  list(): Promise<Group[]>
+  findById(id: string): Promise<Group | null>
+  insert(group: Group): Promise<void>
+  update(group: Group): Promise<void>
+  remove(id: string): Promise<void>
+}
+
 export interface CardRepository {
   findById(id: number): Promise<Card | null>
   /**
-   * The next card id for the board — `MAX(id) + 1`, or 1 for the first card.
-   * The id IS the sequential per-board ticket number. Called inside the create
-   * transaction; SQLite's single writer makes read-then-insert atomic, and the
-   * id PRIMARY KEY is the backstop (the Postgres port would use a sequence).
+   * Globally unique ticket number, preserving existing card URLs. SQLite
+   * allocates global MAX(id)+1 under its write lock; PostgreSQL uses a sequence.
    */
-  nextCardId(boardId: string): Promise<number>
+  nextCardId(): Promise<number>
   /** May reject with DuplicatePositionError — the UNIQUE(laneId, position) backstop. */
   insert(card: Card): Promise<void>
   /** May reject with DuplicatePositionError — the UNIQUE(laneId, position) backstop. */
@@ -128,6 +149,13 @@ export interface CardRepository {
    * space). Null for an empty lane.
    */
   edgeOfLane(laneId: string, edge: 'first' | 'last'): Promise<Card | null>
+  /** Closest occupied position before `nextPosition` (null = lane end),
+   * including archived cards, excluding the moving card. Indexed LIMIT 1 read. */
+  positionBefore(
+    laneId: string,
+    nextPosition: string | null,
+    movingCardId: number,
+  ): Promise<string | null>
   /**
    * Filtered list, newest-first: `ORDER BY createdAt DESC, id DESC` — the id
    * tie-break is descending too. When `page.after` is set, returns only rows
@@ -407,12 +435,14 @@ export interface TagRepository {
   /** Full-replacement of the card_tags rows. */
   setCardTags(cardId: number, tagIds: string[]): Promise<void>
   /** Every known tag, name order (autocomplete: GET /tags). */
-  listAll(): Promise<Tag[]>
+  listAll(boardId?: string): Promise<Tag[]>
 }
 
 export interface PolicyRepository {
   /** Newest policy version for the board, or null before seeding. */
   getActive(boardId: string): Promise<BoardPolicy | null>
+  /** Serialize settings writers on the board before reading the newest version. */
+  getActiveForUpdate(boardId: string): Promise<BoardPolicy | null>
   /** Append-only: never updates or deletes prior versions. */
   insert(policy: BoardPolicy): Promise<void>
 }
@@ -460,6 +490,7 @@ export interface EventRepository {
   listBoardSince(
     sinceIso: string,
     options?: {
+      boardId?: string
       types?: readonly CardEventType[]
       cardId?: number
       actorKind?: ActorKind
@@ -482,14 +513,14 @@ export interface EventRepository {
  */
 export interface FilterPresetRepository {
   /** Presets visible to `userId`: their own plus every team-shared one, newest-first. */
-  listVisibleTo(userId: string): Promise<FilterPreset[]>
+  listVisibleTo(userId: string, boardId: string): Promise<FilterPreset[]>
   /** One preset IF it belongs to `ownerId`; null for unknown OR another owner's. */
-  findByIdForOwner(id: string, ownerId: string): Promise<FilterPreset | null>
+  findByIdForOwner(id: string, ownerId: string, boardId: string): Promise<FilterPreset | null>
   insert(preset: FilterPreset): Promise<void>
   /** Persists name/filter/shared edits; NotFoundError when no row with (id, ownerId). */
   update(preset: FilterPreset): Promise<void>
   /** Hard-deletes IF owned by `ownerId`; NotFoundError otherwise. */
-  delete(id: string, ownerId: string): Promise<void>
+  delete(id: string, ownerId: string, boardId: string): Promise<void>
 }
 
 /**
@@ -537,24 +568,26 @@ export interface NotificationRepository {
   /** The user's notifications, newest-first; `unreadOnly` restricts to unread. Capped by `limit`. */
   listForUser(
     userId: string,
-    options: { limit: number; unreadOnly?: boolean },
+    options: { limit: number; unreadOnly?: boolean; boardIds?: readonly string[] },
   ): Promise<Notification[]>
   /** Count of the user's UNREAD notifications (the bell badge). */
-  unreadCount(userId: string): Promise<number>
+  unreadCount(userId: string, boardIds?: readonly string[]): Promise<number>
   /** Marks one notification read IF it belongs to `userId`; no-op otherwise. */
   markRead(id: string, userId: string, readAt: string): Promise<void>
   /** Restores one notification to unread (`read_at = null`) IF it belongs to `userId`; no-op otherwise. */
   markUnread(id: string, userId: string): Promise<void>
   /** Marks every unread notification of `userId` read; returns the count affected. */
-  markAllRead(userId: string, readAt: string): Promise<number>
+  markAllRead(userId: string, readAt: string, boardIds?: readonly string[]): Promise<number>
   /** Deletes one notification IF it belongs to `userId`; no-op otherwise. */
   clear(id: string, userId: string): Promise<void>
   /** Deletes every notification of `userId` (read and unread); returns the count affected. */
-  clearAll(userId: string): Promise<number>
+  clearAll(userId: string, boardIds?: readonly string[]): Promise<number>
 }
 
 /** The repositories available inside one atomic unit of work. */
 export interface TransactionContext {
+  boards: BoardRepository
+  groups: GroupRepository
   cards: CardRepository
   comments: CommentRepository
   attachments: AttachmentRepository

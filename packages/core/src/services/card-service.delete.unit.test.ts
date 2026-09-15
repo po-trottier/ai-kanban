@@ -90,7 +90,7 @@ describe('CardService.delete', () => {
     expect(scenario.db.watcherIdsFor(card.id)).toHaveLength(0)
     expect(scenario.db.notificationsFor(scenario.users.requester.id)).toHaveLength(0)
     expect(scenario.db.tagNamesFor(card.id)).toHaveLength(0)
-    expect(await scenario.relations.list(siblingId)).toHaveLength(0)
+    expect(await scenario.relations.list(scenario.actors.requester, siblingId)).toHaveLength(0)
     expect(scenario.db.getCard(siblingId).id).toBe(siblingId)
   })
 

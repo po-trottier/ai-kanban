@@ -1,7 +1,7 @@
 /* Shell layout — token-only values (ADR-016 rule 7). */
 
 .shell {
-  height: 100vh;
+  height: 100dvh;
 }
 
 /* Header: brand left, actions right (the actions Group carries `ml="auto"`).
@@ -31,10 +31,34 @@
   filter: none;
 }
 
+/* Centers the header board switcher between the brand mark and the right
+   cluster: both sides shrink to their content, this absorbs the rest. */
+.boardSwitcherWrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+
+/* Never shrinks below its icon buttons (New card, badge legend, bell, avatar). */
+.headerActions {
+  flex-shrink: 0;
+}
+
+/* At the phone breakpoint every header control (logo, truncated board name,
+   New card, badge legend, bell, avatar) must fit without overflow — tighten
+   the shared gaps so the switcher keeps real width for its truncated label. */
+@media (max-width: 62em) {
+  .header {
+    gap: var(--mantine-spacing-xs);
+    padding-inline: var(--mantine-spacing-sm);
+  }
+}
+
 /* The main area pins to the viewport as a column: a full-width filter-bar strip
    on top, then the board+detail-panel row that fills the rest. */
 .main {
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -55,6 +79,7 @@
 /* The board + detail-panel row: the board fills the flexible left, the panel
    docks to its right. Only THIS row is squeezed by the panel. */
 .boardRow {
+  position: relative;
   flex: 1 1 auto;
   display: flex;
   min-height: 0;
@@ -84,10 +109,31 @@
    to share): it takes the whole board row and the board hides behind it. Matches
    the resize handle's hidden state below. */
 @media (max-width: 62em) {
+  .compactLabel {
+    display: none;
+  }
+
+  .compactButton {
+    width: var(--button-height);
+    padding-inline: 0;
+  }
+
+  .compactSection {
+    margin: 0;
+  }
+
+  /* Keep the route mounted and its scroll position intact, but remove the
+     covered board from keyboard navigation and the accessibility tree. */
+  .panelOpen .boardArea {
+    visibility: hidden;
+  }
+
   .panelColumn {
-    flex: 1 1 100%;
+    position: absolute;
+    inset: 0;
     width: 100% !important;
     border-left: none;
+    background: var(--mantine-color-body);
   }
 }
 

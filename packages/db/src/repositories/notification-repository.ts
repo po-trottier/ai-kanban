@@ -1,7 +1,7 @@
 import { type Notification, type NotificationRepository } from '@rivian-kanban/core'
-import { and, desc, eq, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, exists, inArray, isNull, sql, type SQL } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
-import { notifications } from '../schema.ts'
+import { cards, notifications } from '../schema.ts'
 
 /**
  * In-app notifications (docs/architecture/notifications.md). Insert-only until
@@ -24,29 +24,52 @@ export class SqliteNotificationRepository implements NotificationRepository {
     return Promise.resolve()
   }
 
+  /**
+   * `boardIds` filters through the notification's card (an `exists` subquery,
+   * not a join, so no row multiplication) — undefined means unscoped, an
+   * empty array matches nothing (no leakage), mirroring EventRepository's
+   * `actorIds` allowlist contract.
+   */
+  private boardScope(boardIds: readonly string[]): SQL {
+    return exists(
+      this.db
+        .select({ one: sql`1` })
+        .from(cards)
+        .where(and(eq(cards.id, notifications.cardId), inArray(cards.boardId, [...boardIds]))),
+    )
+  }
+
   listForUser(
     userId: string,
-    options: { limit: number; unreadOnly?: boolean },
+    options: { limit: number; unreadOnly?: boolean; boardIds?: readonly string[] },
   ): Promise<Notification[]> {
-    const where =
-      options.unreadOnly === true
-        ? and(eq(notifications.userId, userId), isNull(notifications.readAt))
-        : eq(notifications.userId, userId)
+    if (options.boardIds?.length === 0) return Promise.resolve([])
+    const conditions: (SQL | undefined)[] = [eq(notifications.userId, userId)]
+    if (options.unreadOnly === true) conditions.push(isNull(notifications.readAt))
+    if (options.boardIds !== undefined) {
+      conditions.push(this.boardScope(options.boardIds))
+    }
     const rows = this.db
       .select()
       .from(notifications)
-      .where(where)
+      .where(and(...conditions))
       .orderBy(desc(notifications.createdAt), desc(notifications.id))
       .limit(options.limit)
       .all()
     return Promise.resolve(rows.map((row) => SqliteNotificationRepository.hydrate(row)))
   }
 
-  unreadCount(userId: string): Promise<number> {
+  unreadCount(userId: string, boardIds?: readonly string[]): Promise<number> {
+    if (boardIds?.length === 0) return Promise.resolve(0)
+    const conditions: (SQL | undefined)[] = [
+      eq(notifications.userId, userId),
+      isNull(notifications.readAt),
+    ]
+    if (boardIds !== undefined) conditions.push(this.boardScope(boardIds))
     const row = this.db
       .select({ count: sql<number>`count(*)` })
       .from(notifications)
-      .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)))
+      .where(and(...conditions))
       .get()
     return Promise.resolve(row?.count ?? 0)
   }
@@ -77,11 +100,17 @@ export class SqliteNotificationRepository implements NotificationRepository {
     return Promise.resolve()
   }
 
-  markAllRead(userId: string, readAt: string): Promise<number> {
+  markAllRead(userId: string, readAt: string, boardIds?: readonly string[]): Promise<number> {
+    if (boardIds?.length === 0) return Promise.resolve(0)
+    const conditions: (SQL | undefined)[] = [
+      eq(notifications.userId, userId),
+      isNull(notifications.readAt),
+    ]
+    if (boardIds !== undefined) conditions.push(this.boardScope(boardIds))
     const result = this.db
       .update(notifications)
       .set({ readAt })
-      .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)))
+      .where(and(...conditions))
       .run()
     return Promise.resolve(result.changes)
   }
@@ -95,8 +124,14 @@ export class SqliteNotificationRepository implements NotificationRepository {
     return Promise.resolve()
   }
 
-  clearAll(userId: string): Promise<number> {
-    const result = this.db.delete(notifications).where(eq(notifications.userId, userId)).run()
+  clearAll(userId: string, boardIds?: readonly string[]): Promise<number> {
+    if (boardIds?.length === 0) return Promise.resolve(0)
+    const conditions: (SQL | undefined)[] = [eq(notifications.userId, userId)]
+    if (boardIds !== undefined) conditions.push(this.boardScope(boardIds))
+    const result = this.db
+      .delete(notifications)
+      .where(and(...conditions))
+      .run()
     return Promise.resolve(result.changes)
   }
 }

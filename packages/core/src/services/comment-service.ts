@@ -1,3 +1,4 @@
+import { accessibleCard, canAccessBoard } from './board-access.ts'
 import { addCommentInputSchema, editCommentInputSchema } from '../domain/commands.ts'
 import { NotFoundError } from '../domain/errors.ts'
 import { type Actor, type Card, type Comment } from '../domain/entities.ts'
@@ -63,7 +64,7 @@ export class CommentService {
   ): Promise<Comment> {
     const input = addCommentInputSchema.parse(rawInput)
     const { comment, card, event } = await this.deps.uow.run(async (tx) => {
-      const targetCard = requireFound(await tx.cards.findById(cardId), 'card')
+      const targetCard = await accessibleCard(tx, actor, cardId)
       ensureNotArchived(targetCard)
       const policy = await activePolicy(tx, targetCard.boardId)
       decide(evaluatePolicy(actor, { type: 'comment.add' }, policy))
@@ -132,10 +133,17 @@ export class CommentService {
     nowIso: string,
   ): Promise<string[]> {
     const resolved: string[] = []
+    const card = requireFound(await tx.cards.findById(cardId), 'card')
+    const board = requireFound(await tx.boards.findById(card.boardId), 'board')
     for (const userId of new Set(rawMentions)) {
       if (userId === authorId) continue
       const user = await tx.users.findById(userId)
-      if (user === null) continue
+      if (
+        user === null ||
+        !user.isActive ||
+        !(await canAccessBoard(tx, { kind: 'user', id: user.id, role: user.role }, board))
+      )
+        continue
       resolved.push(userId)
       await tx.cardWatchers.add(cardId, userId, nowIso)
       await tx.notifications.insert({
@@ -163,7 +171,7 @@ export class CommentService {
     const input = editCommentInputSchema.parse(rawInput)
     const { comment, card, event } = await this.deps.uow.run(async (tx) => {
       const existing = await this.requireActiveComment(tx, commentId)
-      const targetCard = requireFound(await tx.cards.findById(existing.cardId), 'card')
+      const targetCard = await accessibleCard(tx, actor, existing.cardId)
       ensureNotArchived(targetCard)
       const policy = await activePolicy(tx, targetCard.boardId)
       decide(evaluatePolicy(actor, { type: 'comment.edit', authorId: existing.authorId }, policy))
@@ -192,7 +200,7 @@ export class CommentService {
   async softDelete(actor: Actor, commentId: string): Promise<Comment> {
     const { comment, card, event } = await this.deps.uow.run(async (tx) => {
       const existing = await this.requireActiveComment(tx, commentId)
-      const targetCard = requireFound(await tx.cards.findById(existing.cardId), 'card')
+      const targetCard = await accessibleCard(tx, actor, existing.cardId)
       ensureNotArchived(targetCard)
       const policy = await activePolicy(tx, targetCard.boardId)
       decide(evaluatePolicy(actor, { type: 'comment.delete', authorId: existing.authorId }, policy))
@@ -219,9 +227,9 @@ export class CommentService {
    * shared read path — deleted content never leaves the server on ANY
    * surface (rest-api.md#comments, `redactedCommentSchema`).
    */
-  async listForCard(cardId: number): Promise<Comment[]> {
+  async listForCard(actor: Actor, cardId: number): Promise<Comment[]> {
     const thread = await this.deps.uow.read(async (tx) => {
-      requireFound(await tx.cards.findById(cardId), 'card')
+      await accessibleCard(tx, actor, cardId)
       return tx.comments.listByCard(cardId)
     })
     return redactDeletedComments(thread)

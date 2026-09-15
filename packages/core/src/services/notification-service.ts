@@ -6,6 +6,7 @@ import {
 } from '../domain/notifications.ts'
 import { type TransactionContext, type UnitOfWork } from '../ports/repositories.ts'
 import { type Clock, type IdGenerator } from '../ports/runtime.ts'
+import { canAccessBoard, visibleBoardIds } from './board-access.ts'
 
 export interface NotificationServiceDeps {
   uow: UnitOfWork
@@ -40,6 +41,10 @@ export class NotificationService {
     return this.deps.uow.run(async (tx) => {
       const event = await tx.events.findById(eventId)
       if (event === null || !isNotifiableEvent(event.eventType)) return []
+      const card = await tx.cards.findById(cardId)
+      if (card === null || event.cardId !== cardId) return []
+      const board = await tx.boards.findById(card.boardId)
+      if (board === null) return []
       const watchers = await tx.cardWatchers.listWatcherIds(cardId)
       // Never the actor; and for a comment, never a user who was @-mentioned —
       // they already got a higher-signal `mention` notification.
@@ -47,7 +52,16 @@ export class NotificationService {
       if (event.eventType === 'comment.added' && event.payload.mentionedUserIds !== undefined) {
         for (const id of event.payload.mentionedUserIds) excluded.add(id)
       }
-      const recipients = watchers.filter((id) => !excluded.has(id))
+      const recipients: string[] = []
+      for (const id of watchers) {
+        if (excluded.has(id)) continue
+        const user = await tx.users.findById(id)
+        if (
+          user?.isActive &&
+          (await canAccessBoard(tx, { kind: 'user', id: user.id, role: user.role }, board))
+        )
+          recipients.push(id)
+      }
       // A `comment.added` fan-out deep-links to the comment (like a mention);
       // every other event type has no comment to jump to.
       const commentId = event.eventType === 'comment.added' ? event.payload.commentId : null
@@ -76,6 +90,7 @@ export class NotificationService {
   ): Promise<NotificationView[]> {
     return this.deps.uow.read(async (tx) => {
       const rows = await tx.notifications.listForUser(actor.id, {
+        boardIds: await visibleBoardIds(tx, actor),
         limit: options.limit ?? DEFAULT_LIST_LIMIT,
         ...(options.unreadOnly !== undefined ? { unreadOnly: options.unreadOnly } : {}),
       })
@@ -87,7 +102,9 @@ export class NotificationService {
 
   /** The acting user's unread count (the bell badge). */
   async unreadCount(actor: Actor): Promise<number> {
-    return this.deps.uow.read((tx) => tx.notifications.unreadCount(actor.id))
+    return this.deps.uow.read(async (tx) =>
+      tx.notifications.unreadCount(actor.id, await visibleBoardIds(tx, actor)),
+    )
   }
 
   /** Marks one of the caller's notifications read (no-op if not theirs / already read). */
@@ -99,8 +116,12 @@ export class NotificationService {
 
   /** Marks every unread notification of the caller read; returns the count affected. */
   async markAllRead(actor: Actor): Promise<number> {
-    return this.deps.uow.run((tx) =>
-      tx.notifications.markAllRead(actor.id, this.deps.clock.now().toISOString()),
+    return this.deps.uow.run(async (tx) =>
+      tx.notifications.markAllRead(
+        actor.id,
+        this.deps.clock.now().toISOString(),
+        await visibleBoardIds(tx, actor),
+      ),
     )
   }
 
@@ -116,7 +137,9 @@ export class NotificationService {
 
   /** Clears (deletes) every notification of the caller; returns the count affected. */
   async clearAll(actor: Actor): Promise<number> {
-    return this.deps.uow.run((tx) => tx.notifications.clearAll(actor.id))
+    return this.deps.uow.run(async (tx) =>
+      tx.notifications.clearAll(actor.id, await visibleBoardIds(tx, actor)),
+    )
   }
 
   /** Resolves a stored row to its inbox view (card title + actor display name). */

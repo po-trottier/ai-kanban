@@ -10,7 +10,6 @@ import {
   TAG_NAME_MAX,
   THEMES,
   TOKEN_SCOPES,
-  WAITING_REASONS,
 } from './constants.ts'
 
 /**
@@ -41,7 +40,11 @@ export const laneKeySchema = z
   .regex(/^[a-z][a-z0-9_]*$/, 'lowercase letters, digits, and underscores; must start a letter')
   .max(40)
 export const prioritySchema = z.enum(PRIORITIES)
-export const waitingReasonSchema = z.enum(WAITING_REASONS)
+/** Membership is checked against active settings when a reason is selected. */
+export const waitingReasonSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9_]*$/)
+  .max(40)
 export const tokenScopeSchema = z.enum(TOKEN_SCOPES)
 
 /** Tag names: ≤ 50 chars, trimmed, case preserved, matched case-insensitively. */
@@ -80,7 +83,13 @@ export type User = z.infer<typeof userSchema>
 
 export const boardSchema = z.strictObject({
   id: z.uuid(),
-  name: z.string().min(1),
+  name: z.string().trim().min(1).max(80),
+  isDefault: z.boolean(),
+  archivedAt: isoDateTimeSchema.nullable(),
+  accessMode: z.enum(['all', 'restricted']),
+  allowedRoleKeys: z.array(roleSchema).max(100),
+  allowedUserIds: z.array(z.uuid()).max(1000),
+  allowedGroupIds: z.array(z.uuid()).max(100).default([]),
   createdAt: isoDateTimeSchema,
 })
 export type Board = z.infer<typeof boardSchema>

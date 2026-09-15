@@ -12,6 +12,7 @@ import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router'
 import { ApiContext } from './api/api-context.ts'
 import { ApiClient } from './api/client.ts'
+import { GlobalApiContext } from './api/global-api-context.ts'
 import { createAppQueryClient } from './api/query-client.ts'
 import { routes } from './app/routes.tsx'
 import { ErrorBoundary } from './shell/ErrorBoundary.tsx'
@@ -36,8 +37,10 @@ if (root) {
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>
             <ApiContext.Provider value={apiClient}>
-              <Notifications position="top-right" />
-              <RouterProvider router={router} />
+              <GlobalApiContext.Provider value={{ api: apiClient, queryClient }}>
+                <Notifications position="top-right" />
+                <RouterProvider router={router} />
+              </GlobalApiContext.Provider>
             </ApiContext.Provider>
           </QueryClientProvider>
         </ErrorBoundary>

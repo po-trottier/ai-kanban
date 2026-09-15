@@ -8,6 +8,7 @@ import {
   fixturePickerUsers,
   fixtureTech,
   makeBoard,
+  makeBoardCatalog,
   makeCard,
   permissivePolicy,
   policyRecordOf,
@@ -30,6 +31,21 @@ function authedRoutes(overrides: Record<string, unknown> = {}): FakeFetch {
 }
 
 describe('app routing', () => {
+  it('explains how to get access when no boards are available', async () => {
+    // Arrange
+    const fake = authedRoutes({ 'GET /api/v1/boards': makeBoardCatalog([]) })
+    // Act
+    renderApp({ fetchFn: fake.fetch })
+    // Assert
+    expect(
+      await within(await screen.findByRole('main')).findByText('No boards available'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Ask an administrator to grant you access to a board.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('No work orders yet')).not.toBeInTheDocument()
+  })
+
   it('redirects to the login page when the session is missing (401 anywhere)', async () => {
     // Arrange
     const fake = createFakeFetch({
@@ -77,9 +93,9 @@ describe('app routing', () => {
     renderApp({ fetchFn: fake.fetch })
     // Assert
     expect(await screen.findByText('Fix pump')).toBeInTheDocument()
-    // The brand is now the logo + wordmark (ITEM 1), linking home; the app
-    // title stays visible so the header identifies the app on any logo asset.
-    expect(screen.getByRole('heading', { name: 'Facilities Kanban' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Rivian Facilities Tickets System — go to the board' }),
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'New work order' })).toBeInTheDocument()
     // Settings is the single entry point now — a menu item in the avatar
     // dropdown (the header gear is gone), reachable by every role.
@@ -101,7 +117,7 @@ describe('app routing', () => {
     expect(screen.queryByRole('textbox', { name: 'Search work orders' })).not.toBeInTheDocument()
   })
 
-  it('lets a non-admin open Settings and see only the Preferences tab', async () => {
+  it('lets a non-admin open Preferences and Boards without admin tabs', async () => {
     // Arrange — a plain user (no manage* grant): Settings is open to everyone
     // now (for their preferences), but the admin tabs stay gated.
     const fake = authedRoutes({ 'GET /api/v1/auth/me': fixtureTech })
@@ -110,6 +126,7 @@ describe('app routing', () => {
     // Assert — the Preferences tab and its theme selector are present; none of
     // the admin tabs render, and there is no admins-only wall.
     expect(await screen.findByRole('tab', { name: 'Preferences' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Boards' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'System' })).toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: 'Users' })).not.toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: 'Permissions' })).not.toBeInTheDocument()
@@ -212,7 +229,8 @@ describe('app routing', () => {
     // Act — open the form from the header button, then close it with ✕. (The
     // empty board renders its OWN New work order CTA, so scope to the header.)
     renderApp({ fetchFn: fake.fetch })
-    const header = await screen.findByRole('banner')
+    await screen.findByText('No work orders yet')
+    const header = screen.getByRole('banner')
     await user.click(within(header).getByRole('button', { name: 'New work order' }))
     const dialog = await screen.findByRole('dialog', { name: 'New work order' })
     await user.click(within(dialog).getByRole('button', { name: 'Close' }))
@@ -232,7 +250,8 @@ describe('app routing', () => {
     // Act — open (from the header, since the empty board has its own CTA), fill
     // the title, Create.
     renderApp({ fetchFn: fake.fetch })
-    const header = await screen.findByRole('banner')
+    await screen.findByText('No work orders yet')
+    const header = screen.getByRole('banner')
     await user.click(within(header).getByRole('button', { name: 'New work order' }))
     await screen.findByRole('dialog', { name: 'New work order' })
     await user.type(screen.getByRole('textbox', { name: /Title/ }), 'Broken door')

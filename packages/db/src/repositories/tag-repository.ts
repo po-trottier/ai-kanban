@@ -2,7 +2,7 @@ import { type Tag, type TagRepository } from '@rivian-kanban/core'
 import { asc, eq } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { toError } from '../errors.ts'
-import { cardTags, tags } from '../schema.ts'
+import { cards, cardTags, tags } from '../schema.ts'
 
 export class SqliteTagRepository implements TagRepository {
   private readonly db: BetterSQLite3Database
@@ -49,9 +49,26 @@ export class SqliteTagRepository implements TagRepository {
     return Promise.resolve(rows)
   }
 
-  /** Every known tag, name order (autocomplete). */
-  listAll(): Promise<Tag[]> {
-    const rows = this.db.select().from(tags).orderBy(asc(tags.name), asc(tags.id)).all()
+  /**
+   * Every known tag, name order (autocomplete). When `boardId` is given,
+   * restricted to tags actually used by that board's cards — the shared
+   * taxonomy stays global, but suggestions stay board-relevant. `selectDistinct`
+   * collapses the card_tags/cards join back to one row per tag (a tag used on
+   * many cards of the board must not repeat).
+   */
+  listAll(boardId?: string): Promise<Tag[]> {
+    if (boardId === undefined) {
+      const rows = this.db.select().from(tags).orderBy(asc(tags.name), asc(tags.id)).all()
+      return Promise.resolve(rows)
+    }
+    const rows = this.db
+      .selectDistinct({ id: tags.id, name: tags.name })
+      .from(tags)
+      .innerJoin(cardTags, eq(cardTags.tagId, tags.id))
+      .innerJoin(cards, eq(cards.id, cardTags.cardId))
+      .where(eq(cards.boardId, boardId))
+      .orderBy(asc(tags.name), asc(tags.id))
+      .all()
     return Promise.resolve(rows)
   }
 

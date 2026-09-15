@@ -1,7 +1,7 @@
+import { accessibleCard } from './board-access.ts'
 import { type Actor } from '../domain/entities.ts'
 import { type UnitOfWork } from '../ports/repositories.ts'
 import { type Clock } from '../ports/runtime.ts'
-import { requireFound } from './internal.ts'
 
 export interface CardWatchServiceDeps {
   uow: UnitOfWork
@@ -25,7 +25,7 @@ export class CardWatchService {
   /** Whether the acting user currently watches the card. */
   async isWatching(actor: Actor, cardId: number): Promise<boolean> {
     return this.deps.uow.read(async (tx) => {
-      requireFound(await tx.cards.findById(cardId), 'card')
+      await accessibleCard(tx, actor, cardId)
       return tx.cardWatchers.isWatching(cardId, actor.id)
     })
   }
@@ -33,7 +33,7 @@ export class CardWatchService {
   /** Start watching (idempotent). 404 if the card does not exist. */
   async watch(actor: Actor, cardId: number): Promise<void> {
     await this.deps.uow.run(async (tx) => {
-      requireFound(await tx.cards.findById(cardId), 'card')
+      await accessibleCard(tx, actor, cardId)
       await tx.cardWatchers.add(cardId, actor.id, this.deps.clock.now().toISOString())
     })
   }
@@ -41,7 +41,7 @@ export class CardWatchService {
   /** Stop watching (idempotent). 404 if the card does not exist. */
   async unwatch(actor: Actor, cardId: number): Promise<void> {
     await this.deps.uow.run(async (tx) => {
-      requireFound(await tx.cards.findById(cardId), 'card')
+      await accessibleCard(tx, actor, cardId)
       await tx.cardWatchers.remove(cardId, actor.id)
     })
   }

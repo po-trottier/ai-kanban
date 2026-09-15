@@ -1,5 +1,6 @@
 import {
   cardEventSchema,
+  DEFAULT_LANES,
   DEFAULT_POLICY_DOCUMENT,
   DEFAULT_THEME,
   DEFAULT_TIMEZONE,
@@ -15,7 +16,7 @@ import {
 // The demo dataset IS fixture data (docs/dev/testing.md#fixtures): it shares
 // the canonical neutral-entity defaults with every test harness.
 import { cardWith, commentWith, userWith } from '@rivian-kanban/core/testing'
-import { and, eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import {
   attachments,
@@ -51,15 +52,7 @@ export const SYSTEM_USER_EMAIL = 'system@rivian-kanban.local'
 export const PLACEHOLDER_PASSWORD_HASH = '!placeholder:not-a-valid-argon2id-hash!'
 
 /** The 7 seeded lanes in board order, labels per docs/product/workflow.md. */
-export const LANE_SEEDS: readonly { key: LaneKey; label: string; wipLimit: number | null }[] = [
-  { key: 'intake', label: 'Intake', wipLimit: null },
-  { key: 'waiting_approval', label: 'Waiting for Approval', wipLimit: null },
-  { key: 'ready', label: 'Ready', wipLimit: null },
-  { key: 'in_progress', label: 'In Progress', wipLimit: 5 },
-  { key: 'waiting_parts_vendor', label: 'Waiting on Parts / Vendor', wipLimit: 8 },
-  { key: 'review', label: 'Review', wipLimit: 5 },
-  { key: 'done', label: 'Done', wipLimit: null },
-]
+export const LANE_SEEDS = DEFAULT_LANES
 
 export interface StructuralSeedResult {
   boardId: string
@@ -78,9 +71,25 @@ export function structuralSeed(db: BetterSQLite3Database): StructuralSeedResult 
   return db.transaction((tx) => {
     const now = new Date().toISOString()
 
-    let board = tx.select().from(boards).get()
+    // Deterministic default-board selection: the flagged row if one exists
+    // (even archived — the default never loses authority to a newer board),
+    // else the oldest board (pre-multi-board data), else create the original.
+    let board =
+      tx.select().from(boards).where(eq(boards.isDefault, true)).get() ??
+      tx.select().from(boards).orderBy(asc(boards.createdAt), asc(boards.id)).get()
+    const boardIsNew = board === undefined
     if (board === undefined) {
-      board = { id: ids.newId(), name: 'Facilities', createdAt: now }
+      board = {
+        id: ids.newId(),
+        name: 'Facilities',
+        createdAt: now,
+        isDefault: true,
+        archivedAt: null,
+        accessMode: 'all',
+        allowedRoleKeys: [],
+        allowedUserIds: [],
+        allowedGroupIds: [],
+      }
       tx.insert(boards).values(board).run()
     }
 
@@ -102,13 +111,11 @@ export function structuralSeed(db: BetterSQLite3Database): StructuralSeedResult 
       tx.insert(users).values(system).run()
     }
 
-    LANE_SEEDS.forEach((seed, index) => {
-      const existing = tx
-        .select()
-        .from(lanes)
-        .where(and(eq(lanes.boardId, board.id), eq(lanes.key, seed.key)))
-        .get()
-      if (existing === undefined) {
+    // Seed lanes ONLY when the board is being created — an admin-deleted lane
+    // must never come back on a later boot (idempotent-by-natural-key would
+    // otherwise resurrect it every restart).
+    if (boardIsNew) {
+      LANE_SEEDS.forEach((seed, index) => {
         tx.insert(lanes)
           .values({
             id: ids.newId(),
@@ -119,8 +126,8 @@ export function structuralSeed(db: BetterSQLite3Database): StructuralSeedResult 
             wipLimit: seed.wipLimit,
           })
           .run()
-      }
-    })
+      })
+    }
 
     const policy = tx
       .select({ id: boardPolicies.id })

@@ -29,7 +29,7 @@ export function commentRoutes(deps: AppDeps) {
           response: { 200: z.array(commentResponseSchema) },
         },
       },
-      async (request) => comments.listForCard(request.params.id),
+      async (request) => comments.listForCard(actorOf(request), request.params.id),
     )
 
     r.post(

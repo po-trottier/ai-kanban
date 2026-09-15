@@ -5,6 +5,7 @@ test('Chrome recognizes the app as installable with valid standalone metadata an
   context,
 }) => {
   await page.goto('/login')
+  await expect(page).toHaveTitle('Rivian Facilities Tickets System')
   await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
     'crossorigin',
     'use-credentials',
@@ -28,7 +29,8 @@ test('Chrome recognizes the app as installable with valid standalone metadata an
   }
   expect(metadata).toMatchObject({
     id: '/',
-    name: 'Facilities Kanban',
+    name: 'Rivian Facilities Tickets System',
+    short_name: 'Rivian Facilities Tickets System',
     start_url: '/',
     scope: '/',
     display: 'standalone',

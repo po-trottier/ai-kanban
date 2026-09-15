@@ -6,6 +6,9 @@ server for AI agents, and Slack-native ticket intake — all over one audited se
 - **Board**: 7 facilities-tuned lanes (Intake → Waiting for Approval → Ready → In Progress →
   Waiting on Parts/Vendor → Review → Done), meaningful top-to-bottom order, P0/P1/P2
   priorities, estimates, tags, locations, attachments, threaded comments.
+- **Multiple boards**: switch boards from the header. Admins manage boards and user groups in
+  Settings, granting access by role, individual user, or group. Columns and waiting reasons are
+  configurable for each board; see the [user guide](docs/user/guide.md#boards-and-groups).
 - **Audit trail**: every state change, field edit, comment, and reorder — by human, agent, or
   bot — is an append-only event.
 - **MCP**: AI agents connect to `/mcp` (Streamable HTTP, bearer tokens) and use task-shaped
@@ -89,7 +92,7 @@ registry access, configuration, backups, rollback, and troubleshooting.
 ## Install as an app
 
 Open the deployed HTTPS site in Chrome, sign in if prompted, and use the install icon in the
-address bar (or Chrome's menu → **Cast, save, and share → Install page as app**). Facilities Kanban
+address bar (or Chrome's menu → **Cast, save, and share → Install page as app**). Rivian Facilities Tickets System
 opens in its own window and appears in your device's app launcher. An internet connection is
 required. See [PWA deployment](docs/architecture/deployment.md#install-as-an-app-pwa) for details.
 

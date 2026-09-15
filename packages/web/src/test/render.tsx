@@ -7,6 +7,7 @@ import { type ReactNode } from 'react'
 import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router'
 import { ApiContext } from '../api/api-context.ts'
 import { ApiClient, type FetchLike } from '../api/client.ts'
+import { GlobalApiContext } from '../api/global-api-context.ts'
 import { routes } from '../app/routes.tsx'
 import { SessionContext } from '../auth/session-context.ts'
 import { fixtureAdmin } from './fixtures.ts'
@@ -32,15 +33,18 @@ function testQueryClient(): QueryClient {
 /** Shared providers: Mantine (test env), real QueryClient, injected ApiClient. */
 export function renderWithProviders(ui: ReactNode, options: RenderOptions = {}): RenderResult {
   const client = new ApiClient(options.fetchFn ?? failingFetch)
+  const queryClient = testQueryClient()
   const user = options.user === undefined ? fixtureAdmin : options.user
   return render(
     <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} env="test">
-      <QueryClientProvider client={testQueryClient()}>
+      <QueryClientProvider client={queryClient}>
         <ApiContext.Provider value={client}>
-          <SessionContext.Provider value={user}>
-            <Notifications autoClose={false} />
-            <MemoryRouter initialEntries={[options.route ?? '/']}>{ui}</MemoryRouter>
-          </SessionContext.Provider>
+          <GlobalApiContext.Provider value={{ api: client, queryClient }}>
+            <SessionContext.Provider value={user}>
+              <Notifications autoClose={false} />
+              <MemoryRouter initialEntries={[options.route ?? '/']}>{ui}</MemoryRouter>
+            </SessionContext.Provider>
+          </GlobalApiContext.Provider>
         </ApiContext.Provider>
       </QueryClientProvider>
     </MantineProvider>,
@@ -50,13 +54,16 @@ export function renderWithProviders(ui: ReactNode, options: RenderOptions = {}):
 /** Full-app render through the real route table (deep links, auth gate). */
 export function renderApp(options: RenderOptions = {}): RenderResult {
   const client = new ApiClient(options.fetchFn ?? failingFetch)
+  const queryClient = testQueryClient()
   const router = createMemoryRouter(routes, { initialEntries: [options.route ?? '/'] })
   return render(
     <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} env="test">
-      <QueryClientProvider client={testQueryClient()}>
+      <QueryClientProvider client={queryClient}>
         <ApiContext.Provider value={client}>
-          <Notifications autoClose={false} />
-          <RouterProvider router={router} />
+          <GlobalApiContext.Provider value={{ api: client, queryClient }}>
+            <Notifications autoClose={false} />
+            <RouterProvider router={router} />
+          </GlobalApiContext.Provider>
         </ApiContext.Provider>
       </QueryClientProvider>
     </MantineProvider>,

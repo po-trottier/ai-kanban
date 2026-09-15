@@ -4,7 +4,8 @@ import { policyDocumentSchema, type BoardPolicy } from '../domain/policy.ts'
 import { evaluatePolicy } from '../policy/policy-engine.ts'
 import { type TransactionContext, type UnitOfWork } from '../ports/repositories.ts'
 import { type Clock, type EventBus, type IdGenerator } from '../ports/runtime.ts'
-import { activePolicy, decide, requireFound } from './internal.ts'
+import { decide, requireFound } from './internal.ts'
+import { globalPolicy, requireBoardAccess } from './board-access.ts'
 
 export interface PolicyServiceDeps {
   uow: UnitOfWork
@@ -27,9 +28,10 @@ export class PolicyService {
 
   /** The newest policy version for the board (drives UI affordances). */
   async getActive(): Promise<BoardPolicy> {
-    return this.deps.uow.read(async (tx) =>
-      requireFound(await tx.policies.getActive(this.deps.boardId), 'policy'),
-    )
+    return this.deps.uow.read(async (tx) => {
+      const policy = requireFound(await tx.policies.getActive(this.deps.boardId), 'policy')
+      return { ...policy, config: { ...policy.config, roles: (await globalPolicy(tx)).roles } }
+    })
   }
 
   /**
@@ -46,12 +48,31 @@ export class PolicyService {
   async apply(actor: Actor, rawDocument: unknown): Promise<BoardPolicy> {
     const config = policyDocumentSchema.parse(rawDocument)
     const record = await this.deps.uow.run(async (tx) => {
-      const current = await activePolicy(tx, this.deps.boardId)
-      decide(evaluatePolicy(actor, { type: 'managePolicy' }, current))
+      const authority = requireFound(await tx.boards.getDefault(), 'default board')
+      const global = requireFound(await tx.policies.getActiveForUpdate(authority.id), 'policy')
+      await requireBoardAccess(tx, actor, this.deps.boardId)
+      const current = requireFound(
+        await tx.policies.getActiveForUpdate(this.deps.boardId),
+        'policy',
+      ).config
+      decide(evaluatePolicy(actor, { type: 'managePolicy' }, global.config))
+      // Removing a definition retires it: stored cards/events still resolve the
+      // same key, including a cancelled card that is later reopened.
+      const keptReasons = new Set(config.waitingReasons.map((reason) => reason.key))
+      config.waitingReasons = [
+        ...config.waitingReasons,
+        ...current.waitingReasons
+          .filter((reason) => !keptReasons.has(reason.key))
+          .map((reason) => ({ ...reason, active: false })),
+      ]
       await ensureNoOrphanedRole(
         tx,
         config.roles.map((role) => role.key),
       )
+      for (const role of global.config.roles) {
+        if (!config.roles.some((kept) => kept.key === role.key))
+          await tx.boards.setDefault('role', role.key, null)
+      }
       const version: BoardPolicy = {
         id: this.deps.ids.newId(),
         boardId: this.deps.boardId,
@@ -60,6 +81,17 @@ export class PolicyService {
         createdAt: this.deps.clock.now().toISOString(),
       }
       await tx.policies.insert(version)
+      if (
+        authority.id !== this.deps.boardId &&
+        JSON.stringify(global.config.roles) !== JSON.stringify(config.roles)
+      ) {
+        await tx.policies.insert({
+          ...version,
+          id: this.deps.ids.newId(),
+          boardId: authority.id,
+          config: { ...global.config, roles: config.roles },
+        })
+      }
       return version
     })
     this.deps.eventBus.publish({ type: 'policy.updated' })
@@ -79,6 +111,11 @@ async function ensureNoOrphanedRole(
   keptKeys: readonly string[],
 ): Promise<void> {
   const kept = new Set(keptKeys)
+  for (const board of await tx.boards.list()) {
+    if (board.allowedRoleKeys.some((key) => !kept.has(key))) {
+      throw new ConflictError('role-in-use: role is assigned to a board')
+    }
+  }
   const users = await tx.userAccounts.list()
   const orphanedUser = users.find((user) => user.isActive && !kept.has(user.role))
   if (orphanedUser !== undefined) {

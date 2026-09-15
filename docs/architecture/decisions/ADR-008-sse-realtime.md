@@ -17,7 +17,7 @@ already flows through REST; the only missing piece is server→client invalidati
     `event_type` (`card.*`, `comment.*`, `attachment.*`) and `eventId` is the audit event's
     UUIDv7. The client invalidates that card's queries (and the board for moves).
   - Board-scoped (no `cardId`/`version`): `policy.updated`, `lane.updated`, `user.updated`,
-    `location.updated` — the client refetches the policy/board/user caches. These exist so an
+    `location.updated`, `board.updated` — the client refetches the policy/board/user/catalog caches. These exist so an
     admin toggling enforcement changes everyone's drag affordances live.
 - A keepalive comment is written every 25 s so idle connections survive proxies.
 - Native `EventSource` reconnects automatically; on reconnect the client refetches the board
@@ -32,6 +32,8 @@ already flows through REST; the only missing piece is server→client invalidati
 Reverse proxies must not buffer the stream (documented in deployment.md). The EventBus is a
 port: the in-process implementation assumes one Node process and swaps to Postgres
 LISTEN/NOTIFY at the multi-instance migration. SSE client count is a Prometheus gauge, and
-each user is capped at 5 concurrent streams (security.md). Hint broadcast assumes universal
-read visibility — every authenticated user may see every card; if a future policy version adds
-visibility gates, the SSE adapter must gain per-connection filtering in the same change.
+each user is capped at 5 concurrent streams (security.md). Each stream selects a board with
+`?boardId=<uuid>`. Card hints are filtered by the card's persisted board and current viewer access.
+Every hint revalidates the session and board access; keepalive ticks do the same. Board/group
+membership changes emit `board.updated` so clients refresh their catalog before a revoked stream
+closes. No card ID from another board is broadcast to that connection.

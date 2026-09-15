@@ -1,5 +1,41 @@
 # REST API
 
+## Board selection and administration
+
+Board collections use the `X-Board-Id` UUID header. SSE accepts `?boardId=<uuid>` because native
+EventSource cannot set headers. Omitted selection uses the original board. Card URLs retain their
+global numeric IDs and authorize their stored board, independent of selection; downloads follow
+the attachment's parent card. Inaccessible resources return 404.
+
+| Method and path        | Access         | Body / result                                                                                                           |
+| ---------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| GET /boards            | signed in      | `{ items, canManage, preferredBoardId, defaultBoardId, defaultSource, defaultAssignments }`, visible active boards only |
+| PUT /boards/preference | signed-in user | `{ boardId: UUID \| null }` → caller's updated board catalog; null follows assigned defaults                            |
+| POST /boards           | managePolicy   | `{ name, accessMode, allowedRoleKeys, allowedUserIds, allowedGroupIds }` → 201 Board                                    |
+| PUT /boards/:id        | managePolicy   | same fields → updated Board                                                                                             |
+| DELETE /boards/:id     | managePolicy   | 204; archive, or 409 for the final active board                                                                         |
+| GET /groups            | managePolicy   | Group[]                                                                                                                 |
+| POST /groups           | managePolicy   | `{ name, userIds }` → 201 Group                                                                                         |
+| PUT /groups/:id        | managePolicy   | same fields → updated Group                                                                                             |
+| DELETE /groups/:id     | managePolicy   | 204; 409 while granted access by an active board                                                                        |
+
+`accessMode` is `all` or `restricted`; restricted membership is the union of the three allowlists.
+Boards include `id`, `createdAt`, `isDefault`, `archivedAt` and the editable fields. Groups include
+`id`, `name`, `userIds`, `createdAt`. Roles are application-wide; other policy settings are per board.
+Board discovery redacts access-list arrays for non-managers; the returned board names and IDs
+still reflect their actual membership. Admin responses include the full lists for editing.
+
+Board create/update accepts optional `defaultAssignments: { application: boolean, roleKeys: string[],
+groupIds: UUID[] }`. Omission leaves assignments unchanged; an explicit object replaces this board's
+admin assignments without changing personal preferences or clearing defaults moved to another board.
+Assigning a role or group to this board replaces its previous default.
+Assignments validate roles/groups and never grant access. Only managers receive admin assignments in
+the catalog; other users receive an empty array. Other users' personal preferences are never returned.
+`defaultBoardId` is resolved server-side: personal, one distinct accessible group default, role,
+global, then first accessible board (or null when none are accessible). `defaultSource` is `personal`, `group`, `role`,
+`application`, or `fallback`. `preferredBoardId` is null when unset or no longer accessible.
+These defaults control SPA startup; omitted API board scope still refers to the original board.
+
 Base path `/api/v1`. JSON everywhere except attachment upload (multipart) and download.
 OpenAPI 3.1 is generated from the Zod route schemas and served at `/api/v1/docs` (Scalar UI) in
 non-production; the JSON spec is always available at `/api/v1/openapi.json`.
@@ -74,6 +110,10 @@ While `must_change_password` is set, every route except change-password/logout/m
 | POST /cards/:id/reopen          | any (policy)           | done → ready; also clears `archived_at`                                                                                                                                                                                                                                                                                                                                                                                                   |
 | POST /cards/:id/archive         | any (policy `archive`) | manual archive of a Done card (completed or cancelled); If-Match required; sets `archived_at` and emits `card.archived`; 409 `conflict` if not in Done, 409 `card-archived` if already archived. The 90-day `doneArchival` job is the automatic backstop                                                                                                                                                                                  |
 | POST /cards/:id/block / unblock | any (policy)           | `{ reason }` on block                                                                                                                                                                                                                                                                                                                                                                                                                     |
+
+Moves resolve the actual gap before `nextCardId`, including cards hidden by filters or archival.
+When `nextCardId` is omitted/null (including both neighbor ids omitted/null), the move appends to
+the actual lane. Supplied neighbor ids still require valid, ordered cards in the destination lane.
 
 ### Filter presets
 
@@ -163,9 +203,26 @@ spec: [notifications.md](notifications.md).
 
 #### PUT /policy body
 
+The response to both GET and PUT contains the full saved config. `waitingReasons` is a list of
+`{ key, label, active }`: keys match `/^[a-z][a-z0-9_]*$/` (at most 40 characters); labels are
+trimmed, 1–80 characters and unique among active choices ignoring case. Keys must be unique,
+and at least one reason must remain active. Omitting a previously stored key retires it
+(`active: false`) instead of losing historical labels. Old policies without this field load the
+five default reasons. `managePolicy` gates updates. Newly selected inactive/unknown keys in card
+move/update commands return 409 with the current card; date-only edits and cancellation/reopen
+preserve existing retired keys.
+
 ```jsonc
 {
   "transitionEnforcement": false, // boolean; when true, moves are checked against `transitions`
+  "businessHours": { "startHour": 9, "endHour": 17 },
+  "waitingReasons": [
+    { "key": "parts", "label": "Parts", "active": true },
+    { "key": "vendor", "label": "Vendor", "active": true },
+    { "key": "access", "label": "Access", "active": true },
+    { "key": "info", "label": "Information", "active": true },
+    { "key": "funding", "label": "Funding", "active": true },
+  ],
   "transitions": [
     // workflow graph, topology only (no per-edge role gate)
     { "from": "review", "to": "done" },

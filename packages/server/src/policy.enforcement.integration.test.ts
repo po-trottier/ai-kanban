@@ -81,6 +81,26 @@ const CANCEL_REOPEN_GATED = {
 const PERMISSIVE_POLICY = DEFAULT_POLICY_DOCUMENT as unknown as Record<string, unknown>
 
 describe('GET /policy', () => {
+  it('returns saved waiting reasons and working hours instead of silently defaulting the client', async () => {
+    const updated = {
+      ...DEFAULT_POLICY_DOCUMENT,
+      businessHours: { startHour: 8, endHour: 16 },
+      waitingReasons: [
+        ...DEFAULT_POLICY_DOCUMENT.waitingReasons,
+        { key: 'inspection', label: 'Inspection', active: true },
+      ],
+    }
+    try {
+      const saved = await putPolicy(updated)
+      expect(saved.statusCode).toBe(200)
+      expect(saved.json<{ config: PolicyDocument }>().config).toMatchObject(updated)
+      const current = await t.request(adminCookie, { method: 'GET', url: '/api/v1/policy' })
+      expect(current.statusCode).toBe(200)
+      expect(current.json<{ config: PolicyDocument }>().config).toMatchObject(updated)
+    } finally {
+      await putPolicy(PERMISSIVE_POLICY)
+    }
+  })
   it('returns the seeded permissive document to any authenticated user', async () => {
     const { cookie } = await t.asRole('user')
 

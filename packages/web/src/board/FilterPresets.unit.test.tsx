@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { useEffect, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { createFakeFetch, jsonResponse, type FakeFetch } from '../test/fake-fetch.ts'
-import { fixtureTech, uid } from '../test/fixtures.ts'
+import { FIXTURE_BOARD_ID, fixtureTech, uid } from '../test/fixtures.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import { FilterPresets } from './FilterPresets.tsx'
 
@@ -14,6 +14,7 @@ const ME = fixtureTech.id
 function customPreset(overrides: Partial<FilterPreset> = {}): FilterPreset {
   return {
     id: uid(600),
+    boardId: FIXTURE_BOARD_ID,
     ownerId: ME,
     name: 'Urgent archived',
     filter: { ...EMPTY_BOARD_FILTER, priorities: ['P0'], scope: 'archived' },

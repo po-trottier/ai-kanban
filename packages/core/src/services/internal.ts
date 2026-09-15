@@ -53,7 +53,14 @@ export async function activePolicy(
   tx: TransactionContext,
   boardId: string,
 ): Promise<PolicyDocument> {
-  return requireFound(await tx.policies.getActive(boardId), 'policy').config
+  const local = requireFound(await tx.policies.getActive(boardId), 'policy').config
+  return { ...local, roles: (await globalPolicy(tx)).roles }
+}
+
+/** The initial board remains the global role authority, including after archival. */
+export async function globalPolicy(tx: TransactionContext): Promise<PolicyDocument> {
+  const board = requireFound(await tx.boards.getDefault(), 'default board')
+  return requireFound(await tx.policies.getActive(board.id), 'policy').config
 }
 
 export async function laneByKey(

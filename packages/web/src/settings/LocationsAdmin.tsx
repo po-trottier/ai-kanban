@@ -96,7 +96,7 @@ export function LocationsAdmin() {
   return (
     <Stack gap="md">
       <Group justify="space-between" align="flex-start" wrap="nowrap">
-        <Text size="sm" c="dimmed" maw="40rem">
+        <Text size="sm" c="dimmed" maw="40rem" flex={1} miw={0}>
           {strings.locations.intro}
         </Text>
         {tree.length > 0 ? (
@@ -236,7 +236,7 @@ function LocationNode({
     <Box role="treeitem" aria-label={node.location.name}>
       <Group className={classes.row} gap="sm" wrap="nowrap">
         <LocationKindIcon kind={node.location.kind} />
-        <Box>
+        <Box className={classes.name}>
           <Text size="sm" fw={500}>
             {node.location.name}
           </Text>

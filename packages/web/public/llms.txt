@@ -94,3 +94,7 @@ the API + MCP by the server (default port 3000), and the Vite dev proxy forwards
 `/mcp`. So in local dev only, point the MCP client at `http://localhost:3000/mcp` (the server
 port), not the Vite port. In every real deployment the server serves both the UI and `/mcp` on
 one origin, so `<origin>/mcp` is correct.
+
+## Choose a board
+
+Use list_boards to discover boards available to your identity. Pass boardId to collection and create tools; omitting it uses the original board. Service tokens use role grants. OAuth identities can also receive board access through individual and group membership.

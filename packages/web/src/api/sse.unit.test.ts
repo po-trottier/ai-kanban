@@ -5,7 +5,7 @@ import { queryKeys } from './keys.ts'
 import { connectStream, hintInvalidations, type StreamSource } from './sse.ts'
 
 describe('hintInvalidations', () => {
-  it('maps card hints to board, card, and history queries', () => {
+  it('maps card hints to board, card, and history queries (scoped) plus notifications (global)', () => {
     // Arrange
     const cardId = 1
     const key = String(cardId)
@@ -16,14 +16,10 @@ describe('hintInvalidations', () => {
       eventId: uid(2),
     } as const
     // Act
-    const keys = hintInvalidations(hint)
-    // Assert — the inbox refreshes too, since a card event can mint a notification.
-    expect(keys).toEqual([
-      queryKeys.board,
-      queryKeys.card(key),
-      queryKeys.events(key),
-      ['notifications'],
-    ])
+    const result = hintInvalidations(hint)
+    // Assert
+    expect(result.scoped).toEqual([queryKeys.board, queryKeys.card(key), queryKeys.events(key)])
+    expect(result.global).toEqual([['notifications']])
   })
 
   it('refreshes the Tags facet only for the card events that can mint a tag', () => {
@@ -37,38 +33,52 @@ describe('hintInvalidations', () => {
     const fieldChanged = hintInvalidations({ ...base, type: 'card.field_changed' })
     const statusChanged = hintInvalidations({ ...base, type: 'card.status_changed' })
     // Assert — tags appended for create/field-change, absent for a status move.
-    expect(created).toEqual([
+    expect(created.scoped).toEqual([
       queryKeys.board,
       queryKeys.card(key),
       queryKeys.events(key),
-      ['notifications'],
       queryKeys.tags,
     ])
-    expect(fieldChanged).toContainEqual(queryKeys.tags)
-    expect(statusChanged).not.toContainEqual(queryKeys.tags)
+    expect(fieldChanged.scoped).toContainEqual(queryKeys.tags)
+    expect(statusChanged.scoped).not.toContainEqual(queryKeys.tags)
   })
 
-  it('maps comment hints to the comment thread and history only', () => {
+  it('maps comment hints to the comment thread and history (scoped) plus notifications (global)', () => {
     // Arrange
     const cardId = 1
     const key = String(cardId)
     const hint = { type: 'comment.added', cardId, version: 3, eventId: uid(2) } as const
     // Act
-    const keys = hintInvalidations(hint)
-    // Assert — plus the inbox (a new comment can notify watchers).
-    expect(keys).toEqual([queryKeys.comments(key), queryKeys.events(key), ['notifications']])
+    const result = hintInvalidations(hint)
+    // Assert
+    expect(result.scoped).toEqual([queryKeys.comments(key), queryKeys.events(key)])
+    expect(result.global).toEqual([['notifications']])
   })
 
-  it('maps board-scoped hints to their config caches (ADR-008)', () => {
+  it('routes policy/lane/user/location/board hints to the right client', () => {
     // Arrange
-    const policyHint = { type: 'policy.updated' } as const
-    const userHint = { type: 'user.updated' } as const
     // Act
-    const policyKeys = hintInvalidations(policyHint)
-    const userKeys = hintInvalidations(userHint)
-    // Assert
-    expect(policyKeys).toEqual([queryKeys.policy])
-    expect(userKeys).toEqual([queryKeys.users, queryKeys.me])
+    const policy = hintInvalidations({ type: 'policy.updated' })
+    const lane = hintInvalidations({ type: 'lane.updated' })
+    const user = hintInvalidations({ type: 'user.updated' })
+    const location = hintInvalidations({ type: 'location.updated' })
+    const board = hintInvalidations({ type: 'board.updated' })
+    // Assert — policy can change who administers boards, so it also
+    // revalidates the (global) catalog; a plain lane/location edit doesn't.
+    expect(policy).toEqual({
+      scoped: [queryKeys.policy],
+      global: [queryKeys.boardCatalog, ['notifications']],
+    })
+    expect(lane).toEqual({ scoped: [queryKeys.board], global: [] })
+    expect(user).toEqual({
+      scoped: [queryKeys.users],
+      global: [queryKeys.me, queryKeys.boardCatalog, ['notifications']],
+    })
+    expect(location).toEqual({ scoped: [queryKeys.locations], global: [] })
+    expect(board).toEqual({
+      scoped: [],
+      global: [queryKeys.boardCatalog, queryKeys.groups, ['notifications']],
+    })
   })
 })
 
@@ -111,6 +121,7 @@ function seededClient(): QueryClient {
   queryClient.setQueryData(queryKeys.board, { lanes: [] })
   queryClient.setQueryData(queryKeys.policy, {})
   queryClient.setQueryData(queryKeys.me, {})
+  queryClient.setQueryData(queryKeys.boardCatalog, {})
   return queryClient
 }
 
@@ -127,38 +138,54 @@ const immediateFlush = (flush: () => void): (() => void) => {
 }
 
 describe('connectStream', () => {
-  it('invalidates the mapped queries when a valid hint arrives', () => {
+  it('invalidates scoped hints on the scoped client only', () => {
     // Arrange
-    const queryClient = seededClient()
+    const scoped = seededClient()
+    const global = seededClient()
     const source = new FakeEventSource()
-    connectStream(queryClient, () => source, immediateScheduler, immediateFlush)
+    connectStream(scoped, global, () => source, immediateScheduler, immediateFlush)
     // Act
     source.emit(JSON.stringify({ type: 'lane.updated' }))
     // Assert
-    expect(queryClient.getQueryState(queryKeys.board)?.isInvalidated).toBe(true)
-    expect(queryClient.getQueryState(queryKeys.policy)?.isInvalidated).toBe(false)
+    expect(scoped.getQueryState(queryKeys.board)?.isInvalidated).toBe(true)
+    expect(global.getQueryState(queryKeys.board)?.isInvalidated).toBe(false)
   })
 
-  it('keeps invalidating across separate windows (a flushed window re-arms)', () => {
-    // Arrange — immediate flush: each hint is its own, already-flushed window
-    const queryClient = seededClient()
+  it('invalidates global hints (board.updated) on the global client only', () => {
+    // Arrange
+    const scoped = seededClient()
+    const global = seededClient()
     const source = new FakeEventSource()
-    connectStream(queryClient, () => source, immediateScheduler, immediateFlush)
-    source.emit(JSON.stringify({ type: 'lane.updated' }))
-    // Act — a second hint AFTER the first window flushed must open a new one
+    connectStream(scoped, global, () => source, immediateScheduler, immediateFlush)
+    // Act
+    source.emit(JSON.stringify({ type: 'board.updated' }))
+    // Assert
+    expect(global.getQueryState(queryKeys.boardCatalog)?.isInvalidated).toBe(true)
+    expect(scoped.getQueryState(queryKeys.boardCatalog)?.isInvalidated ?? false).toBe(false)
+  })
+
+  it('a policy hint invalidates policy scoped AND the catalog global', () => {
+    // Arrange
+    const scoped = seededClient()
+    const global = seededClient()
+    const source = new FakeEventSource()
+    connectStream(scoped, global, () => source, immediateScheduler, immediateFlush)
+    // Act
     source.emit(JSON.stringify({ type: 'policy.updated' }))
     // Assert
-    expect(queryClient.getQueryState(queryKeys.board)?.isInvalidated).toBe(true)
-    expect(queryClient.getQueryState(queryKeys.policy)?.isInvalidated).toBe(true)
+    expect(scoped.getQueryState(queryKeys.policy)?.isInvalidated).toBe(true)
+    expect(global.getQueryState(queryKeys.boardCatalog)?.isInvalidated).toBe(true)
   })
 
   it('coalesces a hint burst into one invalidation pass per window', () => {
     // Arrange — the flush is held until the test releases the window
-    const queryClient = seededClient()
+    const scoped = seededClient()
+    const global = seededClient()
     const source = new FakeEventSource()
     const flushes: (() => void)[] = []
     connectStream(
-      queryClient,
+      scoped,
+      global,
       () => source,
       immediateScheduler,
       (flush) => {
@@ -175,59 +202,64 @@ describe('connectStream', () => {
     )
     source.emit(JSON.stringify({ type: 'lane.updated' }))
     const scheduledDuringBurst = flushes.length
-    const invalidatedBeforeFlush = queryClient.getQueryState(queryKeys.board)?.isInvalidated
+    const invalidatedBeforeFlush = scoped.getQueryState(queryKeys.board)?.isInvalidated
     flushes[0]?.()
     // Assert — ONE window was scheduled and the board invalidated once, on flush
     expect(scheduledDuringBurst).toBe(1)
     expect(invalidatedBeforeFlush).toBe(false)
-    expect(queryClient.getQueryState(queryKeys.board)?.isInvalidated).toBe(true)
+    expect(scoped.getQueryState(queryKeys.board)?.isInvalidated).toBe(true)
   })
 
   it('ignores malformed payloads (hints are validated with the core schema)', () => {
     // Arrange
-    const queryClient = seededClient()
+    const scoped = seededClient()
+    const global = seededClient()
     const source = new FakeEventSource()
-    connectStream(queryClient, () => source, immediateScheduler, immediateFlush)
+    connectStream(scoped, global, () => source, immediateScheduler, immediateFlush)
     // Act
     source.emit('not json')
     source.emit(JSON.stringify({ type: 'unknown.hint' }))
     // Assert
-    expect(queryClient.getQueryState(queryKeys.board)?.isInvalidated).toBe(false)
+    expect(scoped.getQueryState(queryKeys.board)?.isInvalidated).toBe(false)
   })
 
   it('refetches the board after a reconnect (drop → open), not on first open', () => {
     // Arrange
-    const queryClient = seededClient()
+    const scoped = seededClient()
+    const global = seededClient()
     const source = new FakeEventSource()
-    connectStream(queryClient, () => source, immediateScheduler, immediateFlush)
+    connectStream(scoped, global, () => source, immediateScheduler, immediateFlush)
     // Act
     source.open()
-    const afterFirstOpen = queryClient.getQueryState(queryKeys.board)?.isInvalidated
+    const afterFirstOpen = scoped.getQueryState(queryKeys.board)?.isInvalidated
     source.fail()
     source.open()
     // Assert
     expect(afterFirstOpen).toBe(false)
-    expect(queryClient.getQueryState(queryKeys.board)?.isInvalidated).toBe(true)
+    expect(scoped.getQueryState(queryKeys.board)?.isInvalidated).toBe(true)
   })
 
   it('closes the source when disposed', () => {
     // Arrange
-    const queryClient = seededClient()
+    const scoped = seededClient()
+    const global = seededClient()
     const source = new FakeEventSource()
-    const dispose = connectStream(queryClient, () => source, immediateScheduler, immediateFlush)
+    const dispose = connectStream(scoped, global, () => source, immediateScheduler, immediateFlush)
     // Act
     dispose()
     // Assert
     expect(source.closed).toBe(true)
   })
 
-  it('recreates the source after a terminal failure and refetches on the new open', () => {
+  it('recreates the source after a terminal failure and rechecks the GLOBAL session', () => {
     // Arrange — the reconnect attempt fails permanently (readyState CLOSED)
-    const queryClient = seededClient()
+    const scoped = seededClient()
+    const global = seededClient()
     const sources = [new FakeEventSource(), new FakeEventSource()]
     let created = 0
     connectStream(
-      queryClient,
+      scoped,
+      global,
       () => {
         const source = sources[created]
         if (source === undefined) throw new Error('created more sources than expected')
@@ -241,21 +273,24 @@ describe('connectStream', () => {
     // Act
     nth(sources, 0).failTerminally()
     nth(sources, 1).open()
-    // Assert — a second source exists, the dead one was closed, session rechecked,
-    // and the board refetches once the replacement stream opens
+    // Assert — a second source exists, the dead one was closed, the GLOBAL
+    // session query rechecked (not the scoped one), and the board refetches
+    // once the replacement stream opens.
     expect(created).toBe(2)
     expect(nth(sources, 0).closed).toBe(true)
-    expect(queryClient.getQueryState(queryKeys.me)?.isInvalidated).toBe(true)
-    expect(queryClient.getQueryState(queryKeys.board)?.isInvalidated).toBe(true)
+    expect(global.getQueryState(queryKeys.me)?.isInvalidated).toBe(true)
+    expect(scoped.getQueryState(queryKeys.board)?.isInvalidated).toBe(true)
   })
 
   it('does not recreate the source on a transient drop (native retry handles it)', () => {
     // Arrange
-    const queryClient = seededClient()
+    const scoped = seededClient()
+    const global = seededClient()
     const first = new FakeEventSource()
     let created = 0
     connectStream(
-      queryClient,
+      scoped,
+      global,
       () => {
         created += 1
         return first
@@ -269,6 +304,6 @@ describe('connectStream', () => {
     // Assert
     expect(created).toBe(1)
     expect(first.closed).toBe(false)
-    expect(queryClient.getQueryState(queryKeys.me)?.isInvalidated).toBe(false)
+    expect(global.getQueryState(queryKeys.me)?.isInvalidated).toBe(false)
   })
 })

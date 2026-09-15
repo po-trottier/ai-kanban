@@ -98,6 +98,37 @@ test('keeps filters on one scrollable row from mobile to wide desktop', async ({
   await expect(overdue.getByText('Overdue', { exact: true })).toBeInViewport({ ratio: 1 })
 })
 
+test('shows tooltips on the assignee and reporter filters', async ({ page, context }) => {
+  await signIn(context)
+  await openBoard(page)
+  const bar = page.getByRole('region', { name: 'Board filters' })
+  for (const [name, description] of [
+    ['Assignee', 'Show only work orders assigned to the selected people'],
+    ['Reporter', 'Show only work orders filed by the selected people'],
+  ] as const) {
+    await bar.getByRole('combobox', { name, exact: true }).hover()
+    await expect(page.getByRole('tooltip')).toHaveText(description)
+    await page.mouse.move(0, 0)
+    await expect(page.getByRole('tooltip')).toBeHidden()
+  }
+})
+
+test('shows the full card title in a tooltip without blocking opening the card', async ({
+  page,
+  context,
+}) => {
+  await signIn(context)
+  const title = `Inspect the loading dock ventilation system and replace damaged air filters ${randomUUID()}`
+  await createCard(context.request, title)
+  await openBoard(page)
+  const cardTitle = boardCard(page, title).getByText(title, { exact: true })
+  await cardTitle.hover()
+  await expect(page.getByRole('tooltip')).toHaveText(title)
+  await expect(page.getByRole('tooltip')).toBeInViewport({ ratio: 1 })
+  await cardTitle.click()
+  await expect(page.getByRole('dialog', { name: new RegExp(title) })).toBeVisible()
+})
+
 test('narrows the board to a seeded card by a text-query substring', async ({ page, context }) => {
   await signIn(context)
   await openBoard(page)

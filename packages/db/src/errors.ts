@@ -43,6 +43,19 @@ export function isUniqueViolation(error: unknown, qualifiedColumns: readonly str
   )
 }
 
+/**
+ * True when the error (or any cause) is a driver UNIQUE violation on the
+ * named index — for expression indexes (e.g. `UNIQUE (lower(name))`), SQLite
+ * reports `UNIQUE constraint failed: index '<name>'` instead of a
+ * `table.column` list, so `isUniqueViolation` cannot match it.
+ */
+export function isUniqueIndexViolation(error: unknown, indexName: string): boolean {
+  return constraintMessagesIn(error).some(
+    (message) =>
+      message.includes('UNIQUE constraint failed') && message.includes(`index '${indexName}'`),
+  )
+}
+
 /** Rejection reasons must be Errors; non-Error throwables get wrapped. */
 export function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))

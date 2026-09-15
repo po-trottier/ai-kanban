@@ -1,5 +1,4 @@
 import {
-  WAITING_REASONS,
   type BoardCard,
   type LaneKey,
   type PolicyDocument,
@@ -16,6 +15,7 @@ import { useUserTimezone } from '../auth/session-context.ts'
 import { todayInTimezone } from '../lib/format.ts'
 import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
+import { waitingReasonOptions } from '../lib/waiting-reasons.ts'
 import { canMoveToLane, dropPosition, isSamePosition, positionChoices } from './move-options.ts'
 
 export interface MoveSelection {
@@ -25,11 +25,6 @@ export interface MoveSelection {
   position: number
   /** Optional note when entering the waiting lane, posted as a card comment. */
   comment?: string
-}
-
-/** Narrows the Select's `string | null` to a WaitingReason (or null). */
-function asWaitingReason(value: string | null): WaitingReason | null {
-  return WAITING_REASONS.find((reason) => reason === value) ?? null
 }
 
 export interface MoveCardModalProps {
@@ -58,6 +53,7 @@ export function MoveCardModal({
   onClose,
 }: MoveCardModalProps) {
   const timezone = useUserTimezone()
+  const reasonOptions = waitingReasonOptions(policy.waitingReasons)
   const [laneKey, setLaneKey] = useState<LaneKey>(currentLane)
   const [positionValue, setPositionValue] = useState('first')
   // Waiting-lane data collected inline (always-on data rule): the requirement
@@ -85,7 +81,9 @@ export function MoveCardModal({
   const laneAllowed = canMoveToLane(policy, role, currentLane, laneKey)
   // Entering the waiting lane (not a within-lane reorder) requires both fields.
   const entersWaiting = isWaitingLane(laneKey) && !isWaitingLane(currentLane)
-  const waitingComplete = !entersWaiting || (waitingReason !== null && resumeAt !== null)
+  const waitingComplete =
+    !entersWaiting ||
+    (reasonOptions.some((option) => option.value === waitingReason) && resumeAt !== null)
 
   return (
     <Modal opened onClose={onClose} title={strings.move.modalTitle} centered>
@@ -125,14 +123,12 @@ export function MoveCardModal({
                   ? strings.waiting.reasonRequired
                   : undefined
               }
-              data={WAITING_REASONS.map((value) => ({
-                value,
-                label: strings.waiting.reasons[value],
-              }))}
+              data={reasonOptions}
+              description={reasonOptions.length === 0 ? strings.waiting.noReasons : undefined}
               value={waitingReason}
               onChange={(value) => {
                 setWaitingTouched(true)
-                setWaitingReason(asWaitingReason(value))
+                setWaitingReason(value)
               }}
             />
             <DatePickerInput

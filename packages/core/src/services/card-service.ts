@@ -1,3 +1,4 @@
+import { accessibleCard, canAccessBoard, requireBoardAccess } from './board-access.ts'
 import { generateKeyBetween } from 'fractional-indexing'
 import {
   archiveCardInputSchema,
@@ -15,6 +16,7 @@ import { utcDayOf } from '../domain/dates.ts'
 import { ConflictError, NotFoundError } from '../domain/errors.ts'
 import { type Actor, type Card, type User } from '../domain/entities.ts'
 import { type AuditedCardField, type CardEvent } from '../domain/events.ts'
+import { type PolicyDocument } from '../domain/policy.ts'
 import { evaluatePolicy } from '../policy/policy-engine.ts'
 import { type TransactionContext, type UnitOfWork } from '../ports/repositories.ts'
 import {
@@ -52,6 +54,12 @@ export interface CardServiceDeps {
   boardId: string
   /** The seeded automation user — hidden from pickers, never a valid assignee. */
   systemUserId: string
+}
+
+function ensureActiveWaitingReason(policy: PolicyDocument, reason: string, card: Card): void {
+  if (!policy.waitingReasons.some((choice) => choice.key === reason && choice.active)) {
+    throw new ConflictError('waiting reason is unavailable; select an active reason', card)
+  }
 }
 
 /**
@@ -125,13 +133,14 @@ export class CardService {
     const input = createCardInputSchema.parse(rawInput)
     const origin = originOf(actor.kind)
     const result = await runWithPositionRetry(this.deps.uow, async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
       const policy = await activePolicy(tx, this.deps.boardId)
       decide(evaluatePolicy(actor, { type: 'card.create' }, policy))
 
       const reporterId = options.reporterId ?? actor.id
       requireFound(await tx.users.findById(reporterId), 'reporter')
       if (input.assigneeId !== undefined) {
-        await this.requireAssignable(tx, input.assigneeId)
+        await this.requireAssignable(tx, input.assigneeId, this.deps.boardId)
       }
       if (input.locationId !== undefined) {
         requireFound(await tx.locations.findById(input.locationId), 'location')
@@ -144,7 +153,7 @@ export class CardService {
       const top = await tx.cards.edgeOfLane(entry.id, 'first')
       const nowIso = this.deps.clock.now().toISOString()
       const card: Card = {
-        id: await tx.cards.nextCardId(this.deps.boardId),
+        id: await tx.cards.nextCardId(),
         boardId: this.deps.boardId,
         laneId: entry.id,
         position: generateKeyBetween(null, top?.position ?? null),
@@ -206,7 +215,7 @@ export class CardService {
   async update(actor: Actor, cardId: number, rawInput: unknown): Promise<Card> {
     const input = updateCardInputSchema.parse(rawInput)
     const result = await this.deps.uow.run(async (tx) => {
-      const card = requireFound(await tx.cards.findById(cardId), 'card')
+      const card = await accessibleCard(tx, actor, cardId)
       ensureNotArchived(card)
       const policy = await activePolicy(tx, card.boardId)
       decide(evaluatePolicy(actor, { type: 'card.update' }, policy))
@@ -236,7 +245,7 @@ export class CardService {
       }
       if (input.assigneeId !== undefined && input.assigneeId !== card.assigneeId) {
         if (input.assigneeId !== null) {
-          await this.requireAssignable(tx, input.assigneeId)
+          await this.requireAssignable(tx, input.assigneeId, card.boardId)
           // A newly-assigned user auto-watches the card (notifications.md).
           await tx.cardWatchers.add(card.id, input.assigneeId, this.deps.clock.now().toISOString())
         }
@@ -279,6 +288,7 @@ export class CardService {
           )
         }
         if (input.waitingReason !== undefined && input.waitingReason !== card.waitingReason) {
+          ensureActiveWaitingReason(policy, input.waitingReason, card)
           next.waitingReason = input.waitingReason
           fieldChanged(changeOf('waitingReason', card.waitingReason, input.waitingReason))
         }
@@ -324,7 +334,7 @@ export class CardService {
     const result = await runWithPositionRetry(
       this.deps.uow,
       async (tx) => {
-        const card = requireFound(await tx.cards.findById(cardId), 'card')
+        const card = await accessibleCard(tx, actor, cardId)
         ensureNotArchived(card)
         const fromLane = await laneOfCard(tx, card)
         const toLane = await laneByKey(tx, card.boardId, input.toLane)
@@ -354,6 +364,10 @@ export class CardService {
             })
           : null
 
+        if (waitingFields !== null) {
+          ensureActiveWaitingReason(policy, waitingFields.waitingReason, card)
+        }
+
         const readNeighbor = async (neighborId: number | null): Promise<Card | null> => {
           if (neighborId === null) return null
           const neighbor = await tx.cards.findById(neighborId)
@@ -369,7 +383,11 @@ export class CardService {
         }
         const prev = await readNeighbor(input.prevCardId)
         const next = await readNeighbor(input.nextCardId)
-        const position = keyBetween(prev?.position ?? null, next?.position ?? null, card)
+        // Validate the supplied bounds, then find the actual gap: filtered or
+        // concurrently inserted cards may occupy it, including archived rows.
+        keyBetween(prev?.position ?? null, next?.position ?? null, card)
+        const actualPrev = await tx.cards.positionBefore(toLane.id, next?.position ?? null, card.id)
+        const position = keyBetween(actualPrev, next?.position ?? null, card)
 
         const updated: Card = {
           ...card,
@@ -436,7 +454,7 @@ export class CardService {
         await tx.events.append(event)
         return { card: updated, events: [event], completed } satisfies MoveResult
       },
-      (tx) => tx.cards.findById(cardId),
+      (tx) => accessibleCard(tx, actor, cardId),
     )
     publishCardHints(this.deps.eventBus, result.card, result.events)
     if (result.completed) {
@@ -465,7 +483,7 @@ export class CardService {
     const result = await runWithPositionRetry(
       this.deps.uow,
       async (tx) => {
-        const card = requireFound(await tx.cards.findById(cardId), 'card')
+        const card = await accessibleCard(tx, actor, cardId)
         ensureNotArchived(card)
         const fromLane = await laneOfCard(tx, card)
         if (fromLane.key === 'done') {
@@ -511,7 +529,7 @@ export class CardService {
         await tx.events.append(event)
         return { card: updated, events: [event] } satisfies MutationResult
       },
-      (tx) => tx.cards.findById(cardId),
+      (tx) => accessibleCard(tx, actor, cardId),
     )
     publishCardHints(this.deps.eventBus, result.card, result.events)
     return result.card
@@ -536,7 +554,7 @@ export class CardService {
     const result = await runWithPositionRetry(
       this.deps.uow,
       async (tx) => {
-        const card = requireFound(await tx.cards.findById(cardId), 'card')
+        const card = await accessibleCard(tx, actor, cardId)
         const fromLane = await laneOfCard(tx, card)
         if (fromLane.key !== 'done') {
           decide({ allowed: false, kind: 'illegal-transition', from: fromLane.key, to: 'ready' })
@@ -601,7 +619,7 @@ export class CardService {
         await tx.events.append(event)
         return { card: updated, events: [event] } satisfies MutationResult
       },
-      (tx) => tx.cards.findById(cardId),
+      (tx) => accessibleCard(tx, actor, cardId),
     )
     publishCardHints(this.deps.eventBus, result.card, result.events)
     return result.card
@@ -622,7 +640,7 @@ export class CardService {
   async archive(actor: Actor, cardId: number, rawInput: unknown): Promise<Card> {
     const input = archiveCardInputSchema.parse(rawInput)
     const result = await this.deps.uow.run(async (tx) => {
-      const card = requireFound(await tx.cards.findById(cardId), 'card')
+      const card = await accessibleCard(tx, actor, cardId)
       ensureNotArchived(card)
       const lane = await laneOfCard(tx, card)
       if (lane.key !== 'done') {
@@ -665,7 +683,7 @@ export class CardService {
    */
   async delete(actor: Actor, cardId: number, expectedVersion: number): Promise<void> {
     const storageKeys = await this.deps.uow.run(async (tx) => {
-      const card = requireFound(await tx.cards.findById(cardId), 'card')
+      const card = await accessibleCard(tx, actor, cardId)
       const policy = await activePolicy(tx, card.boardId)
       decide(evaluatePolicy(actor, { type: 'card.delete', reporterId: card.reporterId }, policy))
       ensureVersion(card, expectedVersion)
@@ -712,11 +730,13 @@ export class CardService {
     const now = this.deps.clock.now()
     const cutoffIso = new Date(now.getTime() - DONE_ARCHIVAL_DAYS * 86_400_000).toISOString()
     const candidates = await this.deps.uow.read(async (tx) => {
-      const done = await tx.lanes.findByKey(this.deps.boardId, 'done')
-      if (done === null) return []
-      // query() excludes archived rows by default — the scan stays
-      // proportional to the LIVE done lane, not the unbounded archive.
-      return tx.cards.query({ laneId: done.id })
+      const cards: Card[] = []
+      for (const board of await tx.boards.list()) {
+        const done = await tx.lanes.findByKey(board.id, 'done')
+        if (done !== null)
+          cards.push(...(await tx.cards.query({ boardId: board.id, laneId: done.id })))
+      }
+      return cards
     })
 
     let archived = 0
@@ -728,6 +748,8 @@ export class CardService {
         if (card?.archivedAt !== null || card.laneId !== candidate.laneId) {
           return null
         }
+        if ((await tx.boards.findById(card.boardId))?.archivedAt !== null) return null
+        await requireBoardAccess(tx, actor, card.boardId)
         if ((await enteredDoneAt(tx, card)) > cutoffIso) return null
 
         const nowIso = this.deps.clock.now().toISOString()
@@ -776,38 +798,51 @@ export class CardService {
     const nowIso = now.toISOString()
     const today = utcDayOf(now)
     return this.deps.uow.run(async (tx) => {
-      const lane = await tx.lanes.findByKey(this.deps.boardId, 'waiting_parts_vendor')
-      if (lane === null) return []
-      const overdue = (await tx.cards.query({ laneId: lane.id, overdueBefore: today })).filter(
-        (card) => card.resumeAlertedAt === null,
-      )
-      if (overdue.length === 0) return []
-
-      // Recipients are the admin-equivalent users: roles that grant manageUsers
-      // (the ADR-013 definition of "admin"), not a hardcoded 'admin' key — a
-      // UI-created custom admin role is alerted too.
-      const policy = await activePolicy(tx, this.deps.boardId)
-      const adminRoleKeys = new Set(
-        policy.roles.filter((role) => role.permissions.manageUsers).map((role) => role.key),
-      )
-      const supervisors = (await tx.userAccounts.list()).filter(
-        (user) =>
-          adminRoleKeys.has(user.role) && user.isActive && user.id !== this.deps.systemUserId,
-      )
       const alerts: { card: Card; recipients: User[] }[] = []
-      for (const card of overdue) {
-        // Assignee first, then supervisors, deduped (an assignee who is also
-        // a supervisor gets one DM). Deactivated assignees get none.
-        const recipients = new Map<string, User>()
-        if (card.assigneeId !== null) {
-          const assignee = await tx.users.findById(card.assigneeId)
-          if (assignee?.isActive === true) recipients.set(assignee.id, assignee)
-        }
-        for (const supervisor of supervisors) recipients.set(supervisor.id, supervisor)
+      for (const board of await tx.boards.list()) {
+        const lane = await tx.lanes.findByKey(board.id, 'waiting_parts_vendor')
+        if (lane === null) continue
+        const overdue = (await tx.cards.query({ laneId: lane.id, overdueBefore: today })).filter(
+          (card) => card.resumeAlertedAt === null,
+        )
+        if (overdue.length === 0) continue
 
-        const marked: Card = { ...card, resumeAlertedAt: nowIso }
-        await tx.cards.update(marked)
-        alerts.push({ card: marked, recipients: [...recipients.values()] })
+        // Recipients are the admin-equivalent users: roles that grant manageUsers
+        // (the ADR-013 definition of "admin"), not a hardcoded 'admin' key — a
+        // UI-created custom admin role is alerted too.
+        const policy = await activePolicy(tx, board.id)
+        const adminRoleKeys = new Set(
+          policy.roles.filter((role) => role.permissions.manageUsers).map((role) => role.key),
+        )
+        const supervisors = (await tx.userAccounts.list()).filter(
+          (user) =>
+            adminRoleKeys.has(user.role) && user.isActive && user.id !== this.deps.systemUserId,
+        )
+        for (const card of overdue) {
+          // Assignee first, then supervisors, deduped (an assignee who is also
+          // a supervisor gets one DM). Deactivated assignees get none.
+          const recipients = new Map<string, User>()
+          if (card.assigneeId !== null) {
+            const assignee = await tx.users.findById(card.assigneeId)
+            if (assignee?.isActive === true) recipients.set(assignee.id, assignee)
+          }
+          for (const supervisor of supervisors) recipients.set(supervisor.id, supervisor)
+
+          const marked: Card = { ...card, resumeAlertedAt: nowIso }
+          await tx.cards.update(marked)
+          const visible: User[] = []
+          for (const recipient of recipients.values()) {
+            if (
+              await canAccessBoard(
+                tx,
+                { kind: 'user', id: recipient.id, role: recipient.role },
+                board,
+              )
+            )
+              visible.push(recipient)
+          }
+          alerts.push({ card: marked, recipients: visible })
+        }
       }
       return alerts
     })
@@ -845,9 +880,18 @@ export class CardService {
    * them exactly like unknown ids keeps the API from doubling as an
    * account-existence oracle.
    */
-  private async requireAssignable(tx: TransactionContext, assigneeId: string): Promise<void> {
+  private async requireAssignable(
+    tx: TransactionContext,
+    assigneeId: string,
+    boardId: string,
+  ): Promise<void> {
     const assignee = requireFound(await tx.users.findById(assigneeId), 'assignee')
-    if (!assignee.isActive || assignee.id === this.deps.systemUserId) {
+    const board = requireFound(await tx.boards.findById(boardId), 'board')
+    if (
+      !assignee.isActive ||
+      assignee.id === this.deps.systemUserId ||
+      !(await canAccessBoard(tx, { kind: 'user', id: assignee.id, role: assignee.role }, board))
+    ) {
       throw new NotFoundError('assignee')
     }
   }
@@ -860,7 +904,7 @@ export class CardService {
   ): Promise<Card> {
     const blocking = reason !== null
     const result = await this.deps.uow.run(async (tx) => {
-      const card = requireFound(await tx.cards.findById(cardId), 'card')
+      const card = await accessibleCard(tx, actor, cardId)
       ensureNotArchived(card)
       const policy = await activePolicy(tx, card.boardId)
       decide(evaluatePolicy(actor, { type: blocking ? 'card.block' : 'card.unblock' }, policy))

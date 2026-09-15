@@ -1,3 +1,4 @@
+import { boardsRoutes } from './routes/boards-routes.ts'
 import cookie from '@fastify/cookie'
 import fastifyStatic from '@fastify/static'
 import swagger from '@fastify/swagger'
@@ -97,6 +98,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     async (api) => {
       authRoutes(deps)(api)
       userRoutes(deps)(api)
+      boardsRoutes(deps)(api)
       boardRoutes(deps)(api)
       cardRoutes(deps)(api)
       commentRoutes(deps)(api)

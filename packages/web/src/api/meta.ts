@@ -1,4 +1,8 @@
-import { DEFAULT_BUSINESS_HOURS, type BusinessHours } from '@rivian-kanban/core'
+import {
+  DEFAULT_BUSINESS_HOURS,
+  DEFAULT_WAITING_REASONS,
+  type BusinessHours,
+} from '@rivian-kanban/core'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useApi } from './api-context.ts'
 import { queryKeys } from './keys.ts'
@@ -69,12 +73,18 @@ export function useResolveUsers(ids: readonly string[]) {
 }
 
 /** The active permission policy — drives drag/menu affordances (ADR-013). */
-export function usePolicy() {
+export function usePolicy(enabled = true) {
   const api = useApi()
   return useQuery({
     queryKey: queryKeys.policy,
     queryFn: () => api.get('/policy', policyResponseSchema),
+    enabled,
   })
+}
+
+/** Includes retired definitions so existing cards can still display their names. */
+export function useWaitingReasons() {
+  return usePolicy().data?.waitingReasons ?? DEFAULT_WAITING_REASONS
 }
 
 /**

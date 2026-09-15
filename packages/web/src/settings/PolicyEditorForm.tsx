@@ -19,6 +19,7 @@ import { FieldLabel } from '../shell/FieldLabel.tsx'
 import { HintButton } from '../shell/HintButton.tsx'
 import { DotsIcon } from '../shell/icons.tsx'
 import classes from './policy-editor.module.css'
+import { SIZES } from '../theme.ts'
 
 export interface PolicyEditorFormProps {
   value: PolicyDocument
@@ -148,106 +149,116 @@ export function PolicyEditorForm({ value, saving, roleInUseError, onSave }: Poli
             {strings.policy.roleInUse}
           </Text>
         ) : null}
-        <Table withTableBorder stickyHeader aria-label={strings.policy.matrixLabel}>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th style={{ position: 'sticky', left: 0 }}>
-                <FieldLabel
-                  label={strings.policy.permissionColumnHeader}
-                  help={strings.fieldHelp.permissionCell}
-                />
-              </Table.Th>
-              {document.roles.map((role, roleIndex) => (
-                <Table.Th key={role.key} className={classes.roleColumn}>
-                  {/* Name + its "…" menu sit together in one cluster (the menu
+        <Table.ScrollContainer
+          minWidth={(document.roles.length + 2) * SIZES.settingsMatrixColumnWidth}
+          scrollAreaProps={{ type: 'auto' }}
+        >
+          <Table
+            layout="fixed"
+            withTableBorder
+            stickyHeader
+            aria-label={strings.policy.matrixLabel}
+          >
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th className={classes.permissionColumn}>
+                  <FieldLabel
+                    label={strings.policy.permissionColumnHeader}
+                    help={strings.fieldHelp.permissionCell}
+                  />
+                </Table.Th>
+                {document.roles.map((role, roleIndex) => (
+                  <Table.Th key={role.key}>
+                    {/* Name + its "…" menu sit together in one cluster (the menu
                       right after the name), so the control reads as belonging to
                       the role rather than floating at the column's far edge. */}
-                  <Group gap="xs" wrap="nowrap">
-                    <Text size="sm" fw={600}>
-                      {role.name}
-                    </Text>
-                    <Menu position="bottom-end" withinPortal>
-                      <Menu.Target>
-                        <Tooltip label={strings.policy.roleMenuLabel(role.name)}>
-                          <ActionIcon
-                            size="sm"
-                            variant="subtle"
-                            color="gray"
-                            aria-label={strings.policy.roleMenuLabel(role.name)}
-                          >
-                            <DotsIcon size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Menu.Target>
-                      <Menu.Dropdown>
-                        <Tooltip label={strings.tooltips.renameRole} position="left" withArrow>
-                          <Menu.Item
-                            onClick={() => {
-                              setRenaming(roleIndex)
-                            }}
-                          >
-                            {strings.policy.renameRole}
-                          </Menu.Item>
-                        </Tooltip>
-                        {/* Disabled Menu.Item keeps `data-disabled` (hoverable),
+                    <Group gap="xs" wrap="nowrap">
+                      <Text size="sm" fw={600} miw={0} style={{ overflowWrap: 'anywhere' }}>
+                        {role.name}
+                      </Text>
+                      <Menu position="bottom-end" withinPortal>
+                        <Menu.Target>
+                          <Tooltip label={strings.policy.roleMenuLabel(role.name)}>
+                            <ActionIcon
+                              size="sm"
+                              variant="subtle"
+                              color="gray"
+                              aria-label={strings.policy.roleMenuLabel(role.name)}
+                            >
+                              <DotsIcon size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Menu.Target>
+                        <Menu.Dropdown>
+                          <Tooltip label={strings.tooltips.renameRole} position="left" withArrow>
+                            <Menu.Item
+                              onClick={() => {
+                                setRenaming(roleIndex)
+                              }}
+                            >
+                              {strings.policy.renameRole}
+                            </Menu.Item>
+                          </Tooltip>
+                          {/* Disabled Menu.Item keeps `data-disabled` (hoverable),
                             so the "why you can't delete" reason still shows. */}
-                        <Tooltip
-                          label={
-                            canDeleteRole(roleIndex)
-                              ? strings.tooltips.deleteRole
-                              : strings.tooltips.disabledDeleteRoleLast
-                          }
-                          position="left"
-                          withArrow
-                        >
-                          <Menu.Item
-                            color="red"
-                            disabled={!canDeleteRole(roleIndex)}
-                            onClick={() => {
-                              deleteRole(roleIndex)
-                            }}
+                          <Tooltip
+                            label={
+                              canDeleteRole(roleIndex)
+                                ? strings.tooltips.deleteRole
+                                : strings.tooltips.disabledDeleteRoleLast
+                            }
+                            position="left"
+                            withArrow
                           >
-                            {strings.policy.deleteRole}
-                          </Menu.Item>
-                        </Tooltip>
-                      </Menu.Dropdown>
-                    </Menu>
+                            <Menu.Item
+                              color="red"
+                              disabled={!canDeleteRole(roleIndex)}
+                              onClick={() => {
+                                deleteRole(roleIndex)
+                              }}
+                            >
+                              {strings.policy.deleteRole}
+                            </Menu.Item>
+                          </Tooltip>
+                        </Menu.Dropdown>
+                      </Menu>
+                    </Group>
+                  </Table.Th>
+                ))}
+                <Table.Th>
+                  {/* Right-align at content width so the button hugs the header's
+                    right edge instead of filling this trailing column. */}
+                  <Group justify="flex-end">
+                    <HintButton
+                      tooltip={strings.tooltips.addRole}
+                      size="sm"
+                      variant="light"
+                      leftSection={<Plus size={16} aria-hidden />}
+                      onClick={() => {
+                        setAddOpen(true)
+                      }}
+                    >
+                      {strings.policy.addRole}
+                    </HintButton>
                   </Group>
                 </Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {PERMISSION_SECTIONS.map(({ section, rows }) => (
+                <SectionRows
+                  key={section}
+                  sectionLabel={strings.policy.sections[section]}
+                  permissions={rows}
+                  roles={document.roles}
+                  colSpan={document.roles.length + 2}
+                  onToggle={toggleCell}
+                  locked={manageRolesLocked}
+                />
               ))}
-              <Table.Th>
-                {/* Right-align at content width so the button hugs the header's
-                    right edge instead of filling this trailing column. */}
-                <Group justify="flex-end">
-                  <HintButton
-                    tooltip={strings.tooltips.addRole}
-                    size="sm"
-                    variant="light"
-                    leftSection={<Plus size={16} aria-hidden />}
-                    onClick={() => {
-                      setAddOpen(true)
-                    }}
-                  >
-                    {strings.policy.addRole}
-                  </HintButton>
-                </Group>
-              </Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {PERMISSION_SECTIONS.map(({ section, rows }) => (
-              <SectionRows
-                key={section}
-                sectionLabel={strings.policy.sections[section]}
-                permissions={rows}
-                roles={document.roles}
-                colSpan={document.roles.length + 2}
-                onToggle={toggleCell}
-                locked={manageRolesLocked}
-              />
-            ))}
-          </Table.Tbody>
-        </Table>
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
       </Stack>
 
       <Group justify="flex-end">
@@ -312,14 +323,14 @@ function SectionRows({
     <>
       <Table.Tr>
         <Table.Th colSpan={colSpan}>
-          <Text size="xs" fw={700} tt="uppercase" c="dimmed">
+          <Text size="xs" fw={700} tt="uppercase" c="dimmed" className={classes.sectionLabel}>
             {sectionLabel}
           </Text>
         </Table.Th>
       </Table.Tr>
       {permissions.map((permission) => (
         <Table.Tr key={permission}>
-          <Table.Td style={{ position: 'sticky', left: 0 }}>
+          <Table.Td className={classes.permissionColumn}>
             <Text size="sm">{strings.policy.permissions[permission]}</Text>
           </Table.Td>
           {roles.map((role, roleIndex) => (

@@ -3,6 +3,7 @@ import {
   CardService,
   CommentService,
   ConflictError,
+  PolicyService,
   SystemClock,
   Uuidv7IdGenerator,
   type Actor,
@@ -96,8 +97,84 @@ afterAll(async () => {
   await conn.close()
 })
 
+it('persists custom waiting reasons and retired labels through Postgres hydration', async () => {
+  const uow = new PostgresUnitOfWork(conn.db)
+  const policies = new PolicyService({
+    uow,
+    clock: new SystemClock(),
+    ids,
+    eventBus: new CapturingEventBus(),
+    boardId,
+  })
+  const original = (await policies.getActive()).config
+  try {
+    await policies.apply(supervisor, {
+      ...original,
+      waitingReasons: [
+        ...original.waitingReasons,
+        { key: 'inspection', label: 'Inspection', active: true },
+      ],
+    })
+    expect((await policies.getActive()).config.waitingReasons).toContainEqual({
+      key: 'inspection',
+      label: 'Inspection',
+      active: true,
+    })
+    const card = await cardService.create(technician, { title: 'Postgres custom waiting reason' })
+    const waiting = await cardService.move(technician, card.id, {
+      toLane: 'waiting_parts_vendor',
+      waitingReason: 'inspection',
+      expectedResumeAt: '2030-01-01',
+      expectedVersion: card.version,
+    })
+    expect(waiting.waitingReason).toBe('inspection')
+    await policies.apply(supervisor, original)
+    expect((await policies.getActive()).config.waitingReasons).toContainEqual({
+      key: 'inspection',
+      label: 'Inspection',
+      active: false,
+    })
+    const updated = await cardService.update(technician, card.id, {
+      waitingReason: 'inspection',
+      expectedResumeAt: '2030-01-02',
+      expectedVersion: waiting.version,
+    })
+    expect(updated.expectedResumeAt).toBe('2030-01-02')
+  } finally {
+    await policies.apply(supervisor, original)
+  }
+})
+
+it('retains both reason definitions when settings saves are submitted together', async () => {
+  const policies = new PolicyService({
+    uow: new PostgresUnitOfWork(conn.db),
+    clock: new SystemClock(),
+    ids,
+    eventBus: new CapturingEventBus(),
+    boardId,
+  })
+  const original = (await policies.getActive()).config
+  try {
+    await Promise.all(
+      ['weather', 'permit'].map((key) =>
+        policies.apply(supervisor, {
+          ...original,
+          waitingReasons: [...original.waitingReasons, { key, label: key, active: true }],
+        }),
+      ),
+    )
+    const saved = (await policies.getActive()).config.waitingReasons
+    expect(saved.map((reason) => reason.key)).toEqual(expect.arrayContaining(['weather', 'permit']))
+    expect(
+      saved.filter((reason) => ['weather', 'permit'].includes(reason.key) && reason.active),
+    ).toHaveLength(1)
+  } finally {
+    await policies.apply(supervisor, original)
+  }
+})
+
 async function laneKeyOf(card: Card): Promise<string> {
-  const snapshot = await queries.boardSnapshot()
+  const snapshot = await queries.boardSnapshot(technician)
   return snapshot.lanes.find((entry) => entry.lane.id === card.laneId)?.lane.key ?? '<unknown lane>'
 }
 
@@ -119,7 +196,7 @@ describe('card lifecycle against the real Postgres adapters', () => {
       expectedVersion: cancelled.version,
     })
 
-    const history = await queries.cardHistory(created.id)
+    const history = await queries.cardHistory(technician, created.id)
     expect(history.items.map((event) => event.eventType)).toEqual([
       'card.created',
       'card.status_changed',
@@ -163,10 +240,7 @@ describe('card lifecycle against the real Postgres adapters', () => {
       expectedResumeAt: '2026-08-01',
       expectedVersion: 1,
     })
-    // Resume into `ready` (not `in_progress`): this file shares one DB across
-    // tests, and a neighbor-less move computes `keyBetween(null, null)`, so the
-    // target lane must be empty to avoid colliding with a card an earlier test
-    // left behind. Exiting the waiting lane clears its fields regardless of where.
+    // Exiting the waiting lane clears its fields regardless of the destination.
     const resumed = await cardService.move(technician, created.id, {
       toLane: 'ready',
       expectedVersion: waiting.version,
@@ -176,40 +250,36 @@ describe('card lifecycle against the real Postgres adapters', () => {
     expect(resumed).toMatchObject({ waitingReason: null, expectedResumeAt: null })
   })
 
-  it('the UNIQUE(lane,position) backstop maps to a ConflictError (DuplicatePositionError path)', async () => {
+  it('resolves repeated insertions into the same visible gap against actual occupied positions', async () => {
     const anchorA = await cardService.create(technician, { title: 'Anchor A' })
     const anchorB = await cardService.create(technician, { title: 'Anchor B' })
-    const winner = await cardService.create(technician, { title: 'Winner' })
-    const loser = await cardService.create(technician, { title: 'Loser' })
-    await cardService.move(technician, anchorA.id, { toLane: 'review', expectedVersion: 1 })
-    await cardService.move(technician, anchorB.id, {
+    const first = await cardService.create(technician, { title: 'First insertion' })
+    const second = await cardService.create(technician, { title: 'Second insertion' })
+    const left = await cardService.move(technician, anchorA.id, {
       toLane: 'review',
-      prevCardId: anchorA.id,
       expectedVersion: 1,
     })
-    await cardService.move(technician, winner.id, {
+    const right = await cardService.move(technician, anchorB.id, {
+      toLane: 'review',
+      expectedVersion: 1,
+    })
+    const inserted = await cardService.move(technician, first.id, {
       toLane: 'review',
       prevCardId: anchorA.id,
       nextCardId: anchorB.id,
       expectedVersion: 1,
     })
-
-    const error: unknown = await cardService
-      .move(technician, loser.id, {
-        toLane: 'review',
-        prevCardId: anchorA.id,
-        nextCardId: anchorB.id,
-        expectedVersion: 1,
-      })
-      .then(
-        () => null,
-        (reason: unknown) => reason,
-      )
-
-    expect(error).toBeInstanceOf(ConflictError)
-    expect((error as ConflictError).current).toMatchObject({ id: loser.id, version: 1 })
+    const moved = await cardService.move(technician, second.id, {
+      toLane: 'review',
+      prevCardId: anchorA.id,
+      nextCardId: anchorB.id,
+      expectedVersion: 1,
+    })
+    expect(left.position < inserted.position).toBe(true)
+    expect(inserted.position < moved.position).toBe(true)
+    expect(moved.position < right.position).toBe(true)
+    expect(moved.version).toBe(2)
   })
-
   it('optimistic lock: a stale expectedVersion conflicts and changes nothing', async () => {
     const created = await cardService.create(technician, { title: 'Original title' })
     await cardService.update(technician, created.id, { title: 'First edit', expectedVersion: 1 })
@@ -223,7 +293,7 @@ describe('card lifecycle against the real Postgres adapters', () => {
 
     expect(error).toBeInstanceOf(ConflictError)
     expect((error as ConflictError).current).toMatchObject({ title: 'First edit', version: 2 })
-    const detail = await queries.cardDetail(created.id)
+    const detail = await queries.cardDetail(technician, created.id)
     expect(detail.card.title).toBe('First edit')
   })
 
@@ -237,12 +307,12 @@ describe('card lifecycle against the real Postgres adapters', () => {
     })
 
     expect(reply.parentCommentId).toBe(parent.id)
-    const thread = await commentService.listForCard(created.id)
+    const thread = await commentService.listForCard(technician, created.id)
     expect(thread.map((comment) => comment.id)).toEqual([parent.id, reply.id])
   })
 
   it('boardSnapshot reflects lanes in order with cards positioned by fractional key', async () => {
-    const snapshot = await queries.boardSnapshot()
+    const snapshot = await queries.boardSnapshot(technician)
 
     expect(snapshot.lanes.map((entry) => entry.lane.key)).toEqual([
       'intake',

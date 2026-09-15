@@ -1,5 +1,6 @@
 import {
   ConflictError,
+  requireBoardAccess,
   createLaneInputSchema,
   ensurePermission,
   laneKeySchema,
@@ -43,6 +44,7 @@ export class LaneAdminService {
   async update(actor: Actor, laneId: string, rawInput: unknown): Promise<Lane> {
     const input = updateLaneInputSchema.parse(rawInput)
     const updated = await this.deps.uow.run(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
       ensurePermission(actor, 'manageLanes', await loadActivePolicy(tx, this.deps.boardId))
       // Single board — the board list doubles as the id lookup.
       const lane = (await tx.lanes.listByBoard(this.deps.boardId)).find(
@@ -65,6 +67,7 @@ export class LaneAdminService {
   async create(actor: Actor, rawInput: unknown): Promise<Lane> {
     const input = createLaneInputSchema.parse(rawInput)
     const created = await this.deps.uow.run(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
       ensurePermission(actor, 'manageLanes', await loadActivePolicy(tx, this.deps.boardId))
       const existing = await tx.lanes.listByBoard(this.deps.boardId)
       const key = uniqueLaneKey(input.label, new Set(existing.map((lane) => lane.key)))
@@ -95,6 +98,7 @@ export class LaneAdminService {
    */
   async remove(actor: Actor, laneId: string): Promise<void> {
     await this.deps.uow.run(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
       ensurePermission(actor, 'manageLanes', await loadActivePolicy(tx, this.deps.boardId))
       const lanes = await tx.lanes.listByBoard(this.deps.boardId)
       const lane = lanes.find((candidate) => candidate.id === laneId)
@@ -115,6 +119,7 @@ export class LaneAdminService {
   async reorder(actor: Actor, rawInput: unknown): Promise<Lane[]> {
     const input = reorderLanesInputSchema.parse(rawInput)
     const reordered = await this.deps.uow.run(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
       ensurePermission(actor, 'manageLanes', await loadActivePolicy(tx, this.deps.boardId))
       const existing = await tx.lanes.listByBoard(this.deps.boardId)
       const existingIds = new Set(existing.map((lane) => lane.id))

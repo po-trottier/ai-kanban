@@ -22,6 +22,7 @@ import { createTestApp, type TestApp } from './test/support.ts'
  */
 
 const MCP_TOOL_NAMES = [
+  'list_boards',
   'get_board_snapshot',
   'list_cards',
   'get_card',
@@ -29,6 +30,7 @@ const MCP_TOOL_NAMES = [
   'list_stale_cards',
   'list_activity',
   'list_lanes',
+  'list_waiting_reasons',
   'list_locations',
   'list_tags',
   'list_blocked_cards',
@@ -240,6 +242,44 @@ afterAll(async () => {
 })
 
 describe('handshake and discovery', () => {
+  it('discovers allowed boards and denies private-board resources and collections', async () => {
+    // Arrange
+    const admin = { kind: 'user' as const, id: adminId, role: 'admin' }
+    const boards = t.wired.deps.services.boards
+    const board = await boards.create(admin, {
+      name: 'Private MCP',
+      accessMode: 'restricted',
+      allowedRoleKeys: [],
+      allowedUserIds: [adminId],
+    })
+    const card = await t.wired.deps
+      .forBoard(board.id)
+      .cards.create(admin, { title: 'Private MCP card', priority: 'P2' })
+    const client = await connect(reader.raw)
+    // Act
+    const list = await callOk<{ items: { id: string }[] }>(client, 'list_boards')
+    // Assert
+    expect(list.items.map((item) => item.id)).not.toContain(board.id)
+    for (const [tool, args] of [
+      ['get_card', { cardId: card.id }],
+      ['get_card_history', { cardId: card.id }],
+      ['get_board_snapshot', { boardId: board.id }],
+      ['list_cards', { boardId: board.id }],
+      ['list_waiting_reasons', { boardId: board.id }],
+      ['list_activity', { boardId: board.id }],
+    ] as const)
+      expect((await callProblem(client, tool, args)).status).toBe(404)
+    await boards.update(admin, board.id, {
+      name: board.name,
+      accessMode: 'restricted',
+      allowedRoleKeys: ['user'],
+      allowedUserIds: [],
+    })
+    const scoped = await callOk<{ items: Card[] }>(client, 'list_cards', { boardId: board.id })
+    expect(scoped.items.map((item) => item.id)).toEqual([card.id])
+    await boards.remove(admin, board.id)
+  })
+
   it('completes the initialize handshake and reports the server identity', async () => {
     const client = await connect(writer.raw)
 
@@ -269,6 +309,7 @@ describe('handshake and discovery', () => {
 
     // Every read tool: read-only, non-destructive, idempotent, closed-world.
     const readTools = [
+      'list_boards',
       'get_board_snapshot',
       'list_cards',
       'get_card',
@@ -276,6 +317,7 @@ describe('handshake and discovery', () => {
       'list_stale_cards',
       'list_activity',
       'list_lanes',
+      'list_waiting_reasons',
       'list_locations',
       'list_tags',
       'list_blocked_cards',
@@ -677,6 +719,75 @@ describe('terminal-action tools', () => {
 })
 
 describe('board-wide read tools', () => {
+  it('discovers custom waiting reasons and enforces retirement through MCP moves', async () => {
+    const config = {
+      ...DEFAULT_POLICY_DOCUMENT,
+      waitingReasons: [
+        ...DEFAULT_POLICY_DOCUMENT.waitingReasons,
+        { key: 'inspection', label: 'Site inspection', active: true },
+      ],
+    }
+    const apply = await t.request(adminCookie, {
+      method: 'PUT',
+      url: '/api/v1/policy',
+      payload: config,
+    })
+    expect(apply.statusCode).toBe(200)
+    try {
+      const readClient = await connect(reader.raw)
+      const catalog = await callOk<{ items: { key: string; label: string; active: boolean }[] }>(
+        readClient,
+        'list_waiting_reasons',
+      )
+      expect(catalog.items).toContainEqual({
+        key: 'inspection',
+        label: 'Site inspection',
+        active: true,
+      })
+      const client = await connect(writer.raw)
+      const card = await callOk<Card>(client, 'create_card', { title: 'Custom waiting reason' })
+      const moved = await callOk<Card>(client, 'move_card', {
+        cardId: card.id,
+        expectedVersion: card.version,
+        toLane: 'waiting_parts_vendor',
+        waitingReason: 'inspection',
+        expectedResumeAt: '2030-01-01',
+      })
+      expect(moved.waitingReason).toBe('inspection')
+      const retired = await t.request(adminCookie, {
+        method: 'PUT',
+        url: '/api/v1/policy',
+        payload: DEFAULT_POLICY_DOCUMENT,
+      })
+      expect(retired.statusCode).toBe(200)
+      const updatedCatalog = await callOk<{
+        items: { key: string; label: string; active: boolean }[]
+      }>(readClient, 'list_waiting_reasons')
+      expect(updatedCatalog.items).toContainEqual({
+        key: 'inspection',
+        label: 'Site inspection',
+        active: false,
+      })
+      const other = await callOk<Card>(client, 'create_card', { title: 'Removed waiting reason' })
+      const rejected = await call(client, 'move_card', {
+        cardId: other.id,
+        expectedVersion: other.version,
+        toLane: 'waiting_parts_vendor',
+        waitingReason: 'inspection',
+        expectedResumeAt: '2030-01-01',
+      })
+      expect(rejected.isError).toBe(true)
+      expect(JSON.stringify(jsonOf(rejected))).toContain('waiting reason is unavailable')
+    } finally {
+      const restored = await t.request(adminCookie, {
+        method: 'PUT',
+        url: '/api/v1/policy',
+        payload: DEFAULT_POLICY_DOCUMENT,
+      })
+      expect(restored.statusCode).toBe(200)
+    }
+  })
+
   it('list_lanes returns the 7 board lanes in position order', async () => {
     const client = await connect(reader.raw)
 

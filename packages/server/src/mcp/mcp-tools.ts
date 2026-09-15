@@ -9,6 +9,7 @@ import {
   attachmentSchema,
   blockCardInputSchema,
   boardCardSchema,
+  boardCatalogSchema,
   cancelCardInputSchema,
   cardDetailSchemaOf,
   cardEventSchema,
@@ -34,6 +35,7 @@ import {
   tagSchema,
   unblockCardInputSchema,
   updateCardInputSchema,
+  waitingReasonDefinitionSchema,
   type Actor,
   type BoardCard,
   type Lane,
@@ -44,7 +46,7 @@ import { toProblem } from '../http/problems.ts'
 import { type AppDeps } from '../types.ts'
 
 /**
- * The 20 MCP tools (docs/architecture/mcp.md#tools). Handlers call the same
+ * The MCP tools (docs/architecture/mcp.md#tools). Handlers call the same
  * core services as REST with the token-derived Actor, so policy and audit
  * behave identically. Input schemas are the core command/filter schemas
  * (single-schema rule) extended only with the tool-addressing fields REST
@@ -56,9 +58,22 @@ import { type AppDeps } from '../types.ts'
  * intact.
  */
 
+const boardScopeShape = {
+  boardId: z
+    .uuid()
+    .optional()
+    .describe('Board ID from list_boards; omitted uses the original board.'),
+}
+const boardScopeSchema = z.strictObject(boardScopeShape)
+const staleCardsToolSchema = staleCardsInputSchema.extend(boardScopeShape)
+const activityToolSchema = activityFeedRequestSchema.extend(boardScopeShape)
+const blockedCardsToolSchema = pageRequestSchema.extend(boardScopeShape)
 const cardIdShape = { cardId: z.number().int().positive() }
 
-const listCardsToolSchema = listCardsFilterSchema.extend(pageRequestSchema.shape)
+const listCardsToolSchema = listCardsFilterSchema.extend({
+  ...pageRequestSchema.shape,
+  ...boardScopeShape,
+})
 const getCardToolSchema = z.strictObject(cardIdShape)
 const cardHistoryToolSchema = cardHistoryRequestSchema.extend(cardIdShape)
 
@@ -90,6 +105,7 @@ const cardHistoryOutputSchema = pageSchemaOf(
   enrichedEventSchema({ onBehalfOfUserId: z.uuid().optional() }),
 )
 const createCardToolSchema = createCardInputSchema.extend({
+  ...boardScopeShape,
   /** MCP-only attribution (mcp.md): resolved server-side, never client-trusted. */
   reporterEmail: z.email().optional(),
 })
@@ -273,6 +289,7 @@ function laneSummaryOf(lane: Lane, cards: BoardCard[], wipLimitExceeded: boolean
 
 export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBaseLogger): McpServer {
   const { queries, cards, comments, locations } = deps.services
+  const scoped = (boardId: string | undefined) => deps.forBoard(boardId ?? deps.defaultBoardId)
   const server = new McpServer(
     { name: 'rivian-kanban', version: deps.config.version.version },
     { capabilities: { tools: {} } },
@@ -337,6 +354,32 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
   const readTool = registerVia(guarded, READ_ANNOTATIONS)
   const writeTool = registerVia(mutating, WRITE_ANNOTATIONS)
 
+  readTool(
+    'list_boards',
+    {
+      description:
+        'Boards accessible to this identity. Use a board ID for collection and create tools.',
+      outputSchema: boardCatalogSchema,
+    },
+    async () => jsonResult(await deps.services.boards.list(actor)),
+  )
+
+  readTool(
+    'list_waiting_reasons',
+    {
+      description:
+        'Configured waiting reasons with stable keys, labels and active status. Use an active key when moving a card into Waiting or changing its reason. Inactive reasons are retained for existing cards and history.',
+      inputSchema: boardScopeSchema,
+      outputSchema: z.strictObject({ items: z.array(waitingReasonDefinitionSchema) }),
+    },
+    async ({ boardId }) => {
+      await deps.services.boards.requireAccess(actor, boardId ?? deps.defaultBoardId)
+      return jsonResult({
+        items: (await scoped(boardId).policies.getActive()).config.waitingReasons,
+      })
+    },
+  )
+
   /**
    * Resolves `reporterEmail` to an ACTIVE user id, else the seeded system
    * user. Inactive accounts resolve exactly like unknown ones (same 404):
@@ -358,10 +401,11 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
         'The state of the shop: every lane in board order with its card count, blocked count, ' +
         'WIP-limit status, oldest-card age, and a compact list of its cards (ids chain into ' +
         'get_card / list_cards). Archived cards are excluded.',
+      inputSchema: boardScopeSchema,
       outputSchema: snapshotOutputSchema,
     },
-    async () => {
-      const snapshot = await queries.boardSnapshot()
+    async ({ boardId }) => {
+      const snapshot = await scoped(boardId).queries.boardSnapshot(actor)
       return jsonResult({
         lanes: snapshot.lanes.map(({ lane, cards: laneCards, wipLimitExceeded }) =>
           laneSummaryOf(lane, laneCards, wipLimitExceeded),
@@ -381,9 +425,9 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       outputSchema: pageSchemaOf(cardSchema),
     },
     async (args: z.output<typeof listCardsToolSchema>) => {
-      const { cursor, limit, ...filter } = args
+      const { boardId, cursor, limit, ...filter } = args
       return jsonResult(
-        await queries.listCards(filter, {
+        await scoped(boardId).queries.listCards(actor, filter, {
           limit,
           ...(cursor !== undefined ? { cursor } : {}),
         }),
@@ -404,7 +448,7 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       // ONE core read composes detail + thread + trailing events: a single
       // snapshot and card lookup, and the three parts can never disagree
       // about a concurrently committed mutation.
-      jsonResult(await queries.cardDetailWithThread(args.cardId, LATEST_EVENTS_TAKE)),
+      jsonResult(await queries.cardDetailWithThread(actor, args.cardId, LATEST_EVENTS_TAKE)),
   )
 
   readTool(
@@ -418,7 +462,7 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
     },
     async (args: z.output<typeof cardHistoryToolSchema>) => {
       const { cardId, ...request } = args
-      return jsonResult(await queries.cardHistory(cardId, request))
+      return jsonResult(await queries.cardHistory(actor, cardId, request))
     },
   )
 
@@ -429,11 +473,11 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
         'The follow-up feed: cards past their expected resume date, in review longer than ' +
         'reviewDays (default 7), or blocked longer than blockedDays (default 3), each with its ' +
         'staleness reasons.',
-      inputSchema: staleCardsInputSchema,
+      inputSchema: staleCardsToolSchema,
       outputSchema: staleCardsOutputSchema,
     },
-    async (args: z.output<typeof staleCardsInputSchema>) =>
-      jsonResult({ items: await queries.staleCards(args) }),
+    async ({ boardId, ...args }: z.output<typeof staleCardsToolSchema>) =>
+      jsonResult({ items: await scoped(boardId).queries.staleCards(actor, args) }),
   )
 
   readTool(
@@ -447,11 +491,11 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
         'without it a token is scoped to its own creator’s activity. Each item carries ' +
         'actorDisplayName / onBehalfOfDisplayName, and the top-level users map resolves every ' +
         'referenced user id ({id, displayName, email}).',
-      inputSchema: activityFeedRequestSchema,
+      inputSchema: activityToolSchema,
       outputSchema: activityOutputSchema,
     },
-    async (args: z.output<typeof activityFeedRequestSchema>) =>
-      jsonResult(await queries.eventsSince(actor, args)),
+    async ({ boardId, ...args }: z.output<typeof activityToolSchema>) =>
+      jsonResult(await scoped(boardId).queries.eventsSince(actor, args)),
   )
 
   readTool(
@@ -460,9 +504,10 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       description:
         "The board's lanes in board order (id, key, label, position, wipLimit) — the workflow " +
         'columns cards move between.',
+      inputSchema: boardScopeSchema,
       outputSchema: z.strictObject({ lanes: z.array(laneSchema) }),
     },
-    async () => jsonResult({ lanes: await queries.listLanes() }),
+    async ({ boardId }) => jsonResult({ lanes: await scoped(boardId).queries.listLanes(actor) }),
   )
 
   readTool(
@@ -483,9 +528,10 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       description:
         'Every tag currently used on the board (id, name). Reuse an existing name when tagging ' +
         'cards (card tags are a full-replacement name array) instead of coining near-duplicates.',
+      inputSchema: boardScopeSchema,
       outputSchema: z.strictObject({ tags: z.array(tagSchema) }),
     },
-    async () => jsonResult({ tags: await queries.listTags() }),
+    async ({ boardId }) => jsonResult({ tags: await scoped(boardId).queries.listTags(actor) }),
   )
 
   readTool(
@@ -494,13 +540,14 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       description:
         'Every currently-blocked card (a thin blocked=true slice of list_cards), newest-first, ' +
         'cursor-paginated.',
-      inputSchema: pageRequestSchema,
+      inputSchema: blockedCardsToolSchema,
       outputSchema: pageSchemaOf(cardSchema),
     },
-    async (args: z.output<typeof pageRequestSchema>) => {
-      const { cursor, limit } = args
+    async (args: z.output<typeof blockedCardsToolSchema>) => {
+      const { boardId, cursor, limit } = args
       return jsonResult(
-        await queries.listCards(
+        await scoped(boardId).queries.listCards(
+          actor,
           { blocked: true },
           { limit, ...(cursor !== undefined ? { cursor } : {}) },
         ),
@@ -554,9 +601,9 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       annotations: { idempotentHint: false },
     },
     async (args: z.output<typeof createCardToolSchema>) => {
-      const { reporterEmail, ...input } = args
+      const { boardId, reporterEmail, ...input } = args
       const reporterId = await resolveReporterId(reporterEmail)
-      return jsonResult(await cards.create(actor, input, { reporterId }))
+      return jsonResult(await scoped(boardId).cards.create(actor, input, { reporterId }))
     },
   )
 
@@ -582,9 +629,9 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
       description:
         "Move a card to another lane (or reorder within one) under the board's configured " +
         'permission policy. The position comes from the prevCardId/nextCardId neighbors — ' +
-        'take their ids from get_board_snapshot (omitting both targets the top of the lane ' +
-        'and conflicts when that spot is taken). Entering waiting_parts_vendor requires ' +
-        'waitingReason and expectedResumeAt. Requires expectedVersion and a read_write token.',
+        'take their ids from get_board_snapshot. The server resolves hidden occupied positions; ' +
+        'omitting nextCardId (including both neighbors) appends to the lane. Entering waiting_parts_vendor requires ' +
+        'waitingReason and expectedResumeAt. Discover active reason keys with list_waiting_reasons. Requires expectedVersion and a read_write token.',
       inputSchema: moveCardToolSchema,
       outputSchema: cardSchema,
     },

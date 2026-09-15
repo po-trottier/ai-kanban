@@ -121,9 +121,13 @@ _exceptions_ anywhere.
 
 To keep the lane from becoming a black hole:
 
-- Entry requires `waiting_reason` ∈ `parts | vendor | access | info | funding` and
+- Entry requires an active `waiting_reason` key from Settings → Waiting reasons and
   `expected_resume_at` (a date, `YYYY-MM-DD`; a card counts as overdue starting the following
   UTC day).
+- Default choices are Parts, Vendor, Access, Information and Funding. Admins can add, rename or
+  remove choices (at least one stays active). Removed definitions retain their stable keys and
+  labels for existing cards and history, but cannot be selected for a new entry or reason change.
+  Editing only the date or reopening a cancelled card can retain its removed reason.
 - On any move **out** of the lane, both fields are cleared inside the move transaction
   (recorded in the `card.status_changed` payload, not as separate field events); re-entry
   requires fresh values. Staleness queries therefore only ever match cards currently waiting.

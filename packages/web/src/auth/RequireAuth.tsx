@@ -51,7 +51,7 @@ export function RequireAuth() {
     return <ChangePasswordPage />
   }
   return (
-    <SessionContext.Provider value={me.data}>
+    <SessionContext.Provider key={me.data.id} value={me.data}>
       <ThemeSync theme={me.data.theme} />
       <Outlet />
     </SessionContext.Provider>

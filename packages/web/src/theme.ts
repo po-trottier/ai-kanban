@@ -1,5 +1,6 @@
 import {
   createTheme,
+  Combobox,
   MultiSelect,
   Notification,
   Select,
@@ -55,6 +56,9 @@ export const SIZES = {
   /** Fixed lanes-admin inputs so the grid aligns regardless of label length. */
   laneLabelInputWidth: '16rem',
   laneWipLimitInputWidth: '6.5rem',
+  /** Readable settings tables scroll inside their panel on narrow screens. */
+  settingsTableMinWidth: '40rem',
+  settingsMatrixColumnWidth: 160,
   /** The docked card-detail Aside default width (matches the old Drawer `size="lg"`). */
   cardPanelWidth: 620,
   /** Resizable-panel bounds: a readable minimum, a fallback max when the
@@ -76,6 +80,8 @@ export const theme = createTheme({
   // Every option dropdown shows the selected row's checkmark on the RIGHT of the
   // label, not the left — one place so all comboboxes read the same.
   components: {
+    // Portaled dropdowns must not expand the mobile layout viewport while a modal scrolls.
+    Combobox: Combobox.extend({ defaultProps: { floatingStrategy: 'fixed' } }),
     Select: Select.extend({ defaultProps: { checkIconPosition: 'right' } }),
     MultiSelect: MultiSelect.extend({ defaultProps: { checkIconPosition: 'right' } }),
     // Toasts get a visible border + shadow so they stand out from the white app

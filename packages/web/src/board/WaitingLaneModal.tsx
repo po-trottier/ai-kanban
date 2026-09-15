@@ -1,4 +1,4 @@
-import { WAITING_REASONS, type WaitingReason } from '@rivian-kanban/core'
+import { type WaitingReason } from '@rivian-kanban/core'
 import { Group, Modal, Select, Stack, Text, Textarea } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
 import { useState } from 'react'
@@ -6,6 +6,8 @@ import { useUserTimezone } from '../auth/session-context.ts'
 import { todayInTimezone } from '../lib/format.ts'
 import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
+import { useWaitingReasons } from '../api/meta.ts'
+import { waitingReasonOptions } from '../lib/waiting-reasons.ts'
 
 export interface WaitingLaneModalProps {
   onSubmit: (values: {
@@ -22,13 +24,17 @@ export interface WaitingLaneModalProps {
  * requires a reason and an expected resume date; a free-text note is optional.
  */
 export function WaitingLaneModal({ onSubmit, onClose }: WaitingLaneModalProps) {
+  const options = waitingReasonOptions(useWaitingReasons())
   const timezone = useUserTimezone()
   const [reason, setReason] = useState<WaitingReason | null>(null)
   const [resumeAt, setResumeAt] = useState<string | null>(null)
   const [comment, setComment] = useState('')
   const [touched, setTouched] = useState(false)
 
-  const reasonError = touched && reason === null ? strings.waiting.reasonRequired : null
+  const reasonError =
+    touched && !options.some((option) => option.value === reason)
+      ? strings.waiting.reasonRequired
+      : null
   const resumeError = touched && resumeAt === null ? strings.waiting.resumeRequired : null
 
   return (
@@ -39,10 +45,8 @@ export function WaitingLaneModal({ onSubmit, onClose }: WaitingLaneModalProps) {
         </Text>
         <Select
           label={strings.waiting.reasonLabel}
-          data={WAITING_REASONS.map((value) => ({
-            value,
-            label: strings.waiting.reasons[value],
-          }))}
+          data={options}
+          description={options.length === 0 ? strings.waiting.noReasons : undefined}
           value={reason}
           error={reasonError}
           onChange={(value) => {
@@ -76,7 +80,12 @@ export function WaitingLaneModal({ onSubmit, onClose }: WaitingLaneModalProps) {
             tooltip={strings.tooltips.move}
             onClick={() => {
               setTouched(true)
-              if (reason === null || resumeAt === null) return
+              if (
+                reason === null ||
+                resumeAt === null ||
+                !options.some((option) => option.value === reason)
+              )
+                return
               const note = comment.trim()
               onSubmit({
                 waitingReason: reason,

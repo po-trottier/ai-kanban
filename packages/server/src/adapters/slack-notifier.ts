@@ -1,4 +1,5 @@
 import {
+  canAccessBoard,
   type Card,
   type NotifierPort,
   type UnitOfWork,
@@ -86,6 +87,17 @@ export class SlackNotifier implements NotifierPort {
     log: { cardId: number; skipMessage: string; failMessage: string },
   ): Promise<void> {
     try {
+      const visible = await this.deps.uow.read(async (tx) => {
+        const current = await tx.users.findById(recipient.id)
+        const card = await tx.cards.findById(log.cardId)
+        if (!current?.isActive || card === null) return false
+        const board = await tx.boards.findById(card.boardId)
+        return (
+          board !== null &&
+          canAccessBoard(tx, { kind: 'user', id: current.id, role: current.role }, board)
+        )
+      })
+      if (!visible) return
       const slackUserId = recipient.slackUserId ?? (await this.lookupAndBind(recipient))
       if (slackUserId === null) {
         this.deps.logger.info({ cardId: log.cardId, userId: recipient.id }, log.skipMessage)

@@ -65,7 +65,7 @@ afterAll(() => {
 })
 
 async function laneKeyOf(card: Card): Promise<string> {
-  const snapshot = await queries.boardSnapshot()
+  const snapshot = await queries.boardSnapshot(technician)
   return snapshot.lanes.find((entry) => entry.lane.id === card.laneId)?.lane.key ?? '<unknown lane>'
 }
 
@@ -87,7 +87,7 @@ describe('card lifecycle against the real adapters', () => {
       expectedVersion: cancelled.version,
     })
 
-    const history = await queries.cardHistory(created.id)
+    const history = await queries.cardHistory(technician, created.id)
     expect(history.items.map((event) => event.eventType)).toEqual([
       'card.created',
       'card.status_changed',
@@ -135,10 +135,7 @@ describe('card lifecycle against the real adapters', () => {
       expectedResumeAt: '2026-08-01',
       expectedVersion: 1,
     })
-    // Resume into `ready` (not `in_progress`): this file shares one DB across
-    // tests, and a neighbor-less move computes `keyBetween(null, null)`, so the
-    // target lane must be empty to avoid colliding with a card an earlier test
-    // left behind. Exiting the waiting lane clears its fields regardless of where.
+    // Exiting the waiting lane clears its fields regardless of the destination.
     const resumed = await cardService.move(technician, created.id, {
       toLane: 'ready',
       expectedVersion: waiting.version,
@@ -146,49 +143,42 @@ describe('card lifecycle against the real adapters', () => {
 
     expect(waiting).toMatchObject({ waitingReason: 'parts', expectedResumeAt: '2026-08-01' })
     expect(resumed).toMatchObject({ waitingReason: null, expectedResumeAt: null })
-    const history = await queries.cardHistory(created.id, { type: 'card.status_changed' })
+    const history = await queries.cardHistory(technician, created.id, {
+      type: 'card.status_changed',
+    })
     expect(history.items.at(-1)?.payload).toMatchObject({ clearedWaiting: true })
   })
 
-  it('two moves aiming at the same gap: the loser retries, then conflicts with current state', async () => {
+  it('resolves repeated insertions into the same visible gap against actual occupied positions', async () => {
     const anchorA = await cardService.create(technician, { title: 'Anchor A' })
     const anchorB = await cardService.create(technician, { title: 'Anchor B' })
-    const winner = await cardService.create(technician, { title: 'Winner' })
-    const loser = await cardService.create(technician, { title: 'Loser' })
-    await cardService.move(technician, anchorA.id, { toLane: 'review', expectedVersion: 1 })
-    await cardService.move(technician, anchorB.id, {
+    const first = await cardService.create(technician, { title: 'First insertion' })
+    const second = await cardService.create(technician, { title: 'Second insertion' })
+    const left = await cardService.move(technician, anchorA.id, {
       toLane: 'review',
-      prevCardId: anchorA.id,
       expectedVersion: 1,
     })
-    await cardService.move(technician, winner.id, {
+    const right = await cardService.move(technician, anchorB.id, {
+      toLane: 'review',
+      expectedVersion: 1,
+    })
+    const inserted = await cardService.move(technician, first.id, {
       toLane: 'review',
       prevCardId: anchorA.id,
       nextCardId: anchorB.id,
       expectedVersion: 1,
     })
-
-    // Same stale neighbors → the same fractional key → UNIQUE backstop fires;
-    // the in-transaction retry re-reads the same neighbors and collides again,
-    // surfacing as a 409 carrying the loser's current (unchanged) state.
-    const error: unknown = await cardService
-      .move(technician, loser.id, {
-        toLane: 'review',
-        prevCardId: anchorA.id,
-        nextCardId: anchorB.id,
-        expectedVersion: 1,
-      })
-      .then(
-        () => null,
-        (reason: unknown) => reason,
-      )
-
-    expect(error).toBeInstanceOf(ConflictError)
-    expect((error as ConflictError).current).toMatchObject({ id: loser.id, version: 1 })
-    const unchanged = (error as ConflictError).current
-    await expect(laneKeyOf(unchanged ?? loser)).resolves.toBe('intake')
+    const moved = await cardService.move(technician, second.id, {
+      toLane: 'review',
+      prevCardId: anchorA.id,
+      nextCardId: anchorB.id,
+      expectedVersion: 1,
+    })
+    expect(left.position < inserted.position).toBe(true)
+    expect(inserted.position < moved.position).toBe(true)
+    expect(moved.position < right.position).toBe(true)
+    expect(moved.version).toBe(2)
   })
-
   it('optimistic lock: a stale expectedVersion conflicts and changes nothing', async () => {
     const created = await cardService.create(technician, { title: 'Original title' })
     await cardService.update(technician, created.id, {
@@ -205,7 +195,7 @@ describe('card lifecycle against the real adapters', () => {
 
     expect(error).toBeInstanceOf(ConflictError)
     expect((error as ConflictError).current).toMatchObject({ title: 'First edit', version: 2 })
-    const detail = await queries.cardDetail(created.id)
+    const detail = await queries.cardDetail(technician, created.id)
     expect(detail.card.title).toBe('First edit')
   })
 
@@ -219,15 +209,15 @@ describe('card lifecycle against the real adapters', () => {
     })
 
     expect(reply.parentCommentId).toBe(parent.id)
-    const thread = await commentService.listForCard(created.id)
+    const thread = await commentService.listForCard(technician, created.id)
     expect(thread.map((comment) => comment.id)).toEqual([parent.id, reply.id])
-    const history = await queries.cardHistory(created.id, { type: 'comment.added' })
+    const history = await queries.cardHistory(technician, created.id, { type: 'comment.added' })
     expect(history.items).toHaveLength(2)
     expect(history.items.at(1)?.payload).toMatchObject({ parentCommentId: parent.id })
   })
 
   it('boardSnapshot reflects lanes in order with cards positioned by fractional key', async () => {
-    const snapshot = await queries.boardSnapshot()
+    const snapshot = await queries.boardSnapshot(technician)
 
     expect(snapshot.lanes.map((entry) => entry.lane.key)).toEqual([
       'intake',

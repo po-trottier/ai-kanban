@@ -76,6 +76,15 @@ test('resizes the detail panel by dragging the handle, and remembers the width',
   // Fallbacks keep a null box out of the assertion path (no conditional in a test).
   const startWidth = ((await panel.boundingBox()) ?? { width: Number.NaN }).width
 
+  const grip = await handle.boundingBox()
+  const gripX = (grip?.x ?? NaN) + (grip?.width ?? NaN) / 2
+  const gripY = (grip?.y ?? NaN) + (grip?.height ?? NaN) / 2
+  await page.mouse.move(gripX, gripY)
+  await page.mouse.down()
+  await page.mouse.move(gripX - 100, gripY, { steps: 8 })
+  await page.mouse.up()
+  expect((await panel.boundingBox())?.width ?? NaN).toBeGreaterThan(startWidth + 80)
+
   // The handle is an ARIA window-splitter: focus it and widen with the arrow
   // keys (panel is on the right, so Left widens). Each press is a fixed step.
   await handle.focus()

@@ -1,3 +1,4 @@
+import { accessibleCard, requireBoardAccess } from './board-access.ts'
 import { z } from 'zod'
 import {
   listCardsFilterSchema,
@@ -33,7 +34,7 @@ import {
   type UnitOfWork,
 } from '../ports/repositories.ts'
 import { type Clock } from '../ports/runtime.ts'
-import { activePolicy, DAY_MS, laneByKey, redactDeletedComments, requireFound } from './internal.ts'
+import { activePolicy, DAY_MS, laneByKey, redactDeletedComments } from './internal.ts'
 
 export interface BoardQueryServiceDeps {
   uow: UnitOfWork
@@ -176,9 +177,8 @@ export const activityFeedRequestSchema = pageRequestSchema.extend({
 })
 
 /**
- * Read-side queries. Card reads are never policy-checked (every authenticated
- * user may see every card, ADR-008); no audit events are written. The sole
- * exception is `eventsSince`: the cross-user activity feed is gated on
+ * Read-side queries require visibility of the selected or persisted board.
+ * No audit events are written. The cross-user activity feed is additionally gated on
  * `viewAllActivity`, self-scoping callers who lack it (see the method).
  */
 export class BoardQueryService {
@@ -189,8 +189,9 @@ export class BoardQueryService {
   }
 
   /** Lanes in board order with non-archived cards in position order + WIP state. */
-  async boardSnapshot(): Promise<BoardSnapshot> {
+  async boardSnapshot(actor: Actor): Promise<BoardSnapshot> {
     return this.deps.uow.read(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
       const lanes = await tx.lanes.listByBoard(this.deps.boardId)
       const snapshots: LaneSnapshot[] = []
       for (const lane of lanes) {
@@ -218,10 +219,11 @@ export class BoardQueryService {
    * count (the WIP marker is a property of the lane, not the filtered view), so
    * filtering never hides a breach. The empty filter equals `boardSnapshot`.
    */
-  async filteredBoard(rawFilter: unknown): Promise<BoardSnapshot> {
+  async filteredBoard(actor: Actor, rawFilter: unknown): Promise<BoardSnapshot> {
     const filter = boardFilterSchema.parse(rawFilter)
     const now = this.deps.clock.now()
     return this.deps.uow.read(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
       const repoFilter = await this.toBoardRepoFilter(tx, filter)
       let rows = await tx.cards.queryBoardSummaries(repoFilter)
       if (filter.overdue) {
@@ -260,11 +262,12 @@ export class BoardQueryService {
    * Filterable card list, newest-first, cursor-paginated on (createdAt, id).
    * The cursor is the shared opaque base64url token (REST and MCP alike).
    */
-  async listCards(rawFilter: unknown, rawPage?: unknown): Promise<Page<Card>> {
+  async listCards(actor: Actor, rawFilter: unknown, rawPage?: unknown): Promise<Page<Card>> {
     const filter = listCardsFilterSchema.parse(rawFilter)
     const page = pageRequestSchema.parse(rawPage ?? {})
     const after = page.cursor !== undefined ? decodeCursor(page.cursor) : undefined
     return this.deps.uow.read(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
       const repoFilter = await this.toRepoFilter(tx, filter)
       const items = await tx.cards.query(repoFilter, {
         ...(after !== undefined ? { after } : {}),
@@ -275,19 +278,25 @@ export class BoardQueryService {
   }
 
   /** Every known tag, name order (`GET /tags` autocomplete). */
-  async listTags(): Promise<Tag[]> {
-    return this.deps.uow.read((tx) => tx.tags.listAll())
+  async listTags(actor: Actor): Promise<Tag[]> {
+    return this.deps.uow.read(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
+      return tx.tags.listAll(this.deps.boardId)
+    })
   }
 
   /** The board's lanes in board order (`GET /lanes`, MCP `list_lanes`). */
-  async listLanes(): Promise<Lane[]> {
-    return this.deps.uow.read((tx) => tx.lanes.listByBoard(this.deps.boardId))
+  async listLanes(actor: Actor): Promise<Lane[]> {
+    return this.deps.uow.read(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
+      return tx.lanes.listByBoard(this.deps.boardId)
+    })
   }
 
   /** Full card detail: card + tags + location + active attachment metadata. */
-  async cardDetail(cardId: number): Promise<CardDetail> {
+  async cardDetail(actor: Actor, cardId: number): Promise<CardDetail> {
     return this.deps.uow.read(async (tx) => {
-      const card = requireFound(await tx.cards.findById(cardId), 'card')
+      const card = await accessibleCard(tx, actor, cardId)
       return detailOf(tx, card)
     })
   }
@@ -300,11 +309,12 @@ export class BoardQueryService {
    * never disagree about a concurrently committed mutation.
    */
   async cardDetailWithThread(
+    actor: Actor,
     cardId: number,
     latestEventsTake: number,
   ): Promise<CardDetailWithThread> {
     return this.deps.uow.read(async (tx) => {
-      const card = requireFound(await tx.cards.findById(cardId), 'card')
+      const card = await accessibleCard(tx, actor, cardId)
       const detail = await detailOf(tx, card)
       const comments = redactDeletedComments(await tx.comments.listByCard(card.id))
       const latestEvents = (await tx.events.listLatestByCard(card.id, latestEventsTake)).reverse()
@@ -313,11 +323,15 @@ export class BoardQueryService {
   }
 
   /** Per-card audit history, oldest-first, filterable by event type. */
-  async cardHistory(cardId: number, rawRequest?: unknown): Promise<Page<EnrichedCardEvent>> {
+  async cardHistory(
+    actor: Actor,
+    cardId: number,
+    rawRequest?: unknown,
+  ): Promise<Page<EnrichedCardEvent>> {
     const request = cardHistoryRequestSchema.parse(rawRequest ?? {})
     const after = request.cursor !== undefined ? decodeCursor(request.cursor) : undefined
     return this.deps.uow.read(async (tx) => {
-      requireFound(await tx.cards.findById(cardId), 'card')
+      await accessibleCard(tx, actor, cardId)
       const events = await tx.events.listByCard(cardId, {
         ...(request.type !== undefined ? { types: [request.type] } : {}),
         ...(after !== undefined ? { after } : {}),
@@ -355,11 +369,13 @@ export class BoardQueryService {
       request.sinceIso ?? new Date(this.deps.clock.now().getTime() - DAY_MS).toISOString()
     const after = request.cursor !== undefined ? decodeCursor(request.cursor) : undefined
     return this.deps.uow.read(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
       const policy = await activePolicy(tx, this.deps.boardId)
       const actorIds = hasPermission(actor, 'viewAllActivity', policy)
         ? undefined
         : await selfActorIds(tx, actor)
       const events = await tx.events.listBoardSince(sinceIso, {
+        boardId: this.deps.boardId,
         ...(request.type !== undefined ? { types: [request.type] } : {}),
         ...(request.cardId !== undefined ? { cardId: request.cardId } : {}),
         ...(request.actorKind !== undefined ? { actorKind: request.actorKind } : {}),
@@ -381,10 +397,11 @@ export class BoardQueryService {
    * (overdue starts the UTC day after the date), in review longer than
    * `reviewDays` (default 7), or blocked longer than `blockedDays` (default 3).
    */
-  async staleCards(rawInput?: unknown): Promise<StaleCard[]> {
+  async staleCards(actor: Actor, rawInput?: unknown): Promise<StaleCard[]> {
     const input = staleCardsInputSchema.parse(rawInput ?? {})
     const now = this.deps.clock.now()
     return this.deps.uow.read(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
       const stale = new Map<number, StaleCard>()
       const mark = (card: Card, reason: StaleReason) => {
         const entry = stale.get(card.id) ?? { card, reasons: [] }
@@ -392,16 +409,16 @@ export class BoardQueryService {
         stale.set(card.id, entry)
       }
 
-      const waiting = await laneByKey(tx, this.deps.boardId, 'waiting_parts_vendor')
+      const waiting = await tx.lanes.findByKey(this.deps.boardId, 'waiting_parts_vendor')
       const today = utcDayOf(now)
-      for (const card of await activeLaneCards(tx, waiting.id)) {
+      for (const card of waiting === null ? [] : await activeLaneCards(tx, waiting.id)) {
         if (isOverdueResume(card.expectedResumeAt, today)) {
           mark(card, 'overdue_resume')
         }
       }
 
-      const review = await laneByKey(tx, this.deps.boardId, 'review')
-      for (const card of await activeLaneCards(tx, review.id)) {
+      const review = await tx.lanes.findByKey(this.deps.boardId, 'review')
+      for (const card of review === null ? [] : await activeLaneCards(tx, review.id)) {
         const enteredAt = await reviewEnteredAt(tx, card)
         if (now.getTime() - new Date(enteredAt).getTime() > input.reviewDays * DAY_MS) {
           mark(card, 'stale_review')
@@ -432,7 +449,7 @@ export class BoardQueryService {
     tx: TransactionContext,
     filter: ListCardsFilter,
   ): Promise<CardQueryFilter> {
-    const repoFilter: CardQueryFilter = {}
+    const repoFilter: CardQueryFilter = { boardId: this.deps.boardId }
     if (filter.lane !== undefined) {
       repoFilter.laneId = (await laneByKey(tx, this.deps.boardId, filter.lane)).id
     }

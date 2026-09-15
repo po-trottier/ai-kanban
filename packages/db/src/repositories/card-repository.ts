@@ -16,6 +16,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  ne,
   or,
   sql,
   type SQL,
@@ -52,13 +53,14 @@ export class SqliteCardRepository implements CardRepository {
     return Promise.resolve(row ?? null)
   }
 
-  nextCardId(boardId: string): Promise<number> {
-    // MAX(id)+1 per board — the id IS the ticket number; atomic inside the
-    // create transaction (SQLite single writer), the id PK is the backstop.
+  nextCardId(): Promise<number> {
+    // Global MAX(id)+1 (multiple-boards: card ids are a single shared ticket
+    // sequence across every board, preserving pre-multi-board ids/URLs/FKs) —
+    // atomic inside the create transaction under SQLite's single writer; the
+    // id PK is the backstop.
     const row = this.db
       .select({ max: sql<number | null>`max(${cards.id})` })
       .from(cards)
-      .where(eq(cards.boardId, boardId))
       .get()
     return Promise.resolve((row?.max ?? 0) + 1)
   }
@@ -177,6 +179,27 @@ export class SqliteCardRepository implements CardRepository {
       .limit(1)
       .get()
     return Promise.resolve(row ?? null)
+  }
+
+  positionBefore(
+    laneId: string,
+    nextPosition: string | null,
+    movingCardId: number,
+  ): Promise<string | null> {
+    const row = this.db
+      .select({ position: cards.position })
+      .from(cards)
+      .where(
+        and(
+          eq(cards.laneId, laneId),
+          ne(cards.id, movingCardId),
+          nextPosition === null ? undefined : lt(cards.position, nextPosition),
+        ),
+      )
+      .orderBy(desc(cards.position))
+      .limit(1)
+      .get()
+    return Promise.resolve(row?.position ?? null)
   }
 
   /**

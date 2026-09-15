@@ -12,6 +12,13 @@ export const queryKeys = {
    * invalidations use this; the actual subscription uses `boardQuery(filter)`.
    */
   board: ['board'] as const,
+  /** The board catalog — `{items, canManage}` for the acting user (global, not
+   *  board-scoped, so it always reads through the outer/unscoped client). */
+  boardCatalog: ['board-catalog'] as const,
+  groups: ['groups'] as const,
+  /** Resolves a deep-linked card's board via the unscoped/global client, kept
+   *  separate from `card()` (the board-scoped detail cache). */
+  cardBoardResolve: (cardId: string) => ['card-board-resolve', cardId] as const,
   /** One board query per filter (`{}` = unfiltered). Used for the query + its
    *  exact-key optimistic reads/writes; still prefix-matched by `board`. */
   boardQuery: (filter: BoardFilter) => ['board', filter] as const,

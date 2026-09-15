@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { isoDateTimeSchema, laneKeySchema } from './entities.ts'
+import { isoDateTimeSchema, laneKeySchema, waitingReasonSchema } from './entities.ts'
 
 /**
  * The canonical policy-document schema from ADR-013. Policy is data, not code:
@@ -85,6 +85,38 @@ export type BusinessHours = z.infer<typeof businessHoursSchema>
 /** The seeded 09:00–17:00 working day (workflow.md: 1 working day = 8 hours). */
 export const DEFAULT_BUSINESS_HOURS: BusinessHours = { startHour: 9, endHour: 17 }
 
+export const waitingReasonDefinitionSchema = z.strictObject({
+  key: waitingReasonSchema,
+  label: z.string().trim().min(1).max(80),
+  /** Removed choices remain readable on cards and in history. */
+  active: z.boolean(),
+})
+export type WaitingReasonDefinition = z.infer<typeof waitingReasonDefinitionSchema>
+
+export const DEFAULT_WAITING_REASONS: WaitingReasonDefinition[] = [
+  { key: 'parts', label: 'Parts', active: true },
+  { key: 'vendor', label: 'Vendor', active: true },
+  { key: 'access', label: 'Access', active: true },
+  { key: 'info', label: 'Information', active: true },
+  { key: 'funding', label: 'Funding', active: true },
+]
+
+export const waitingReasonDefinitionsSchema = z
+  .array(waitingReasonDefinitionSchema)
+  .refine((reasons) => reasons.some((reason) => reason.active), {
+    message: 'keep at least one active waiting reason',
+  })
+  .refine((reasons) => new Set(reasons.map((reason) => reason.key)).size === reasons.length, {
+    message: 'waiting reason keys must be unique',
+  })
+  .refine(
+    (reasons) => {
+      const active = reasons.filter((reason) => reason.active)
+      return new Set(active.map((reason) => reason.label.toLowerCase())).size === active.length
+    },
+    { message: 'active waiting reason names must be unique' },
+  )
+
 export const policyDocumentSchema = z
   .strictObject({
     /** false in the seed — permissive by default (product-owner decision). */
@@ -96,6 +128,7 @@ export const policyDocumentSchema = z
     /** The working day the burn-down + overdue verdict count against. Defaulted so
      * policies written before this setting existed stay valid. */
     businessHours: businessHoursSchema.default(DEFAULT_BUSINESS_HOURS),
+    waitingReasons: waitingReasonDefinitionsSchema.default(DEFAULT_WAITING_REASONS),
   })
   .refine((doc) => new Set(doc.roles.map((role) => role.key)).size === doc.roles.length, {
     message: 'role keys must be unique',
@@ -144,6 +177,7 @@ const ALL_PERMISSIONS_GRANTED: RoleDefinition['permissions'] = Object.fromEntrie
 export const DEFAULT_POLICY_DOCUMENT: PolicyDocument = {
   transitionEnforcement: false,
   businessHours: DEFAULT_BUSINESS_HOURS,
+  waitingReasons: DEFAULT_WAITING_REASONS,
   transitions: [
     { from: 'intake', to: 'waiting_approval' },
     { from: 'waiting_approval', to: 'ready' },

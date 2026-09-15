@@ -184,7 +184,7 @@ See [GitHub's container registry documentation](https://docs.github.com/en/packa
 
 ## Install as an app (PWA)
 
-Facilities Kanban can be installed from Chrome on the deployed HTTPS origin, for example
+Rivian Facilities Tickets System can be installed from Chrome on the deployed HTTPS origin, for example
 `https://rivian.p-o.me`. Sign in through Cloudflare Access first if it is enabled, then use the
 address-bar install icon or **Chrome menu → Cast, save, and share → Install page as app**.
 On Android, use Chrome's **Install app** menu option. Chrome controls when the install promotion
@@ -326,7 +326,7 @@ decision above).
 The data layer runs on **PostgreSQL** for production (set `DATABASE_URL`;
 [ADR-020](decisions/ADR-020-postgresql-support.md)) — the `sqlite-core` → `pg-core` rewrite behind
 the unchanged repository ports: a `pgTable` schema, async repositories, an async unit of work, and
-a single `0000_init` pg migration. `docker-compose.yml` launches `postgres:17-alpine` and points the app at
+forward-only PostgreSQL migrations. `docker-compose.yml` launches `postgres:17-alpine` and points the app at
 it; back up with standard pg tooling (`pg_dump` / WAL archiving) instead of Litestream. Remaining
 HA follow-ups (still open): the in-process EventBus → `LISTEN/NOTIFY` and the croner scheduler →
 an external scheduler before scaling the app past one replica.

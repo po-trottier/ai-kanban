@@ -6,10 +6,10 @@ import {
   type CursorKey,
   type EventRepository,
 } from '@rivian-kanban/core'
-import { and, asc, desc, eq, gt, gte, inArray, lt, or, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, exists, gt, gte, inArray, lt, or, sql, type SQL } from 'drizzle-orm'
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { toError } from '../errors.ts'
-import { cardEvents } from '../schema.ts'
+import { cardEvents, cards } from '../schema.ts'
 
 export class SqliteEventRepository implements EventRepository {
   private readonly db: BetterSQLite3Database
@@ -108,6 +108,7 @@ export class SqliteEventRepository implements EventRepository {
       cardId?: number
       actorKind?: ActorKind
       actorIds?: readonly string[]
+      boardId?: string
       after?: CursorKey
       limit?: number
     },
@@ -126,6 +127,20 @@ export class SqliteEventRepository implements EventRepository {
     }
     if (options?.actorIds !== undefined) {
       conditions.push(inArray(cardEvents.actorId, [...options.actorIds]))
+    }
+    if (options?.boardId !== undefined) {
+      // Filtered through the owning card, before ordering/pagination — an
+      // `exists` subquery so the row set (and thus the keyset cursor) is
+      // unaffected, unlike a join which could multiply rows.
+      const boardId = options.boardId
+      conditions.push(
+        exists(
+          this.db
+            .select({ one: sql`1` })
+            .from(cards)
+            .where(and(eq(cards.id, cardEvents.cardId), eq(cards.boardId, boardId))),
+        ),
+      )
     }
     const after = options?.after
     if (after !== undefined) {

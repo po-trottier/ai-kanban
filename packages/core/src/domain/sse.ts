@@ -16,6 +16,7 @@ export const cardSseHintSchema = z.strictObject({
 export type CardSseHint = z.infer<typeof cardSseHintSchema>
 
 export const BOARD_HINT_TYPES = [
+  'board.updated',
   'policy.updated',
   'lane.updated',
   'user.updated',

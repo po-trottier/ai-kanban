@@ -1,7 +1,7 @@
 import { type Tag, type TagRepository } from '@rivian-kanban/core'
 import { asc, eq, sql } from 'drizzle-orm'
 import { toError } from '../../errors.ts'
-import { cardTags, tags } from '../../schema.pg.ts'
+import { cards, cardTags, tags } from '../../schema.pg.ts'
 import { type PgDb } from '../database.ts'
 
 export class PgTagRepository implements TagRepository {
@@ -49,9 +49,22 @@ export class PgTagRepository implements TagRepository {
       .orderBy(asc(tags.name))
   }
 
-  /** Every known tag, name order (autocomplete). */
-  async listAll(): Promise<Tag[]> {
-    return this.db.select().from(tags).orderBy(asc(tags.name), asc(tags.id))
+  /**
+   * Every known tag, name order (autocomplete). When `boardId` is given,
+   * restricted to tags actually used by that board's cards (see the sqlite
+   * twin's comment).
+   */
+  async listAll(boardId?: string): Promise<Tag[]> {
+    if (boardId === undefined) {
+      return this.db.select().from(tags).orderBy(asc(tags.name), asc(tags.id))
+    }
+    return this.db
+      .selectDistinct({ id: tags.id, name: tags.name })
+      .from(tags)
+      .innerJoin(cardTags, eq(cardTags.tagId, tags.id))
+      .innerJoin(cards, eq(cards.id, cardTags.cardId))
+      .where(eq(cards.boardId, boardId))
+      .orderBy(asc(tags.name), asc(tags.id))
   }
 
   /** Full-replacement of the card_tags rows. */

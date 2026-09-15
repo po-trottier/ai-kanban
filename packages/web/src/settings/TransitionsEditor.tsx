@@ -20,6 +20,7 @@ import { HintButton } from '../shell/HintButton.tsx'
 import { SkeletonRows } from '../shell/SkeletonRows.tsx'
 import { strings } from '../strings.ts'
 import classes from './lanes.module.css'
+import { SIZES } from '../theme.ts'
 
 /**
  * The workflow-transitions editor, mounted on the Columns tab beneath the column
@@ -119,72 +120,82 @@ function TransitionsForm({ value, laneLabels }: TransitionsFormProps) {
             {strings.transitions.disabledWhenOff}
           </Text>
         )}
-        <Table
-          withTableBorder
-          className={classes.transitionsTable}
-          aria-label={strings.transitions.matrixLabel}
+        <Table.ScrollContainer
+          minWidth={(laneKeys.length + 1) * SIZES.settingsMatrixColumnWidth}
+          scrollAreaProps={{ type: 'auto' }}
         >
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th className={classes.fromColumn}>
-                <Text size="xs" fw={700} c="dimmed">
-                  {strings.transitions.axisCorner}
-                </Text>
-              </Table.Th>
-              {laneKeys.map((to) => (
-                <Table.Th key={to} scope="col">
-                  <Text size="sm" fw={600} className={classes.laneHeadLabel} title={laneLabel(to)}>
-                    {laneLabel(to)}
-                  </Text>
-                </Table.Th>
-              ))}
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {laneKeys.map((from) => (
-              <Table.Tr key={from}>
-                <Table.Th scope="row" className={classes.fromColumn}>
-                  <Text
-                    size="sm"
-                    fw={600}
-                    className={classes.laneHeadLabel}
-                    title={laneLabel(from)}
-                  >
-                    {laneLabel(from)}
+          <Table
+            withTableBorder
+            className={classes.transitionsTable}
+            aria-label={strings.transitions.matrixLabel}
+          >
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th className={classes.fromColumn}>
+                  <Text size="xs" fw={700} c="dimmed">
+                    {strings.transitions.axisCorner}
                   </Text>
                 </Table.Th>
                 {laneKeys.map((to) => (
-                  <Table.Td key={to} className={classes.transitionCell}>
-                    {from === to ? (
-                      // A work order trivially "stays" in its own column: a
-                      // disabled, checked cell so the diagonal never reads as a
-                      // broken/missing control (the policy never stores it).
-                      <Checkbox
-                        size="sm"
-                        checked
-                        disabled
-                        readOnly
-                        aria-label={strings.transitions.identityCellLabel(laneLabel(from))}
-                      />
-                    ) : (
-                      <Checkbox
-                        size="sm"
-                        aria-label={strings.transitions.edgeCellLabel(
-                          laneLabel(from),
-                          laneLabel(to),
-                        )}
-                        checked={hasEdge(from, to)}
-                        onChange={(event) => {
-                          toggleEdge(from, to, event.currentTarget.checked)
-                        }}
-                      />
-                    )}
-                  </Table.Td>
+                  <Table.Th key={to} scope="col">
+                    <Text
+                      size="sm"
+                      fw={600}
+                      className={classes.laneHeadLabel}
+                      title={laneLabel(to)}
+                    >
+                      {laneLabel(to)}
+                    </Text>
+                  </Table.Th>
                 ))}
               </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+            </Table.Thead>
+            <Table.Tbody>
+              {laneKeys.map((from) => (
+                <Table.Tr key={from}>
+                  <Table.Th scope="row" className={classes.fromColumn}>
+                    <Text
+                      size="sm"
+                      fw={600}
+                      className={classes.laneHeadLabel}
+                      title={laneLabel(from)}
+                    >
+                      {laneLabel(from)}
+                    </Text>
+                  </Table.Th>
+                  {laneKeys.map((to) => (
+                    <Table.Td key={to} className={classes.transitionCell}>
+                      {from === to ? (
+                        // A work order trivially "stays" in its own column: a
+                        // disabled, checked cell so the diagonal never reads as a
+                        // broken/missing control (the policy never stores it).
+                        <Checkbox
+                          size="sm"
+                          checked
+                          disabled
+                          readOnly
+                          aria-label={strings.transitions.identityCellLabel(laneLabel(from))}
+                        />
+                      ) : (
+                        <Checkbox
+                          size="sm"
+                          aria-label={strings.transitions.edgeCellLabel(
+                            laneLabel(from),
+                            laneLabel(to),
+                          )}
+                          checked={hasEdge(from, to)}
+                          onChange={(event) => {
+                            toggleEdge(from, to, event.currentTarget.checked)
+                          }}
+                        />
+                      )}
+                    </Table.Td>
+                  ))}
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
         {staleEdges.length > 0 ? (
           <Stack gap="xs">
             <Text size="xs" fw={700} tt="uppercase" c="dimmed">

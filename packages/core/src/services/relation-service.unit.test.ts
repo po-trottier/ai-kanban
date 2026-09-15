@@ -10,7 +10,10 @@ describe('CardRelationService.create', () => {
     const to = scenario.seedCard({ title: 'Order parts' })
 
     // Act — the route card `from` blocks `to`.
-    const view = await scenario.relations.create(from.id, { toCardId: to.id, type: 'blocks' })
+    const view = await scenario.relations.create(scenario.actors.requester, from.id, {
+      toCardId: to.id,
+      type: 'blocks',
+    })
 
     // Assert — the creating card sees it outgoing, pointing at the target.
     expect(view).toMatchObject({
@@ -26,7 +29,10 @@ describe('CardRelationService.create', () => {
     const card = scenario.seedCard()
 
     // Act
-    const act = scenario.relations.create(card.id, { toCardId: card.id, type: 'relates_to' })
+    const act = scenario.relations.create(scenario.actors.requester, card.id, {
+      toCardId: card.id,
+      type: 'relates_to',
+    })
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(ConflictError)
@@ -37,11 +43,20 @@ describe('CardRelationService.create', () => {
     const scenario = createScenario()
     const a = scenario.seedCard()
     const b = scenario.seedCard()
-    await scenario.relations.create(a.id, { toCardId: b.id, type: 'relates_to' })
+    await scenario.relations.create(scenario.actors.requester, a.id, {
+      toCardId: b.id,
+      type: 'relates_to',
+    })
 
     // Act — the exact same, and the REVERSE (B relates A) — both are "already there".
-    const same = scenario.relations.create(a.id, { toCardId: b.id, type: 'relates_to' })
-    const reverse = scenario.relations.create(b.id, { toCardId: a.id, type: 'relates_to' })
+    const same = scenario.relations.create(scenario.actors.requester, a.id, {
+      toCardId: b.id,
+      type: 'relates_to',
+    })
+    const reverse = scenario.relations.create(scenario.actors.requester, b.id, {
+      toCardId: a.id,
+      type: 'relates_to',
+    })
 
     // Assert
     await expect(same).rejects.toBeInstanceOf(ConflictError)
@@ -53,10 +68,16 @@ describe('CardRelationService.create', () => {
     const scenario = createScenario()
     const a = scenario.seedCard()
     const b = scenario.seedCard()
-    await scenario.relations.create(a.id, { toCardId: b.id, type: 'blocks' })
+    await scenario.relations.create(scenario.actors.requester, a.id, {
+      toCardId: b.id,
+      type: 'blocks',
+    })
 
     // Act — B blocks A is a DIFFERENT relation (not a duplicate).
-    const view = await scenario.relations.create(b.id, { toCardId: a.id, type: 'blocks' })
+    const view = await scenario.relations.create(scenario.actors.requester, b.id, {
+      toCardId: a.id,
+      type: 'blocks',
+    })
 
     // Assert
     expect(view).toMatchObject({ type: 'blocks', direction: 'outgoing', card: { id: a.id } })
@@ -68,7 +89,10 @@ describe('CardRelationService.create', () => {
     const card = scenario.seedCard()
 
     // Act
-    const act = scenario.relations.create(card.id, { toCardId: 999_999, type: 'blocks' })
+    const act = scenario.relations.create(scenario.actors.requester, card.id, {
+      toCardId: 999_999,
+      type: 'blocks',
+    })
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(NotFoundError)
@@ -82,12 +106,18 @@ describe('CardRelationService.list', () => {
     const subject = scenario.seedCard({ title: 'Subject' })
     const blocked = scenario.seedCard({ title: 'Downstream' })
     const dupe = scenario.seedCard({ title: 'Older dupe' })
-    await scenario.relations.create(subject.id, { toCardId: blocked.id, type: 'blocks' })
+    await scenario.relations.create(scenario.actors.requester, subject.id, {
+      toCardId: blocked.id,
+      type: 'blocks',
+    })
     // `dupe` duplicates `subject`, so from the subject's side it is INCOMING.
-    await scenario.relations.create(dupe.id, { toCardId: subject.id, type: 'duplicates' })
+    await scenario.relations.create(scenario.actors.requester, dupe.id, {
+      toCardId: subject.id,
+      type: 'duplicates',
+    })
 
     // Act
-    const views = await scenario.relations.list(subject.id)
+    const views = await scenario.relations.list(scenario.actors.requester, subject.id)
 
     // Assert — outgoing blocks + incoming duplicates, each naming the other card.
     expect(views).toEqual(
@@ -113,14 +143,17 @@ describe('CardRelationService.delete', () => {
     const scenario = createScenario()
     const a = scenario.seedCard()
     const b = scenario.seedCard()
-    const view = await scenario.relations.create(a.id, { toCardId: b.id, type: 'blocks' })
+    const view = await scenario.relations.create(scenario.actors.requester, a.id, {
+      toCardId: b.id,
+      type: 'blocks',
+    })
 
     // Act — delete from EITHER card's side (here the `to` card, `b`).
-    await scenario.relations.delete(b.id, view.id)
+    await scenario.relations.delete(scenario.actors.requester, b.id, view.id)
 
     // Assert — gone from both cards.
-    expect(await scenario.relations.list(a.id)).toEqual([])
-    expect(await scenario.relations.list(b.id)).toEqual([])
+    expect(await scenario.relations.list(scenario.actors.requester, a.id)).toEqual([])
+    expect(await scenario.relations.list(scenario.actors.requester, b.id)).toEqual([])
   })
 
   it('404s deleting a relation that does not touch the card', async () => {
@@ -129,10 +162,13 @@ describe('CardRelationService.delete', () => {
     const a = scenario.seedCard()
     const b = scenario.seedCard()
     const c = scenario.seedCard()
-    const view = await scenario.relations.create(a.id, { toCardId: b.id, type: 'blocks' })
+    const view = await scenario.relations.create(scenario.actors.requester, a.id, {
+      toCardId: b.id,
+      type: 'blocks',
+    })
 
     // Act — C tries to delete A↔B's relation.
-    const act = scenario.relations.delete(c.id, view.id)
+    const act = scenario.relations.delete(scenario.actors.requester, c.id, view.id)
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(NotFoundError)

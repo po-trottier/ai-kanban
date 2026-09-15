@@ -13,11 +13,44 @@ right: **Intake** (new, being triaged) → **Waiting for Approval** → **Ready*
 → **In Progress** → **Waiting on Parts / Vendor** → **Review** → **Done**. Within a column,
 **order matters: the top card is the next one to address.**
 
-Everyone can see everything; by default everyone can also move and edit everything — the
-workflow columns describe the process, they don't police it (an admin can turn on enforcement
-later if the team wants it).
+The header's board selector lists the boards you can access. Each board has its own work orders,
+columns, working hours, and waiting reasons. Your role controls which actions you can perform.
+The original board remains visible to everyone until an admin restricts it.
+
+### Boards and groups
+
+Everyone can open **Settings → Boards** (or **Board preferences** in the board selector) and
+choose **My default board**. This saves immediately for your account across devices. Non-admins
+can view their accessible boards and change this preference, but cannot create, edit, or delete boards.
+Choose **Use assigned default** to follow administrator defaults. The chosen board opens when
+the app starts; changing boards during a session does not change your saved preference.
+
+Admins set **Default board assignments** when creating or editing a board: choose the global
+default and/or roles and groups. Each role or group has one default; assigning a new one replaces
+its previous choice. Priority is **User → Group → Role → Global**. Groups pointing to the same board
+agree; groups pointing to different accessible boards fall back to the role default. Inaccessible
+or archived choices are skipped. With no usable configured default, the app opens the first
+accessible board. If none are accessible, it asks you to contact an administrator for access.
+Defaults never grant board access.
+
+Admins open **Settings → Boards**, or choose **Manage boards** at the bottom of the board selector,
+to create, rename, restrict, or delete a board. Choose everyone, or grant access to any combination
+of roles, individual users, and groups. A match in any selected category grants visibility;
+membership does not grant additional editing or administration permissions.
+
+Use **Settings → Groups** to create a named group and add or remove people. Group membership changes
+apply immediately to its boards. Remove a group's board assignments before deleting the group.
+Board and group management use the existing `managePolicy` permission; admins with this grant can
+access every active board. Roles, users, groups, and locations are shared across the application.
+
+Deleting a board removes it from use while preserving its work orders and history in storage.
+The final active board cannot be deleted. New boards start with the standard columns and workflow
+settings. Switching boards closes the details panel and resets the current filter selection.
 
 ## Cards
+
+Hover over a card's title to read the full title when it is shortened on the board.
+Hover over the assignee and reporter filters for a description of what each one matches.
 
 Create a card with **New card** (it lands in Intake) — title, description, priority, optional
 location, tags, assignee. Fields:
@@ -29,19 +62,23 @@ location, tags, assignee. Fields:
 - **Tags**: free-form labels for filtering.
 - **Location**: building/floor/room from the site tree (optional).
 
-Click a card to open the **detail panel** (collapsible, from the right; full-screen on
-tablets). Everything about the card lives there: all fields (editable in place), attachments,
-the comment thread, and the full history.
+Click a card to open the **detail panel**. On desktop it docks to the right and can be resized.
+On phones and tablets it fills the board area above the columns; close it to return to the same
+board position. The header and filters stay accessible. The compact mobile header shows the
+logo and action icons; **+** creates a new work order. Everything about the card lives in its
+panel: all fields (editable in place), attachments, the comment thread, and the full history.
 
 ## Moving cards
 
-Drag cards between columns and up/down within a column. Alternatively — keyboard or touch —
+Drag cards between columns and up/down within a column. On touch devices, hold a card briefly
+before dragging; a quick swipe scrolls the board instead. Hold near an edge while dragging to
+scroll toward more columns or cards. Alternatively — keyboard or touch —
 use the card's **⋯ → Move to…** menu to pick a column and position. From a card's detail panel
 you can also change its column with the **State** dropdown (it drops the card at the bottom of
 the chosen column).
 
-- Moving into **Waiting on Parts / Vendor** always asks _why_ (parts, vendor, access, info,
-  funding) and _when work should resume_. When that date passes, the assignee gets a Slack
+- Moving into **Waiting on Parts / Vendor** always asks _why_ (from the configured waiting
+  reasons) and _when work should resume_. When that date passes, the assignee gets a Slack
   nudge automatically. To change the reason or push the resume date out later, open the card
   and edit them right in the yellow **Waiting** banner, then **Save** — no need to move the
   card off the board.
@@ -87,3 +124,16 @@ including turning on workflow enforcement (cards must then follow the
 Intake → Approval → Ready → … flow, with optional role requirements per step).
 
 See [slack.md](slack.md) for creating tickets from Slack.
+
+### Waiting reasons
+
+Open **Settings → Waiting reasons** to add a reason, edit its name, or remove it with the trash
+icon, then choose **Save reasons**. The defaults are **Parts**, **Vendor**, **Access**,
+**Information**, and **Funding**. Names must be unique and contain 1–80 characters. Keep at least
+one reason; add a replacement before removing the last one. This tab requires `managePolicy`,
+which administrators have by default.
+
+Renaming updates the displayed name on existing cards. Removing hides the reason from new
+selections without changing cards already using it or erasing history. Those cards can still
+have their resume date edited, or be cancelled and reopened. After changing away from a removed
+reason, it cannot be selected again (including by undoing a move into Waiting).

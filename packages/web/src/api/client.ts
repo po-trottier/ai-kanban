@@ -26,9 +26,17 @@ export const API_BASE = '/api/v1'
  */
 export class ApiClient {
   private readonly fetchFn: FetchLike
+  /** The selected board (X-Board-Id header); undefined = the original board. */
+  private readonly boardId: string | undefined
 
-  constructor(fetchFn?: FetchLike) {
+  constructor(fetchFn?: FetchLike, boardId?: string) {
     this.fetchFn = fetchFn ?? ((input, init) => globalThis.fetch(input, init))
+    this.boardId = boardId
+  }
+
+  /** A client scoped to another board, sharing this client's fetch. */
+  withBoard(boardId: string | undefined): ApiClient {
+    return new ApiClient(this.fetchFn, boardId)
   }
 
   async get<T>(path: string, schema: ZodType<T>, options: RequestOptions = {}): Promise<T> {
@@ -74,6 +82,7 @@ export class ApiClient {
     // (logout, deletes) and multipart uploads have no JSON body, so every
     // non-GET request carries the header — HTML forms cannot produce it.
     if (method !== 'GET') headers['X-Requested-With'] = 'rivian-kanban'
+    if (this.boardId !== undefined) headers['X-Board-Id'] = this.boardId
     if (options.ifMatch !== undefined) headers['If-Match'] = `"${String(options.ifMatch)}"`
     if (options.formData !== undefined) {
       init.body = options.formData

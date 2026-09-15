@@ -9,6 +9,10 @@ import { ConflictError, NotFoundError } from '../domain/errors.ts'
 import { type TransactionContext, type UnitOfWork } from '../ports/repositories.ts'
 import { type Clock, type IdGenerator } from '../ports/runtime.ts'
 import { requireFound } from './internal.ts'
+import { type Actor } from '../domain/entities.ts'
+import { accessibleCard, canAccessBoard } from './board-access.ts'
+import { ensurePermission } from '../policy/policy-engine.ts'
+import { globalPolicy } from './board-access.ts'
 
 export interface CardRelationServiceDeps {
   uow: UnitOfWork
@@ -33,13 +37,13 @@ export class CardRelationService {
   }
 
   /** The card's relations, each resolved to the other card + the viewing direction. */
-  async list(cardId: number): Promise<CardRelationView[]> {
+  async list(actor: Actor, cardId: number): Promise<CardRelationView[]> {
     return this.deps.uow.read(async (tx) => {
-      requireFound(await tx.cards.findById(cardId), 'card')
+      await accessibleCard(tx, actor, cardId)
       const relations = await tx.cardRelations.listByCard(cardId)
       const views: CardRelationView[] = []
       for (const relation of relations) {
-        const view = await this.toView(tx, cardId, relation)
+        const view = await this.toView(tx, actor, cardId, relation)
         if (view !== null) views.push(view)
       }
       return views
@@ -51,14 +55,17 @@ export class CardRelationService {
    * duplicate (409); a missing target card is a 404. For a symmetric type the
    * reverse row counts as the same relation, so `A relates B` blocks `B relates A`.
    */
-  async create(cardId: number, rawInput: unknown): Promise<CardRelationView> {
+  async create(actor: Actor, cardId: number, rawInput: unknown): Promise<CardRelationView> {
     const input = createCardRelationInputSchema.parse(rawInput)
     if (input.toCardId === cardId) {
       throw new ConflictError('a card cannot be related to itself')
     }
     return this.deps.uow.run(async (tx) => {
-      const from = requireFound(await tx.cards.findById(cardId), 'card')
-      const to = requireFound(await tx.cards.findById(input.toCardId), 'card')
+      const from = await accessibleCard(tx, actor, cardId)
+      const to = await accessibleCard(tx, actor, input.toCardId)
+      if (from.boardId !== to.boardId)
+        throw new ConflictError('related cards must be on the same board')
+      ensurePermission(actor, 'card.update', await globalPolicy(tx))
       const duplicate =
         (await tx.cardRelations.exists(from.id, to.id, input.type)) ||
         (isSymmetricRelation(input.type) &&
@@ -84,8 +91,10 @@ export class CardRelationService {
   }
 
   /** Removes a relation — scoped to one that actually touches `cardId` (else 404). */
-  async delete(cardId: number, relationId: string): Promise<void> {
+  async delete(actor: Actor, cardId: number, relationId: string): Promise<void> {
     await this.deps.uow.run(async (tx) => {
+      await accessibleCard(tx, actor, cardId)
+      ensurePermission(actor, 'card.update', await globalPolicy(tx))
       const relation = requireFound(await tx.cardRelations.findById(relationId), 'relation')
       if (relation.fromCardId !== cardId && relation.toCardId !== cardId) {
         // Not this card's relation — indistinguishable from missing.
@@ -98,6 +107,7 @@ export class CardRelationService {
   /** Resolves a stored row into the viewing card's perspective (null if the other card vanished). */
   private async toView(
     tx: TransactionContext,
+    actor: Actor,
     cardId: number,
     relation: CardRelation,
   ): Promise<CardRelationView | null> {
@@ -105,6 +115,8 @@ export class CardRelationService {
     const otherId = direction === 'outgoing' ? relation.toCardId : relation.fromCardId
     const other = await tx.cards.findById(otherId)
     if (other === null) return null
+    const board = await tx.boards.findById(other.boardId)
+    if (board === null || !(await canAccessBoard(tx, actor, board))) return null
     return {
       id: relation.id,
       type: relation.type,

@@ -59,8 +59,8 @@ export const CARD_TITLE_MAX = 200
 export const CARD_DESCRIPTION_MAX = 20_000
 export const TAG_NAME_MAX = 50
 
-export const WAITING_REASONS = ['parts', 'vendor', 'access', 'info', 'funding'] as const
-export type WaitingReason = (typeof WAITING_REASONS)[number]
+/** Stable key in the board's configurable waiting-reason list. */
+export type WaitingReason = string
 
 /** Resolutions clients may set through the explicit cancel action. */
 export const CANCEL_RESOLUTIONS = ['cancelled', 'declined', 'duplicate'] as const

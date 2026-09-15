@@ -18,6 +18,7 @@ import { SkeletonRows } from '../shell/SkeletonRows.tsx'
 import { strings } from '../strings.ts'
 import { RevealOnceModal } from './RevealOnceModal.tsx'
 import { useRoleLabel, useRoleOptions } from './role-select-data.ts'
+import { SIZES } from '../theme.ts'
 
 /** MCP service tokens: create (raw `rkb_…` shown once), rotate, and revoke. */
 export function TokensAdmin() {
@@ -60,82 +61,87 @@ export function TokensAdmin() {
           {strings.tokens.createButton}
         </HintButton>
       </Group>
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>{strings.tokens.nameLabel}</Table.Th>
-            <Table.Th>{strings.tokens.roleLabel}</Table.Th>
-            <Table.Th>{strings.tokens.scopeLabel}</Table.Th>
-            <Table.Th>{strings.tokens.lastUsed}</Table.Th>
-            <Table.Th />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {tokens.isPending ? <SkeletonRows cols={5} /> : null}
-          {tokens.data?.length === 0 ? (
+      <Table.ScrollContainer
+        minWidth={SIZES.settingsTableMinWidth}
+        scrollAreaProps={{ type: 'auto' }}
+      >
+        <Table>
+          <Table.Thead>
             <Table.Tr>
-              <Table.Td colSpan={5}>
-                <Text size="sm" c="dimmed">
-                  {strings.tokens.empty}
-                </Text>
-              </Table.Td>
+              <Table.Th>{strings.tokens.nameLabel}</Table.Th>
+              <Table.Th>{strings.tokens.roleLabel}</Table.Th>
+              <Table.Th>{strings.tokens.scopeLabel}</Table.Th>
+              <Table.Th>{strings.tokens.lastUsed}</Table.Th>
+              <Table.Th />
             </Table.Tr>
-          ) : null}
-          {(tokens.data ?? []).map((token) => (
-            <Table.Tr key={token.id}>
-              <Table.Td>
-                <Text size="sm">{token.name}</Text>
-              </Table.Td>
-              <Table.Td>
-                <Text size="sm">{roleLabel(token.role)}</Text>
-              </Table.Td>
-              <Table.Td>
-                <Text size="sm">{strings.tokens.scopes[token.scope]}</Text>
-              </Table.Td>
-              <Table.Td>
-                <Text size="sm">
-                  {token.lastUsedAt === null
-                    ? strings.tokens.neverUsed
-                    : formatDateTime(token.lastUsedAt, timezone)}
-                </Text>
-              </Table.Td>
-              <Table.Td>
-                {token.revokedAt !== null ? (
-                  <Badge color="gray" variant="light" size="sm">
-                    {strings.tokens.revoked}
-                  </Badge>
-                ) : (
-                  <Group gap="xs" justify="flex-end" wrap="nowrap">
-                    <HintButton
-                      tooltip={strings.tooltips.rotateToken}
-                      size="compact-xs"
-                      variant="light"
-                      leftSection={<RefreshCw size={14} aria-hidden />}
-                      onClick={() => {
-                        setRotateTarget(token)
-                      }}
-                    >
-                      {strings.tokens.rotate}
-                    </HintButton>
-                    <HintButton
-                      tooltip={strings.tooltips.revokeToken}
-                      size="compact-xs"
-                      variant="light"
-                      color="red"
-                      leftSection={<Ban size={14} aria-hidden />}
-                      onClick={() => {
-                        setRevokeTarget(token)
-                      }}
-                    >
-                      {strings.tokens.revoke}
-                    </HintButton>
-                  </Group>
-                )}
-              </Table.Td>
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+          </Table.Thead>
+          <Table.Tbody>
+            {tokens.isPending ? <SkeletonRows cols={5} /> : null}
+            {tokens.data?.length === 0 ? (
+              <Table.Tr>
+                <Table.Td colSpan={5}>
+                  <Text size="sm" c="dimmed">
+                    {strings.tokens.empty}
+                  </Text>
+                </Table.Td>
+              </Table.Tr>
+            ) : null}
+            {(tokens.data ?? []).map((token) => (
+              <Table.Tr key={token.id}>
+                <Table.Td>
+                  <Text size="sm">{token.name}</Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm">{roleLabel(token.role)}</Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm">{strings.tokens.scopes[token.scope]}</Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm">
+                    {token.lastUsedAt === null
+                      ? strings.tokens.neverUsed
+                      : formatDateTime(token.lastUsedAt, timezone)}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  {token.revokedAt !== null ? (
+                    <Badge color="gray" variant="light" size="sm">
+                      {strings.tokens.revoked}
+                    </Badge>
+                  ) : (
+                    <Group gap="xs" justify="flex-end" wrap="nowrap">
+                      <HintButton
+                        tooltip={strings.tooltips.rotateToken}
+                        size="compact-xs"
+                        variant="light"
+                        leftSection={<RefreshCw size={14} aria-hidden />}
+                        onClick={() => {
+                          setRotateTarget(token)
+                        }}
+                      >
+                        {strings.tokens.rotate}
+                      </HintButton>
+                      <HintButton
+                        tooltip={strings.tooltips.revokeToken}
+                        size="compact-xs"
+                        variant="light"
+                        color="red"
+                        leftSection={<Ban size={14} aria-hidden />}
+                        onClick={() => {
+                          setRevokeTarget(token)
+                        }}
+                      >
+                        {strings.tokens.revoke}
+                      </HintButton>
+                    </Group>
+                  )}
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
 
       {createOpen ? (
         <Modal

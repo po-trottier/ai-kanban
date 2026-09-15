@@ -28,7 +28,7 @@ describe('BoardQueryService.boardSnapshot', () => {
     })
 
     // Act
-    const snapshot = await scenario.queries.boardSnapshot()
+    const snapshot = await scenario.queries.boardSnapshot(scenario.actors.requester)
 
     // Assert
     expect(snapshot.lanes.map((entry) => entry.lane.key)).toEqual([
@@ -93,7 +93,7 @@ describe('BoardQueryService.boardSnapshot', () => {
     })
 
     // Act
-    const snapshot = await scenario.queries.boardSnapshot()
+    const snapshot = await scenario.queries.boardSnapshot(scenario.actors.requester)
 
     // Assert
     const ready = snapshot.lanes.find((entry) => entry.lane.key === 'ready')
@@ -112,7 +112,7 @@ describe('BoardQueryService.boardSnapshot', () => {
     scenario.seedCard({ laneId: scenario.lanes.in_progress.id })
 
     // Act
-    const snapshot = await scenario.queries.boardSnapshot()
+    const snapshot = await scenario.queries.boardSnapshot(scenario.actors.requester)
 
     // Assert
     expect(snapshot.lanes.at(3)?.wipLimitExceeded).toBe(true)
@@ -127,8 +127,9 @@ describe('BoardQueryService.listCards', () => {
     const [oldest, middle, newest] = seedDatedCards(scenario)
 
     // Act
-    const pageOne = await scenario.queries.listCards({}, { limit: 2 })
+    const pageOne = await scenario.queries.listCards(scenario.actors.requester, {}, { limit: 2 })
     const pageTwo = await scenario.queries.listCards(
+      scenario.actors.requester,
       {},
       { limit: 2, cursor: pageOne.nextCursor ?? '' },
     )
@@ -147,8 +148,9 @@ describe('BoardQueryService.listCards', () => {
     const higherId = scenario.seedCard({ title: 'Twin B' })
 
     // Act
-    const pageOne = await scenario.queries.listCards({}, { limit: 1 })
+    const pageOne = await scenario.queries.listCards(scenario.actors.requester, {}, { limit: 1 })
     const pageTwo = await scenario.queries.listCards(
+      scenario.actors.requester,
       {},
       { limit: 1, cursor: pageOne.nextCursor ?? '' },
     )
@@ -173,7 +175,7 @@ describe('BoardQueryService.listCards', () => {
     scenario.seedCard({ laneId: scenario.lanes.ready.id, priority: 'P0', blocked: true })
 
     // Act
-    const page = await scenario.queries.listCards({
+    const page = await scenario.queries.listCards(scenario.actors.requester, {
       lane: 'in_progress',
       priority: 'P0',
       blocked: true,
@@ -194,7 +196,7 @@ describe('BoardQueryService.listCards', () => {
     scenario.seedCard({ title: 'Unrelated' })
 
     // Act
-    const page = await scenario.queries.listCards({ q: 'compressor' })
+    const page = await scenario.queries.listCards(scenario.actors.requester, { q: 'compressor' })
 
     // Assert
     expect(page.items.map((card) => card.id).sort()).toEqual([byTitle.id, byDescription.id].sort())
@@ -209,7 +211,7 @@ describe('BoardQueryService.listCards', () => {
     scenario.db.seedCardTag(tagged.id, fixtureId(900))
 
     // Act
-    const page = await scenario.queries.listCards({ tag: 'hvac' })
+    const page = await scenario.queries.listCards(scenario.actors.requester, { tag: 'hvac' })
 
     // Assert
     expect(page.items.map((card) => card.id)).toEqual([tagged.id])
@@ -226,8 +228,10 @@ describe('BoardQueryService.listCards', () => {
     })
 
     // Act
-    const withoutArchived = await scenario.queries.listCards({})
-    const withArchived = await scenario.queries.listCards({ includeArchived: true })
+    const withoutArchived = await scenario.queries.listCards(scenario.actors.requester, {})
+    const withArchived = await scenario.queries.listCards(scenario.actors.requester, {
+      includeArchived: true,
+    })
 
     // Assert
     expect(withoutArchived.items.map((card) => card.id)).toEqual([active.id])
@@ -251,7 +255,9 @@ describe('BoardQueryService.listCards', () => {
     })
 
     // Act
-    const page = await scenario.queries.listCards({ overdueResume: true })
+    const page = await scenario.queries.listCards(scenario.actors.requester, {
+      overdueResume: true,
+    })
 
     // Assert
     expect(page.items.map((card) => card.id)).toEqual([overdue.id])
@@ -282,7 +288,7 @@ describe('BoardQueryService.cardDetail', () => {
     await scenario.attachments.remove(scenario.actors.technician, removed.id)
 
     // Act
-    const detail = await scenario.queries.cardDetail(card.id)
+    const detail = await scenario.queries.cardDetail(scenario.actors.requester, card.id)
 
     // Assert
     expect(detail.card.id).toBe(card.id)
@@ -296,7 +302,7 @@ describe('BoardQueryService.cardDetail', () => {
     const scenario = createScenario()
 
     // Act
-    const act = scenario.queries.cardDetail(999)
+    const act = scenario.queries.cardDetail(scenario.actors.requester, 999)
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(NotFoundError)
@@ -324,8 +330,10 @@ describe('BoardQueryService.cardHistory', () => {
     })
 
     // Act
-    const pageOne = await scenario.queries.cardHistory(card.id, { limit: 2 })
-    const pageTwo = await scenario.queries.cardHistory(card.id, {
+    const pageOne = await scenario.queries.cardHistory(scenario.actors.requester, card.id, {
+      limit: 2,
+    })
+    const pageTwo = await scenario.queries.cardHistory(scenario.actors.requester, card.id, {
       limit: 2,
       cursor: pageOne.nextCursor ?? '',
     })
@@ -353,7 +361,9 @@ describe('BoardQueryService.cardHistory', () => {
     })
 
     // Act
-    const page = await scenario.queries.cardHistory(card.id, { type: 'card.status_changed' })
+    const page = await scenario.queries.cardHistory(scenario.actors.requester, card.id, {
+      type: 'card.status_changed',
+    })
 
     // Assert
     expect(page.items).toHaveLength(1)
@@ -549,7 +559,11 @@ describe('BoardQueryService.cardDetailWithThread', () => {
     })
 
     // Act
-    const detail = await scenario.queries.cardDetailWithThread(card.id, 2)
+    const detail = await scenario.queries.cardDetailWithThread(
+      scenario.actors.requester,
+      card.id,
+      2,
+    )
 
     // Assert
     expect(detail.card.id).toBe(card.id)
@@ -572,7 +586,11 @@ describe('BoardQueryService.cardDetailWithThread', () => {
     await scenario.comments.softDelete(scenario.actors.technician, deleted.id)
 
     // Act
-    const detail = await scenario.queries.cardDetailWithThread(card.id, 5)
+    const detail = await scenario.queries.cardDetailWithThread(
+      scenario.actors.requester,
+      card.id,
+      5,
+    )
 
     // Assert
     expect(detail.comments.map((comment) => comment.id)).toEqual([kept.id, deleted.id])
@@ -585,7 +603,7 @@ describe('BoardQueryService.cardDetailWithThread', () => {
     const scenario = createScenario()
 
     // Act
-    const act = scenario.queries.cardDetailWithThread(999, 5)
+    const act = scenario.queries.cardDetailWithThread(scenario.actors.requester, 999, 5)
 
     // Assert
     await expect(act).rejects.toBeInstanceOf(NotFoundError)
@@ -608,7 +626,7 @@ describe('BoardQueryService.staleCards', () => {
     })
 
     // Act
-    const stale = await scenario.queries.staleCards()
+    const stale = await scenario.queries.staleCards(scenario.actors.requester)
 
     // Assert
     expect(stale).toHaveLength(1)
@@ -627,7 +645,7 @@ describe('BoardQueryService.staleCards', () => {
     scenario.clock.advanceDays(8)
 
     // Act
-    const stale = await scenario.queries.staleCards()
+    const stale = await scenario.queries.staleCards(scenario.actors.requester)
 
     // Assert
     expect(stale.map((entry) => entry.card.id)).toEqual([card.id])
@@ -645,7 +663,7 @@ describe('BoardQueryService.staleCards', () => {
     scenario.clock.advanceDays(7)
 
     // Act
-    const stale = await scenario.queries.staleCards()
+    const stale = await scenario.queries.staleCards(scenario.actors.requester)
 
     // Assert
     expect(stale).toHaveLength(0)
@@ -660,7 +678,7 @@ describe('BoardQueryService.staleCards', () => {
     })
 
     // Act
-    const stale = await scenario.queries.staleCards()
+    const stale = await scenario.queries.staleCards(scenario.actors.requester)
 
     // Assert
     expect(stale.map((entry) => entry.card.id)).toEqual([card.id])
@@ -683,7 +701,7 @@ describe('BoardQueryService.staleCards', () => {
     })
 
     // Act
-    const stale = await scenario.queries.staleCards()
+    const stale = await scenario.queries.staleCards(scenario.actors.requester)
 
     // Assert
     expect(stale).toHaveLength(1)
@@ -701,8 +719,10 @@ describe('BoardQueryService.staleCards', () => {
     })
 
     // Act
-    const defaults = await scenario.queries.staleCards()
-    const tightened = await scenario.queries.staleCards({ blockedDays: 2 })
+    const defaults = await scenario.queries.staleCards(scenario.actors.requester)
+    const tightened = await scenario.queries.staleCards(scenario.actors.requester, {
+      blockedDays: 2,
+    })
 
     // Assert
     expect(defaults).toHaveLength(0)

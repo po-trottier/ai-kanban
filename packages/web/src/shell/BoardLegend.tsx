@@ -1,6 +1,7 @@
 import { ActionIcon, Badge, Modal, Text, Tooltip } from '@mantine/core'
 import { HelpCircle } from 'lucide-react'
 import { useState } from 'react'
+import { useWaitingReasons } from '../api/meta.ts'
 import { strings } from '../strings.ts'
 import {
   ARCHIVED_COLOR,
@@ -29,6 +30,7 @@ function priorityText(priority: 'P0' | 'P1' | 'P2'): string {
  */
 export function BoardLegend() {
   const [opened, setOpened] = useState(false)
+  const reason = useWaitingReasons().find((choice) => choice.active)
   return (
     <>
       <Tooltip label={strings.board.legendButton}>
@@ -84,7 +86,7 @@ export function BoardLegend() {
           />
           <LegendRow
             color={WAITING_COLOR}
-            label={strings.waiting.reasons.parts}
+            label={reason?.label ?? strings.waiting.reasonLabel}
             text={strings.board.legendWaiting}
           />
           <LegendRow

@@ -4,7 +4,7 @@ import {
   DEFAULT_TIMEZONE,
   Uuidv7IdGenerator,
 } from '@rivian-kanban/core'
-import { and, eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { boardPolicies, boards, lanes, users } from '../schema.pg.ts'
 import {
   LANE_SEEDS,
@@ -26,9 +26,25 @@ export async function structuralSeedPg(db: PgDb): Promise<StructuralSeedResult> 
   return db.transaction(async (tx) => {
     const now = new Date().toISOString()
 
-    let board = (await tx.select().from(boards).limit(1))[0]
+    // Deterministic default-board selection: the flagged row if one exists
+    // (even archived — the default never loses authority to a newer board),
+    // else the oldest board (pre-multi-board data), else create the original.
+    let board =
+      (await tx.select().from(boards).where(eq(boards.isDefault, true)).limit(1))[0] ??
+      (await tx.select().from(boards).orderBy(asc(boards.createdAt), asc(boards.id)).limit(1))[0]
+    const boardIsNew = board === undefined
     if (board === undefined) {
-      board = { id: ids.newId(), name: 'Facilities', createdAt: now }
+      board = {
+        id: ids.newId(),
+        name: 'Facilities',
+        createdAt: now,
+        isDefault: true,
+        archivedAt: null,
+        accessMode: 'all',
+        allowedRoleKeys: [],
+        allowedUserIds: [],
+        allowedGroupIds: [],
+      }
       await tx.insert(boards).values(board)
     }
 
@@ -52,15 +68,10 @@ export async function structuralSeedPg(db: PgDb): Promise<StructuralSeedResult> 
       await tx.insert(users).values(system)
     }
 
-    for (const [index, seed] of LANE_SEEDS.entries()) {
-      const existing = (
-        await tx
-          .select()
-          .from(lanes)
-          .where(and(eq(lanes.boardId, board.id), eq(lanes.key, seed.key)))
-          .limit(1)
-      )[0]
-      if (existing === undefined) {
+    // Seed lanes ONLY when the board is being created — see the sqlite
+    // twin's comment (no resurrecting an admin-deleted lane on reboot).
+    if (boardIsNew) {
+      for (const [index, seed] of LANE_SEEDS.entries()) {
         await tx.insert(lanes).values({
           id: ids.newId(),
           boardId: board.id,

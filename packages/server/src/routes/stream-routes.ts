@@ -2,6 +2,9 @@ import { type FastifyInstance } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
 import { rawSessionIdOf } from '../plugins/session-auth.ts'
 import { type AppDeps } from '../types.ts'
+import { type SseHint } from '@rivian-kanban/core'
+import { selectedBoardId } from './board-scope.ts'
+import { actorOf } from './user-routes.ts'
 
 /**
  * GET /stream — SSE invalidation hints (ADR-008), fed by the in-process
@@ -16,8 +19,8 @@ import { type AppDeps } from '../types.ts'
 
 interface StreamHandle {
   close(): void
-  /** Writes an already-serialized hint frame to the stream. */
-  send(data: string): void
+  /** Rechecks membership before sending a board's hint. */
+  send(hint: SseHint): Promise<void>
 }
 
 export function streamRoutes(deps: AppDeps) {
@@ -26,15 +29,11 @@ export function streamRoutes(deps: AppDeps) {
   return function routes(app: FastifyInstance): void {
     const r = app.withTypeProvider<ZodTypeProvider>()
 
-    // ONE bus subscription per app: each hint is serialized once and the
-    // shared string fans out to every connected stream — per-stream
-    // subscriptions would re-JSON.stringify the same hint up to
-    // (users x maxStreamsPerUser) times per mutation.
+    // One bus subscription per app; each stream checks current access before delivery.
     const unsubscribe = deps.eventBus.subscribe((hint) => {
-      const data = JSON.stringify(hint)
       for (const handles of streamsByUser.values()) {
         // Snapshot: a handle closing mid-dispatch must not skip its siblings.
-        for (const handle of [...handles]) handle.send(data)
+        for (const handle of [...handles]) void handle.send(hint)
       }
     })
 
@@ -48,11 +47,13 @@ export function streamRoutes(deps: AppDeps) {
       done()
     })
 
-    r.get('/stream', { config: { rawResponse: true }, schema: {} }, (request, reply) => {
+    r.get('/stream', { config: { rawResponse: true }, schema: {} }, async (request, reply) => {
       const user = request.authUser
       const rawSessionId = rawSessionIdOf(request, deps.config.nodeEnv)
       // The session hook guarantees a cookie-backed user; guards keep types honest.
       if (user === null || rawSessionId === undefined) return
+      const boardId = selectedBoardId(deps, request)
+      await deps.services.boards.requireAccess(actorOf(request), boardId)
 
       let closed = false
       const close = (): void => {
@@ -69,8 +70,28 @@ export function streamRoutes(deps: AppDeps) {
       }
       const handle: StreamHandle = {
         close,
-        send: (data) => {
-          if (!closed) reply.sse({ data })
+        send: async (hint) => {
+          try {
+            if (closed) return
+            const current = await deps.services.auth.authenticate(rawSessionId)
+            if (current === null) {
+              close()
+              return
+            }
+            // Catalog changes let the client recover its selection after access is revoked.
+            if (hint.type === 'board.updated') reply.sse({ data: JSON.stringify(hint) })
+            const allowed = await deps.services.boards.acceptsHint(
+              { kind: 'user', id: current.id, role: current.role },
+              boardId,
+              hint,
+            )
+            // A disconnect can set closed while the access check awaits.
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+            if (!closed && allowed && hint.type !== 'board.updated')
+              reply.sse({ data: JSON.stringify(hint) })
+          } catch {
+            close()
+          }
         },
       }
       // Attach BEFORE registering: a client that disconnected while the
@@ -86,8 +107,13 @@ export function streamRoutes(deps: AppDeps) {
         // indexed read per tick keeps that promise for long-lived streams.
         deps.services.auth
           .authenticate(rawSessionId)
-          .then((current) => {
+          .then(async (current) => {
             if (current === null) close()
+            else
+              await deps.services.boards.requireAccess(
+                { kind: 'user', id: current.id, role: current.role },
+                boardId,
+              )
           })
           .catch(() => {
             close()

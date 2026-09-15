@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-09-15
+
+### Changed
+
+- Show only the logo beside the board selector in the header, freeing space at every screen width.
+- Rename the app and installed PWA to Rivian Facilities Tickets System. Browser tabs show
+  Rivian {board name} Tickets System for the selected board.
+
+### Added
+
+- Choose a personal default board from Settings → Boards, including for non-admins. Admins can
+  assign group, role, and global defaults from the board editor; startup respects User → Group →
+  Role → Global, skipping invalid or inaccessible choices before falling back to the first
+  accessible board. Users with no accessible boards see instructions for requesting access.
+- Switch between boards from the responsive header selector. Admins can manage boards and groups
+  in Settings and grant board access to roles, selected people, or groups.
+- Enforce board visibility across searches, direct links, downloads, notifications, live updates,
+  and MCP tools while preserving existing work orders and globally unique ticket numbers.
+- Manage waiting reasons in Settings: keep the current defaults, add or rename choices, and remove
+  them from new selections while preserving existing cards and history. MCP clients can discover
+  configured choices with `list_waiting_reasons`.
+
+### Fixed
+
+- Keep dropdowns stable inside scrolling dialogs on phones.
+- Keep settings tabs on one scrollable row and contain wide tables within their panels on phones.
+  Permission labels stay readable while role columns scroll; nested location actions remain reachable.
+- Select the board directly in Columns settings and edit its columns without leaving the tab.
+- Keep settings Add buttons fully readable by wrapping their descriptions into the remaining space.
+- Order settings by purpose: preferences first, then boards and workflow, users beside groups,
+  and service tokens last.
+- Match the board selector's height to the standard header buttons on desktop and phones.
+- Return all saved board settings through the API, including working hours and waiting reasons.
+- Restore hover help on the assignee and reporter filters, and show full card titles in tooltips.
+- Keep the mobile header on one compact row with the logo and icon actions, and display work-order
+  details across the full board width instead of squeezing them beside the columns.
+- Move keyboard focus into opened work-order details without raising the phone keyboard.
+- Resolve moves against actual lane positions so cards hidden by filters or archival cannot cause
+  a position conflict when dropping or using the move menu.
+
 ## [1.0.6] - 2026-09-14
 
 ### Fixed

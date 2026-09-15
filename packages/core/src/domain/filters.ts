@@ -59,6 +59,7 @@ export const EMPTY_BOARD_FILTER: BoardFilter = boardFilterSchema.parse({})
  */
 export const filterPresetSchema = z.strictObject({
   id: z.uuid(),
+  boardId: z.uuid(),
   ownerId: z.uuid(),
   name: z.string().min(1).max(60),
   filter: boardFilterSchema,

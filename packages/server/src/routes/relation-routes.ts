@@ -1,3 +1,4 @@
+import { actorOf } from './user-routes.ts'
 import { createCardRelationInputSchema } from '@rivian-kanban/core'
 import { type FastifyInstance } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
@@ -31,7 +32,7 @@ export function relationRoutes(deps: AppDeps) {
           response: { 200: z.array(cardRelationResponseSchema) },
         },
       },
-      async (request) => relations.list(request.params.id),
+      async (request) => relations.list(actorOf(request), request.params.id),
     )
 
     r.post(
@@ -44,7 +45,7 @@ export function relationRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        const created = await relations.create(request.params.id, request.body)
+        const created = await relations.create(actorOf(request), request.params.id, request.body)
         return reply.code(201).send(created)
       },
     )
@@ -59,7 +60,7 @@ export function relationRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        await relations.delete(request.params.id, request.params.relationId)
+        await relations.delete(actorOf(request), request.params.id, request.params.relationId)
         await reply.code(204).send(null)
       },
     )

@@ -97,7 +97,7 @@ export function attachmentRoutes(deps: AppDeps, quota: UploadQuota) {
         schema: { params: idParamsSchema },
       },
       async (request, reply) => {
-        const attachment = await attachments.getActive(request.params.id)
+        const attachment = await attachments.getActive(actorOf(request), request.params.id)
         // Streamed, never buffered: 25 MB x concurrent downloads must not
         // become transient process memory. Length comes from the metadata row
         // (the blob was written once with exactly these bytes).

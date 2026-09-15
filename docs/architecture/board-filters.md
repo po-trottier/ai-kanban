@@ -122,11 +122,13 @@ Built-ins can't be edited or deleted. They exist so the most common views need n
 | `updatedAt` | ISO-8601 UTC  |                                                         |
 
 Stored in a `filter_presets` table (`packages/db`), one row per custom preset. Presets are
+scoped by `board_id`: both reads and writes require access to the selected board. Existing presets
+are migrated to the original board. Within a board they are
 **per-user by default** — `shared: false`, visible only to their owner. An owner can flip `shared` to
 make a preset visible **team-wide**. The visibility rule is split from the mutation rule:
 
 - **Reads** return the caller's own presets **plus every shared one** (`listVisibleTo` — `WHERE
-owner_id = ? OR shared = 1`).
+board_id = ? AND (owner_id = ? OR shared = 1)`).
 - **Writes** (rename, replace-filter, (un)share, delete) stay **owner-scoped**: a preset owned by
   another user is indistinguishable from a missing one (both `404`), so a **shared preset is
   applyable by everyone but editable only by its owner**.

@@ -1,4 +1,5 @@
 import { type FetchLike } from '../api/client.ts'
+import { FIXTURE_BOARD_ID } from './fixtures.ts'
 
 /**
  * Hand-written fetch fake (docs/dev/testing.md: fakes, never mocking
@@ -24,14 +25,43 @@ export interface FakeFetch {
   lastBody: (method: string, path: string) => unknown
 }
 
+/**
+ * AppLayout always fetches the board catalog to render anything (multiple
+ * boards) — a default here keeps every pre-existing spec passing without
+ * hand-adding it; a spec asserting catalog behavior overrides this key.
+ */
+const DEFAULT_ROUTES: Record<string, FakeRouteResult> = {
+  'GET /api/v1/boards': {
+    items: [
+      {
+        id: FIXTURE_BOARD_ID,
+        name: 'Board',
+        isDefault: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        archivedAt: null,
+        accessMode: 'all',
+        allowedRoleKeys: [],
+        allowedUserIds: [],
+        allowedGroupIds: [],
+      },
+    ],
+    canManage: true,
+    preferredBoardId: null,
+    defaultBoardId: FIXTURE_BOARD_ID,
+    defaultSource: 'fallback',
+    defaultAssignments: [],
+  },
+}
+
 export function createFakeFetch(routes: Record<string, FakeRouteResult>): FakeFetch {
+  const merged = { ...DEFAULT_ROUTES, ...routes }
   const calls: RecordedCall[] = []
 
   const fetchImpl: FetchLike = (input, init) => {
     const method = (init?.method ?? 'GET').toUpperCase()
     const path = input.split('?')[0] ?? input
     calls.push({ method, url: input, init })
-    const handler = routes[`${method} ${path}`]
+    const handler = merged[`${method} ${path}`]
     if (handler === undefined) {
       return Promise.reject(new Error(`fake fetch: unmatched route ${method} ${input}`))
     }

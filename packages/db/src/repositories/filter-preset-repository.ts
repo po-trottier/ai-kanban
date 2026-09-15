@@ -27,22 +27,34 @@ export class SqliteFilterPresetRepository implements FilterPresetRepository {
     return { ...row, filter: row.filter as BoardFilter }
   }
 
-  listVisibleTo(userId: string): Promise<FilterPreset[]> {
+  listVisibleTo(userId: string, boardId: string): Promise<FilterPreset[]> {
     const rows = this.db
       .select()
       .from(filterPresets)
-      // The caller's own presets plus every team-shared one.
-      .where(or(eq(filterPresets.ownerId, userId), eq(filterPresets.shared, true)))
+      // The caller's own presets plus every team-shared one, both restricted
+      // to the selected board (a shared preset is shared within its board).
+      .where(
+        and(
+          eq(filterPresets.boardId, boardId),
+          or(eq(filterPresets.ownerId, userId), eq(filterPresets.shared, true)),
+        ),
+      )
       .orderBy(desc(filterPresets.createdAt), desc(filterPresets.id))
       .all()
     return Promise.resolve(rows.map((row) => SqliteFilterPresetRepository.hydrate(row)))
   }
 
-  findByIdForOwner(id: string, ownerId: string): Promise<FilterPreset | null> {
+  findByIdForOwner(id: string, ownerId: string, boardId: string): Promise<FilterPreset | null> {
     const row = this.db
       .select()
       .from(filterPresets)
-      .where(and(eq(filterPresets.id, id), eq(filterPresets.ownerId, ownerId)))
+      .where(
+        and(
+          eq(filterPresets.id, id),
+          eq(filterPresets.ownerId, ownerId),
+          eq(filterPresets.boardId, boardId),
+        ),
+      )
       .get()
     return Promise.resolve(row ? SqliteFilterPresetRepository.hydrate(row) : null)
   }
@@ -61,16 +73,28 @@ export class SqliteFilterPresetRepository implements FilterPresetRepository {
         shared: preset.shared,
         updatedAt: preset.updatedAt,
       })
-      .where(and(eq(filterPresets.id, preset.id), eq(filterPresets.ownerId, preset.ownerId)))
+      .where(
+        and(
+          eq(filterPresets.id, preset.id),
+          eq(filterPresets.ownerId, preset.ownerId),
+          eq(filterPresets.boardId, preset.boardId),
+        ),
+      )
       .run()
     if (result.changes === 0) return Promise.reject(new NotFoundError('filter preset'))
     return Promise.resolve()
   }
 
-  delete(id: string, ownerId: string): Promise<void> {
+  delete(id: string, ownerId: string, boardId: string): Promise<void> {
     const result = this.db
       .delete(filterPresets)
-      .where(and(eq(filterPresets.id, id), eq(filterPresets.ownerId, ownerId)))
+      .where(
+        and(
+          eq(filterPresets.id, id),
+          eq(filterPresets.ownerId, ownerId),
+          eq(filterPresets.boardId, boardId),
+        ),
+      )
       .run()
     if (result.changes === 0) return Promise.reject(new NotFoundError('filter preset'))
     return Promise.resolve()

@@ -16,18 +16,21 @@ import { DatePickerInput } from '@mantine/dates'
 import { Bell, BellOff, RotateCcw, Save, ShieldOff } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
-import { WAITING_REASONS, type Card, type WaitingReason } from '@rivian-kanban/core'
+import { type Card, type WaitingReason } from '@rivian-kanban/core'
 import { useBoard, useCardAction, useUpdateCard } from '../api/board.ts'
+import { useBoardCatalog } from '../api/boards.ts'
 import { useCardWatch, useUnwatchCard, useWatchCard } from '../api/watch.ts'
 import {
   useAddComment,
+  useCardBoardResolve,
   useCardDetail,
   useCardEvents,
   useComments,
   useDeleteComment,
   useEditComment,
 } from '../api/card.ts'
-import { useBusinessHours, usePolicy, useUsers } from '../api/meta.ts'
+import { useBusinessHours, usePolicy, useUsers, useWaitingReasons } from '../api/meta.ts'
+import { waitingReasonOptions } from '../lib/waiting-reasons.ts'
 import { useCurrentUser, useUserTimezone } from '../auth/session-context.ts'
 import { CardBadges } from '../board/CardBadges.tsx'
 import { isWorkOverdue } from '../board/card-status.ts'
@@ -55,23 +58,16 @@ import { CommentsThread } from './CommentsThread.tsx'
 import { HistoryList } from './HistoryList.tsx'
 import classes from './card.module.css'
 
-/**
- * The deep-linked `/cards/:cardId` route element. It renders NOTHING itself —
- * it just publishes the open card id to the shell so AppLayout can dock the
- * panel in its AppShell.Aside (below the header, not overlaying it). Clearing
- * on unmount closes the Aside when the route changes (Escape / ✕ / navigate).
- */
+/** Publishes the card route after AppLayout resolves its authorized board. */
 export function CardPanelRoute() {
   const { cardId = '' } = useParams()
   const { setOpenCardId } = useCardPanelSlot()
-
   useEffect(() => {
     setOpenCardId(cardId)
     return () => {
       setOpenCardId(null)
     }
   }, [cardId, setOpenCardId])
-
   return null
 }
 
@@ -85,8 +81,24 @@ export function CardPanel({ cardId }: { cardId: string }) {
   const navigate = useNavigate()
   const location = useLocation()
   const labelId = useId()
+  const panelRef = useRef<HTMLDivElement>(null)
+  // The shell's scope already matches this card's real board by the time
+  // CardPanelRoute publishes it (see above); a stray access-revoked-mid-view
+  // still shows as a plain detail-load error below.
+  const catalog = useBoardCatalog()
+  const resolve = useCardBoardResolve(cardId)
+  const forbidden =
+    resolve.isSuccess &&
+    catalog.data !== undefined &&
+    !catalog.data.items.some((board) => board.id === resolve.data.card.boardId)
   const detailQuery = useCardDetail(cardId)
-  const card = detailQuery.data?.card
+  const card = forbidden ? undefined : detailQuery.data?.card
+
+  // Announce the opened panel without focusing an input (which would raise
+  // the phone keyboard). The covered board cannot keep keyboard focus.
+  useEffect(() => {
+    panelRef.current?.focus({ preventScroll: true })
+  }, [])
 
   // Back to the board, PRESERVING the filter query (the live filter is URL
   // state) so closing the panel restores the same filtered board it opened over.
@@ -121,6 +133,8 @@ export function CardPanel({ cardId }: { cardId: string }) {
 
   return (
     <div
+      ref={panelRef}
+      tabIndex={-1}
       role="dialog"
       // Labelled by the header (the hidden "Card details" + title + priority),
       // so assistive tech and the tests get the same combined accessible name
@@ -184,7 +198,11 @@ export function CardPanel({ cardId }: { cardId: string }) {
       </Group>
       <Divider />
       <div className={classes.panelBody}>
-        <CardPanelBody cardId={cardId} />
+        {forbidden ? (
+          <ErrorAlert error={undefined} fallbackMessage={strings.boards.cardForbidden} />
+        ) : (
+          <CardPanelBody cardId={cardId} />
+        )}
       </div>
     </div>
   )
@@ -546,6 +564,7 @@ function WaitingBanner({
   onSave: (changes: { waitingReason: WaitingReason; expectedResumeAt: string }) => void
 }) {
   const [reason, setReason] = useState<WaitingReason | null>(card.waitingReason)
+  const reasonOptions = waitingReasonOptions(useWaitingReasons(), card.waitingReason)
   const [resumeAt, setResumeAt] = useState<string | null>(card.expectedResumeAt)
   const overdue = isOverdueResume(card.expectedResumeAt, utcToday())
 
@@ -584,10 +603,7 @@ function WaitingBanner({
         </Text>
         <Select
           label={strings.detail.waitingReasonLabel}
-          data={WAITING_REASONS.map((value) => ({
-            value,
-            label: strings.waiting.reasons[value],
-          }))}
+          data={reasonOptions}
           value={reason}
           allowDeselect={false}
           onChange={setReason}

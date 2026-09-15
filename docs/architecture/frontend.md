@@ -1,5 +1,46 @@
 # Frontend (SPA) Architecture
 
+## Board selection
+
+The app and PWA are named **Rivian Facilities Tickets System**. The browser title follows the
+selected board as **Rivian {board name} Tickets System**, including board renames, and resets to
+the app name when no board is selected or the user signs out.
+
+The header has a centered, responsive board menu using the same Mantine `Button size="sm"` as
+the new-work-order action, a logo linking home, and no app-name wordmark. The current board name is truncated on small
+screens. Its **Manage boards** item (**Board preferences** for non-admins) deep-links to
+`/settings?tab=boards`. Settings has
+an account preference on the Boards tab for everyone; board mutations and the Groups tab use the
+existing `managePolicy` capability. Board access can
+include roles, individual users, and named groups; group membership is managed separately.
+
+Settings tabs follow this order (subject to each tab's permission gate): Preferences, Boards,
+Columns, Waiting reasons, Hours, Locations, Users, Groups, Permissions, Service tokens.
+Settings section descriptions flex into the remaining width so adjacent Add buttons keep their
+full labels, including on phones.
+Tabs stay on one horizontal row inside a Mantine `ScrollArea`, with a visible scrollbar when they
+overflow. The selected or keyboard-focused tab scrolls into view. The settings page scrolls vertically
+inside the app shell; wide column, user, token, and permission tables use `Table.ScrollContainer`
+instead of widening the page. The permission matrix has equal-width columns and an opaque sticky
+label column. Nested location actions wrap below their labels on phones.
+Combobox dropdowns use Mantine's fixed positioning through the shared theme so portaled options
+do not enlarge the mobile layout viewport inside scrolling dialogs.
+The Columns tab includes a searchable board selector. Selecting a board reloads its column editor
+in place, preserving the settings tab while resetting the scoped cache and unsaved editor state.
+
+Selected-board API requests carry `X-Board-Id`; SSE uses a board query parameter. A board switch
+isolates cached queries and resets filters, undo history, and the open detail panel. Existing
+`/cards/:id` links resolve the stored board after an authorized detail read. Catalog changes refresh
+access and recover the selection when a board is deleted or permission is revoked. Empty access
+shows an explanatory state instead of fetching another user's board.
+
+On startup, the catalog's server-resolved `defaultBoardId` wins over the browser's last-used board.
+Manual selection remains until the session ends or access is revoked. Settings → Boards saves the
+caller's personal preference through `PUT /boards/preference`; the admin board form also edits global,
+role, and group assignments in the same transaction as board changes. The original `isDefault` flag
+remains the role-authority anchor and is not used as the UI's default badge: that badge identifies the
+caller's resolved startup board. Defaults never bypass board visibility.
+
 React 19 + Vite single-page app in `packages/web`, served by the backend in production
 ([overview.md](overview.md)); in dev, Vite proxies `/api` and `/version` to `:3000`. UI framework is
 **Mantine 9** with token-only styling rules ([ADR-016](decisions/ADR-016-ui-framework.md));
@@ -81,6 +122,13 @@ and the PNG dimensions of every icon.
 
 ## Policy-driven affordances (ADR-013)
 
+**Settings → Waiting reasons** (`WaitingReasonsForm`) uses the existing `managePolicy` gate and
+`usePutPolicy` mutation. Defaults and validation live in core. Move dialogs, the detail banner and
+card badges read the same cached policy through `useWaitingReasons`; `policy.updated` refreshes
+them. Pickers exclude retired reasons except the card's current value (visible but disabled).
+The editor keeps stable keys while renaming, and removes choices from new selection without
+rewriting existing cards or history. At least one active reason remains.
+
 `GET /policy` is cached and consulted by pure functions in `board/move-options.ts`:
 drag `canDrop`, Move to… lane options (disabled ≠ hidden), cancel/reopen/archive menu gating,
 and the `deleteOthersComments`/`deleteOthersAttachments` affordances in the card panel all
@@ -97,6 +145,25 @@ a drop monitor that resolves targets through pure `move-options.ts` helpers. The
 keyboard/touch/AT path is the card's **⋯ → Move to…** modal driving the same neighbor-id
 move API; both the modal and drag paths announce successful moves through
 `pragmatic-drag-and-drop-live-region`.
+
+## Responsive shell
+
+At widths up to `62em`, the header hides its wordmark and the new-work-order label, retaining
+the logo and named icon buttons in one row. Only the header CTA collapses; the empty-board CTA
+keeps its text. The detail panel fills the board row above the columns using absolute positioning,
+independent of the persisted desktop width. The covered board stays mounted with `visibility:
+hidden`, preserving its route/scroll position while excluding its controls from keyboard focus
+and the accessibility tree. Header and filters remain accessible. The shell uses `100dvh` to
+follow changes in the phone browser's visible height.
+Opening a card focuses the dialog container, announcing the panel without focusing an input
+or raising the phone keyboard. The header remains reachable by keyboard.
+
+Native drag-and-drop remains in the existing adapter. Mobile Chromium tests use an Android
+device profile and real touch contacts for swipes, taps, editing, and the **Move to…** alternative.
+Desktop Chromium's mobile emulation does not initiate native touch drags: actual Android/iOS
+long-press behavior needs physical-device QA. Native mouse-drag tests check reordering, edge
+scrolling, and persistence at narrow widths. Every reorder test asserts the initial order too;
+new cards are prepended, so the final order alone can pass without any drag occurring.
 
 ## Known limitations (deferred, tracked)
 

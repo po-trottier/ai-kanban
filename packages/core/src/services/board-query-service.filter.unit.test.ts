@@ -22,8 +22,8 @@ describe('BoardQueryService.filteredBoard', () => {
     const b = scenario.seedCard({ laneId: scenario.lanes.ready.id })
 
     // Act
-    const filtered = await scenario.queries.filteredBoard({})
-    const snapshot = await scenario.queries.boardSnapshot()
+    const filtered = await scenario.queries.filteredBoard(scenario.actors.requester, {})
+    const snapshot = await scenario.queries.boardSnapshot(scenario.actors.requester)
 
     // Assert — same ids and same lane grouping as the unfiltered snapshot.
     expect(idsOf(filtered)).toEqual([a.id, b.id])
@@ -40,7 +40,9 @@ describe('BoardQueryService.filteredBoard', () => {
     scenario.seedCard({ priority: 'P2' })
 
     // Act
-    const filtered = await scenario.queries.filteredBoard({ priorities: ['P0', 'P1'] })
+    const filtered = await scenario.queries.filteredBoard(scenario.actors.requester, {
+      priorities: ['P0', 'P1'],
+    })
 
     // Assert
     expect(idsOf(filtered)).toEqual([p0.id, p1.id].sort((a, b) => a - b))
@@ -63,7 +65,7 @@ describe('BoardQueryService.filteredBoard', () => {
     })
 
     // Act
-    const filtered = await scenario.queries.filteredBoard({
+    const filtered = await scenario.queries.filteredBoard(scenario.actors.requester, {
       assigneeIds: [scenario.users.technician.id],
     })
 
@@ -79,7 +81,9 @@ describe('BoardQueryService.filteredBoard', () => {
     scenario.seedCard({ title: 'Unrelated' })
 
     // Act — case-insensitive substring over title + description.
-    const filtered = await scenario.queries.filteredBoard({ q: 'boiler' })
+    const filtered = await scenario.queries.filteredBoard(scenario.actors.requester, {
+      q: 'boiler',
+    })
 
     // Assert — the title hit and the description hit, not the unrelated card.
     expect(idsOf(filtered)).toHaveLength(2)
@@ -97,9 +101,13 @@ describe('BoardQueryService.filteredBoard', () => {
     })
 
     // Act
-    const active = await scenario.queries.filteredBoard({ scope: 'active' })
-    const onlyArchived = await scenario.queries.filteredBoard({ scope: 'archived' })
-    const all = await scenario.queries.filteredBoard({ scope: 'all' })
+    const active = await scenario.queries.filteredBoard(scenario.actors.requester, {
+      scope: 'active',
+    })
+    const onlyArchived = await scenario.queries.filteredBoard(scenario.actors.requester, {
+      scope: 'archived',
+    })
+    const all = await scenario.queries.filteredBoard(scenario.actors.requester, { scope: 'all' })
 
     // Assert
     expect(idsOf(active)).toEqual([live.id])
@@ -126,7 +134,9 @@ describe('BoardQueryService.filteredBoard', () => {
     scenario.seedCard({ laneId: scenario.lanes.ready.id, estimateMinutes: 5 })
 
     // Act
-    const filtered = await scenario.queries.filteredBoard({ overdue: true })
+    const filtered = await scenario.queries.filteredBoard(scenario.actors.requester, {
+      overdue: true,
+    })
 
     // Assert — only the started card that blew its estimate.
     expect(idsOf(filtered)).toEqual([overdue.id])
@@ -142,7 +152,9 @@ describe('BoardQueryService.filteredBoard', () => {
     scenario.seedCard({ laneId: scenario.lanes.ready.id })
 
     // Act — case-insensitive tag match.
-    const filtered = await scenario.queries.filteredBoard({ tags: ['hvac'] })
+    const filtered = await scenario.queries.filteredBoard(scenario.actors.requester, {
+      tags: ['hvac'],
+    })
 
     // Assert
     expect(idsOf(filtered)).toEqual([tagged.id])
@@ -166,7 +178,7 @@ describe('BoardQueryService.filteredBoard', () => {
     scenario.seedCard({ laneId: scenario.lanes.ready.id, locationId: shed.id })
 
     // Act — depot (via its room subtree) OR garage; depot listed twice to prove dedup.
-    const filtered = await scenario.queries.filteredBoard({
+    const filtered = await scenario.queries.filteredBoard(scenario.actors.requester, {
       locationIds: [depot.id, garage.id, depot.id],
     })
 
@@ -181,7 +193,9 @@ describe('BoardQueryService.filteredBoard', () => {
     scenario.seedCard({ laneId: scenario.lanes.in_progress.id, priority: 'P2' })
 
     // Act — narrow to P0 (one card), but the lane still holds two.
-    const filtered = await scenario.queries.filteredBoard({ priorities: ['P0'] })
+    const filtered = await scenario.queries.filteredBoard(scenario.actors.requester, {
+      priorities: ['P0'],
+    })
 
     // Assert — the WIP marker still fires (breach is a lane property).
     const inProgress = filtered.lanes.find((lane) => lane.lane.key === 'in_progress')

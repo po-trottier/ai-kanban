@@ -16,6 +16,7 @@ import {
   type WaitingReason,
 } from '@rivian-kanban/core'
 import { sql } from 'drizzle-orm'
+import { type BoardDefault } from '@rivian-kanban/core'
 import {
   customType,
   index,
@@ -89,12 +90,76 @@ export const users = sqliteTable(
   ],
 )
 
-/** Single seeded row in v1; cards reference it so multi-board is additive later. */
-export const boards = sqliteTable('boards', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  createdAt: text('created_at').notNull(),
-})
+/**
+ * Multiple boards (docs/superpowers/plans/2026-09-15-multiple-boards.md). The
+ * original v1 board is permanently flagged `isDefault`; its policy remains the
+ * authoritative role catalog even after archival. `accessMode: 'restricted'`
+ * gates a board to `allowedRoleKeys`/`allowedUserIds` (JSON arrays; global
+ * `managePolicy` always bypasses). Archival is soft (`archivedAt`) — history
+ * is preserved, never deleted.
+ */
+export const boardDefaults = sqliteTable(
+  'board_defaults',
+  {
+    scope: text('scope').$type<BoardDefault['scope']>().notNull(),
+    subject: text('subject').notNull(),
+    boardId: text('board_id')
+      .notNull()
+      .references(() => boards.id),
+  },
+  (table) => [primaryKey({ columns: [table.scope, table.subject] })],
+)
+
+export const boards = sqliteTable(
+  'boards',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    createdAt: text('created_at').notNull(),
+    isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+    archivedAt: text('archived_at'),
+    accessMode: text('access_mode').$type<'all' | 'restricted'>().notNull().default('all'),
+    allowedRoleKeys: text('allowed_role_keys', { mode: 'json' })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    allowedUserIds: text('allowed_user_ids', { mode: 'json' })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    allowedGroupIds: text('allowed_group_ids', { mode: 'json' })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+  },
+  (table) => [
+    // At most one default board at a time — a partial unique index so every
+    // non-default row (the common case) is excluded from the constraint.
+    uniqueIndex('boards_is_default_unique')
+      .on(table.isDefault)
+      .where(sql`${table.isDefault} = 1`),
+  ],
+)
+
+/**
+ * Global user groups (docs/superpowers/plans/2026-09-15-multiple-boards.md):
+ * a named, reusable membership list a restricted board's `allowedGroupIds`
+ * can reference — not board-scoped itself, so one group can gate several
+ * boards. `userIds` is a plain JSON array (no join table): group membership
+ * lists are small and always read/written whole (never queried per-member).
+ * Case-insensitive name uniqueness is a race backstop for BoardService's
+ * lock-held duplicate check, mirroring `users_email_ci_unique`.
+ */
+export const groups = sqliteTable(
+  'groups',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    userIds: text('user_ids', { mode: 'json' }).$type<string[]>().notNull().default([]),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [uniqueIndex('groups_name_ci_unique').on(sql`lower(${table.name})`)],
+)
 
 export const lanes = sqliteTable(
   'lanes',
@@ -141,9 +206,10 @@ export const boardPolicies = sqliteTable(
 export const cards = sqliteTable(
   'cards',
   {
-    /** The primary key IS the human-readable ticket number: a per-board
-     * sequential integer assigned by the service (MAX(id)+1), not autoincrement.
-     * Globally unique as the PK; per-board sequential by construction. */
+    /** The primary key IS the human-readable ticket number: a globally
+     * sequential integer assigned by the service (MAX(id)+1 across every
+     * board — multiple-boards preserves one shared ticket sequence), not
+     * autoincrement. The PK is the concurrency backstop. */
     id: integer('id').primaryKey(),
     boardId: text('board_id')
       .notNull()
@@ -448,6 +514,10 @@ export const filterPresets = sqliteTable(
     ownerId: text('owner_id')
       .notNull()
       .references(() => users.id),
+    /** Scopes the preset to one board; shared visibility is restricted to it too. */
+    boardId: text('board_id')
+      .notNull()
+      .references(() => boards.id),
     name: text('name').notNull(),
     /** Zod-validated BoardFilter JSON (boardFilterSchema). */
     filter: text('filter', { mode: 'json' }).notNull(),
@@ -462,8 +532,8 @@ export const filterPresets = sqliteTable(
     index('filter_presets_owner_id_created_at_idx').on(table.ownerId, table.createdAt),
     // …and the (small) shared leg by this partial index, so the team-shared
     // set is served ordered without scanning every user's private presets.
-    index('filter_presets_shared_created_at_idx')
-      .on(table.createdAt)
+    index('filter_presets_shared_board_id_created_at_idx')
+      .on(table.boardId, table.createdAt)
       .where(sql`${table.shared} = 1`),
   ],
 )

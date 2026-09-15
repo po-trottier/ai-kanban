@@ -1,0 +1,57 @@
+/* Header board switcher — token-only values (ADR-016 rule 7). */
+
+.trigger {
+  padding-inline: var(--mantine-spacing-sm);
+  max-width: 16rem;
+  min-width: 0;
+}
+
+.section {
+  flex: 0 0 auto;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.empty {
+  padding-inline: var(--mantine-spacing-sm);
+}
+
+.skeleton {
+  flex: 0 0 auto;
+}
+
+/* Long board lists scroll instead of growing the dropdown past the viewport. */
+.dropdown {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.item {
+  max-width: 18rem;
+}
+
+.itemLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+/* The current board name stays visible (truncated) at every width — it never
+   collapses to icon-only. Below the shell's mobile breakpoint it just claims
+   less max-width, sharing the header with the logo and the icon buttons. */
+@media (max-width: 62em) {
+  .trigger {
+    max-width: 9rem;
+    padding-inline: var(--mantine-spacing-xs);
+  }
+
+  .section[data-position='right'] {
+    display: none;
+  }
+}

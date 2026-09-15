@@ -1,5 +1,18 @@
 # MCP Server
 
+## Multiple boards
+
+`list_boards` returns the shared board catalog: `{ items: Board[], canManage, preferredBoardId,
+defaultBoardId, defaultSource, defaultAssignments }` for the credential's visible active boards.
+Service tokens use role/global defaults, never their creator's personal or group preferences.
+Admin assignments are visible only to managers; personal preferences are never exposed to tokens.
+Board collection tools (`get_board_snapshot`, `list_cards`, `list_lanes`, `list_tags`,
+`list_waiting_reasons`, `list_activity`, `list_stale_cards`, `list_blocked_cards`) and `create_card`
+accept an optional `boardId`; omission selects the original board. Selection is per invocation,
+never shared between agents. Card tools use their globally unique card ID and authorize its board.
+OAuth follows the user's direct and group memberships. Independent service tokens use role grants,
+including the global admin bypass, and never inherit their creator's user/group grants.
+
 The MCP server makes the board a first-class surface for AI agents: summaries, "what should we
 address first", follow-up nudges, ticket triage. It is **not** a wrapper over the REST API — MCP
 tool handlers call the same core services directly, in-process, with a real `Actor`, so policy
@@ -155,6 +168,7 @@ listing tools accept the same filters and cursors as REST.
 
 | Tool                 | Maps to             | Notes                                                                                                                                                                                                                                                                                                                                                                           |
 | -------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_boards`        | BoardService        | visible active boards; access lists are shown only to managers                                                                                                                                                                                                                                                                                                                  |
 | `get_board_snapshot` | BoardQueryService   | lanes with card counts, WIP status, blocked counts, oldest-card ages — the "state of the shop" call                                                                                                                                                                                                                                                                             |
 | `list_cards`         | card list           | same filters as `GET /cards`: lane, assignee, reporter, priority, locationId, tag, tags, blocked, waitingReason, overdueResume, q (title+description substring), includeArchived, archivedOnly                                                                                                                                                                                  |
 | `get_card`           | card detail         | includes tags, location, attachment metadata, latest events, full comment thread (soft-deleted bodies blanked, exactly like REST)                                                                                                                                                                                                                                               |
@@ -181,7 +195,13 @@ Write tools (`create_card`, `update_card`, `move_card`, `comment_on_card`, `canc
 write path: a `read`-scope token is denied by the always-on identity rule (`token-scope-read`)
 before any service runs, and the core service independently re-denies it via `evaluatePolicy`.
 The remaining tools are reads. Reads are not write-gated, but `list_activity` carries one READ
-gate — see below; every other read is available to any authenticated token.
+gate — see below. Every card and board read also requires board visibility.
+
+`list_waiting_reasons` (PolicyService) is a read-only catalog returning
+`{ items: [{ key, label, active }] }`. Call it before supplying `waitingReason` to `move_card` or
+`update_card`: the field is a configured stable key, not a fixed enum. Newly selected reasons
+must be active; inactive definitions remain readable for stored cards and history. An unknown
+or removed choice returns the same 409 conflict as REST.
 
 Each tool declares MCP behaviour hints (`ToolAnnotations`) so clients render them correctly
 instead of inheriting the SDK's pessimistic defaults: reads are `readOnly` / non-destructive /

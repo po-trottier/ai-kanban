@@ -1,5 +1,10 @@
 # Slack Integration
 
+Slack creation uses the original board. Its access rules apply to the mapped Slack user just as
+they do in the web UI. If that board is restricted or deleted, unauthorized creation fails;
+the integration does not silently redirect tickets to another board. Completion and overdue DMs
+check the recipient's current active account and board visibility before sending.
+
 Slack is the third inbound adapter: Bolt listeners contain zero business logic and call the same
 core services as REST and MCP, with `Actor { kind: 'slack' }` resolved from the Slack user's
 email. Fully implemented and contract-tested without a live workspace (PO decision); connecting

@@ -1,3 +1,4 @@
+import { boardServices } from './board-scope.ts'
 import { createFilterPresetInputSchema, updateFilterPresetInputSchema } from '@rivian-kanban/core'
 import { type FastifyInstance } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
@@ -15,12 +16,11 @@ import { emptyBodySchema, filterPresetResponseSchema, idParamsSchema } from './s
 export function filterPresetRoutes(deps: AppDeps) {
   return function routes(app: FastifyInstance): void {
     const r = app.withTypeProvider<ZodTypeProvider>()
-    const { filterPresets } = deps.services
 
     r.get(
       '/filter-presets',
       { schema: { response: { 200: z.array(filterPresetResponseSchema) } } },
-      async (request) => filterPresets.list(actorOf(request)),
+      async (request) => boardServices(deps, request).filterPresets.list(actorOf(request)),
     )
 
     r.post(
@@ -32,7 +32,10 @@ export function filterPresetRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        const created = await filterPresets.create(actorOf(request), request.body)
+        const created = await boardServices(deps, request).filterPresets.create(
+          actorOf(request),
+          request.body,
+        )
         return reply.code(201).send(created)
       },
     )
@@ -46,7 +49,12 @@ export function filterPresetRoutes(deps: AppDeps) {
           response: { 200: filterPresetResponseSchema },
         },
       },
-      async (request) => filterPresets.update(actorOf(request), request.params.id, request.body),
+      async (request) =>
+        boardServices(deps, request).filterPresets.update(
+          actorOf(request),
+          request.params.id,
+          request.body,
+        ),
     )
 
     r.delete(
@@ -59,7 +67,7 @@ export function filterPresetRoutes(deps: AppDeps) {
         },
       },
       async (request, reply) => {
-        await filterPresets.delete(actorOf(request), request.params.id)
+        await boardServices(deps, request).filterPresets.delete(actorOf(request), request.params.id)
         await reply.code(204).send(null)
       },
     )

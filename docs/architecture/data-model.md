@@ -44,8 +44,33 @@ deactivated (enforced invariant; see security.md).
 
 ### boards
 
-Single seeded row in v1; cards reference it so multi-board is additive later.
-`id, name, created_at`.
+`id, name, created_at, is_default, archived_at, access_mode, allowed_role_keys,
+allowed_user_ids, allowed_group_ids`. Access lists are JSON arrays (JSONB on PostgreSQL).
+The original board retains its ID and is marked `is_default` by migration. Its policy is the
+permanent application-wide role authority, even when the board is archived. Exactly one default
+reference exists; it never changes when the selected board changes. The original board starts
+with `access_mode = all`; restricted boards allow any listed role, user, or group.
+
+Deletion sets `archived_at`, preserving referenced cards, events, lanes and policy history.
+Archived boards are inaccessible, including to admins; the last active board cannot be removed.
+Boot seeding creates the initial board, policy and lanes only on first creation and never
+resurrects columns that an admin deleted.
+
+### groups
+
+`id, name, user_ids, created_at`. Groups are shared across boards and managed under the global
+`managePolicy` permission. Names are case-insensitively unique. Membership is a JSON array of
+validated user IDs; a group cannot be deleted while an active board grants it access.
+
+### board_defaults
+
+`scope, subject, board_id` with composite primary key `(scope, subject)` and a foreign key to boards.
+Scope is `application` (subject `all`), `role` (role key), `group` (group ID), or `user` (user ID).
+Migration `0002_board_defaults` adds the table in SQLite and PostgreSQL without modifying the
+immutable authority board. Assignments are upserted transactionally under its policy lock.
+Deleted role/group assignments are removed with the subject; archived/inaccessible board choices
+are ignored during resolution. Catalog queries include admin defaults and only the caller's personal
+preference. The `boards.is_default` authority marker is unrelated to these editable startup defaults.
 
 ### lanes
 
@@ -74,7 +99,7 @@ admin-editable.
 ### board_policies
 
 Permission policy as data, **append-only versions** — newest row per board wins, history is
-free (see [ADR-013](decisions/ADR-013-configurable-permissions.md)).
+free. Roles are read from the permanent default board policy; other settings are local to each board. Applying a policy serializes on the default board first so role edits remain globally authoritative (see [ADR-013](decisions/ADR-013-configurable-permissions.md)).
 
 | column     | type             | notes                                                                                       |
 | ---------- | ---------------- | ------------------------------------------------------------------------------------------- |
@@ -90,11 +115,21 @@ workflow graph (topology only, no `minRole`) ready to activate, and a `roles` ar
 permissions). Permissions are a sparse grant map: present+`true` = granted, absent = default-deny.
 Index: `(board_id, created_at)`.
 
+`config.waitingReasons` stores `{ key, label, active }` definitions. Existing policy JSON that
+omits it hydrates with the five default reasons. Keys are stable strings; removed definitions
+remain with `active: false`, so stored cards/events and cancellation restores stay valid. Both
+SQLite and Postgres already use unrestricted text for `cards.waiting_reason`, so this setting
+requires no SQL migration. Writes selecting a new reason validate its active membership inside
+the card transaction.
+Settings writers lock the stable board row in Postgres before reading the latest policy, so
+concurrent saves cannot drop each other's historical reason definitions. SQLite already serializes
+write transactions with `BEGIN IMMEDIATE`.
+
 ### cards
 
 | column                                               | type                       | notes                                                                                                                                                                                                                                                                                                                        |
 | ---------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id                                                   | INTEGER PK                 | the human-readable sequential ticket number (Jira-style, shown as `#N`); the id IS the ticket number, there is no separate UUID. Assigned as `MAX(id)+1` per board inside the create transaction — atomic under SQLite's single writer, the id PRIMARY KEY is the backstop (the Postgres port would use a sequence)          |
+| id                                                   | INTEGER PK                 | the human-readable sequential ticket number (Jira-style, shown as `#N`); the id IS the ticket number, there is no separate UUID. Allocated globally: SQLite uses `MAX(id)+1` under its write lock; PostgreSQL uses a sequence initialized above all existing IDs by migration                                                |
 | board_id                                             | TEXT FK NOT NULL           |                                                                                                                                                                                                                                                                                                                              |
 | lane_id                                              | TEXT FK NOT NULL           | current status                                                                                                                                                                                                                                                                                                               |
 | position                                             | TEXT NOT NULL              | fractional key; UNIQUE(lane_id, position)                                                                                                                                                                                                                                                                                    |
@@ -110,7 +145,7 @@ Index: `(board_id, created_at)`.
 | blocked                                              | INTEGER NOT NULL DEFAULT 0 | flag, any lane                                                                                                                                                                                                                                                                                                               |
 | blocked_reason                                       | TEXT NULL                  | required when blocked=1, ≤ 500 chars                                                                                                                                                                                                                                                                                         |
 | blocked_at                                           | TEXT NULL                  |                                                                                                                                                                                                                                                                                                                              |
-| waiting_reason                                       | TEXT NULL                  | required in waiting lane: `parts \| vendor \| access \| info \| funding`; cleared on lane exit; editable in place via `PATCH /cards/:id` while the card is in the waiting lane                                                                                                                                               |
+| waiting_reason                                       | TEXT NULL                  | configured reason key; required and active on waiting-lane entry; cleared on lane exit; editable in place via `PATCH /cards/:id` while the card is in the waiting lane                                                                                                                                                       |
 | expected_resume_at                                   | TEXT NULL                  | required in waiting lane; date-only `YYYY-MM-DD` (overdue = the following UTC day onward); cleared on lane exit; editable in place via `PATCH /cards/:id` while the card is in the waiting lane                                                                                                                              |
 | resume_alerted_at                                    | TEXT NULL                  | claimed in the same transaction that selects the overdue card, BEFORE the DM is attempted — at-most-once per episode: a delivery failure does not re-fire; cleared on lane exit. Also cleared when `expected_resume_at` is edited in place (in-lane `PATCH /cards/:id`) so the hourly overdue alert re-arms for the new date |
 | work_started_at                                      | TEXT NULL                  | ISO-8601 UTC; stamped on the card's FIRST entry into `in_progress` and never overwritten by later moves; cleared on reopen. Anchors the web work burn-down bar (business-hours elapsed vs `estimate_minutes`)                                                                                                                |
@@ -121,7 +156,7 @@ Index: `(board_id, created_at)`.
 
 Indexes: `(lane_id, position)`, `(board_id, archived_at)`, `(assignee_id)`, `(reporter_id)`,
 and `(created_at, id)` for the newest-first keyset list query. The id PRIMARY KEY is globally
-unique and serves `MAX(id)` for the per-board ticket-number assignment. Two partial indexes keep hot
+unique; ticket numbers remain globally unique across all boards. Two partial indexes keep hot
 reads proportional to LIVE rows despite the in-place done-lane archive growing forever:
 `(lane_id, position) WHERE archived_at IS NULL` (board snapshot / WIP counts) and
 `(created_at, id) WHERE blocked = 1 AND archived_at IS NULL` (the stale-cards blocked leg).

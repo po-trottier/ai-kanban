@@ -27,6 +27,11 @@ custom roles and toggle each permission per role from the dashboard.
   a stable key, a human name, and a sparse permission grant map. A permission is granted by the
   PRESENCE of `true`; absence means not granted, i.e. **default-deny**. No `false` values ever
   accumulate.
+- **Roles are global; workflow settings are per board.** The original board is permanently marked
+  `isDefault` and its policy remains the role authority, even after board archival. Reads overlay
+  those roles onto the selected board's policy. Applying policy locks this authority first and
+  writes role changes there as well as the selected board's local settings. Board/group management
+  uses `managePolicy`; board membership only grants visibility and cannot elevate action grants.
 - **Policy as data, not code.** The policy engine in `core` evaluates a Zod-validated policy
   document (this is the canonical schema):
 
@@ -56,6 +61,11 @@ custom roles and toggle each permission per role from the dashboard.
       startHour: number // 0–23, default 9
       endHour: number //  1–24, default 17; must be after startHour
     } // defaulted, so policies written before it existed stay valid
+    waitingReasons: Array<{
+      key: string // stable /^[a-z][a-z0-9_]*$/, max 40, unique
+      label: string // trimmed 1–80 chars; active names unique ignoring case
+      active: boolean // removal retires the choice, preserving references
+    }> // at least one active; omitted field defaults to the five seeded reasons
   }
   ```
 
@@ -68,13 +78,21 @@ custom roles and toggle each permission per role from the dashboard.
   `managePolicy`, `manageTokens`. (`card.reorder` folds into `card.move` — a same-lane reorder is
   part of the move permission and skips topology.)
 
-  Two schema refinements guard the document: role keys must be UNIQUE, and at least one role
+  Role schema refinements guard the document: role keys must be UNIQUE, and at least one role
   must grant `manageRoles` (otherwise a policy could lock everyone out of ever editing roles
   again). The seeded document has enforcement off, the researched 7-lane graph ready to
   activate, and two roles: `user` (name "User") granting today's permissive posture — everything
   except `*.deleteOthers` and the manage\* surfaces — and `admin` (name "Administrator") granting
   every permission. Stored as append-only versions in `board_policies` — configuration changes
   have history and authorship like everything else.
+
+- **Waiting reasons are configurable data.** The **Waiting reasons** Settings tab uses the same
+  `managePolicy` permission and append-only settings storage. Stable keys let admins rename a
+  choice without rewriting cards. Removing it retires the definition, including when a direct
+  API PUT omits a previously stored key. New selections require active membership; existing
+  cards can keep a retired reason when editing dates or restoring a cancellation. At least one
+  choice stays active so Waiting always has a valid entry path. No database migration is needed:
+  policy hydration defaults old JSON and the card column is already text on both backends.
 
 - **The working day is policy, not a hard-coded constant.** `businessHours` (default Mon–Fri
   09:00–17:00) is the window the work burn-down and the `overdue` facet count business time within;

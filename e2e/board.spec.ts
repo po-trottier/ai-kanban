@@ -124,10 +124,13 @@ test('reorders a card within its lane and the order survives a reload', async ({
   await signIn(context)
   const first = `Reorder A ${randomUUID()}`
   const second = `Reorder B ${randomUUID()}`
-  // Appended in creation order: `first` sits above `second` in Intake.
-  await createCard(context.request, first)
+  // Creation prepends: create the lower card first, then the upper one.
   await createCard(context.request, second)
+  await createCard(context.request, first)
   await openBoard(page)
+  await expect
+    .poll(() => relativeOrder(laneList(page, 'Intake'), [first, second]))
+    .toEqual([first, second])
 
   await dragTo(page, boardCard(page, second), boardCard(page, first), { edge: 'top' })
 
@@ -139,4 +142,56 @@ test('reorders a card within its lane and the order survives a reload', async ({
   await expect
     .poll(() => relativeOrder(laneList(page, 'Intake'), [first, second]))
     .toEqual([second, first])
+})
+
+test('auto-scrolls a narrow board during native dragging and cancels without moving', async ({
+  page,
+  context,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await signIn(context)
+  const title = `Narrow drag ${randomUUID()}`
+  await createCard(context.request, title)
+  await openBoard(page)
+  await filterBoard(page, title)
+  await expect(page.getByRole('region', { name: 'Kanban board' }).getByRole('group')).toHaveCount(1)
+  const card = boardCard(page, title)
+  await expect(card).toBeVisible()
+  const from = await card.boundingBox()
+  const x = (from?.x ?? NaN) + (from?.width ?? NaN) / 2
+  const y = (from?.y ?? NaN) + (from?.height ?? NaN) / 2
+  // Escape cancels a drag; the next drag must still start normally.
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x + 20, y + 20, { steps: 4 })
+  await expect(card).toHaveClass(/cardDragging/)
+  await page.keyboard.press('Escape')
+  await page.mouse.up()
+  await expect(card).not.toHaveClass(/cardDragging/)
+  await expect(laneList(page, 'Intake').getByRole('group', { name: title })).toBeVisible()
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x + 20, y + 20, { steps: 4 })
+  await page.mouse.move(368, y, { steps: 12 })
+  const ready = laneList(page, 'Ready')
+  await expect
+    .poll(
+      async () => {
+        await page.mouse.move(367, y)
+        await page.mouse.move(368, y)
+        const target = await ready.boundingBox()
+        return (target?.x ?? NaN) + (target?.width ?? NaN) / 2
+      },
+      { timeout: 10000, intervals: [50] },
+    )
+    .toBeLessThan(330)
+  const target = await ready.boundingBox()
+  const endX = (target?.x ?? NaN) + (target?.width ?? NaN) / 2
+  await page.mouse.move(endX, y, { steps: 4 })
+  await page.mouse.move(endX, y + 1)
+  await expect(ready).toHaveClass(/laneCardsOver/)
+  await page.mouse.up()
+  await expect(ready.getByRole('group', { name: title })).toBeVisible()
+  await page.reload()
+  await expect(ready.getByRole('group', { name: title })).toBeVisible()
 })

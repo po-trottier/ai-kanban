@@ -1,4 +1,9 @@
-import { NotFoundError, type PolicyDocument, type TransactionContext } from '@rivian-kanban/core'
+import {
+  globalPolicy,
+  NotFoundError,
+  type PolicyDocument,
+  type TransactionContext,
+} from '@rivian-kanban/core'
 
 /**
  * The active policy document, loaded inside an admin service's transaction so
@@ -14,7 +19,7 @@ export async function loadActivePolicy(
 ): Promise<PolicyDocument> {
   const active = await tx.policies.getActive(boardId)
   if (active === null) throw new NotFoundError('policy')
-  return active.config
+  return { ...active.config, roles: (await globalPolicy(tx)).roles }
 }
 
 /** Whether `roleKey` is a role defined in the active policy document. */

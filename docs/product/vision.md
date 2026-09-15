@@ -15,7 +15,7 @@ advice, and follow-up nudges.
    is recorded in an append-only audit trail, regardless of whether a human (web/Slack) or an AI
    agent (MCP) made the change.
 3. **AI-ready by construction** — the MCP server is a first-class consumer of the same service
-   layer as the REST API. Anything a human can see, an agent can see; a write-capable agent
+   layer as the REST API. OAuth agents inherit their user's board access; service tokens use role grants; a write-capable agent
    drives the full card lifecycle through task-shaped tools — creation, edits, moves, comments,
    and terminal actions (cancel/reopen/archive/block) — each gated by the token's scope
    (`read` tokens can call none) and the same policy as human writes (see
@@ -60,9 +60,9 @@ advice, and follow-up nudges.
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Authentication          | Local accounts (email + password), OIDC-ready design                                                                                                                                                                                                         |
 | Approval policy         | The seeded workflow graph routes **all** work through Waiting for Approval (no Intake → Ready shortcut when transition enforcement is enabled)                                                                                                               |
-| Permissions             | **Permissive by default** — any authenticated user can move/edit any card; transition enforcement and role gates are opt-in, admin-configurable policy ([ADR-013](../architecture/decisions/ADR-013-configurable-permissions.md))                            |
+| Permissions             | **Permissive by default** — users can move/edit cards on boards they can access; transition enforcement and role gates are opt-in, admin-configurable policy ([ADR-013](../architecture/decisions/ADR-013-configurable-permissions.md))                      |
 | Admin view              | App-wide settings UI: users, lane labels/WIP limits, permission policy, locations, service tokens                                                                                                                                                            |
-| Board shape             | 7 lanes (see [workflow.md](workflow.md)), single board                                                                                                                                                                                                       |
+| Board shape             | Originally one board; extended to multiple boards with role/user/group access (2026-09-15). Each starts with 7 configurable lanes (see [workflow.md](workflow.md))                                                                                           |
 | Slack integration       | Fully implemented and contract-tested in CI without a live workspace; credentials connected later                                                                                                                                                            |
 | AI thread summarization | Implemented, enabled per-deployment by config flag; **provider-agnostic** — the `openai` SDK over any OpenAI-compatible endpoint (OpenAI, NVIDIA NIM, LiteLLM proxy, vLLM, …) selected by `SUMMARIZER_BASE_URL`; invoker always reviews the draft in a modal |
 | Deployment              | Single-node Docker Compose; PostgreSQL by default, or SQLite (WAL) + Litestream for dev/small deployments — backend selected via `DATABASE_URL` vs `DATABASE_PATH` (see [deployment.md](../architecture/deployment.md))                                      |

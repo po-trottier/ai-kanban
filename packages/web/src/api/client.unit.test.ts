@@ -63,6 +63,39 @@ describe('ApiClient', () => {
     expect(new Headers(call?.init?.headers).get('X-Requested-With')).toBe('rivian-kanban')
   })
 
+  it('carries no X-Board-Id header by default (unscoped requests use the original board)', async () => {
+    // Arrange
+    const fake = createFakeFetch({ 'GET /api/v1/board': { ok: true } })
+    const client = new ApiClient(fake.fetch)
+    // Act
+    await client.get('/board', z.object({ ok: z.boolean() }))
+    // Assert
+    const call = fake.calls[0]
+    expect(new Headers(call?.init?.headers).has('X-Board-Id')).toBe(false)
+  })
+
+  it('withBoard scopes every request with an X-Board-Id header', async () => {
+    // Arrange
+    const fake = createFakeFetch({ 'GET /api/v1/board': { ok: true } })
+    const client = new ApiClient(fake.fetch).withBoard('board-2')
+    // Act
+    await client.get('/board', z.object({ ok: z.boolean() }))
+    // Assert
+    const call = fake.calls[0]
+    expect(new Headers(call?.init?.headers).get('X-Board-Id')).toBe('board-2')
+  })
+
+  it('withBoard(undefined) drops back to no header (a client can be unscoped again)', async () => {
+    // Arrange
+    const fake = createFakeFetch({ 'GET /api/v1/board': { ok: true } })
+    const client = new ApiClient(fake.fetch).withBoard('board-2').withBoard(undefined)
+    // Act
+    await client.get('/board', z.object({ ok: z.boolean() }))
+    // Assert
+    const call = fake.calls[0]
+    expect(new Headers(call?.init?.headers).has('X-Board-Id')).toBe(false)
+  })
+
   it('throws an ApiError carrying the problem+json document on non-2xx', async () => {
     // Arrange
     const fake = createFakeFetch({

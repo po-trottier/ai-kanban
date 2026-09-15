@@ -9,9 +9,10 @@ import { loadActivePolicy, manageUsersRoleKeys, roleExists } from './authz.ts'
 
 const BOARD_ID = '10000000-0000-7000-8000-000000000001'
 
-/** A transaction whose only used capability is `policies.getActive`. */
+/** A transaction exposing the role authority and active policy reads. */
 function txReturning(active: BoardPolicy | null): TransactionContext {
   return {
+    boards: { getDefault: () => Promise.resolve({ id: BOARD_ID }) },
     policies: { getActive: () => Promise.resolve(active) },
   } as unknown as TransactionContext
 }
@@ -29,7 +30,7 @@ describe('loadActivePolicy', () => {
     // Act
     const policy = await loadActivePolicy(txReturning(record), BOARD_ID)
     // Assert
-    expect(policy).toBe(DEFAULT_POLICY_DOCUMENT)
+    expect(policy).toEqual(DEFAULT_POLICY_DOCUMENT)
   })
 
   it('throws NotFoundError when no policy is seeded (boot invariant — never permissive)', async () => {

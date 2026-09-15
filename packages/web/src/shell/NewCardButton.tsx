@@ -10,6 +10,7 @@ import { cardRelationResponseSchema } from '../api/schemas.ts'
 import { CreateCardModal } from '../card/CreateCardModal.tsx'
 import { HintButton } from './HintButton.tsx'
 import { strings } from '../strings.ts'
+import classes from './shell.module.css'
 
 /**
  * "New work order" button + its create-on-submit form modal (nothing exists on
@@ -18,7 +19,7 @@ import { strings } from '../strings.ts'
  * failed relation/file is reported but never blocks the others or the created
  * work order. Cancel / ✕ / Escape close with nothing to undo.
  */
-export function NewCardButton() {
+export function NewCardButton({ compactOnMobile = false }: { compactOnMobile?: boolean }) {
   const api = useApi()
   const [open, setOpen] = useState(false)
   const [applying, setApplying] = useState(false)
@@ -67,6 +68,16 @@ export function NewCardButton() {
     <>
       <HintButton
         size="sm"
+        aria-label={strings.board.newCard}
+        classNames={
+          compactOnMobile
+            ? {
+                root: classes.compactButton,
+                label: classes.compactLabel,
+                section: classes.compactSection,
+              }
+            : {}
+        }
         tooltip={strings.tooltips.newCard}
         leftSection={<Plus size={16} aria-hidden />}
         onClick={() => {

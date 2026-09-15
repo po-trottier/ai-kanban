@@ -1,6 +1,7 @@
 import {
   createFilterPresetInputSchema,
   NotFoundError,
+  requireBoardAccess,
   updateFilterPresetInputSchema,
   type Actor,
   type Clock,
@@ -22,6 +23,7 @@ import {
  * core constants the frontend renders, never rows.
  */
 export interface FilterPresetServiceDeps {
+  boardId: string
   uow: UnitOfWork
   clock: Clock
   ids: IdGenerator
@@ -36,7 +38,10 @@ export class FilterPresetService {
 
   /** Presets visible to the caller — their own plus shared ones, newest-first. */
   async list(actor: Actor): Promise<FilterPreset[]> {
-    return this.deps.uow.read((tx) => tx.filterPresets.listVisibleTo(actor.id))
+    return this.deps.uow.read(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
+      return tx.filterPresets.listVisibleTo(actor.id, this.deps.boardId)
+    })
   }
 
   /** Creates a preset owned by the caller (ownerId from the session, never the body). */
@@ -46,13 +51,17 @@ export class FilterPresetService {
     const preset: FilterPreset = {
       id: this.deps.ids.newId(),
       ownerId: actor.id,
+      boardId: this.deps.boardId,
       name: input.name,
       filter: input.filter,
       shared: input.shared,
       createdAt: nowIso,
       updatedAt: nowIso,
     }
-    await this.deps.uow.run((tx) => tx.filterPresets.insert(preset))
+    await this.deps.uow.run(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
+      return tx.filterPresets.insert(preset)
+    })
     return preset
   }
 
@@ -60,7 +69,12 @@ export class FilterPresetService {
   async update(actor: Actor, presetId: string, rawInput: unknown): Promise<FilterPreset> {
     const input = updateFilterPresetInputSchema.parse(rawInput)
     return this.deps.uow.run(async (tx) => {
-      const existing = await tx.filterPresets.findByIdForOwner(presetId, actor.id)
+      await requireBoardAccess(tx, actor, this.deps.boardId)
+      const existing = await tx.filterPresets.findByIdForOwner(
+        presetId,
+        actor.id,
+        this.deps.boardId,
+      )
       if (existing === null) throw new NotFoundError('filter preset')
       const updated: FilterPreset = {
         ...existing,
@@ -76,6 +90,9 @@ export class FilterPresetService {
 
   /** Deletes the caller's preset; a not-owned or unknown id is 404. */
   async delete(actor: Actor, presetId: string): Promise<void> {
-    await this.deps.uow.run((tx) => tx.filterPresets.delete(presetId, actor.id))
+    await this.deps.uow.run(async (tx) => {
+      await requireBoardAccess(tx, actor, this.deps.boardId)
+      return tx.filterPresets.delete(presetId, actor.id, this.deps.boardId)
+    })
   }
 }

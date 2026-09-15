@@ -19,8 +19,26 @@
    fully reachable by keyboard (focus-within) and on touch never fully hidden. */
 .actions {
   margin-left: auto;
+  flex-shrink: 0;
   opacity: 0.35;
   transition: opacity 150ms ease;
+}
+
+.name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 36em) {
+  .row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .actions {
+    grid-column: 2;
+    opacity: 1;
+  }
 }
 
 .row:hover .actions,

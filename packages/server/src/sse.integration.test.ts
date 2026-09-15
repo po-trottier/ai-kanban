@@ -33,10 +33,10 @@ interface SseClient {
   response: IncomingMessage
 }
 
-function openStream(cookie: string | null): Promise<SseClient> {
+function openStream(cookie: string | null, boardId?: string): Promise<SseClient> {
   return new Promise((resolve, reject) => {
     const req = httpRequest(
-      `${baseUrl}/api/v1/stream`,
+      `${baseUrl}/api/v1/stream${boardId === undefined ? '' : `?boardId=${boardId}`}`,
       {
         headers: {
           accept: 'text/event-stream',
@@ -96,6 +96,51 @@ function statusOf(path: string, cookie: string | null): Promise<number> {
 }
 
 describe('GET /api/v1/stream', () => {
+  it('filters card hints by board and closes a stream after group access is revoked', async () => {
+    // Arrange
+    const admin = await t.asRole('admin')
+    const member = await t.asRole('user')
+    const outsider = await t.asRole('user')
+    const actor = { kind: 'user' as const, id: admin.user.id, role: 'admin' }
+    const boards = t.wired.deps.services.boards
+    const group = await boards.saveGroup(actor, null, {
+      name: 'Stream crew',
+      userIds: [member.user.id],
+    })
+    const board = await boards.create(actor, {
+      name: 'Stream private',
+      accessMode: 'restricted',
+      allowedRoleKeys: [],
+      allowedUserIds: [],
+      allowedGroupIds: [group.id],
+    })
+    const privateClient = await openStream(member.cookie, board.id)
+    const publicClient = await openStream(outsider.cookie)
+    try {
+      await privateClient.waitFor(':connected')
+      await publicClient.waitFor(':connected')
+      // Act
+      const card = await t.wired.deps
+        .forBoard(board.id)
+        .cards.create(actor, { title: 'Private stream card' })
+      await privateClient.waitFor(`"cardId":${String(card.id)}`)
+      const publicCard = await t.wired.deps.services.cards.create(actor, {
+        title: 'Public stream card',
+      })
+      await publicClient.waitFor(`"cardId":${String(publicCard.id)}`)
+      // Assert
+      expect(publicClient.received()).not.toContain(`"cardId":${String(card.id)}`)
+      expect(privateClient.received()).not.toContain(`"cardId":${String(publicCard.id)}`)
+      await boards.saveGroup(actor, group.id, { name: group.name, userIds: [] })
+      await privateClient.closed
+      expect(privateClient.received()).toContain('board.updated')
+      expect(await statusOf(`/api/v1/stream?boardId=${board.id}`, member.cookie)).toBe(404)
+    } finally {
+      privateClient.destroy()
+      publicClient.destroy()
+    }
+  })
+
   it('requires an authenticated session', async () => {
     const status = await statusOf('/api/v1/stream', null)
 

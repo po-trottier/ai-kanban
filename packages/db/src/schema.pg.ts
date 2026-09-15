@@ -16,12 +16,14 @@ import {
   type WaitingReason,
 } from '@rivian-kanban/core'
 import { sql } from 'drizzle-orm'
+import { type BoardDefault } from '@rivian-kanban/core'
 import {
   boolean,
   customType,
   index,
   integer,
   jsonb,
+  pgSequence,
   pgTable,
   primaryKey,
   text,
@@ -29,6 +31,18 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
+
+/**
+ * Backs `CardRepository.nextCardId()` (multiple-boards): a global ticket
+ * sequence shared across every board, since `cards.id` stays an app-assigned
+ * (not `serial`) PRIMARY KEY — `nextval('card_ids')` is called per allocation,
+ * never `setval()`. Declared here so drizzle-kit tracks it as a persistent
+ * schema object (snapshot + diffing); the ONE-TIME `setval` that initializes
+ * it above any pre-existing MAX(id) lives in the `0001_boards` migration SQL
+ * (a data-dependent backfill drizzle-kit cannot generate from the schema
+ * alone), not here.
+ */
+export const cardIdsSeq = pgSequence('card_ids', { startWith: 1 })
 
 /**
  * TEXT with byte-wise (`C`) collation. SQLite compares TEXT byte-wise by
@@ -76,11 +90,52 @@ export const users = pgTable(
   ],
 )
 
-export const boards = pgTable('boards', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  createdAt: text('created_at').notNull(),
-})
+/**
+ * Multiple boards — pg twin of `schema.ts` boards (see its header comment).
+ */
+export const boardDefaults = pgTable(
+  'board_defaults',
+  {
+    scope: text('scope').$type<BoardDefault['scope']>().notNull(),
+    subject: text('subject').notNull(),
+    boardId: text('board_id')
+      .notNull()
+      .references(() => boards.id),
+  },
+  (table) => [primaryKey({ columns: [table.scope, table.subject] })],
+)
+
+export const boards = pgTable(
+  'boards',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    createdAt: text('created_at').notNull(),
+    isDefault: boolean('is_default').notNull().default(false),
+    archivedAt: text('archived_at'),
+    accessMode: text('access_mode').$type<'all' | 'restricted'>().notNull().default('all'),
+    allowedRoleKeys: jsonb('allowed_role_keys').$type<string[]>().notNull().default([]),
+    allowedUserIds: jsonb('allowed_user_ids').$type<string[]>().notNull().default([]),
+    allowedGroupIds: jsonb('allowed_group_ids').$type<string[]>().notNull().default([]),
+  },
+  (table) => [
+    uniqueIndex('boards_is_default_unique')
+      .on(table.isDefault)
+      .where(sql`${table.isDefault} = true`),
+  ],
+)
+
+/** Global user groups — pg twin of `schema.ts` groups (see its header comment). */
+export const groups = pgTable(
+  'groups',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    userIds: jsonb('user_ids').$type<string[]>().notNull().default([]),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [uniqueIndex('groups_name_ci_unique').on(sql`lower(${table.name})`)],
+)
 
 export const lanes = pgTable(
   'lanes',
@@ -123,7 +178,9 @@ export const boardPolicies = pgTable(
 export const cards = pgTable(
   'cards',
   {
-    // App-assigned per-board sequential id (MAX(id)+1), not a serial sequence.
+    // App-assigned global ticket id, allocated from the `cardIdsSeq` sequence
+    // above via `nextval()` — not a `serial`/identity column (the PK stays
+    // the backstop against any drift between allocation and insertion).
     id: integer('id').primaryKey(),
     boardId: text('board_id')
       .notNull()
@@ -361,6 +418,9 @@ export const filterPresets = pgTable(
     ownerId: text('owner_id')
       .notNull()
       .references(() => users.id),
+    boardId: text('board_id')
+      .notNull()
+      .references(() => boards.id),
     name: text('name').notNull(),
     filter: jsonb('filter').notNull(),
     shared: boolean('shared').notNull().default(false),
@@ -369,8 +429,8 @@ export const filterPresets = pgTable(
   },
   (table) => [
     index('filter_presets_owner_id_created_at_idx').on(table.ownerId, table.createdAt),
-    index('filter_presets_shared_created_at_idx')
-      .on(table.createdAt)
+    index('filter_presets_shared_board_id_created_at_idx')
+      .on(table.boardId, table.createdAt)
       .where(sql`${table.shared} = true`),
   ],
 )

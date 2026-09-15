@@ -19,6 +19,8 @@ import {
   pickerUserSchema as corePickerUserSchema,
   roleDefinitionSchema,
   policyTransitionSchema,
+  policyDocumentSchema,
+  waitingReasonDefinitionSchema,
   redactedCommentSchema,
   serviceTokenSchema,
   tagSchema,
@@ -41,15 +43,15 @@ export const tagResponseSchema = z.object(tagSchema.shape)
 export const attachmentResponseSchema = z.object(attachmentSchema.shape)
 // Derived from the canonical core shapes (docs/dev/standards.md single-schema
 // rule) — only the strictObject wrappers are swapped for stripping z.objects.
-// `policyDocumentSchema` carries .refine() effects, so it has no `.shape`; the
-// response config is rebuilt field-by-field from the same canonical part
-// schemas (single-schema rule) as stripping z.objects.
+// Derive every policy field from core; listing them manually silently dropped
+// settings from GET/PUT responses. Nested records still strip unknown fields.
 export const boardPolicyResponseSchema = z.object({
   ...boardPolicySchema.shape,
   config: z.object({
-    transitionEnforcement: z.boolean(),
+    ...policyDocumentSchema.shape,
     transitions: z.array(z.object(policyTransitionSchema.shape)),
     roles: z.array(z.object(roleDefinitionSchema.shape)),
+    waitingReasons: z.array(z.object(waitingReasonDefinitionSchema.shape)),
   }),
 })
 

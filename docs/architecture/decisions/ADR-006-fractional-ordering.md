@@ -15,6 +15,10 @@ require mass renumbering on insert; naive float midpoints exhaust precision.
 - **The server computes keys.** Move commands carry only `prevCardId`/`nextCardId`; the service
   re-reads the neighbors inside the move transaction and calls `generateKeyBetween`. Clients
   never send keys — concurrent clients aiming at the same gap cannot produce duplicates.
+- Supplied neighbors are validated for lane membership and order. The server then finds the
+  closest occupied position before `nextCardId` (or the lane end when it is null), excluding the
+  moving card. This indexed `LIMIT 1` read includes archived rows and cards hidden by filters,
+  so the generated key occupies a real gap. Both neighbor ids null means append to the lane.
 - `UNIQUE(lane_id, position)` as a backstop; on violation the transaction retries once with
   fresh neighbors.
 - Keys grow under repeated same-spot insertion: a daily job rebalances any lane whose longest

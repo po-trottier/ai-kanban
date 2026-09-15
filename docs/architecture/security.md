@@ -59,6 +59,19 @@ may need to refresh their access tokens.
 
 ## Authorization
 
+Board visibility is enforced in core before reads, writes, or optimistic-lock conflict payloads.
+An inaccessible board or card returns 404. A restricted board grants access through any matching
+role, selected user, or group membership; the global `managePolicy` grant bypasses membership
+restrictions and administers boards/groups. Membership grants no action permissions. OAuth and
+Slack actors use their user's membership; independent service tokens use only their assigned role.
+Board archival denies access to everyone. The original board policy remains the global role
+authority, so selecting another board cannot change privileges for user/token administration.
+
+Activity, tag suggestions, saved filters, notification lists/counts, attachment downloads,
+relations, and SSE hints respect board access. Relations can only connect cards on the same board.
+Group/board access changes invalidate the board catalog; existing streams recheck access and close
+when revoked. Notification fan-out and Slack DMs recheck recipient visibility.
+
 One policy engine in `core` (a single `evaluatePolicy` path), consulted by services (not
 adapters), so no REST route, MCP tool, or Slack listener can bypass it. The model — permissive
 by default, roles-as-data — is defined once in

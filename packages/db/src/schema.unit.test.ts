@@ -226,7 +226,7 @@ describe('schema contract (data-model.md)', () => {
       oauth_authorization_codes: ['client_id -> oauth_clients(id)', 'user_id -> users(id)'],
       oauth_access_tokens: ['user_id -> users(id)', 'client_id -> oauth_clients(id)'],
       oauth_refresh_tokens: ['user_id -> users(id)', 'client_id -> oauth_clients(id)'],
-      filter_presets: ['owner_id -> users(id)'],
+      filter_presets: ['owner_id -> users(id)', 'board_id -> boards(id)'],
       card_relations: ['from_card_id -> cards(id)', 'to_card_id -> cards(id)'],
       card_watchers: ['card_id -> cards(id)', 'user_id -> users(id)'],
       // actor_id is deliberately FK-free (may hold a service-token id).

@@ -97,29 +97,34 @@ export function LanesAdmin() {
   return (
     <Stack gap="md">
       <Group justify="space-between" align="flex-start" wrap="nowrap">
-        <Text c="dimmed" size="sm">
+        <Text c="dimmed" size="sm" flex={1} miw={0}>
           {strings.lanes.intro}
         </Text>
         <AddLaneButton />
       </Group>
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>{strings.lanes.orderHeader}</Table.Th>
-            <Table.Th>{strings.lanes.labelHeader}</Table.Th>
-            <Table.Th>
-              <FieldLabel label={strings.lanes.wipLimitLabel} help={strings.fieldHelp.wipLimit} />
-            </Table.Th>
-            <Table.Th />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {board.isPending ? <SkeletonRows rows={7} cols={4} /> : null}
-          {snapshots.map((snapshot) => (
-            <LaneRow key={snapshot.lane.id} snapshot={snapshot} laneCount={snapshots.length} />
-          ))}
-        </Table.Tbody>
-      </Table>
+      <Table.ScrollContainer
+        minWidth={SIZES.settingsTableMinWidth}
+        scrollAreaProps={{ type: 'auto' }}
+      >
+        <Table>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>{strings.lanes.orderHeader}</Table.Th>
+              <Table.Th>{strings.lanes.labelHeader}</Table.Th>
+              <Table.Th>
+                <FieldLabel label={strings.lanes.wipLimitLabel} help={strings.fieldHelp.wipLimit} />
+              </Table.Th>
+              <Table.Th />
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {board.isPending ? <SkeletonRows rows={7} cols={4} /> : null}
+            {snapshots.map((snapshot) => (
+              <LaneRow key={snapshot.lane.id} snapshot={snapshot} laneCount={snapshots.length} />
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
       {/* Columns and the moves allowed between them belong together (ADR-013):
           the workflow-transitions matrix lives here, under the column list. */}
       <Divider />

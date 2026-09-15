@@ -11,7 +11,6 @@ import {
   type Resolution,
   type Theme,
   type TokenScope,
-  type WaitingReason,
 } from '@rivian-kanban/core'
 
 /**
@@ -20,11 +19,12 @@ import {
  */
 
 export const strings = {
-  appTitle: 'Facilities Kanban',
+  appTitle: 'Rivian Facilities Tickets System',
+  boardTitle: (board: string) => `Rivian ${board} Tickets System`,
 
   header: {
     /** Alt text on the logo, which also links home. */
-    logoAlt: 'Facilities Kanban — go to the board',
+    logoAlt: 'Rivian Facilities Tickets System — go to the board',
     /** Tooltip on the avatar button that opens the account menu (settings + log out). */
     accountMenu: 'Account menu',
   },
@@ -135,9 +135,21 @@ export const strings = {
     savePreferences: 'Save your time zone and theme',
     // Account / shell.
     settings: 'Open Settings',
-    logout: 'Sign out of Facilities Kanban',
+    logout: 'Sign out of Rivian Facilities Tickets System',
     home: 'Go to the board',
     reload: 'Reload the page',
+    // Board switcher.
+    switchBoard: 'Switch to this board',
+    manageBoards: 'Open Settings → Boards to add, edit, or delete boards',
+    // Boards admin.
+    saveBoard: 'Save this board',
+    deleteBoard: 'Archive this board — its work orders and history are kept',
+    deleteLastBoard: "The last active board can't be deleted",
+    addBoard: 'Add a new board',
+    // Groups admin.
+    saveGroup: 'Save this group',
+    deleteGroup: 'Delete this group',
+    addGroup: 'Add a new group',
   },
 
   /**
@@ -276,12 +288,84 @@ export const strings = {
     legendPriorities: 'Priority',
     legendStates: 'Status',
     legendBlocked: 'Blocked — stuck on an exception; hover the badge for the reason',
-    legendWaiting: 'Waiting — on parts or a vendor, with a date it is expected to resume',
+    legendWaiting: 'Waiting — on a dependency, with a date it is expected to resume',
     /** Short badge word for the Overdue legend row (the board shows "Overdue: …"). */
     legendOverdueBadge: 'Overdue',
     legendOverdue: 'Overdue — the expected resume date has passed',
     legendCancelled: 'Cancelled / Declined / Duplicate — closed without completing',
     legendArchived: 'Archived — an old Done work order, read-only until reopened',
+  },
+
+  /** The header board switcher and the Settings → Boards admin tab. */
+  boards: {
+    preferredDefault: 'My default board',
+    preferredDefaultHelp:
+      'Choose the board to open when you start the app. Your choice takes priority over group, role, and global defaults.',
+    useAssignedDefault: 'Use assigned default',
+    opensByDefault: (name: string) => `Opens by default: ${name}`,
+    preferenceSaved: 'Default board preference saved',
+    boardPreferences: 'Board preferences',
+    readOnlyHelp:
+      'These are the boards you can access. Only administrators can create, edit, or delete boards.',
+    defaultAssignments: 'Default board assignments',
+    defaultAssignmentsHelp:
+      'Priority: user → group → role → global. Conflicting group defaults fall back to the role. Defaults never grant access. Assigning a role or group here replaces its previous default.',
+    globalDefault: 'Use as the global default board',
+    defaultRoles: 'Default for roles',
+    defaultGroups: 'Default for groups',
+    switcherLabel: 'Selected board',
+    switcherAriaLabel: (name: string) => `Switch board (current: ${name})`,
+    switching: 'Switching…',
+    empty: 'No boards available',
+    emptyHint: 'Ask an administrator to grant you access to a board.',
+    manageBoards: 'Manage boards',
+    manageBoardsHint: 'Open Settings → Boards',
+    intro: 'Boards separate work into independent columns, policies, and taxonomy.',
+    addButton: 'Add board',
+    nameLabel: 'Name',
+    nameRequired: 'Enter a board name',
+    accessModeLabel: 'Access',
+    accessModeAll: 'All signed-in users',
+    accessModeRestricted: 'Restricted',
+    rolesLabel: 'Roles',
+    rolesHelp: 'Anyone holding one of these roles can select this board.',
+    peopleLabel: 'People',
+    peopleHelp: 'Individually granted access, in addition to any roles above.',
+    groupsLabel: 'Groups',
+    groupsHelp: 'Anyone in one of these groups can select this board.',
+    restrictedEmptyHint:
+      'No roles, groups, or people selected — only administrators can select this board.',
+    defaultBadge: 'Default',
+    created: (name: string) => `Board "${name}" created`,
+    updated: (name: string) => `Board "${name}" updated`,
+    deleted: 'Board deleted',
+    editTitle: 'Edit board',
+    addTitle: 'Add board',
+    deleteConfirmTitle: 'Delete board?',
+    deleteConfirmBody: (name: string) =>
+      `"${name}" will be archived. Its work orders and history are kept, but the board leaves the selector.`,
+    deleteConfirmLabel: 'Delete board',
+    loadFailed: 'The board list could not be loaded.',
+    cardForbidden: "You don't have access to this work order's board.",
+  },
+
+  groups: {
+    intro: 'Groups let admins grant several people access to a board at once.',
+    addButton: 'Add group',
+    nameLabel: 'Name',
+    nameRequired: 'Enter a group name',
+    nameTaken: 'A group with this name already exists',
+    membersLabel: 'Members',
+    created: (name: string) => `Group "${name}" created`,
+    updated: (name: string) => `Group "${name}" updated`,
+    deleted: 'Group deleted',
+    editTitle: 'Edit group',
+    addTitle: 'Add group',
+    deleteConfirmTitle: 'Delete group?',
+    deleteConfirmBody: (name: string) => `"${name}" will be deleted.`,
+    deleteConfirmLabel: 'Delete group',
+    inUse:
+      'This group grants access to at least one board — remove it from that board’s access first.',
   },
 
   card: {
@@ -574,13 +658,21 @@ export const strings = {
     commentLabel: 'Note (optional)',
     commentPlaceholder: 'Add context — which part, vendor, or PO number',
     confirm: 'Move work order',
-    reasons: {
-      parts: 'Parts',
-      vendor: 'Vendor',
-      access: 'Access',
-      info: 'Information',
-      funding: 'Funding',
-    } satisfies Record<WaitingReason, string>,
+    noReasons:
+      'No waiting reasons are available. Ask an administrator to add one in Settings → Waiting reasons.',
+  },
+
+  waitingSettings: {
+    intro:
+      'Add or rename waiting reasons, then save your changes. Removing a reason hides it from new selections; existing work orders and history keep it.',
+    nameLabel: (name: string) => `Reason name (${name})`,
+    namePlaceholder: 'Reason name',
+    removeLabel: (name: string) => `Remove reason (${name})`,
+    add: 'Add reason',
+    newReason: 'New reason',
+    save: 'Save reasons',
+    invalid: 'Use unique, non-empty reason names of up to 80 characters.',
+    keepOne: 'Keep at least one reason. Add a replacement before removing this one.',
   },
 
   cancelAction: {
@@ -782,8 +874,11 @@ export const strings = {
     tabLanes: 'Columns',
     tabPolicy: 'Permissions',
     tabHours: 'Hours',
+    tabWaitingReasons: 'Waiting reasons',
     tabLocations: 'Locations',
     tabTokens: 'Service tokens',
+    tabBoards: 'Boards',
+    tabGroups: 'Groups',
   },
 
   // The per-user preferences fields (time zone + theme), now the first Settings
@@ -852,6 +947,8 @@ export const strings = {
     /** Default label a freshly-added column gets — the admin renames it inline. */
     newColumnDefault: 'New column',
     addButton: 'Add',
+    boardLabel: 'Board',
+    boardHelp: 'Choose the board whose columns you want to edit.',
     laneAdded: (lane: string) => `${lane} added`,
     laneDeleted: 'Column deleted',
     deleteConfirmTitle: 'Delete column?',

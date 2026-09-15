@@ -1,3 +1,4 @@
+import { BoardService } from '@rivian-kanban/core'
 import { existsSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
@@ -244,6 +245,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
 
   const shared = { uow, clock, ids, eventBus }
   const services: AppDeps['services'] = {
+    boards: new BoardService(shared),
     cards: new CardService({ ...shared, notifier, blobStore, boardId, systemUserId }),
     comments: new CommentService(shared),
     attachments: new AttachmentService({ ...shared, blobStore }),
@@ -255,7 +257,7 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     lanes: new LaneAdminService({ uow, eventBus, ids, boardId }),
     locations: new LocationAdminService({ ...shared, boardId }),
     tokens: new ServiceTokenService({ uow, clock, ids, boardId }),
-    filterPresets: new FilterPresetService({ uow, clock, ids }),
+    filterPresets: new FilterPresetService({ uow, clock, ids, boardId }),
     relations: new CardRelationService({ uow, clock, ids }),
     watch: new CardWatchService({ uow, clock }),
     notifications: new NotificationService({ uow, clock, ids }),
@@ -263,6 +265,24 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
     oauthToken: new TokenService({ uow, clock, ids, config: oauth }),
     oauthRegistration: new RegistrationService({ uow, clock, ids }),
   }
+
+  const forBoard: AppDeps['forBoard'] = (selectedId) =>
+    selectedId === boardId
+      ? services
+      : {
+          ...services,
+          cards: new CardService({
+            ...shared,
+            notifier,
+            blobStore,
+            boardId: selectedId,
+            systemUserId,
+          }),
+          queries: new BoardQueryService({ uow, clock, boardId: selectedId }),
+          policies: new PolicyService({ ...shared, boardId: selectedId }),
+          lanes: new LaneAdminService({ uow, eventBus, ids, boardId: selectedId }),
+          filterPresets: new FilterPresetService({ uow, clock, ids, boardId: selectedId }),
+        }
 
   // App-lifetime subscriber: turn committed card events into watcher notifications.
   subscribeNotificationFanOut(eventBus, services.notifications)
@@ -281,7 +301,19 @@ export async function wireApp(env: Env, options: WireOptions = {}): Promise<Wire
   }
 
   return {
-    deps: { config, logger, uow, clock, eventBus, blobStore, metrics, services, systemUserId },
+    deps: {
+      config,
+      logger,
+      uow,
+      clock,
+      eventBus,
+      blobStore,
+      metrics,
+      services,
+      systemUserId,
+      defaultBoardId: boardId,
+      forBoard,
+    },
     connection: dataLayer.sqliteConnection,
     close: dataLayer.close,
     hasher,

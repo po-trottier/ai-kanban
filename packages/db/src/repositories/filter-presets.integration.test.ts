@@ -57,6 +57,7 @@ function card(overrides: Partial<Card> = {}): Card {
 function preset(overrides: Partial<FilterPreset> & Pick<FilterPreset, 'ownerId'>): FilterPreset {
   return {
     id: newId(),
+    boardId: base.boardId,
     name: 'Preset',
     filter: EMPTY_BOARD_FILTER,
     shared: false,
@@ -163,7 +164,7 @@ describe('FilterPresetRepository — per-user CRUD isolation', () => {
     })
 
     // Act
-    const aliceList = await run((tx) => tx.filterPresets.listVisibleTo(alice))
+    const aliceList = await run((tx) => tx.filterPresets.listVisibleTo(alice, base.boardId))
 
     // Assert — newest-first, and Bob's PRIVATE preset is absent from Alice's list.
     expect(aliceList.map((p) => p.name)).toEqual(['Newer', 'Older'])
@@ -179,7 +180,7 @@ describe('FilterPresetRepository — per-user CRUD isolation', () => {
     })
 
     // Act — Alice's visible list.
-    const aliceList = await run((tx) => tx.filterPresets.listVisibleTo(alice))
+    const aliceList = await run((tx) => tx.filterPresets.listVisibleTo(alice, base.boardId))
 
     // Assert — the shared one is visible to Alice; the private one is not.
     expect(aliceList.some((p) => p.id === shared.id)).toBe(true)
@@ -192,8 +193,8 @@ describe('FilterPresetRepository — per-user CRUD isolation', () => {
     await run((tx) => tx.filterPresets.insert(p))
 
     // Act
-    const asOwner = await run((tx) => tx.filterPresets.findByIdForOwner(p.id, alice))
-    const asOther = await run((tx) => tx.filterPresets.findByIdForOwner(p.id, bob))
+    const asOwner = await run((tx) => tx.filterPresets.findByIdForOwner(p.id, alice, base.boardId))
+    const asOther = await run((tx) => tx.filterPresets.findByIdForOwner(p.id, bob, base.boardId))
 
     // Assert — round-trips the JSON filter for the owner; absent for the other.
     expect(asOwner?.filter).toEqual(EMPTY_BOARD_FILTER)
@@ -209,9 +210,9 @@ describe('FilterPresetRepository — per-user CRUD isolation', () => {
     await expect(
       run((tx) => tx.filterPresets.update({ ...p, ownerId: bob, name: 'Hijacked' })),
     ).rejects.toBeInstanceOf(NotFoundError)
-    await expect(run((tx) => tx.filterPresets.delete(p.id, bob))).rejects.toBeInstanceOf(
-      NotFoundError,
-    )
+    await expect(
+      run((tx) => tx.filterPresets.delete(p.id, bob, base.boardId)),
+    ).rejects.toBeInstanceOf(NotFoundError)
 
     // The owner can rename it, then delete it.
     await run((tx) =>
@@ -221,11 +222,15 @@ describe('FilterPresetRepository — per-user CRUD isolation', () => {
         filter: { ...EMPTY_BOARD_FILTER, q: 'hi' },
       }),
     )
-    const afterRename = await run((tx) => tx.filterPresets.findByIdForOwner(p.id, alice))
+    const afterRename = await run((tx) =>
+      tx.filterPresets.findByIdForOwner(p.id, alice, base.boardId),
+    )
     expect(afterRename?.name).toBe('Renamed')
     expect(afterRename?.filter.q).toBe('hi')
 
-    await run((tx) => tx.filterPresets.delete(p.id, alice))
-    expect(await run((tx) => tx.filterPresets.findByIdForOwner(p.id, alice))).toBeNull()
+    await run((tx) => tx.filterPresets.delete(p.id, alice, base.boardId))
+    expect(
+      await run((tx) => tx.filterPresets.findByIdForOwner(p.id, alice, base.boardId)),
+    ).toBeNull()
   })
 })

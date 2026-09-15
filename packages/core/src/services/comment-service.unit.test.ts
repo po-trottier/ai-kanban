@@ -251,7 +251,7 @@ describe('CommentService.listForCard', () => {
     await scenario.comments.softDelete(scenario.actors.technician, first.id)
 
     // Act
-    const thread = await scenario.comments.listForCard(card.id)
+    const thread = await scenario.comments.listForCard(scenario.actors.requester, card.id)
 
     // Assert — thread shape kept, but deleted content never leaves the
     // server on ANY surface (redaction lives here, not in a transport).

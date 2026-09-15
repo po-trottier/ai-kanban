@@ -1,7 +1,7 @@
 import { boardPolicySchema, type BoardPolicy, type PolicyRepository } from '@rivian-kanban/core'
 import { desc, eq } from 'drizzle-orm'
 import { toError } from '../../errors.ts'
-import { boardPolicies } from '../../schema.pg.ts'
+import { boardPolicies, boards } from '../../schema.pg.ts'
 import { type PgDb } from '../database.ts'
 
 export class PgPolicyRepository implements PolicyRepository {
@@ -26,6 +26,13 @@ export class PgPolicyRepository implements PolicyRepository {
       .orderBy(desc(boardPolicies.createdAt), desc(boardPolicies.id))
       .limit(1)
     return rows[0] === undefined ? null : boardPolicySchema.parse(rows[0])
+  }
+
+  async getActiveForUpdate(boardId: string): Promise<BoardPolicy | null> {
+    // Lock the stable board, not the current version: another writer appends a
+    // new version, so locking the old version row would still read stale data.
+    await this.db.select({ id: boards.id }).from(boards).where(eq(boards.id, boardId)).for('update')
+    return this.getActive(boardId)
   }
 
   /** Append-only: never updates or deletes prior versions. */

@@ -2,6 +2,8 @@ import {
   boardCardOf,
   DEFAULT_POLICY_DOCUMENT,
   LANE_KEYS,
+  type Board,
+  type BoardCatalog,
   type BoardCardExtras,
   type Card,
   type CardEvent,
@@ -30,7 +32,7 @@ export function nth<T>(items: readonly T[], index: number): T {
   return item
 }
 
-const FIXTURE_BOARD_ID = uid(9000)
+export const FIXTURE_BOARD_ID = uid(9000)
 const T0 = '2026-07-01T10:00:00.000Z'
 
 // Labels come from strings.laneNames — the app's own fallback table for the
@@ -127,6 +129,32 @@ export function makeBoard(cardsByLane: Partial<Record<LaneKey, Card[]>>): BoardR
         wipLimitExceeded: lane.wipLimit !== null && cards.length > lane.wipLimit,
       }
     }),
+  }
+}
+
+/** A `GET /boards` catalog entry (multiple-boards, docs/superpowers/plans/
+ *  2026-09-15-multiple-boards.md). */
+export function makeBoardEntity(overrides: Partial<Board> & { id: string; name: string }): Board {
+  return {
+    createdAt: T0,
+    isDefault: false,
+    archivedAt: null,
+    accessMode: 'all',
+    allowedRoleKeys: [],
+    allowedUserIds: [],
+    allowedGroupIds: [],
+    ...overrides,
+  }
+}
+
+export function makeBoardCatalog(items: Board[], canManage = false): BoardCatalog {
+  return {
+    items,
+    canManage,
+    preferredBoardId: null,
+    defaultBoardId: items[0]?.id ?? null,
+    defaultSource: 'fallback',
+    defaultAssignments: [],
   }
 }
 

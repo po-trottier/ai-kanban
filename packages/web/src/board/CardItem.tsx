@@ -88,9 +88,11 @@ export function CardItem({
           <Text size="xs" c="dimmed" fw={EMPHASIS_FONT_WEIGHT}>
             {formatTicketNumber(card.id)}
           </Text>
-          <Text size="sm" fw={EMPHASIS_FONT_WEIGHT} truncate className={classes.grow}>
-            {card.title}
-          </Text>
+          <Tooltip label={card.title} multiline maw="var(--app-lane-width)">
+            <Text size="sm" fw={EMPHASIS_FONT_WEIGHT} truncate className={classes.grow}>
+              {card.title}
+            </Text>
+          </Tooltip>
         </Group>
         <Group gap="xs" wrap="nowrap">
           {/* Priority meaning on hover — the same plain-language copy the

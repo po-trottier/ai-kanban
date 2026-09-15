@@ -97,6 +97,17 @@ export function createScenario(options: ScenarioOptions = {}): Scenario {
   const blobStore = new InMemoryBlobStore()
   const boardId = SCENARIO_BOARD_ID
   const nowIso = clock.now().toISOString()
+  db.seedBoard({
+    id: boardId,
+    name: 'Facilities',
+    createdAt: nowIso,
+    isDefault: true,
+    archivedAt: null,
+    accessMode: 'all',
+    allowedRoleKeys: [],
+    allowedUserIds: [],
+    allowedGroupIds: [],
+  })
 
   const wipLimits = new Map(Object.entries(options.wipLimits ?? {}))
   const lanes = Object.fromEntries(
