@@ -61,11 +61,9 @@ Edit `.env` before starting:
 - `TRUST_PROXY`: comma-separated proxy IPs/CIDRs as seen by the app; leave empty for direct access.
 - Keep `SEED_DEMO_DATA=false` and `SEED_DEMO_PASSWORD` unset.
 
-For the private GHCR package, authenticate with a GitHub account that can read it. At the
-password prompt, enter a personal access token (classic) with `read:packages`:
+The published image supports anonymous pulls; no GitHub token is required:
 
 ```bash
-docker login ghcr.io -u YOUR_GITHUB_USERNAME
 docker compose config --quiet
 docker compose pull
 docker compose up -d --wait

@@ -66,7 +66,7 @@ must replace `TRUST_PROXY_HOPS` with these addresses; numeric hop counts are no 
 
 Keep the default `PORT=3000` unless you also update the Compose port mapping. Compose sets
 `NODE_ENV=production` and the database/storage paths automatically. Keep `.env` private and
-out of Git. Authenticate to GHCR as described under [Published image](#published-image), then:
+out of Git. The published image supports anonymous pulls:
 
 ```bash
 docker compose config --quiet
@@ -126,8 +126,9 @@ Tags:
 - `main`: the most recently published passing `main` build, for testing before a release.
 - `sha-<full git SHA>`: a specific commit build. Set `IMAGE_TAG` in `.env` to pin it.
 
-GitHub creates new container packages as private. Before pulling a private image, log in
-with a GitHub personal access token (classic) with `read:packages` and access to the package:
+This package supports anonymous pulls, so `docker compose pull` needs no GitHub credentials.
+If you deploy a private fork or the package visibility changes, log in with a GitHub personal
+access token (classic) with `read:packages` and access to that package:
 
 ```bash
 docker login ghcr.io -u YOUR_GITHUB_USERNAME

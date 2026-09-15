@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Clarify that the published GHCR image supports anonymous pulls; registry login is only
+  needed for private packages.
+
 ## [1.0.1] - 2026-09-14
 
 ### Added
