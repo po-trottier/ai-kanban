@@ -49,6 +49,8 @@ React 19 + Vite single-page app in `packages/web`, served by the backend in prod
 **Mantine 9** with token-only styling rules ([ADR-016](decisions/ADR-016-ui-framework.md));
 the board's drag-and-drop is **Pragmatic drag-and-drop**
 ([ADR-007](decisions/ADR-007-pragmatic-drag-and-drop.md)).
+Native drag-preview containers are `aria-hidden` and `inert`: their cloned card is decorative,
+so it does not appear as a second card to assistive technology or accept keyboard focus.
 
 ## Module layout (`packages/web/src`)
 

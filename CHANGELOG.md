@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Board settings now reserve the **Default** badge for the configured global default. A different
   resolved startup board is labeled **Your default**, including personal, group, and role choices.
+- Keep decorative drag previews out of the accessibility tree and keyboard focus order.
 
 ### Added
 

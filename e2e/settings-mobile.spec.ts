@@ -52,7 +52,9 @@ test('keeps every settings tab and its controls reachable on narrow screens', as
       // Focus and scrolling must reach controls at the far edge of wide tables, too.
       const lastButton = panel.getByRole('button').last()
       await lastButton.focus()
-      await lastButton.scrollIntoViewIfNeeded()
+      await lastButton.evaluate((el) => {
+        el.scrollIntoView({ block: 'center', inline: 'nearest' })
+      })
       await expect(lastButton).toBeInViewport({ ratio: 0.99 })
     }
   }
@@ -76,7 +78,12 @@ test('keeps every settings tab and its controls reachable on narrow screens', as
     expect(dimensions.content).toBe(dimensions.width)
     await dialog.getByRole('textbox').first().fill('Mobile draft')
     await dialog.getByRole('button').last().focus()
-    await dialog.getByRole('button').last().scrollIntoViewIfNeeded()
+    await dialog
+      .getByRole('button')
+      .last()
+      .evaluate((el) => {
+        el.scrollIntoView({ block: 'center', inline: 'nearest' })
+      })
     await expect(dialog.getByRole('button').last()).toBeInViewport({ ratio: 0.99 })
     await page.keyboard.press('Escape')
     await expect(dialog).toBeHidden()
@@ -108,8 +115,10 @@ test('keeps permission labels above scrolling cells and nested location actions 
   for (const button of await tree.getByRole('button').all()) {
     await button.focus()
     // Native focus scrolling may leave a fractional pixel clipped at the bottom.
-    // Scroll explicitly before requiring complete visibility; tree width is checked above.
-    await button.scrollIntoViewIfNeeded()
+    // Center explicitly to avoid boundary rounding; tree width is checked above.
+    await button.evaluate((el) => {
+      el.scrollIntoView({ block: 'center', inline: 'nearest' })
+    })
     await expect(button).toBeInViewport({ ratio: 0.99 })
   }
   await page.getByRole('tab', { name: 'Permissions', exact: true }).tap()

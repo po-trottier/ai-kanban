@@ -65,6 +65,9 @@ export function useCardDnd(
           setCustomNativeDragPreview({
             nativeSetDragImage,
             render: ({ container }) => {
+              // The native drag image is decorative, not a second interactive card.
+              container.setAttribute('aria-hidden', 'true')
+              container.inert = true
               const rect = source.element.getBoundingClientRect()
               const preview = source.element.cloneNode(true) as HTMLElement
               preview.style.width = `${String(rect.width)}px`
