@@ -137,17 +137,17 @@ React (react.dev) and Fastify (fastify.dev) publish only standard HTML docs — 
 
 ## Trying the MCP server locally
 
-Run `npm run dev`, log in as the seeded admin, and create a token in **Settings → Service
-tokens** (pick `read` unless the agent needs writes). Connect any MCP client (Streamable HTTP)
-to `http://localhost:3000/mcp` with that bearer token. The only CLI is the break-glass
-admin recovery (`node dist/cli.js users create-admin`, see
-[deployment.md](../architecture/deployment.md#bootstrap-first-production-deployment)) — dev
-doesn't need it because the demo seed includes an admin, and a fresh production database
-creates its first admin through the browser setup page.
+Run `npm run dev`, create the first admin through setup (or log in as the seeded admin when
+`SEED_DEMO_DATA=true`), and create a token in **Settings → Service tokens** (pick `read`
+unless the agent needs writes). Connect any MCP client (Streamable HTTP) to
+`http://localhost:3000/mcp` with that bearer token. The only CLI is the break-glass admin
+recovery (`node dist/cli.js users create-admin`, see
+[deployment.md](../architecture/deployment.md#bootstrap-first-production-deployment)).
+A fresh database creates its first admin through the browser setup page.
 
 ## Trying Slack locally (optional)
 
-Set `SLACK_ENABLED=true`, `SLACK_BOT_TOKEN` (xoxb-), `SLACK_APP_TOKEN` (xapp-) in `.env` from a
-dev workspace app configured per [architecture/slack.md](../architecture/slack.md). Socket Mode
+Set `SLACK_ENABLED=true`, `SLACK_BOT_TOKEN` (xoxb-), `SLACK_APP_TOKEN` (xapp-), and `SLACK_TEAM_ID`
+in `.env` from a dev workspace app configured per [architecture/slack.md](../architecture/slack.md). Socket Mode
 needs no public URL. CI never needs any of this — Slack behavior is contract-tested with
 recorded payloads.

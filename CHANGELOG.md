@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-10-02
+
+### Security
+
+- Update Fastify and affected transitive dependencies to patched versions, restoring security scans and image publication.
+
+### Fixed
+
+- Correct developer setup instructions for first-admin creation and required Slack team configuration.
+
 ### Changed
 
 - Use a login icon above the sign-in form.
