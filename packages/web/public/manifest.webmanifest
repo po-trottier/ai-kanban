@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Rivian Facilities Tickets System",
-  "short_name": "Rivian Facilities Tickets System",
+  "name": "Workplace Facilities Tickets System",
+  "short_name": "Workplace Facilities Tickets System",
   "description": "Manage facilities work orders on your team's Kanban board.",
   "lang": "en",
   "start_url": "/",

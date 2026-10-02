@@ -86,7 +86,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(swagger, {
     openapi: {
       openapi: '3.1.0',
-      info: { title: 'Rivian Kanban REST API', version: config.version.version },
+      info: { title: 'Workplace Kanban REST API', version: config.version.version },
       servers: [],
     },
     transform: jsonSchemaTransform,

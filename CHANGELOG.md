@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Use a login icon above the sign-in form.
+- Rename the app, browser titles, installed PWA, and API descriptions to Workplace.
+- Replace the former brand logo and launcher icons with a generic workplace building mark.
+- Replace the rotating vehicle photos on sign-in and setup with one self-hosted abstract SVG background.
+
 ## [1.0.9] - 2026-09-15
 
 ### Fixed

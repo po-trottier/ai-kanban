@@ -297,7 +297,7 @@ tokens remain.
   agent is silent, re-prompting only on a new client or a scope increase. Revocable in Settings.
 
 _Agent consent, defined:_ when an agent first hits the OAuth flow, after the human signs in the AS
-shows a **consent screen** — "**Codex** wants to act as **you** on Rivian Kanban: **read / read +
+shows a **consent screen** — "**Codex** wants to act as **you** on Workplace Kanban: **read / read +
 write**. Allow?" It's the moment the human grants a named client permission to act on their behalf
 (and picks/limits the scope). Approving records a grant so future connections by that same client are
 silent; the human can revoke it anytime (which kills that agent's tokens). It is the human-in-the-loop

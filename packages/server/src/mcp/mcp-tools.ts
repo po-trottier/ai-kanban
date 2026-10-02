@@ -291,7 +291,7 @@ export function buildMcpToolServer(deps: AppDeps, actor: Actor, log: FastifyBase
   const { queries, cards, comments, locations } = deps.services
   const scoped = (boardId: string | undefined) => deps.forBoard(boardId ?? deps.defaultBoardId)
   const server = new McpServer(
-    { name: 'rivian-kanban', version: deps.config.version.version },
+    { name: 'workplace-kanban', version: deps.config.version.version },
     { capabilities: { tools: {} } },
   )
 

@@ -2,8 +2,8 @@
 
 ## Board selection
 
-The app and PWA are named **Rivian Facilities Tickets System**. The browser title follows the
-selected board as **Rivian {board name} Tickets System**, including board renames, and resets to
+The app and PWA are named **Workplace Facilities Tickets System**. The browser title follows the
+selected board as **Workplace {board name} Tickets System**, including board renames, and resets to
 the app name when no board is selected or the user signs out.
 
 The header has a centered, responsive board menu using the same Mantine `Button size="sm"` as
@@ -52,6 +52,13 @@ the board's drag-and-drop is **Pragmatic drag-and-drop**
 Native drag-preview containers are `aria-hidden` and `inert`: their cloned card is decorative,
 so it does not appear as a second card to assistive technology or accept keyboard focus.
 
+The sign-in form displays a Lucide `LogIn` icon above its headings.
+
+Sign-in and first-boot setup share one static backdrop in `auth/auth.module.css`.
+The self-hosted abstract artwork is `public/auth/workplace-background.svg`, displayed with centered cover sizing beneath the existing contrast scrim. There is no photo catalog or random selection.
+Internal package names, storage keys, and database identifiers remain stable to preserve existing
+installations and saved preferences.
+
 ## Module layout (`packages/web/src`)
 
 | Module           | Responsibility                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -77,7 +84,7 @@ Cloudflare Access session can fetch it. Vite copies the manifest and PNG icons i
 static build; no plugin or service worker is needed for [Chrome's installation criteria](https://web.dev/articles/install-criteria).
 The app remains online-only and uses the existing session and live API behavior after installation.
 
-The install metadata uses Mantine's dark-7 background (`#242424`) with the existing white logo:
+The install metadata uses Mantine's dark-7 background (`#242424`) with a generic white Lucide Building2 mark:
 192px and 512px square launcher icons use 80% width; the separate 512px maskable icon uses 55%
 width, keeping the mark inside the central 80%-diameter safe circle. These packaged assets and
 the static browser theme-color use that fixed brand color independently of a user's saved theme.

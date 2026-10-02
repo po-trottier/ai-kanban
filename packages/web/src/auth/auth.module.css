@@ -6,11 +6,12 @@
   justify-content: center;
   padding: var(--mantine-spacing-md);
   background-color: var(--mantine-color-dark-9);
+  background-image: url('/auth/workplace-background.svg');
   background-size: cover;
   background-position: center;
 }
 
-/* Dark scrim so the white card and its form text stay legible over any photo. */
+/* Dark scrim so the white card and its form text stay legible over the backdrop. */
 .scrim {
   position: absolute;
   inset: 0;

@@ -283,7 +283,7 @@ describe('handshake and discovery', () => {
   it('completes the initialize handshake and reports the server identity', async () => {
     const client = await connect(writer.raw)
 
-    expect(client.getServerVersion()).toMatchObject({ name: 'rivian-kanban' })
+    expect(client.getServerVersion()).toMatchObject({ name: 'workplace-kanban' })
   })
 
   it('lists exactly the documented tools with descriptions', async () => {

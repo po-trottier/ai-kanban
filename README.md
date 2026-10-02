@@ -1,4 +1,4 @@
-# Rivian Kanban — Facilities Work-Order Board
+# Workplace Kanban — Facilities Work-Order Board
 
 A kanban board for facilities project management: a drag-and-drop web UI for humans, an MCP
 server for AI agents, and Slack-native ticket intake — all over one audited service layer.
@@ -92,7 +92,7 @@ registry access, configuration, backups, rollback, and troubleshooting.
 ## Install as an app
 
 Open the deployed HTTPS site in Chrome, sign in if prompted, and use the install icon in the
-address bar (or Chrome's menu → **Cast, save, and share → Install page as app**). Rivian Facilities Tickets System
+address bar (or Chrome's menu → **Cast, save, and share → Install page as app**). Workplace Facilities Tickets System
 opens in its own window and appears in your device's app launcher. An internet connection is
 required. See [PWA deployment](docs/architecture/deployment.md#install-as-an-app-pwa) for details.
 

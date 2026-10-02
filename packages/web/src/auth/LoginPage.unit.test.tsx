@@ -23,7 +23,7 @@ describe('LoginPage', () => {
     renderWithProviders(<LoginPage />, { fetchFn: fake.fetch })
     // Assert
     expect(
-      await screen.findByRole('heading', { name: 'Rivian Facilities Tickets System' }),
+      await screen.findByRole('heading', { name: 'Workplace Facilities Tickets System' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
   })

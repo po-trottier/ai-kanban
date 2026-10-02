@@ -44,7 +44,7 @@ docker compose
 
 ### Cloudflare Tunnel on a separate VM
 
-Set `PUBLIC_BASE_URL` to the public HTTPS origin (for example, `https://rivian.p-o.me`).
+Set `PUBLIC_BASE_URL` to the public HTTPS origin (for example, `https://kanban.example.com`).
 Set `TRUST_PROXY` to the private IP of the VM running `cloudflared`, with `/32` for one IPv4
 address (for example, `192.168.1.50/32`). This assumes routing preserves that VM's source IP;
 if there is NAT or another reverse proxy, use the actual proxy source address seen by the app.
@@ -184,8 +184,8 @@ See [GitHub's container registry documentation](https://docs.github.com/en/packa
 
 ## Install as an app (PWA)
 
-Rivian Facilities Tickets System can be installed from Chrome on the deployed HTTPS origin, for example
-`https://rivian.p-o.me`. Sign in through Cloudflare Access first if it is enabled, then use the
+Workplace Facilities Tickets System can be installed from Chrome on the deployed HTTPS origin, for example
+`https://kanban.example.com`. Sign in through Cloudflare Access first if it is enabled, then use the
 address-bar install icon or **Chrome menu → Cast, save, and share → Install page as app**.
 On Android, use Chrome's **Install app** menu option. Chrome controls when the install promotion
 appears; the menu remains the manual installation route. See [Chrome's installation help](https://support.google.com/chrome/answer/9658361).

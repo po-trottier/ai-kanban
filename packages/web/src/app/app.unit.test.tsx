@@ -94,7 +94,7 @@ describe('app routing', () => {
     // Assert
     expect(await screen.findByText('Fix pump')).toBeInTheDocument()
     expect(
-      screen.getByRole('link', { name: 'Rivian Facilities Tickets System — go to the board' }),
+      screen.getByRole('link', { name: 'Workplace Facilities Tickets System — go to the board' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'New work order' })).toBeInTheDocument()
     // Settings is the single entry point now — a menu item in the avatar

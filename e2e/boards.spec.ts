@@ -61,7 +61,7 @@ test.describe('multiple boards', () => {
     await openBoard(page)
     const switcher = page.getByRole('button', { name: /Switch board/ })
     await expect(switcher).toBeVisible()
-    await expect(page).toHaveTitle(`Rivian ${originalName} Tickets System`)
+    await expect(page).toHaveTitle(`Workplace ${originalName} Tickets System`)
 
     // The default board's switcher does not show the other board's card.
     await expect(page.getByRole('group', { name: onlyOnSecond })).toHaveCount(0)
@@ -71,14 +71,14 @@ test.describe('multiple boards', () => {
     await page.getByRole('menuitem', { name: second.name }).click()
     await expect(page).toHaveURL(/\/$/)
     await expect(page.getByRole('group', { name: onlyOnSecond })).toBeVisible()
-    await expect(page).toHaveTitle(`Rivian ${second.name} Tickets System`)
+    await expect(page).toHaveTitle(`Workplace ${second.name} Tickets System`)
     await page.getByRole('group', { name: onlyOnSecond }).click()
     await expect(page.getByRole('dialog', { name: /Work order details/ })).toBeVisible()
     await switcher.click()
     await page.getByRole('menuitem', { name: originalName, exact: true }).click()
     await expect(page).toHaveURL(/\/$/)
     await expect(page.getByRole('dialog', { name: /Work order details/ })).toHaveCount(0)
-    await expect(page).toHaveTitle(`Rivian ${originalName} Tickets System`)
+    await expect(page).toHaveTitle(`Workplace ${originalName} Tickets System`)
     await expect(page.getByRole('group', { name: onlyOnSecond })).toHaveCount(0)
 
     await deleteBoard(context.request, second.id)

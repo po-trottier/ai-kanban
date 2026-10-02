@@ -1,6 +1,6 @@
-# Rivian Kanban
+# Workplace Kanban
 
-Rivian Kanban is a facilities-management Kanban board for tracking work orders: a
+Workplace Kanban is a facilities-management Kanban board for tracking work orders: a
 drag-and-drop web UI for humans, an MCP server for AI agents, and Slack ticket intake, all
 over one audited service layer.
 

@@ -108,7 +108,7 @@ export function renderConsentPage(args: {
 <body>
   <main>
     <h1>Authorize access</h1>
-    <p><strong>${escapeHtml(clientName)}</strong> wants to act on your behalf on Rivian Kanban
+    <p><strong>${escapeHtml(clientName)}</strong> wants to act on your behalf on Workplace Kanban
       (scope: ${escapeHtml(scopeCopy(scope))}). Allow?</p>
     <form method="POST" action="/oauth/authorize">
       ${hidden}

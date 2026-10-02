@@ -19,12 +19,12 @@ import {
  */
 
 export const strings = {
-  appTitle: 'Rivian Facilities Tickets System',
-  boardTitle: (board: string) => `Rivian ${board} Tickets System`,
+  appTitle: 'Workplace Facilities Tickets System',
+  boardTitle: (board: string) => `Workplace ${board} Tickets System`,
 
   header: {
     /** Alt text on the logo, which also links home. */
-    logoAlt: 'Rivian Facilities Tickets System — go to the board',
+    logoAlt: 'Workplace Facilities Tickets System — go to the board',
     /** Tooltip on the avatar button that opens the account menu (settings + log out). */
     accountMenu: 'Account menu',
   },
@@ -135,7 +135,7 @@ export const strings = {
     savePreferences: 'Save your time zone and theme',
     // Account / shell.
     settings: 'Open Settings',
-    logout: 'Sign out of Rivian Facilities Tickets System',
+    logout: 'Sign out of Workplace Facilities Tickets System',
     home: 'Go to the board',
     reload: 'Reload the page',
     // Board switcher.

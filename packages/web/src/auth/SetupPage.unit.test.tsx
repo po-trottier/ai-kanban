@@ -56,7 +56,7 @@ describe('SetupPage', () => {
     renderWithProviders(<SetupPage />, { fetchFn: fake.fetch })
     // Assert
     expect(
-      await screen.findByRole('heading', { name: 'Rivian Facilities Tickets System' }),
+      await screen.findByRole('heading', { name: 'Workplace Facilities Tickets System' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Create the admin account' })).toBeInTheDocument()
   })

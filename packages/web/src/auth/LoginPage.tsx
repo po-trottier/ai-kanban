@@ -1,13 +1,13 @@
 import {
   Alert,
   Center,
-  Image,
   Loader,
   Paper,
   PasswordInput,
   Stack,
   Text,
   TextInput,
+  ThemeIcon,
   Title,
 } from '@mantine/core'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
@@ -22,7 +22,6 @@ import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
 import { AuthShell } from './AuthShell.tsx'
-import classes from './auth.module.css'
 
 /** Login credentials are an auth concern, not a core domain shape. */
 const loginFormSchema = z.object({
@@ -130,14 +129,9 @@ export function LoginPage() {
           <Stack gap="md">
             {/* Brand header centered over the (left-aligned) form fields. */}
             <Stack gap="xs" align="center">
-              <Image
-                src="/logo.png"
-                alt=""
-                h={SIZES.authLogoHeight}
-                w="auto"
-                fit="contain"
-                className={classes.logo}
-              />
+              <ThemeIcon variant="transparent" c="inherit" size={SIZES.authLogoHeight}>
+                <LogIn size={SIZES.authLogoHeight} aria-hidden />
+              </ThemeIcon>
               <Title order={2} size="h4" c="dimmed">
                 {strings.appTitle}
               </Title>
