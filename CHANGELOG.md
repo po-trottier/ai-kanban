@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.11] - 2026-10-02
+
 ### Changed
 
 - Use the supplied blue Kanban logo with white inner panels on sign-in, setup, the app header, the browser favicon, and installed-app icons.
