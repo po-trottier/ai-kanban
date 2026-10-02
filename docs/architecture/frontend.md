@@ -52,7 +52,10 @@ the board's drag-and-drop is **Pragmatic drag-and-drop**
 Native drag-preview containers are `aria-hidden` and `inert`: their cloned card is decorative,
 so it does not appear as a second card to assistive technology or accept keyboard focus.
 
-The sign-in form displays a Lucide `LogIn` icon above its headings.
+The supplied blue Kanban mark in `public/workplace-logo.svg` appears above the sign-in and
+setup headings, links home in the app header, and serves as the SVG favicon. It keeps its
+blue color and white inner panels in both themes. The installed-app PNG icons are generated from the same SVG,
+with padding around the maskable icon to keep the mark visible when cropped.
 
 Sign-in and first-boot setup share one static backdrop in `auth/auth.module.css`.
 The self-hosted abstract artwork is `public/auth/workplace-background.svg`, displayed with centered cover sizing beneath the existing contrast scrim. There is no photo catalog or random selection.

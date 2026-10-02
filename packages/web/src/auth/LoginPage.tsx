@@ -1,13 +1,13 @@
 import {
   Alert,
   Center,
+  Image,
   Loader,
   Paper,
   PasswordInput,
   Stack,
   Text,
   TextInput,
-  ThemeIcon,
   Title,
 } from '@mantine/core'
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema'
@@ -129,9 +129,13 @@ export function LoginPage() {
           <Stack gap="md">
             {/* Brand header centered over the (left-aligned) form fields. */}
             <Stack gap="xs" align="center">
-              <ThemeIcon variant="transparent" c="inherit" size={SIZES.authLogoHeight}>
-                <LogIn size={SIZES.authLogoHeight} aria-hidden />
-              </ThemeIcon>
+              <Image
+                src="/workplace-logo.svg"
+                alt=""
+                h={SIZES.authLogoHeight}
+                w="auto"
+                fit="contain"
+              />
               <Title order={2} size="h4" c="dimmed">
                 {strings.appTitle}
               </Title>

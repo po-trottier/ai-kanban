@@ -27,7 +27,6 @@ import { HintButton } from '../shell/HintButton.tsx'
 import { strings } from '../strings.ts'
 import { SIZES } from '../theme.ts'
 import { AuthShell } from './AuthShell.tsx'
-import classes from './auth.module.css'
 import { SetupLocations } from './SetupLocations.tsx'
 
 /**
@@ -136,14 +135,7 @@ function SetupAccountForm({ onCreated }: { onCreated: () => void }) {
       <Stack gap="md">
         {/* Brand header centered over the (left-aligned) form fields. */}
         <Stack gap="xs" align="center">
-          <Image
-            src="/logo.png"
-            alt=""
-            h={SIZES.authLogoHeight}
-            w="auto"
-            fit="contain"
-            className={classes.logo}
-          />
+          <Image src="/workplace-logo.svg" alt="" h={SIZES.authLogoHeight} w="auto" fit="contain" />
           <Title order={2} size="h4" c="dimmed">
             {strings.appTitle}
           </Title>

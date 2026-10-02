@@ -158,7 +158,7 @@ export function AppLayout() {
                 <div className={classes.header}>
                   <Tooltip label={strings.tooltips.home}>
                     <UnstyledButton component={Link} to="/" aria-label={strings.header.logoAlt}>
-                      <img className={classes.logo} src="/logo.png" alt="" />
+                      <img className={classes.logo} src="/workplace-logo.svg" alt="" />
                     </UnstyledButton>
                   </Tooltip>
                   <div className={classes.boardSwitcherWrap}>
