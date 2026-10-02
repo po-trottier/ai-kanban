@@ -52,7 +52,7 @@ settings. Switching boards closes the details panel and resets the current filte
 Hover over a card's title to read the full title when it is shortened on the board.
 Hover over the assignee and reporter filters for a description of what each one matches.
 
-Create a card with **New card** (it lands in Intake) — title, description, priority, optional
+Create a card with **New work order** (it lands in Intake) — title, description, priority, optional
 location, tags, assignee. Fields:
 
 - **Priority**: P0 (drop everything), P1, P2 — the severity badge. Independent from column
@@ -84,7 +84,7 @@ the chosen column).
   card off the board.
 - **Cancelling** is not a drag: use **⋯ → Cancel** and pick a reason (cancelled / declined /
   duplicate). Cancelled cards show at the end of Done with a badge.
-- **Blocked** (⋯ → Block, with a reason) flags a card without moving it — the red badge tells
+- **Blocked** (⋯ → Block, with a reason) flags a card without moving it — the purple badge tells
   everyone it needs help wherever it is.
 - If someone edited a card while you were dragging it, your change is safely rejected and the
   board refreshes — you'll see a "card was just updated" note; redo your move if it still
@@ -116,12 +116,13 @@ confirmation. Anything you don't archive by hand auto-archives 90 days after rea
 Archived cards remain searchable and their history intact — use the "include archived" filter —
 and you can bring one back at any time with **Reopen**.
 
-## Admin settings (admins only)
+## Settings
 
-The gear icon opens the app-wide settings: user accounts and roles, column names and WIP
-limits, the location tree, MCP service tokens for AI agents, and the **permissions policy** —
-including turning on workflow enforcement (cards must then follow the
-Intake → Approval → Ready → … flow, with optional role requirements per step).
+The gear icon opens **Preferences** and **Boards** for every user. Management tabs appear
+according to your role permissions and include user accounts and roles, column names and WIP
+limits, the location tree, MCP service tokens for AI agents, and the **permissions policy**.
+Workflow enforcement requires cards to follow the configured transition graph
+(Intake → Approval → Ready → … by default); moving cards requires the role’s `card.move` permission.
 
 See [slack.md](slack.md) for creating tickets from Slack.
 

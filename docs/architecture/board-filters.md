@@ -65,7 +65,7 @@ capped at 200 chars.
 
 `overdue` is the burn-down verdict, not the waiting-lane resume date. A card is **overdue** when the
 business-time elapsed since it first entered In Progress (`work_started_at`) meets or exceeds its
-`estimate_minutes` — the same rule the web work-progress bar paints red
+`estimate_minutes` — the same rule the web work-progress bar paints pink
 ([ADR-019](decisions/ADR-019-per-user-timezone.md), `packages/web/src/lib/work-progress.ts`).
 
 - **Business minutes** are Monday–Friday within the working day the policy configures — the
@@ -143,7 +143,7 @@ normal session gate (these are web-session surfaces).
 
 `POST /api/v1/board/query` — the board grouped by lane, narrowed by a `BoardFilter`.
 
-- **Why POST, not GET query params.** The filter has ten facets, several of them arrays; encoding
+- **Why POST, not GET query params.** The filter has eight facets, several of them arrays; encoding
   that in a query string (and keeping it in sync with the shared Zod schema) is far more brittle
   than sending the canonical `BoardFilter` JSON body. The route is a read (idempotent, no side
   effects) that happens to take a body — the same pattern search-heavy APIs use.

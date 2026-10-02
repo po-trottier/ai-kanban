@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Correct developer setup instructions for first-admin creation and required Slack team configuration.
+- Update setup, workflow, permissions, and API documentation to match current behavior; remove obsolete database-reset advice.
 
 ### Changed
 

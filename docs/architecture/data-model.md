@@ -1,11 +1,11 @@
 # Data Model
 
-Drizzle ORM schema, SQLite dialect today. Portability rules (enforced, see
+Drizzle ORM schemas for both SQLite and PostgreSQL. Portability rules (enforced, see
 [dev/standards.md](../dev/standards.md)): conservative column types only (TEXT, INTEGER, REAL),
 ISO-8601 UTC strings for timestamps, TEXT ids (UUIDv7) — except `cards.id`, which is the
 INTEGER ticket number (see below) — no SQLite-only features outside the
-`db` package. The Postgres port is a one-time mechanical `sqlite-core` → `pg-core` schema
-rewrite behind unchanged repository ports ([ADR-003](decisions/ADR-003-drizzle-sqlite.md)).
+`db` package. Both `sqlite-core` and `pg-core` schemas and repository adapters ship behind
+the same ports ([ADR-003](decisions/ADR-003-drizzle-sqlite.md)).
 
 ## Entity-relationship sketch
 
@@ -190,8 +190,10 @@ Binaries live behind the BlobStorePort, never in the database. Index: `(card_id)
 ### card_events — the audit trail
 
 Append-only. Written **in the same transaction** as the mutation it records
-([ADR-005](decisions/ADR-005-audit-trail.md)). Never updated or deleted (PII removal is a hard
-delete of source rows plus a `card.pii_deleted` tombstone event).
+([ADR-005](decisions/ADR-005-audit-trail.md)). Never updated; events are deleted only when
+the creator discards an eligible draft in the first column, cascading its short history
+(see the ADR-005 addendum). PII removal deletes source rows and appends a
+`card.pii_deleted` tombstone event.
 
 | column      | type                | notes                                                                                                                                                 |
 | ----------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -204,8 +206,8 @@ delete of source rows plus a `card.pii_deleted` tombstone event).
 | payload     | TEXT NOT NULL       | JSON, shape per event type                                                                                                                            |
 | created_at  | TEXT NOT NULL       |                                                                                                                                                       |
 
-Index: `(card_id, created_at)` — per-card history is the only event query surface in v1; a
-board-wide event index arrives with its first consumer.
+Index: `(card_id, created_at)` supports per-card history. The activity feed also queries
+board events with role-aware visibility and optional time, type, card, and actor filters.
 
 Event types (distinct so status history is never polluted by reorder noise):
 
@@ -270,9 +272,9 @@ Two distinct layers (see deployment.md for the production bootstrap):
   starts with an empty locations table, so the first-boot "Add your locations" setup step — and
   production — are never pre-populated.
 
-  Caveat: an existing dev DB seeded under the OLD policy-document shape must be RESET — the old
-  JSON (`actionGates`, per-transition `minRole`, fixed `user | admin` enum) no longer parses
-  against the roles-as-data schema.
+  Preserve existing databases and settings during upgrades. If stored policy or migration
+  history is incompatible, keep the data and use a compatible release or forward migration;
+  never reset or reseed the database to bypass validation.
 
 - **Demo seed** — only when `SEED_DEMO_DATA=true` (refused outright in production mode): the
   sample location tree (buildings → floors → rooms), demo users for each role (printed

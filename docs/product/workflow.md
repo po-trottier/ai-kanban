@@ -154,7 +154,7 @@ it (within-lane reorders never change lane counts and never carry it).
 Within a lane, order is a persisted, meaningful ranking (top = first). Cards carry a fractional
 position key; moving a card sends only its intended neighbors and the server computes the new
 key transactionally (see [ADR-006](../architecture/decisions/ADR-006-fractional-ordering.md)).
-Reordering is open to everyone by default (a policy gate for the Ready lane is available);
+Reordering is open to everyone by default and uses the role’s `card.move` permission;
 reorders are distinct audit events (`card.reordered`) so they never pollute status-change
 history.
 
@@ -164,8 +164,7 @@ history.
   independent of order — order is the operational sequence, priority is the severity signal.
   The UI badges P0 cards; agents may flag order/priority mismatches.
 - `estimate_minutes` — integer minutes, rendered in the UI as hours/days with 1 day = 8 working
-  hours (90 → "1.5h", 960 → "2d"). Optional until the card reaches Ready; the approval step
-  nags for it. While a card is being worked (In Progress / Review / waiting lanes), a burn-down
+  hours (90 → "1.5h", 960 → "2d"). Optional in every lane. When an estimate is set, while a card is being worked (In Progress / Review / waiting lanes), a burn-down
   bar tracks elapsed **business** time against the estimate; once it passes the estimate the bar
   turns pink and the card shows an **"Overdue"** chip — the same overdue chip + hover tooltip the
   waiting-resume overdue uses (`board/CardBadges.tsx`), so both overdue states read consistently.
@@ -181,7 +180,7 @@ Done cards (completed and cancelled) can be archived (`archived_at` set) two way
 - **Manually**, from the card's ⋯ menu (`POST /cards/:id/archive`) — the primary path for a
   team that wants to clear a finished job off the board immediately. Allowed only for a card
   currently in Done (409 otherwise); emits a `card.archived` audit event (actor = the user).
-  A permissive-by-default `archive` policy gate can restrict it to a minimum role.
+  The role’s `card.archive` permission controls access and is granted to everyone by default.
 - **Automatically**, as a backstop: the daily `doneArchival` job archives every Done card 90
   days after it entered Done, so nothing lingers if no one archives it by hand.
 

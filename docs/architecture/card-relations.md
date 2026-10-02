@@ -44,8 +44,8 @@ reads.
   behind the normal web-session gate.
 - **Deferred.** Relations do **not** yet append to the card audit trail (`card_events`) or fan out
   over SSE — a link carries no lifecycle weight, and cross-user liveness is a deliberate follow-up
-  (the acting client refetches its own list). Cards are never hard-deleted, so a relation never
-  dangles.
+  (the acting client refetches its own list). Deleting an eligible intake draft cascades its
+  relations, so no relation dangles.
 
 ## Data model
 

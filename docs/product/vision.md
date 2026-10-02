@@ -33,7 +33,6 @@ advice, and follow-up nudges.
 | -------------------------------------------------- | --------------------------------------- | -------------------------------------------------------------------- |
 | Preventive/recurring maintenance schedules         | Large scope step toward a full CMMS     | `origin` field reserves `pm`; in-process scheduler exists            |
 | Asset registry (equipment tags, per-asset history) | Scope step-change                       | optional `location_id` dimension already normalized                  |
-| Multiple boards                                    | Single facilities team                  | cards already reference `board_id`                                   |
 | Corporate SSO (OIDC)                               | Pilot uses local accounts               | auth behind a port; session design unchanged by OIDC                 |
 | High availability / multi-instance                 | Single-node is fine for the pilot scale | EventBus/scheduler/DB behind ports; PostgreSQL backend already ships |
 | i18n                                               | Internal English-speaking team          | UI strings centralized; lane labels are seeded data                  |
